@@ -173,8 +173,6 @@ void calc_emissions(State *states, int nstates,
     // iterate through positions
     for (int i=0; i<seqlen; i++) {
         v = seqs[newnode][i];
-
-        // TODO: need to compute local site per site
         
         // iterate through states
         for (int j=0; j<nstates; j++) {

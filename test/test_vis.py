@@ -54,14 +54,30 @@ def move_layout(layout, x=0, y=0):
         layout[node] = (nx + x, ny + y)
 
 
+def get_time_points(arg, ntimes=20):
+    times2 = arghmm.get_time_points(ntimes=ntimes)
+    times3 = sorted(unique([x.age for x in arg]))
+
+    times = []
+    for x in times2:
+        i, j = util.binsearch(times3, x)
+        if i is None: i = j
+        if j is None: j = i
+        if abs(times3[i] - x) < 1:
+            times.append(times3[i])
+        elif abs(times3[j] - x) < 1:
+            times.append(times3[j])
+        else:
+            times.append(x)
+    return times
+    
+
 #=============================================================================
-if 0:
+if 1:
     #times = arghmm.get_time_points(ntimes=20)
-    arg = arglib.read_arg("test/data/k4.arg")
-    #seqs = read_fasta("test/data/k4.fa")
-
-    times = sorted(unique([x.age for x in arg]))
-
+    arg = arglib.read_arg("test/data/sample.arg")
+    seqs = read_fasta("test/data/sample.fa")
+    
     trees = list(arglib.iter_tree_tracks(arg, convert=True))
 
     # draw mappings
@@ -167,15 +183,65 @@ if 0:
 
 
 #===========================================================================   
-if 1:
+if 0:
     #times = arghmm.get_time_points(ntimes=20)
-    arg = arglib.read_arg("test/data/real.arg")
-    #seqs = read_fasta("test/data/real.fa")
+    arg = arglib.read_arg("test/data/sample.arg")
+    seqs = read_fasta("test/data/sample.fa")
 
-    #times = sorted(unique([x.age for x in arg]))
+    times = sorted(unique([x.age for x in arg]))
+
+    mu = 2.5e-8
+    rho = 1.5e-8
+    new_name = "n4"
+    model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
+                          rho=rho, mu=mu)
 
     trees = list(arglib.iter_tree_tracks(arg, convert=True))
 
-    # draw mappings
+    # draw tree
     win = argvis.show_tree_track(trees, branch_click=True)
     
+
+
+# inspect switch matrix
+if 1:
+    arg2 = arglib.read_arg("test/data/sample-prune.arg")
+    path = read_ints("test/data/sample.thread")
+
+    times = get_time_points(arg2, ntimes=20)
+
+    # remove chrom
+    #k = 5
+    #keep = ["n%d" % i for i in range(k-1)]
+    #arglib.subarg_by_leaf_names(arg2, keep)
+    #arg2.set_ancestral()
+    #arg2.prune()
+
+
+    # load model
+    mu = 2.5e-8
+    rho = 1.5e-8
+    new_name = "n4"
+    model = arghmm.ArgHmm(arg2, seqs, new_name=new_name, times=times,
+                          rho=rho, mu=mu)
+
+    
+    pos = 9910
+    tree = arg2.get_marginal_tree(pos-.5)
+    last_tree = arg2.get_marginal_tree(pos-1-.5)
+    recomb = arghmm.find_tree_next_recomb(arg2, pos - 1)
+    states1 = model.states[pos-1]
+    states2 = model.states[pos]
+    model.check_local_tree(pos)
+    
+    mat = arghmm.calc_transition_probs_switch(
+        tree, last_tree, recomb.name,
+        states1, states2,
+        model.nlineages, model.times,
+
+        model.time_steps, model.popsizes, model.rho)
+
+    #pos2 = 7000
+    #n = model.get_num_states(pos2)
+    #mat2 = [[model.prob_transition(pos2-1, i, pos2, j)
+    #         for j in range(n)] for i in range(n)]
