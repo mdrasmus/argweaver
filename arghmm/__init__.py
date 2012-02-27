@@ -5,10 +5,11 @@
 from math import exp, log
 import random
 from itertools import chain, izip
+import heapq
 
 from rasmus import hmm, util, stats, treelib
 from rasmus.stats import logadd
-from compbio import arglib, fasta
+from compbio import arglib, fasta, phylo
 
 
 # import arghmm C lib
@@ -177,8 +178,48 @@ def discretize_arg(arg, times):
         if j is None: j = len(times) - 1
         node.age = times[j]
 
+    recombs = [node for node in arg if node.event == "recomb"]
+    recombs.sort(key=lambda x: x.pos)
+
+    last = 0
+    for node in recombs:
+        intpos = int(node.pos)
+        if intpos > last:
+            node.pos = intpos
+        else:
+            node.pos = last + 1
+        last = node.pos
+
+    # ensure no duplicate recombinations
+    seen = set()
+    for node in arg:
         if node.event == "recomb":
-            node.pos = int(node.pos)
+            assert node.pos not in seen, (node.pos, sorted(seen))
+            seen.add(node.pos)
+            
+
+def discretize_arg_recomb(arg):
+    """Round recomb node to the nearest integer"""
+    
+    recombs = [node for node in arg if node.event == "recomb"]
+    recombs.sort(key=lambda x: x.pos)
+
+    last = 0
+    for node in recombs:
+        intpos = int(node.pos)
+        if intpos > last:
+            node.pos = intpos
+        else:
+            node.pos = last + 1
+        last = node.pos
+
+    # ensure no duplicate recombinations
+    seen = set()
+    for node in arg:
+        if node.event == "recomb":
+            assert node.pos not in seen, (node.pos, sorted(seen))
+            seen.add(node.pos)
+            
 
 
 
@@ -506,6 +547,28 @@ def iter_chrom_thread(arg, node, by_block=True):
                 yield (sib.name, parent.age)
 
 
+def get_coal_point(arg, node, pos):
+
+    tree = arg.get_marginal_tree(pos-.5)
+
+    # find parent
+    node2 = tree[node.name]
+    last = node2
+    parent = node2.parents[0]
+    while len(parent.children) == 1:
+        last = parent
+        parent = parent.parents[0]
+
+    # find sibling
+    c = parent.children
+    sib = c[1] if last == c[0] else c[0]
+    while len(sib.children) == 1:
+        sib = sib.children[0]
+
+    return sib.name, parent.age
+
+
+
 def iter_chrom_timeline(arg, node, by_block=True):
 
     for node, time, block in iter_chrom_thread(arg, node, by_block=True):
@@ -617,36 +680,63 @@ def find_cycle(graph, events, times, arg):
     
 
 
-def is_same_coal_event(state1, state2, tree, last_tree,
-                       recomb_branch, recomb_time,
-                       coal_branch, coal_time):
+def is_same_coal_event(state1, state2, arg, pos):
+
+    def walk_up(arg, node, pos, node2):
+        parent = arg.get_local_parent(node, pos-.5)
+        while parent:
+            if parent == node2:
+                return True
+            parent = arg.get_local_parent(parent, pos-.5)
+        return False
+
+    node1, a = state1
+    node2, b = state2
+    
+    if a != b:
+        return False, -1
+
+    if node1 == node2:
+        return True, 0
+
+    print "more", pos
+
+    if walk_up(arg, arg[node1], pos - 1, arg[node2]):
+        return True, -1
+    if walk_up(arg, arg[node2], pos, arg[node1]):
+        return True, -1
+
+    print "mediated", pos
+
+    return False, -1
+
+
+
+    tree = arg.get_marginal_tree(pos - .5)
+    last_tree = arg.get_marginal_tree(pos - 1.5)
+
 
     (recomb_branch, recomb_time), (coal_branch, coal_time) = \
-        find_recomb_coal(tree, last_tree, recomb_name=None, pos=None)
+        find_recomb_coal(tree, last_tree, pos=pos)
     # recomb_branch in tree
     # coal_branch in last_tree
     
     # get leaves under recomb_node
     recomb_leaves = set(last_tree.leaves(last_tree[recomb_branch]))    
-    node1, a = state1
     leaves1 = set(last_tree.leaves(last_tree[node1]))
     remain = leaves1 - recomb_leaves
 
-    if (node1, a) == (coal_branch, coal_time):
-        # not a deterministic case (just mark i-->i)
-        return False
-
-    elif len(remain) > 0:
+    if len(remain) > 0:
         # SPR only removes a subset of descendents
         return True
 
     else:
         # SPR is on same branch as new chromosome
-        if recomb_time >= a:
+        if recomb_time > a:
             # we move with SPR subtree
             return True
 
-        elif coal_time <= a and coal_branch == node1:
+        elif coal_time < a and coal_branch == node1:
             # SPR subtree coals back underneath us
             return True
 
@@ -672,11 +762,11 @@ def add_arg_thread(arg, new_name, thread, recombs):
     def walk_up3(node, pos, time, event_name):
         parent = arg.get_local_parent(node, pos-.5)
         stop = set(graph[event_name].parents)
-        print stop
+        #print stop
 
         while parent:
             parent_name = new_nodes.get(parent, ("arg", parent.name))
-            print parent_name, parent.age
+            #print parent_name, parent.age
             if parent.age > time or parent_name in stop:
                 assert time >= node.age
                 break
@@ -755,6 +845,7 @@ def add_arg_thread(arg, new_name, thread, recombs):
             n.children.append(("arg", c.name))
 
     # add events
+    coals = {}
     for eventi, event in enumerate(events):
         tag, event_time, node_name, pos = event
         event_name = ("event", eventi)
@@ -770,7 +861,10 @@ def add_arg_thread(arg, new_name, thread, recombs):
             n.children.append(time_name)
             graph[time_name].parents.append(event_name)
 
-        
+        if tag == "coal":
+            coals[pos] = event_name
+
+    equals = []
     for eventi, event in enumerate(events):
         tag, event_time, node_name, pos = event
         event_name = ("event", eventi)
@@ -779,6 +873,24 @@ def add_arg_thread(arg, new_name, thread, recombs):
         if pos == 0 or pos-1 in arg_recombs:
             tree = arg.get_marginal_tree(pos-.5)
             local = set(x.name for x in tree if len(x.children) != 1)
+
+            # determine if coal is equivalent to previous one
+            if pos == 0:
+                same, where_r = False, 0
+            else:
+                state1 = thread[pos-1]
+                state2 = thread[pos]
+                same, where_r = is_same_coal_event(state1, state2, arg, pos)
+            print "same", same, where_r
+
+            if same:
+                equals.append((coals[pos-1], coals[pos]))
+            if where_r < 0:
+                recomb = [x for x in arg if x.pos == pos-1][0]
+                name = ("arg", recomb.name)
+                n.children.append(name)
+                graph[name].parents.append(event_name)
+                
 
         if tag == "recomb": 
             # a recomb has to be lower than its neighboring coals
@@ -802,6 +914,36 @@ def add_arg_thread(arg, new_name, thread, recombs):
                 parent_name = ("arg", parent.name)
                 n.parents.append(parent_name)
                 graph[parent_name].children.append(event_name)
+
+
+
+    # apply equals to graph
+    for event_name1, event_name2 in equals:
+        print "e", event_name1, event_name2
+        print "  ", events[event_name1[1]]
+        print "  ", events[event_name2[1]]
+        parents1 = graph[event_name1].parents
+        parents2 = graph[event_name2].parents
+        children1 = graph[event_name1].children
+        children2 = graph[event_name2].children
+
+        for x in parents1:
+            if x not in parents2:
+                parents2.append(x)
+                graph[x].children.append(event_name2)
+        for x in parents2:
+            if x not in parents1:
+                parents1.append(x)
+                graph[x].children.append(event_name1)
+        for x in children1:
+            if x not in children2:
+                children2.append(x)
+                graph[x].parents.append(event_name2)
+        for x in children2:
+            if x not in children1:
+                children1.append(x)
+                graph[x].parents.append(event_name1)
+    
 
     #find_cycle(graph, events, times, arg)
 
@@ -939,6 +1081,332 @@ def add_arg_thread(arg, new_name, thread, recombs):
     
 
 
+#=============================================================================
+
+def add_arg_thread2(arg, new_name, thread, recombs, arg3=None):
+
+
+    def is_local_coal(arg, node, pos, local):
+        return (len(node.children) == 2 and
+                node.children[0] in local and
+                arg.get_local_parent(node.children[0], pos-.5) == node and
+                node.children[1] in local and
+                arg.get_local_parent(node.children[1], pos-.5) == node and
+                node.children[0] != node.children[1])
+
+
+
+    def walk_up(arg, leaves, time, pos, ignore=None):
+
+        order = dict((node, i) for i, node in enumerate(
+            arg.postorder_marginal_tree(pos-.5)))
+        local = set(order.keys())
+        if ignore is not None and ignore in arg:
+            ptr = arg[ignore]
+            local.remove(ptr)
+            ptr = arg.get_local_parent(ptr, pos-.5)
+            
+            while ptr and ptr in local:
+                if (len(ptr.children) == 2 and
+                    ((ptr.children[0] in local and
+                      arg.get_local_parent(ptr.children[0], pos-.5) == ptr) or
+                     (ptr.children[1] in local and
+                      arg.get_local_parent(ptr.children[1], pos-.5) == ptr))):
+                    print "halt", ptr
+                    break
+                print "remove", ptr
+                local.remove(ptr)
+                ptr = arg.get_local_parent(ptr, pos-.5)
+        print local
+
+        queue = [(order[arg[x]], arg[x]) for x in leaves]
+        seen = set(x[1] for x in queue)
+        heapq.heapify(queue)
+
+        while len(queue) > 1:
+            i, node = heapq.heappop(queue)
+            parent = arg.get_local_parent(node, pos-.5)
+            if parent and parent not in seen:
+                seen.add(parent)
+                heapq.heappush(queue, (order[parent], parent))
+        node = queue[0][1]
+        parent = arg.get_local_parent(node, pos-.5)
+
+        
+        while parent and parent.age <= time:
+            if is_local_coal(arg, parent, pos, local):
+                print "stop", node.age, parent.age, parent.children
+                break            
+            node = parent
+            parent = arg.get_local_parent(node, pos-.5)
+
+        if parent:
+            if parent.age < time:
+                print (leaves, parent.age, time)
+                tree = arg.get_marginal_tree(pos-.5).get_tree()
+                tree.write()
+                treelib.draw_tree_names(tree, maxlen=8, minlen=8)
+                assert False
+
+        return node
+
+
+    def add_node(arg, node, time, pos, event):
+
+        node2 = arg.new_node(event=event, age=time, children=[node], pos=pos)
+        if event == "coal":
+            node2.pos = 0
+
+        parent = arg.get_local_parent(node, pos-.5)
+        if parent:
+            node.parents[node.parents.index(parent)] = node2
+            parent.children[parent.children.index(node)] = node2
+            node2.parents.append(parent)
+        else:
+            node.parents.append(node2)
+
+        return node2
+
+
+    arg_recomb = dict((x.pos, x) for x in iter_visible_recombs(arg))
+    recomb_clades = [
+        (pos-1, None) + get_clade_point(arg, rnode, rtime, pos-1)
+        for pos, rnode, rtime in recombs] + [
+        (node.pos, node.name) +
+        get_clade_point(arg, node.name, node.age, node.pos)
+        for node in iter_visible_recombs(arg)]
+    recomb_clades.sort()
+
+    # make initial tree
+    arg2 = arg.get_marginal_tree(-1)
+    arglib.remove_single_lineages(arg2)
+
+    start = get_clade_point(arg, thread[0][0], thread[0][1], 0)
+    node = walk_up(arg2, start[0], start[1], -1)
+    node2 = add_node(arg2, node, start[1], -1, "coal")
+    leaf = arg2.new_node(name=new_name, event="gene", age=0)
+    leaf.parents.append(node2)
+    node2.children.append(leaf)
+
+    print "init arg2"
+    tree = arg2.get_marginal_tree(-.5).get_tree()
+    phylo.hash_order_tree(tree)
+    tree.write()
+
+    if arg3:
+        print "init arg3"
+        tree = arg3.get_marginal_tree(-.5).get_tree()
+        treelib.remove_single_children(tree)
+        phylo.hash_order_tree(tree)
+        tree.write()
+
+
+    # add each recomb and re-coal
+    for rpos, rname, rleaves, rtime in recomb_clades:
+        print "------------------------------------------"
+        print "recomb=", (rpos, rleaves, rtime)
+        print "thread=", thread[rpos], thread[rpos+1]
+
+        for node in arg2:
+            if node.event == "recomb":
+                assert len(node.parents) == 2, node
+        
+        if rpos in arg_recomb:
+            # find re-coal for existing recomb
+
+            if thread[rpos][1] != thread[rpos+1][1]:
+                assert rtime <= min(thread[rpos][1], thread[rpos+1][1])
+            
+            node = arg_recomb[rpos]
+            local1 = set(arg.postorder_marginal_tree(rpos-.5))
+            local2 = set(arg.postorder_marginal_tree(rpos+.5))
+            last = node
+            node = arg.get_local_parent(node, rpos+.5)
+            while (not is_local_coal(arg, node, rpos+1, local2)):
+                last = node
+                node = arg.get_local_parent(node, rpos+.5)
+            c = node.children
+            child = c[0] if c[1] == last else c[1]
+            recoal = node
+
+            print ">>", node, c
+            treelib.draw_tree_names(
+                arg.get_marginal_tree(rpos-.5).get_tree(),
+                maxlen=8, minlen=8)
+            treelib.draw_tree_names(
+                arg.get_marginal_tree(rpos+.5).get_tree(),
+                maxlen=8, minlen=8)
+                
+            cleaves, ctime = get_clade_point(
+                arg, child.name, node.age, rpos-.5)
+
+            # get local tree T^{n-1}_i and add new branch
+            tree = arg.get_marginal_tree(rpos+.5)
+            arglib.remove_single_lineages(tree)            
+            node_name, time = thread[rpos+1]
+            node = tree[node_name]
+
+            node2 = add_node(tree, node, time, rpos+1, "coal")
+            if not node2.parents:
+                tree.root = node2
+            leaf = tree.new_node(name=new_name, event="gene", age=0)
+            leaf.parents.append(node2)
+            node2.children.append(leaf)
+
+            print "tmp", (rleaves, rtime), (cleaves, ctime), thread[rpos+1]
+            tree2 = tree.get_tree()
+            phylo.hash_order_tree(tree2)
+            tree2.write()
+
+            recomb = walk_up(tree, rleaves, rtime, rpos+1, new_name)
+
+            if recomb == node2 and rtime == node2.age:
+                # recomb and new coal-state are near each other
+                # we must decide if recomb goes above or below coal-state
+
+                # if this is a mediated SPR, then recomb goes below.
+                # otherwise it goes above.
+
+                # SPR is mediated if previous coal state is not recomb branch
+                
+                print "recoal=", recoal.name, "node2=", node2.name
+                treelib.draw_tree_names(
+                    arg.get_marginal_tree(rpos+.5).get_tree(),
+                    maxlen=8, minlen=8)
+                treelib.draw_tree_names(tree2, maxlen=8, minlen=8)
+
+                node_name, time = thread[rpos]
+
+                print "thread", thread[rpos], thread[rpos+1]
+                
+                if node2.children[0].name != node_name:
+                    # this is a mediated coal
+                    recomb = node2.children[0]
+
+            
+            coal = recomb.parents[0]
+            c = coal.children
+            child = c[0] if c[1] == recomb else c[1]
+
+
+            print ">", (list(tree.leaf_names(recomb)), rtime), \
+                  (list(tree.leaf_names(child)), coal.age)
+            
+            # get coal point in T^n_i
+            rleaves, rtime = get_clade_point(
+                tree, recomb.name, rtime, rpos+1)
+            cleaves, ctime = get_clade_point(
+                tree, child.name, coal.age, rpos+1)
+
+            node1 = walk_up(arg2, rleaves, rtime, rpos+1)
+            node2 = walk_up(arg2, cleaves, ctime, rpos+1, node1.name)
+
+    
+        else:
+            # find re-coal for new recomb
+            
+            assert rtime <= thread[rpos][1], (rtime, thread[rpos][1])
+            
+            if rleaves == [new_name]:
+                # recomb on new branch, coal given thread
+                cleaves, ctime = get_clade_point(
+                    arg, thread[rpos+1][0], thread[rpos+1][1], rpos+.5)
+                assert ctime >= rtime, (rtime, ctime)
+                
+                node1 = walk_up(arg2, rleaves, rtime, rpos+1)
+                node2 = walk_up(arg2, cleaves, ctime, rpos+1, new_name)
+                
+            else:
+                # recomb in ARG, coal on new branch
+                cleaves = [new_name]
+                ctime = thread[rpos+1][1]
+                assert ctime >= rtime, (rtime, ctime)
+                
+                node1 = walk_up(arg2, rleaves, rtime, rpos+1, new_name)
+                node2 = walk_up(arg2, cleaves, ctime, rpos+1, node1.name)
+
+
+        print "add", rpos, rpos in arg_recomb, (rleaves, rtime), (cleaves, ctime)
+        print "  node1", list(arg2.leaf_names(node1))
+        print "  node2", list(arg2.leaf_names(node2))
+
+
+        if arg3:
+            print "arg3"
+            tree = arg3.get_marginal_tree(rpos+.5).get_tree()
+            treelib.remove_single_children(tree)
+            phylo.hash_order_tree(tree)
+            tree.write()
+
+        print "arg"
+        tree = arg.get_marginal_tree(rpos+.5).get_tree()
+        treelib.remove_single_children(tree)
+        phylo.hash_order_tree(tree)
+        tree.write()
+
+        print "arg (i-1)"
+        tree = arg.get_marginal_tree(rpos-.5).get_tree()
+        treelib.remove_single_children(tree)
+        phylo.hash_order_tree(tree)
+        tree.write()
+
+        #if set(rleaves) == set(cleaves):
+        #    print "skip", rleaves
+        #    continue
+
+        assert node1.parents
+        assert rtime <= ctime
+
+        recomb = add_node(arg2, node1, rtime, rpos, "recomb")
+        if node1 == node2:
+            node2 = recomb
+        coal = add_node(arg2, node2, ctime, rpos, "coal")
+
+        recomb.parents.append(coal)
+        coal.children.append(recomb)
+
+        arglib.assert_arg(arg2)
+
+        print "arg2"
+        tree = arg2.get_marginal_tree(rpos+.5).get_tree()
+        treelib.remove_single_children(tree)
+        phylo.hash_order_tree(tree)
+        tree.write()
+
+        print "arg2 (n-1)"
+        tree = arg2.get_marginal_tree(rpos-.5).get_tree()
+        treelib.remove_single_children(tree)
+        phylo.hash_order_tree(tree)
+        tree.write()
+
+
+        print "  r", recomb, recomb.children, recomb.parents
+        print "  c", coal, coal.children, coal.parents
+
+
+        node, time = get_coal_point(arg2, arg2[new_name], rpos+1)
+        assert time == thread[rpos+1][1], (time, thread[rpos+1][1])
+
+    
+    
+    return arg2
+    
+
+
+
+def get_clade_point(arg, node_name, time, pos):
+
+    if node_name in arg:
+        tree = arg.get_marginal_tree(pos - .5)
+        if (time > tree.root.age or
+            (time == tree.root.age and node_name not in tree)):
+            return (list(tree.leaf_names()), time)
+        return (list(tree.leaf_names(tree[node_name])), time)
+    else:
+        return ([node_name], time)
+
+
+
 
 #=============================================================================
 # probabilities
@@ -1070,6 +1538,7 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
     treelen = sum(x.get_dist() for x in last_tree)
     nbranches, nrecombs, ncoals = nlineages
 
+    '''
     # find recomb node
     recomb_node = tree[recomb_name]
     k = times.index(recomb_node.age)
@@ -1095,10 +1564,16 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
     while len(recomb.children) == 1:
         recomb = recomb.children[0]
     recomb_branch = recomb.name
+    '''
+
+    (recomb_branch, recomb_time), (coal_branch, coal_time) = \
+        find_recomb_coal(tree, last_tree, recomb_name=recomb_name)
+    k = times.index(recomb_time)
+    coal_time = times.index(coal_time)
     
     # compute transition probability matrix
     transprob = util.make_matrix(len(states1), len(states2), 0.0)
-    determ = get_deterministic_transitions(states1, states2, times,
+    determ = get_deterministic_transitions2(states1, states2, times,
                                            tree, last_tree,
                                            recomb_branch, k,
                                            coal_branch, coal_time)
@@ -1151,6 +1626,10 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
                 if node2 != recomb_branch:
                     continue
 
+                # require coal above recomb
+                if b < k:
+                    continue
+
                 # TODO: fix
                 # - 1 lineage if recomb br in time segment b-1
                 if (recomb_branch, b) in states2:
@@ -1177,7 +1656,8 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
         tot = sum(transprob[i])
         
         for j in xrange(len(states2)):
-            transprob[i][j] = util.safelog(transprob[i][j] / tot)
+            if tot > 0:
+                transprob[i][j] = util.safelog(transprob[i][j] / tot)
         
     return transprob
 
@@ -1269,27 +1749,87 @@ def get_deterministic_transitions(states1, states2, times, tree, last_tree,
                     next_states.append(find_state(ptr, b))
 
     return next_states
-        
+
+
+#=============================================================================
 
 
 
-def get_deterministic_transition(state1, states2, times, tree, last_tree,
-                                 recomb_branch, recomb_time,
-                                 coal_branch, coal_time):
+
+
+def arg_lca(arg, leaves, time, pos, ignore=None):
+
+    def is_local_coal(arg, node, pos, local):
+        return (len(node.children) == 2 and
+                node.children[0] in local and
+                arg.get_local_parent(node.children[0], pos-.5) == node and
+                node.children[1] in local and
+                arg.get_local_parent(node.children[1], pos-.5) == node and
+                node.children[0] != node.children[1])
+
+
+    order = dict((node, i) for i, node in enumerate(
+        arg.postorder_marginal_tree(pos-.5)))
+    local = set(order.keys())
+    if ignore is not None and ignore in arg:
+        ptr = arg[ignore]
+        local.remove(ptr)
+        ptr = arg.get_local_parent(ptr, pos-.5)
+
+        while ptr and ptr in local:
+            if (len(ptr.children) == 2 and
+                ((ptr.children[0] in local and
+                  arg.get_local_parent(ptr.children[0], pos-.5) == ptr) or
+                 (ptr.children[1] in local and
+                  arg.get_local_parent(ptr.children[1], pos-.5) == ptr))):
+                #print "halt", ptr
+                break
+            #print "remove", ptr
+            local.remove(ptr)
+            ptr = arg.get_local_parent(ptr, pos-.5)
+    #print local
+
+    queue = [(order[arg[x]], arg[x]) for x in leaves]
+    seen = set(x[1] for x in queue)
+    heapq.heapify(queue)
+
+    while len(queue) > 1:
+        i, node = heapq.heappop(queue)
+        parent = arg.get_local_parent(node, pos-.5)
+        if parent and parent not in seen:
+            seen.add(parent)
+            heapq.heappush(queue, (order[parent], parent))
+    node = queue[0][1]
+    parent = arg.get_local_parent(node, pos-.5)
+
+
+    while parent and parent.age <= time:
+        if is_local_coal(arg, parent, pos, local):
+            #print "stop", node.age, parent.age, parent.children
+            break            
+        node = parent
+        parent = arg.get_local_parent(node, pos-.5)
+
+    if parent:
+        if parent.age < time:
+            #print (leaves, parent.age, time)
+            tree = arg.get_marginal_tree(pos-.5).get_tree()
+            tree.write()
+            treelib.draw_tree_names(tree, maxlen=8, minlen=8)
+            assert False
+
+    return node
+
+
+
+
+def get_deterministic_transitions2(states1, states2, times, tree, last_tree,
+                                   recomb_branch, recomb_time,
+                                   coal_branch, coal_time):
 
     # recomb_branch in tree
     # coal_branch in last_tree
     
-    node1, a = state1
-
-    # get leaves under node1
-    leaves1 = set(last_tree.leaves(last_tree[node1]))
-
-    # get leaves under recomb_node
-    recomb_leaves = set(last_tree.leaves(last_tree[recomb_branch]))
-
-    remain = leaves1 - recomb_leaves
-
     def find_state(node, time):
         b = util.INF
         state2 = None
@@ -1303,7 +1843,7 @@ def get_deterministic_transition(state1, states2, times, tree, last_tree,
                 state2 = j
         assert state2 is not None, ((node, time), states2)
         return state2
-                
+    
 
     def trace_up(node, time):
         last = node
@@ -1314,124 +1854,70 @@ def get_deterministic_transition(state1, states2, times, tree, last_tree,
                 break
             node = node.parents[0]
         return last
+
+
+    # get leaves under recomb_node
+    recomb_leaves = set(last_tree.leaves(last_tree[recomb_branch]))
+
+
     
     
-    if len(remain) > 0:
-        # SPR only removes a subset of descendents
-        # trace up from remaining leaf to find correct new state
-        ptr = tree[remain.pop().name]
-        node = trace_up(ptr, a)
-        return find_state(node, a)
+    
+    
+    
+    next_states = []
+    for i, state1 in enumerate(states1):
+        node1, a = state1
+        leaves1 = set(last_tree.leaves(last_tree[node1]))
+        remain = leaves1 - recomb_leaves
 
-    else:
-        # SPR is on same branch as new chromosome
-        if recomb_time >= a:
-            # we move with SPR subtree
-            ptr = tree[recomb_leaves.pop().name]
-            node = trace_up(ptr, a)
-            return find_state(node, a)
-
-        elif coal_time <= a and coal_branch == node1:
-            # SPR subtree coals back underneath us
-            return find_state(tree[node1], a)
-            
-        else:
-            # SPR subtree moves out from underneath us
-            # therefore therefore the new chromosome coalesces with
-            # the branch above the subtree
-
-            # search up for parent
-            ptr = last_tree[recomb_branch]
-            ptr = ptr.parents[0]
-            while len(ptr.children) == 1:
-                ptr = ptr.parents[0]
-            b = times.index(ptr.age)
-
-            # go over to new tree
-            if ptr.name not in tree:
-                # we are above root
-                assert ptr.age >= tree.root.age
-                return find_state(tree.root, b)
-            ptr = tree[ptr.name]
-            
-            return find_state(ptr, b)
+        if (node1, a) == (coal_branch, coal_time):
+            # not a deterministic case (just mark i-->i)
+            next_states.append(i)
         
+        elif len(remain) > 0:
+            # SPR only removes a subset of descendents
+            # trace up from remaining leaf to find correct new state
+            ptr = tree[iter(remain).next().name]
+            node = trace_up(ptr, a)
+            next_states.append(find_state(node, a))
 
-
-'''
-def get_deterministic_transition2(state1, states2, times, tree, last_tree,
-                                 recomb_branch, recomb_time,
-                                 coal_branch, coal_time):
-
-    # recomb_branch in tree
-    # coal_branch in last_tree
-
-    node1, a = state1
-
-    if recomb_branch == node1:
-        if recomb_time >= a:
-            # state unaffected
-            return states2.index(state1)
         else:
-            # search up for parent
-            ptr = last_tree[recomb_branch]
-            last_ptr = ptr
-            ptr = ptr.parents[0]
-            while len(ptr.children) == 1:
-                last_ptr = ptr
+            # SPR is on same branch as new chromosome
+            if recomb_time >= a:
+                # we move with SPR subtree
+                ptr = tree[iter(recomb_leaves).next().name]
+                node = trace_up(ptr, a)
+                next_states.append(find_state(node, a))
+
+            elif coal_time <= a and coal_branch == node1:
+                # SPR subtree coals back underneath us
+                next_states.append(find_state(tree[node1], a))
+
+            else:
+                # SPR subtree moves out from underneath us
+                # therefore therefore the new chromosome coalesces with
+                # the branch above the subtree
+
+                # search up for parent
+                ptr = last_tree[recomb_branch]
                 ptr = ptr.parents[0]
-            b = times.index(ptr.age)
+                while len(ptr.children) == 1:
+                    ptr = ptr.parents[0]
+                b = times.index(ptr.age)
 
-            # go over to new tree
-            if ptr.name not in tree:
-                # we are above root
-                assert ptr.age >= tree.root.age
-                print tree.root.name, b
-                # may have to go up coal point is not available
-                #while (tree.root.name, b) not in states2:
-                #    b += 1
-                return states2.index((tree.root.name, b))
-            ptr = tree[ptr.name]
+                # go over to new tree
+                if ptr.name not in tree:
+                    # we are above root
+                    assert ptr.age >= tree.root.age
+                    next_states.append(find_state(tree.root, b))
+                else:
+                    ptr = tree[ptr.name]
+                    next_states.append(find_state(ptr, b))
 
-            # go down to beginning of branch
-            while len(ptr.children) == 1:
-                ptr = ptr.children[0]
+    return next_states
 
-            # may have to go up coal point is not available
-            while (ptr.name, b) not in states2:
-                b += 1
-            print ptr.name, b
-            return states2.index((ptr.name, b))
 
-    elif coal_branch == node1 and coal_time < a:
-        # move to coal branch
-        ptr = tree[coal_branch]
-        last = ptr
-        print last.name
-        while ptr.age <= times[a] and ptr.parents:
-            if len(ptr.children) != 1:
-                last = ptr
-            ptr = ptr.parents[0]
-        print last.name, a
-        # may have to go up coal point is not available
-        #while (last.name, a) not in states2:
-        #   a += 1
-        return states2.index((last.name, a))
-
-    elif coal_branch == node1 and coal_time == a:
-        raise Exception("transition is not deterministic")
-
-    else:
-        # either unaffected or moved to next node with 0 or 2 children
-        if node1 in tree:
-            ptr = tree[node1]
-        else:
-            ptr = tree.root
-        while len(ptr.children) == 1:
-            ptr = ptr.children[0]
-        return states2.index((ptr.name, a))
-
-'''
 
 #=============================================================================
 # trunk ARG
@@ -1464,7 +1950,7 @@ def make_single_seq(length, name="ind1"):
                |-----|-----|-----|-----|-----|-----|
 recomb points        0     1     2     3     4     5
                                  *           *
-local blocks   (0, 3) (3, 5)
+local blocks   (0, 3) (3, 5) (5, 6)
 
 """
 
@@ -2536,3 +3022,422 @@ def add_arg_thread2(arg, new_name, thread, recombs):
         print "nstubs", len(thread_stubs) - len(thread_coal), other_stubs
 '''                
             
+'''
+
+def add_arg_thread3(arg, new_name, thread, recombs, arg3=None):
+
+
+    def is_local_coal(arg, node, pos, local):
+        return (len(node.children) == 2 and
+                node.children[0] in local and
+                arg.get_local_parent(node.children[0], pos-.5) == node and
+                node.children[1] in local and
+                arg.get_local_parent(node.children[1], pos-.5) == node and
+                node.children[0] != node.children[1])
+
+
+
+    def walk_up(arg, leaves, time, pos, ignore=None):
+
+        order = dict((node, i) for i, node in enumerate(
+            arg.postorder_marginal_tree(pos-.5)))
+        local = set(order.keys())
+        if ignore is not None and ignore in arg:
+            ptr = arg[ignore]
+            local.remove(ptr)
+            ptr = arg.get_local_parent(ptr, pos-.5)
+            
+            while ptr:
+                if (len(ptr.children) == 2 and
+                    ((ptr.children[0] in local and
+                      arg.get_local_parent(ptr.children[0], pos-.5) == ptr) or
+                     (ptr.children[1] in local and
+                      arg.get_local_parent(ptr.children[1], pos-.5) == ptr))):
+                    print "halt", ptr
+                    break
+                print "remove", ptr
+                local.remove(ptr)
+                ptr = arg.get_local_parent(ptr, pos-.5)
+        print local
+
+        queue = [(order[arg[x]], arg[x]) for x in leaves]
+        seen = set(x[1] for x in queue)
+        heapq.heapify(queue)
+
+        while len(queue) > 1:
+            i, node = heapq.heappop(queue)
+            parent = arg.get_local_parent(node, pos-.5)
+            if parent and parent not in seen:
+                seen.add(parent)
+                heapq.heappush(queue, (order[parent], parent))
+        node = queue[0][1]
+        parent = arg.get_local_parent(node, pos-.5)
+
+        
+        while parent and parent.age <= time:
+            if is_local_coal(arg, parent, pos, local):
+                print "stop", node.age, parent.age, parent.children
+                break            
+            node = parent
+            parent = arg.get_local_parent(node, pos-.5)
+
+        if parent:
+            if parent.age < time:
+                print (leaves, parent.age, time)
+                tree = arg.get_marginal_tree(pos-.5).get_tree()
+                tree.write()
+                treelib.draw_tree_names(tree, maxlen=8, minlen=8)
+                assert False
+
+        return node
+
+
+    def add_node(arg, node, time, pos, event):
+
+        node2 = arg.new_node(event=event, age=time, children=[node], pos=pos)
+        if event == "coal":
+            node2.pos = 0
+
+        parent = arg.get_local_parent(node, pos-.5)
+        if parent:
+            node.parents[node.parents.index(parent)] = node2
+            parent.children[parent.children.index(node)] = node2
+            node2.parents.append(parent)
+        else:
+            node.parents.append(node2)
+
+        return node2
+
+
+    arg_recomb = dict((x.pos, x) for x in iter_visible_recombs(arg))
+    recomb_clades = [
+        (pos-1, None) + get_clade_point(arg, rnode, rtime, pos-1)
+        for pos, rnode, rtime in recombs] + [
+        (node.pos, node.name) +
+        get_clade_point(arg, node.name, node.age, node.pos)
+        for node in iter_visible_recombs(arg)]
+    recomb_clades.sort()
+
+    # make initial tree
+    arg2 = arg.get_marginal_tree(-1)
+    arglib.remove_single_lineages(arg2)
+
+    start = get_clade_point(arg, thread[0][0], thread[0][1], 0)
+    node = walk_up(arg2, start[0], start[1], -1)
+    node2 = add_node(arg2, node, start[1], -1, "coal")
+    leaf = arg2.new_node(name=new_name, event="gene", age=0)
+    leaf.parents.append(node2)
+    node2.children.append(leaf)
+
+    arg2.get_marginal_tree(-.5).get_tree().write()
+
+
+    # add each recomb and re-coal
+    for rpos, rname, rleaves, rtime in recomb_clades:
+        print "------------------------------------------"
+
+        for node in arg2:
+            if node.event == "recomb":
+                assert len(node.parents) == 2, node
+        
+        if rpos in arg_recomb:
+            # find re-coal for existing recomb
+
+            node = arg_recomb[rpos]
+            local1 = set(arg.postorder_marginal_tree(rpos-.5))
+            local2 = set(arg.postorder_marginal_tree(rpos+.5))
+            last = node
+            node = arg.get_local_parent(node, rpos+.5)
+            while (node not in local1 and
+                   not is_local_coal(arg, node, rpos+1, local2)):
+                last = node
+                node = arg.get_local_parent(node, rpos+.5)
+            c = node.children
+            child = c[0] if c[1] == last else c[1]
+
+            print ">>", node, c
+            treelib.draw_tree_names(
+                arg.get_marginal_tree(rpos-.5).get_tree(),
+                maxlen=8, minlen=8)
+            treelib.draw_tree_names(
+                arg.get_marginal_tree(rpos+.5).get_tree(),
+                maxlen=8, minlen=8)
+                
+            cleaves, ctime = get_clade_point(
+                arg, child.name, node.age, rpos-.5)
+
+
+            # determine if this is mediated re-coal
+            #  1. previous coal-state == re-coal point
+            #  2. this coal-state == is above recomb node
+            leaves1, time1 = get_clade_point(arg, thread[rpos][0],
+                                             thread[rpos][1], rpos-.5)
+            leaves2, time2 = get_clade_point(arg, thread[rpos+1][0],
+                                             thread[rpos+1][1], rpos+1-.5)
+
+            if (set(leaves1) == set(cleaves) and time1 == ctime and
+                set(leaves2) == set(rleaves)):
+                # mediated
+                print "mediated", (leaves1, time1), (leaves2, time2)
+                print "  ", (rleaves, rtime), (cleaves, ctime)
+                
+                cleaves = [new_name]
+                ctime = thread[rpos+1][1]
+
+                node1 = walk_up(arg2, rleaves, rtime, rpos+1, new_name)
+                node2 = walk_up(arg2, cleaves, ctime, rpos+1)
+            else:
+                node1 = walk_up(arg2, rleaves, rtime, rpos+1, new_name)
+                node2 = walk_up(arg2, cleaves, ctime, rpos+1, new_name)
+    
+        else:
+            # find re-coal for new recomb
+            
+            assert rtime <= thread[rpos][1], (rtime, thread[rpos][1])
+            
+            if rleaves == [new_name]:
+                # recomb on new branch, coal given thread
+                cleaves, ctime = get_clade_point(
+                    arg, thread[rpos+1][0], thread[rpos+1][1], rpos+.5)
+                assert ctime >= rtime, (rtime, ctime)
+                
+                node1 = walk_up(arg2, rleaves, rtime, rpos+1)
+                node2 = walk_up(arg2, cleaves, ctime, rpos+1, new_name)
+                
+            else:
+                # recomb in ARG, coal on new branch
+                cleaves = [new_name]
+                ctime = thread[rpos+1][1]
+                assert ctime >= rtime, (rtime, ctime)
+                
+                node1 = walk_up(arg2, rleaves, rtime, rpos+1, new_name)
+                node2 = walk_up(arg2, cleaves, ctime, rpos+1, node1.name)
+
+
+
+        print "add", rpos, rpos in arg_recomb, (rleaves, rtime), (cleaves, ctime)
+
+        if arg3:
+            print "arg3"
+            tree = arg3.get_marginal_tree(rpos+.5).get_tree()
+            treelib.remove_single_children(tree)
+            phylo.hash_order_tree(tree)
+            tree.write()
+
+        print "arg"
+        tree = arg.get_marginal_tree(rpos+.5).get_tree()
+        treelib.remove_single_children(tree)
+        phylo.hash_order_tree(tree)
+        tree.write()
+
+        print "arg (i-1)"
+        tree = arg.get_marginal_tree(rpos-.5).get_tree()
+        treelib.remove_single_children(tree)
+        phylo.hash_order_tree(tree)
+        tree.write()
+
+        #if set(rleaves) == set(cleaves):
+        #    print "skip", rleaves
+        #    continue
+
+        assert node1.parents
+        assert rtime <= ctime
+
+        recomb = add_node(arg2, node1, rtime, rpos, "recomb")
+        if node1 == node2:
+            node2 = recomb
+        coal = add_node(arg2, node2, ctime, rpos, "coal")
+
+        recomb.parents.append(coal)
+        coal.children.append(recomb)
+
+        print "arg2"
+        tree = arg2.get_marginal_tree(rpos+.5).get_tree()
+        treelib.remove_single_children(tree)
+        phylo.hash_order_tree(tree)
+        tree.write()
+
+        print "arg2 (n-1)"
+        tree = arg2.get_marginal_tree(rpos-.5).get_tree()
+        treelib.remove_single_children(tree)
+        phylo.hash_order_tree(tree)
+        tree.write()
+
+
+        print "  r", recomb, recomb.children, recomb.parents
+        print "  c", coal, coal.children, coal.parents
+
+
+
+        arglib.assert_arg(arg2)
+
+        node, time = get_coal_point(arg2, arg2[new_name], rpos+1)
+        assert time == thread[rpos+1][1], (time, thread[rpos+1][1])
+
+    
+    
+    return arg2
+    
+'''
+
+
+'''
+def get_deterministic_transition(state1, states2, times, tree, last_tree,
+                                 recomb_branch, recomb_time,
+                                 coal_branch, coal_time):
+
+    # recomb_branch in tree
+    # coal_branch in last_tree
+    
+    node1, a = state1
+
+    # get leaves under node1
+    leaves1 = set(last_tree.leaves(last_tree[node1]))
+
+    # get leaves under recomb_node
+    recomb_leaves = set(last_tree.leaves(last_tree[recomb_branch]))
+
+    remain = leaves1 - recomb_leaves
+
+    def find_state(node, time):
+        b = util.INF
+        state2 = None
+        
+        while len(node.children) == 1:
+            node = node.children[0]
+        
+        for j, (n, t) in enumerate(states2):
+            if node.name == n and time <= t < b:
+                b = t
+                state2 = j
+        assert state2 is not None, ((node, time), states2)
+        return state2
+                
+
+    def trace_up(node, time):
+        last = node
+        while node.age <= times[time]:
+            if len(node.children) != 1:
+                last = node
+            if not node.parents:
+                break
+            node = node.parents[0]
+        return last
+    
+    
+    if len(remain) > 0:
+        # SPR only removes a subset of descendents
+        # trace up from remaining leaf to find correct new state
+        ptr = tree[remain.pop().name]
+        node = trace_up(ptr, a)
+        return find_state(node, a)
+
+    else:
+        # SPR is on same branch as new chromosome
+        if recomb_time >= a:
+            # we move with SPR subtree
+            ptr = tree[recomb_leaves.pop().name]
+            node = trace_up(ptr, a)
+            return find_state(node, a)
+
+        elif coal_time <= a and coal_branch == node1:
+            # SPR subtree coals back underneath us
+            return find_state(tree[node1], a)
+            
+        else:
+            # SPR subtree moves out from underneath us
+            # therefore therefore the new chromosome coalesces with
+            # the branch above the subtree
+
+            # search up for parent
+            ptr = last_tree[recomb_branch]
+            ptr = ptr.parents[0]
+            while len(ptr.children) == 1:
+                ptr = ptr.parents[0]
+            b = times.index(ptr.age)
+
+            # go over to new tree
+            if ptr.name not in tree:
+                # we are above root
+                assert ptr.age >= tree.root.age
+                return find_state(tree.root, b)
+            ptr = tree[ptr.name]
+            
+            return find_state(ptr, b)
+'''        
+
+
+'''
+def get_deterministic_transition2(state1, states2, times, tree, last_tree,
+                                 recomb_branch, recomb_time,
+                                 coal_branch, coal_time):
+
+    # recomb_branch in tree
+    # coal_branch in last_tree
+
+    node1, a = state1
+
+    if recomb_branch == node1:
+        if recomb_time >= a:
+            # state unaffected
+            return states2.index(state1)
+        else:
+            # search up for parent
+            ptr = last_tree[recomb_branch]
+            last_ptr = ptr
+            ptr = ptr.parents[0]
+            while len(ptr.children) == 1:
+                last_ptr = ptr
+                ptr = ptr.parents[0]
+            b = times.index(ptr.age)
+
+            # go over to new tree
+            if ptr.name not in tree:
+                # we are above root
+                assert ptr.age >= tree.root.age
+                print tree.root.name, b
+                # may have to go up coal point is not available
+                #while (tree.root.name, b) not in states2:
+                #    b += 1
+                return states2.index((tree.root.name, b))
+            ptr = tree[ptr.name]
+
+            # go down to beginning of branch
+            while len(ptr.children) == 1:
+                ptr = ptr.children[0]
+
+            # may have to go up coal point is not available
+            while (ptr.name, b) not in states2:
+                b += 1
+            print ptr.name, b
+            return states2.index((ptr.name, b))
+
+    elif coal_branch == node1 and coal_time < a:
+        # move to coal branch
+        ptr = tree[coal_branch]
+        last = ptr
+        print last.name
+        while ptr.age <= times[a] and ptr.parents:
+            if len(ptr.children) != 1:
+                last = ptr
+            ptr = ptr.parents[0]
+        print last.name, a
+        # may have to go up coal point is not available
+        #while (last.name, a) not in states2:
+        #   a += 1
+        return states2.index((last.name, a))
+
+    elif coal_branch == node1 and coal_time == a:
+        raise Exception("transition is not deterministic")
+
+    else:
+        # either unaffected or moved to next node with 0 or 2 children
+        if node1 in tree:
+            ptr = tree[node1]
+        else:
+            ptr = tree.root
+        while len(ptr.children) == 1:
+            ptr = ptr.children[0]
+        return states2.index((ptr.name, a))
+
+'''

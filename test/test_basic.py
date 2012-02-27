@@ -10,6 +10,24 @@ from rasmus.testing import *
 from compbio import coal, arglib, fasta
 
 
+
+def add_node(arg, node, time, pos, event):
+
+    node2 = arg.new_node(event=event, age=time, children=[node], pos=pos)
+    if event == "coal":
+        node2.pos = 0
+
+    parent = arg.get_local_parent(node, pos-.5)
+    if parent:
+        node.parents[node.parents.index(parent)] = node2
+        parent.children[parent.children.index(node)] = node2
+        node2.parents.append(parent)
+    else:
+        node.parents.append(node2)
+
+    return node2
+
+
 class Basic (unittest.TestCase):
 
     def test_prune(self):
@@ -48,6 +66,51 @@ class Basic (unittest.TestCase):
                  if x.event == "recomb" and x.pos == pos]
         print nodes
         assert len(nodes) == 1
+
+
+    def test_remove_cycles(self):
+
+        arg = arglib.ARG(0, 10)
+
+        a = arg.new_node(name="a", event="gene", age=0)
+        b = arg.new_node(name="b", event="gene", age=0)
+        r = arg.new_node(name="r", event="recomb", age=10, pos=1)
+        d = arg.new_node(name="d", event="recomb", age=15, pos=4)
+        c = arg.new_node(name="c", event="coal", age=20)
+        t = arg.new_node(name="t", event="coal", age=30)
+        t2 = arg.new_node(name="t2", event="coal", age=40)
+
+        a.parents = [r]
+        r.children = [a]
+
+        r.parents = [c, d]
+        c.children = [r, d]
+        d.children = [r]
+        d.parents = [c, t2]
+        c.parents = [t]
+
+        b.parents = [t]
+        t.children = [c, b]
+        
+        t.parents = [t2]
+        t2.children = [t, d]
+
+        treelib.draw_tree_names(arg.get_marginal_tree(0).get_tree(),
+                                maxlen=8, minlen=8)
+        treelib.draw_tree_names(arg.get_marginal_tree(2).get_tree(),
+                                maxlen=8, minlen=8)
+
+        arg.set_ancestral()
+        arglib.remove_self_cycles(arg)
+
+        print
+        print
+        treelib.draw_tree_names(arg.get_marginal_tree(0).get_tree(),
+                                maxlen=8, minlen=8)
+        treelib.draw_tree_names(arg.get_marginal_tree(2).get_tree(),
+                                maxlen=8, minlen=8)
+
+        
 
 
     def test_recomb(self):
@@ -177,12 +240,17 @@ class Basic (unittest.TestCase):
 
     def test_add_thread(self):
 
-        k = 3
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = 10000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        arghmm.discretize_arg_recomb(arg)
+        arg.set_ancestral()
+        arglib.remove_self_cycles(arg)
+        print "removed cycles"
+        
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
 
@@ -190,20 +258,25 @@ class Basic (unittest.TestCase):
         arghmm.discretize_arg(arg, times)
 
         # save
-        #arglib.write_arg("test/data/sample_recomb.arg", arg)
-        #fasta.write_fasta("test/data/sample_recomb.fa", seqs)
+        arglib.write_arg("test/data/add_thread.arg", arg)
+        fasta.write_fasta("test/data/add_thread.fa", seqs)
         #arg = arglib.read_arg("test/data/sample_recomb.arg")
         #seqs = fasta.read_fasta("test/data/sample_recomb.fa")
         
         # get new chrom
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))    
-        p = plot(cget(thread, 1), style="lines", ymin=8, ylog=10)
+                                               by_block=False))
+        p = plot(cget(thread, 1), style="lines", ymin=10, ylog=10)
 
         # remove chrom
         keep = ["n%d" % i for i in range(k-1)]
         arglib.subarg_by_leaf_names(arg, keep)
+        
+        arg.set_ancestral()
+        arglib.remove_self_cycles(arg)
+        print "removed cycles", arglib.has_self_cycles(arg)
+        
         arg.set_ancestral()
         arg.prune()
 
@@ -213,24 +286,28 @@ class Basic (unittest.TestCase):
         print "states", len(model.states[0])
         print "muts", len(muts)
         print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
-        p.plot(model.recomb_pos, [10000] * len(model.recomb_pos),
-               style="points")
+        r = list(arghmm.iter_visible_recombs(arg))
+        if len(r) > 0:
+            p.plot([x.pos for x in r], [max(x.age,10) for x in r],
+                   style="points")
 
         util.tic("sample recombs")
         recombs = list(arghmm.sample_recombinations_thread(model, thread))
         util.toc()
-        print recombs
         r = [x for x in recombs if x[1] == new_name]
         if len(r) > 0:
-            p.plot(cget(r, 0), cget(r, 2), style="points")
+            p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
         r = [x for x in recombs if x[1] != new_name]
         if len(r) > 0:
-            p.plot(cget(r, 0), cget(r, 2), style="points")
+            p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
 
 
-        arghmm.add_arg_thread(arg, new_name, thread, recombs)
+        arg3 = arglib.read_arg("test/data/add_thread.arg")
+        arg = arghmm.add_arg_thread2(arg, new_name, thread, recombs,
+                                     arg3=arg3)
         arglib.assert_arg(arg)
 
+        
         # check thread
         thread2 = list(arghmm.iter_chrom_thread(arg, arg[new_name],
                                                 by_block=False))
@@ -1134,7 +1211,7 @@ class Basic (unittest.TestCase):
         pause()
 
 
-    def test_sample_recomb(self):
+    def test_sample2(self):
 
         k = 5
         n = 1e4
@@ -1158,12 +1235,15 @@ class Basic (unittest.TestCase):
         # get new chrom
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))    
-        #p = plot(cget(thread, 1), style="lines", ymin=100, ylog=10)
-
+                                               by_block=False))
+        
         # remove chrom
         keep = ["n%d" % i for i in range(k-1)]
         arglib.subarg_by_leaf_names(arg, keep)
+        arg.set_ancestral()
+        arglib.remove_self_cycles(arg)
+        print "removed cycles"
+        
         arg.set_ancestral()
         arg.prune()
 
@@ -1173,9 +1253,7 @@ class Basic (unittest.TestCase):
         print "states", len(model.states[0])
         print "muts", len(muts)
         print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
-        #p.plot(model.recomb_pos, [10000] * len(model.recomb_pos),
-        #       style="points")
-
+        
         # sample a chrom thread
         fw = probs_forward = arghmm.forward_algorithm(model, length,
                                                       verbose=True)
@@ -1185,23 +1263,35 @@ class Basic (unittest.TestCase):
         util.toc()
 
         thread2 = list(arghmm.iter_thread_from_path(model, path))
-        #p.plot(cget(thread2, 1), style="lines")
-
-        util.tic("sample recombs")
-        recombs = list(arghmm.sample_recombinations(model, path))
-        util.toc()
-        print recombs
-        #if len(recombs) > 0:
-        #    p.plot(cget(recombs, 0), cget(recombs, 2), style="points")
-
-        arghmm.add_arg_thread(arg, new_name, thread2, recombs)
-        arglib.write_arg("test/data/sample_recomb2.arg", arg)
-        arglib.assert_arg(arg)
         
-        pause()
+        #util.tic("sample recombs")
+        #recombs = list(arghmm.sample_recombinations(model, path))
+        #util.toc()
 
 
-    def test_sample_recomb2(self):
+        out = open("test/data/sample_recomb.trees", "w")
+        for pos, (node_name, coal_time) in enumerate(thread2):
+            tree = arg.get_marginal_tree(pos-.5)
+            arglib.remove_single_lineages(tree)
+            node = tree[node_name]
+            node2 = add_node(tree, node, coal_time, -1, "coal")
+            if not node2.parents:
+                tree.root = node2
+            leaf = tree.new_node(name=new_name, event="gene", age=0)
+            leaf.parents.append(node2)
+            node2.children.append(leaf)
+            
+            tree = tree.get_tree()
+            out.write(str(pos)+"\t"+str(pos+1)+"\t")
+            tree.write(out, oneline=True)
+            out.write("\n")
+        out.close()
+
+        
+
+
+
+    def test_sample_recomb(self):
 
         k = 3
         n = 1e4
@@ -1209,6 +1299,11 @@ class Basic (unittest.TestCase):
         mu = 2.5e-8 * 20
         length = 10000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        arghmm.discretize_arg_recomb(arg)
+        arg.set_ancestral()
+        arglib.remove_self_cycles(arg)
+        print "removed cycles"
+        
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
 
@@ -1218,34 +1313,38 @@ class Basic (unittest.TestCase):
         # save
         arglib.write_arg("test/data/sample_recomb.arg", arg)
         fasta.write_fasta("test/data/sample_recomb.fa", seqs)
-        #arg = arglib.read_arg("test/data/sample_recomb.arg")
-        #seqs = fasta.read_fasta("test/data/sample_recomb.fa")
-        
 
         # get new chrom
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
                                                by_block=False))    
         p = plot(cget(thread, 1), style="lines", ymin=8, ylog=10)
+        #util.write_delim("test/data/sample_recomb_thread
 
         # remove chrom
         keep = ["n%d" % i for i in range(k-1)]
         arglib.subarg_by_leaf_names(arg, keep)
         arg.set_ancestral()
+        arglib.remove_self_cycles(arg)
+        print "removed cycles"
+        
+        arg.set_ancestral()
         arg.prune()
 
         # setup model
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
                               rho=rho, mu=mu)
         print "states", len(model.states[0])
         print "muts", len(muts)
         print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
-        p.plot(model.recomb_pos, [10000] * len(model.recomb_pos),
-               style="points")
+        r = list(arghmm.iter_visible_recombs(arg))
+        if len(r) > 0:
+            p.plot([x.pos for x in r], [max(x.age,10) for x in r],
+                   style="points")
 
         # sample a chrom thread
-        fw = probs_forward = arghmm.forward_algorithm(model, length,
-                                                      verbose=True)
+        fw = probs_forward = arghmm.forward_algorithm(
+            model, length, verbose=True)
         util.tic("sample thread")
         path = arghmm.sample_posterior(model, length, verbose=True,
                                        probs_forward=fw)
@@ -1254,19 +1353,21 @@ class Basic (unittest.TestCase):
         thread2 = list(arghmm.iter_thread_from_path(model, path))
         p.plot(cget(thread2, 1), style="lines")
 
+
         util.tic("sample recombs")
-        recombs = list(arghmm.sample_recombinations(model, path))
+        recombs = list(arghmm.sample_recombinations_thread(model, thread2))
         util.toc()
-        print recombs
         r = [x for x in recombs if x[1] == new_name]
         if len(r) > 0:
-            p.plot(cget(r, 0), cget(r, 2), style="points")
+            p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
         r = [x for x in recombs if x[1] != new_name]
         if len(r) > 0:
-            p.plot(cget(r, 0), cget(r, 2), style="points")
+            p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
 
 
-        arghmm.add_arg_thread(arg, new_name, thread2, recombs)
+        arg3 = arglib.read_arg("test/data/sample_recomb.arg")
+        arg = arghmm.add_arg_thread2(arg, new_name, thread2, recombs,
+                                     arg3=arg3)
         arglib.write_arg("test/data/sample_recomb2.arg", arg)
         arglib.assert_arg(arg)
 
@@ -1283,7 +1384,7 @@ class Basic (unittest.TestCase):
         pause()
 
 
-    def test_sample_recomb3(self):
+    def test_sample_arg(self):
 
         k = 3
         n = 1e4
@@ -1291,6 +1392,7 @@ class Basic (unittest.TestCase):
         mu = 2.5e-8 * 20
         length = 10000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
 
@@ -1331,15 +1433,15 @@ class Basic (unittest.TestCase):
             util.toc()
 
             thread2 = list(arghmm.iter_thread_from_path(model, path))
-            arghmm.add_arg_thread(arg, new_name, thread2, recombs)
+            arg = arghmm.add_arg_thread2(arg, new_name, thread2, recombs)
             arglib.assert_arg(arg)
 
             util.toc()
-            return thread2
+            return arg, thread2
 
         for j in xrange(1, k):
             new_name = "n%d" % j
-            thread2 = add_chrom(arg, new_name)
+            arg, thread2 = add_chrom(arg, new_name)
         
         arglib.write_arg("test/data/sample_recomb2.arg", arg)
 
