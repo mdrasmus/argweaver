@@ -1493,7 +1493,7 @@ def get_deterministic_transitions(states1, states2, times,
         if (coal_branch == node or coal_branch == start) and coal_time < time:
             # coal occurs under us
             # TODO: make this probabilistic
-            ptr = tree[start].parents[0]
+            ptr = tree2[start].parents[0]
             while len(ptr.children) != 2 or ptr.name == ignore:
                 ptr = ptr.parents[0]
             return ptr.name
@@ -1508,6 +1508,12 @@ def get_deterministic_transitions(states1, states2, times,
 
     
     state2_lookup = util.list2lookup(states2)
+
+    last_tree2 = last_tree.copy()
+    arglib.remove_single_lineages(last_tree2)
+    
+    tree2 = tree.copy()
+    arglib.remove_single_lineages(tree2)
     
     next_states = []
     for i, state1 in enumerate(states1):
@@ -1522,7 +1528,7 @@ def get_deterministic_transitions(states1, states2, times,
             # SPR only removes a subset of descendents, if any
             # trace up from remaining leaf to find correct new state
 
-            node = last_tree[node1]
+            node = last_tree2[node1]
 
             #print "node1 =", (node1, a)
             #print "recomb =", recomb_branch, recomb_time
