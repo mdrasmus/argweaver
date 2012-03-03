@@ -235,100 +235,6 @@ class Basic (unittest.TestCase):
             print threadi
             treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
 
-        
-
-
-    def test_add_thread(self):
-
-        k = 5
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 40000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        arghmm.discretize_arg_recomb(arg)
-        arg = arglib.smcify_arg(arg)
-        arg.set_ancestral()
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        times = arghmm.get_time_points(ntimes=20)
-        arghmm.discretize_arg(arg, times)
-
-        # save
-        arglib.write_arg("test/data/add_thread.arg", arg)
-        fasta.write_fasta("test/data/add_thread.fa", seqs)
-        #arg = arglib.read_arg("test/data/sample_recomb.arg")
-        #seqs = fasta.read_fasta("test/data/sample_recomb.fa")
-
-        # TODO: I could recode the thread using clade points...
-        
-        # get new chrom
-        new_name = "n%d" % (k-1)
-        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))
-        p = plot(cget(thread, 1), style="lines", ymin=10, ylog=10)
-
-        # remove chrom
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg.set_ancestral()
-        arglib.remove_self_cycles(arg)
-        assert not arglib.has_self_cycles(arg)
-
-        #arg = arglib.smcify_arg(arg)
-        #arg.set_ancestral()
-        #arg.prune()
-        #arg.set_ancestral()
-
-        #s = list(arglib.iter_self_cycles(arg))
-        #while s:
-        #    print "cycles", [x.name for x in s]
-        #    arglib.remove_self_cycles(arg)
-        #    arg.set_ancestral()
-        #    s = list(arglib.iter_self_cycles(arg))
-        
-
-        # setup model
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
-                              rho=rho, mu=mu)
-        print "states", len(model.states[0])
-        print "muts", len(muts)
-        print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
-        r = list(arghmm.iter_visible_recombs(arg))
-        if len(r) > 0:
-            p.plot([x.pos for x in r], [max(x.age,10) for x in r],
-                   style="points")
-
-        util.tic("sample recombs")
-        recombs = list(arghmm.sample_recombinations_thread(model, thread))
-        util.toc()
-        r = [x for x in recombs if x[1] == new_name]
-        if len(r) > 0:
-            p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
-        r = [x for x in recombs if x[1] != new_name]
-        if len(r) > 0:
-            p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
-
-
-        arg3 = arglib.read_arg("test/data/add_thread.arg")
-        arg = arghmm.add_arg_thread2(arg, new_name, thread, recombs,
-                                     arg3=arg3)
-        arglib.assert_arg(arg)
-
-        
-        # check thread
-        thread2 = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                                by_block=False))
-        p.plot(cget(thread2, 1), style="lines")        
-
-        q = plot(dither(map(lambda x: log(clamp(x, 10, None)),
-                            cget(thread, 1)), .1),
-                 dither(map(lambda x: log(clamp(x, 10, None)),
-                            cget(thread2, 1)), .1))
-        
-        pause()
-
 
 
     def test_prior(self):
@@ -552,6 +458,7 @@ class Basic (unittest.TestCase):
 
         times = arghmm.get_time_points(20)
         arghmm.discretize_arg(arg, times)
+        arg = arglib.smcify_arg(arg)
         print "recomb", arglib.get_recomb_pos(arg)
 
         model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % k, times=times)
@@ -583,6 +490,7 @@ class Basic (unittest.TestCase):
 
         times = arghmm.get_time_points(20)
         arghmm.discretize_arg(arg, times)
+        arg = arglib.smcify_arg(arg)
         print "recomb", arglib.get_recomb_pos(arg)
 
         model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % k, times=times)
@@ -597,7 +505,7 @@ class Basic (unittest.TestCase):
                          for b in xrange(nstates2)]
                 fequal(sum(map(exp, trans)), 1.0, rel=.01)
             nstates1 = nstates2
-            
+
 
     def test_emit(self):
         
@@ -1149,6 +1057,241 @@ class Basic (unittest.TestCase):
         pause()
 
 
+    #=========================================================================
+    
+    def test_forward_c(self):
+
+        k = 3
+        n = 1e4
+        rho = 1.5e-8 * 3
+        mu = 2.5e-8 * 100
+        length = 100
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        arg.prune()
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        print arglib.get_recomb_pos(arg)
+        print "muts", len(muts)
+        print "recomb", len(arglib.get_recomb_pos(arg))
+
+        times = arghmm.get_time_points(ntimes=30)
+        arghmm.discretize_arg(arg, times)
+
+        tree = arg.get_marginal_tree(0)
+        print tree.root.age
+        treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
+
+        # remove chrom
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+                              rho=rho, mu=mu)
+        print "states", len(model.states[0])
+
+        util.tic("C")
+        probs1 = list(arghmm.forward_algorithm(model, length, verbose=True))
+        util.toc()
+
+        util.tic("python")
+        probs2 = list(hmm.forward_algorithm(model, length, verbose=True))
+        util.toc()
+
+        print "probs1"
+        pc(probs1)
+
+        print "probs2"
+        pc(probs2)
+        
+
+        for col1, col2 in izip(probs1, probs2):
+            for a, b in izip(col1, col2):
+                fequal(a, b, rel=.01)
+
+        
+
+    def test_backward_c(self):
+
+        k = 3
+        n = 1e4
+        rho = 1.5e-8 * 30
+        mu = 2.5e-8 * 100
+        length = 100
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        arg.prune()
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        print arglib.get_recomb_pos(arg)
+        print "muts", len(muts)
+        print "recomb", len(arglib.get_recomb_pos(arg))
+
+        times = arghmm.get_time_points(ntimes=10)
+        arghmm.discretize_arg(arg, times)
+
+        tree = arg.get_marginal_tree(0)
+        print tree.root.age
+        treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
+
+        # remove chrom
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+                              rho=rho, mu=mu)
+        print "states", len(model.states[0])
+
+        util.tic("C")
+        probs1 = list(arghmm.backward_algorithm(model, length, verbose=True))
+        util.toc()
+
+        util.tic("python")
+        probs2 = list(hmm.backward_algorithm(model, length, verbose=True))
+        util.toc()
+
+        print "probs1"
+        pc(probs1)
+
+        print "probs2"
+        pc(probs2)
+        
+
+        for col1, col2 in izip(probs1, probs2):
+            for a, b in izip(col1, col2):
+                fequal(a, b)
+        
+
+
+    def test_post_c(self):
+
+        k = 3
+        n = 1e4
+        rho = 1.5e-8 * 30
+        mu = 2.5e-8 * 100
+        length = 100
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        arg.prune()
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        print arglib.get_recomb_pos(arg)
+        print "muts", len(muts)
+        print "recomb", len(arglib.get_recomb_pos(arg))
+
+        times = arghmm.get_time_points(ntimes=10)
+        arghmm.discretize_arg(arg, times)
+
+        tree = arg.get_marginal_tree(0)
+        print tree.root.age
+        treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
+
+        # remove chrom
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+                              rho=rho, mu=mu)
+        print "states", len(model.states[0])
+
+        util.tic("C")
+        probs1 = list(arghmm.get_posterior_probs(model, length, verbose=True))
+        util.toc()
+
+        util.tic("python")
+        probs2 = list(hmm.get_posterior_probs(model, length, verbose=True))
+        util.toc()
+
+        print "probs1"
+        pc(probs1)
+
+        print "probs2"
+        pc(probs2)
+        
+
+        for col1, col2 in izip(probs1, probs2):
+            for a, b in izip(col1, col2):
+                fequal(a, b)
+
+
+    def test_forward2(self):
+
+        k = 5
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 10000
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)        
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+        
+
+        print arglib.get_recomb_pos(arg)
+        print "muts", len(muts)
+        print "recomb", len(arglib.get_recomb_pos(arg))
+
+        times = arghmm.get_time_points(ntimes=30)
+        arghmm.discretize_arg(arg, times)
+
+        # remove chrom
+        new_name = "n%d" % (k-1)
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+        arg = arglib.smcify_arg(arg)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
+                              rho=rho, mu=mu)
+        print "states", len(model.states[0])
+
+        
+        arghmm.forward_algorithm2(model, length, verbose=True)
+
+
+    def test_trans_c(self):
+
+        # test with recombinations (default_state code)
+
+        k = 10
+        n = 1e4
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = 1000
+        arg = arglib.sample_arg(k, n, rho*100, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        times = arghmm.get_time_points(20)
+        arghmm.discretize_arg(arg, times)
+        arg = arglib.smcify_arg(arg)
+        print "recomb", arglib.get_recomb_pos(arg)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % k, times=times)
+
+        i = 1
+        nstates1 = model.get_num_states(i-1)
+        for i in xrange(0, 1):
+            print i, nstates1
+            nstates2 = model.get_num_states(i)
+            for a in xrange(nstates1):
+                trans = [model.prob_transition(i-1, a, i, b)
+                         for b in xrange(nstates2)]
+                fequal(sum(map(exp, trans)), 1.0, rel=.01)
+            trans = model.transmat
+            trans2 = arghmm.calc_transition_probs_c(
+                model.local_tree, model.states[i], model.nlineages,
+                model.times, model.time_steps, model.popsizes, model.rho)
+            
+
+            for a in xrange(nstates1):
+                for b in xrange(nstates1):
+                    fequal(trans[a][b], trans2[a][b])
+                    
+            nstates1 = nstates2
+
+
+
+    #=========================================================================
+
     def test_sample(self):
 
         k = 5
@@ -1410,6 +1553,98 @@ class Basic (unittest.TestCase):
         pause()
 
 
+    def test_add_thread(self):
+
+        k = 5
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 40000
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        arghmm.discretize_arg_recomb(arg)
+        arg = arglib.smcify_arg(arg)
+        arg.set_ancestral()
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        times = arghmm.get_time_points(ntimes=20)
+        arghmm.discretize_arg(arg, times)
+
+        # save
+        arglib.write_arg("test/data/add_thread.arg", arg)
+        fasta.write_fasta("test/data/add_thread.fa", seqs)
+        #arg = arglib.read_arg("test/data/sample_recomb.arg")
+        #seqs = fasta.read_fasta("test/data/sample_recomb.fa")
+
+        # TODO: I could recode the thread using clade points...
+        
+        # get new chrom
+        new_name = "n%d" % (k-1)
+        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
+                                               by_block=False))
+        p = plot(cget(thread, 1), style="lines", ymin=10, ylog=10)
+
+        # remove chrom
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+        arg.set_ancestral()
+        arglib.remove_self_cycles(arg)
+        assert not arglib.has_self_cycles(arg)
+
+        #arg = arglib.smcify_arg(arg)
+        #arg.set_ancestral()
+        #arg.prune()
+        #arg.set_ancestral()
+
+        #s = list(arglib.iter_self_cycles(arg))
+        #while s:
+        #    print "cycles", [x.name for x in s]
+        #    arglib.remove_self_cycles(arg)
+        #    arg.set_ancestral()
+        #    s = list(arglib.iter_self_cycles(arg))
+        
+
+        # setup model
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+                              rho=rho, mu=mu)
+        print "states", len(model.states[0])
+        print "muts", len(muts)
+        print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
+        r = list(arghmm.iter_visible_recombs(arg))
+        if len(r) > 0:
+            p.plot([x.pos for x in r], [max(x.age,10) for x in r],
+                   style="points")
+
+        util.tic("sample recombs")
+        recombs = list(arghmm.sample_recombinations_thread(model, thread))
+        util.toc()
+        r = [x for x in recombs if x[1] == new_name]
+        if len(r) > 0:
+            p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
+        r = [x for x in recombs if x[1] != new_name]
+        if len(r) > 0:
+            p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
+
+
+        arg3 = arglib.read_arg("test/data/add_thread.arg")
+        arg = arghmm.add_arg_thread2(arg, new_name, thread, recombs,
+                                     arg3=arg3)
+        arglib.assert_arg(arg)
+
+        
+        # check thread
+        thread2 = list(arghmm.iter_chrom_thread(arg, arg[new_name],
+                                                by_block=False))
+        p.plot(cget(thread2, 1), style="lines")        
+
+        q = plot(dither(map(lambda x: log(clamp(x, 10, None)),
+                            cget(thread, 1)), .1),
+                 dither(map(lambda x: log(clamp(x, 10, None)),
+                            cget(thread2, 1)), .1))
+        
+        pause()
+
+
     def test_add_thread_sample(self):
         """
         Test adding a sampled thread to an ARG
@@ -1656,162 +1891,6 @@ class Basic (unittest.TestCase):
             p.plot(cget(thread2, 1), style="lines")
         
         pause()
-
-
-
-    def test_forward_c(self):
-
-        k = 3
-        n = 1e4
-        rho = 1.5e-8 * 3
-        mu = 2.5e-8 * 100
-        length = 100
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        arg.prune()
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        print arglib.get_recomb_pos(arg)
-        print "muts", len(muts)
-        print "recomb", len(arglib.get_recomb_pos(arg))
-
-        times = arghmm.get_time_points(ntimes=30)
-        arghmm.discretize_arg(arg, times)
-
-        tree = arg.get_marginal_tree(0)
-        print tree.root.age
-        treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
-
-        # remove chrom
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
-                              rho=rho, mu=mu)
-        print "states", len(model.states[0])
-
-        util.tic("C")
-        probs1 = list(arghmm.forward_algorithm(model, length, verbose=True))
-        util.toc()
-
-        util.tic("python")
-        probs2 = list(hmm.forward_algorithm(model, length, verbose=True))
-        util.toc()
-
-        print "probs1"
-        pc(probs1)
-
-        print "probs2"
-        pc(probs2)
-        
-
-        for col1, col2 in izip(probs1, probs2):
-            for a, b in izip(col1, col2):
-                fequal(a, b, rel=.01)
-
-        
-
-    def test_backward_c(self):
-
-        k = 3
-        n = 1e4
-        rho = 1.5e-8 * 30
-        mu = 2.5e-8 * 100
-        length = 100
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        arg.prune()
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        print arglib.get_recomb_pos(arg)
-        print "muts", len(muts)
-        print "recomb", len(arglib.get_recomb_pos(arg))
-
-        times = arghmm.get_time_points(ntimes=10)
-        arghmm.discretize_arg(arg, times)
-
-        tree = arg.get_marginal_tree(0)
-        print tree.root.age
-        treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
-
-        # remove chrom
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
-                              rho=rho, mu=mu)
-        print "states", len(model.states[0])
-
-        util.tic("C")
-        probs1 = list(arghmm.backward_algorithm(model, length, verbose=True))
-        util.toc()
-
-        util.tic("python")
-        probs2 = list(hmm.backward_algorithm(model, length, verbose=True))
-        util.toc()
-
-        print "probs1"
-        pc(probs1)
-
-        print "probs2"
-        pc(probs2)
-        
-
-        for col1, col2 in izip(probs1, probs2):
-            for a, b in izip(col1, col2):
-                fequal(a, b)
-        
-
-
-    def test_post_c(self):
-
-        k = 3
-        n = 1e4
-        rho = 1.5e-8 * 30
-        mu = 2.5e-8 * 100
-        length = 100
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        arg.prune()
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        print arglib.get_recomb_pos(arg)
-        print "muts", len(muts)
-        print "recomb", len(arglib.get_recomb_pos(arg))
-
-        times = arghmm.get_time_points(ntimes=10)
-        arghmm.discretize_arg(arg, times)
-
-        tree = arg.get_marginal_tree(0)
-        print tree.root.age
-        treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
-
-        # remove chrom
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
-                              rho=rho, mu=mu)
-        print "states", len(model.states[0])
-
-        util.tic("C")
-        probs1 = list(arghmm.get_posterior_probs(model, length, verbose=True))
-        util.toc()
-
-        util.tic("python")
-        probs2 = list(hmm.get_posterior_probs(model, length, verbose=True))
-        util.toc()
-
-        print "probs1"
-        pc(probs1)
-
-        print "probs2"
-        pc(probs2)
-        
-
-        for col1, col2 in izip(probs1, probs2):
-            for a, b in izip(col1, col2):
-                fequal(a, b)
 
 
 

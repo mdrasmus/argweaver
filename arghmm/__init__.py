@@ -62,6 +62,18 @@ if arghmmc:
             c_double_matrix, "fw", c_double_p_p, "trans",
             c_double_p_p, "emit"])
 
+    export(arghmmc, "new_transition_probs", c_double_p_p,
+           [c_int, "nnodes", c_int_list, "ages_index", c_double, "treelen",
+            POINTER(c_int * 2), "states", c_int, "nstates",
+            c_int, "ntimes", c_double_list, "times",
+            c_double_list, "time_steps",
+            c_int_list, "nbranches", c_int_list, "nrecombs",
+            c_int_list, "ncoals", 
+            c_double_list, "popsizes", c_double, "rho"])
+
+    export(arghmmc, "delete_transition_probs", c_int,
+           [c_double_p_p, "transition_probs", c_int, "nstates"])
+
     export(arghmmc, "new_emissions", c_double_p_p,
            [POINTER(c_int * 2), "states",
             c_int, "nstates", 
@@ -71,7 +83,7 @@ if arghmmc:
             c_double, "mu"])
 
     export(arghmmc, "delete_emissions", c_int,
-           [c_double_p_p, "emit"])
+           [c_double_p_p, "emit", c_int, "seqlen"])
 
 
 
@@ -1131,6 +1143,7 @@ def calc_transition_probs(tree, states, nlineages, times,
     # B_{c,a} =& \sum_{k=0}^{c} \exp(- A_{k,a}) \\
     #         =& B_{c-1,a} + \exp(- A_{c,a}).
 
+
     B = util.make_matrix(ntimes, ntimes, 0.0)
     for b in xrange(ntimes):
         B[0][b] = nbranches[0] * time_steps[0] / nrecombs[0] * exp(-A[0][b])
@@ -1138,9 +1151,7 @@ def calc_transition_probs(tree, states, nlineages, times,
             B[c][b] = (B[c-1][b] + nbranches[c] * time_steps[c] / nrecombs[c]
                        * exp(-A[c][b]))
 
-
     # S_{a,b} &= B_{min(a-1,b-1),a}
-    
     S = util.make_matrix(ntimes, ntimes, 0.0)
     for a in xrange(1, ntimes):
         for b in xrange(1, ntimes):
@@ -1151,15 +1162,24 @@ def calc_transition_probs(tree, states, nlineages, times,
     #      {\exp(-\rho |T^{n-1}_{i-1}|) (|T^{n-1}_{i-1}| + s_a) k^C_b}
     # |T^{n-1}_{i-1}| = treelen
 
+    # TODO: fix for case where b=0
+    
+    time_lookup = util.list2lookup(times)
     transprob = util.make_matrix(len(states), len(states), 0.0)
     for i, (node1, a) in enumerate(states):
-        c = times.index(tree[node1].age)
+        c = time_lookup[tree[node1].age]
         for j, (node2, b) in enumerate(states):
+            #assert a < ntimes and b < ntimes
+            
             treelen2 = treelen + max(times[a], mintime)
-            f = ((1.0 - exp(-rho * treelen2)) *
-                 (1.0 - exp(-time_steps[b-1] * nbranches[b-1]
-                            / (2.0 * popsizes[b-1]))) /
+            f = ((1.0 - exp(-rho * treelen2)) /
                  (exp(-rho * treelen) * treelen2 * ncoals[b]))
+            if b > 0:
+                f *= (1.0 - exp(-time_steps[b-1] * nbranches[b-1]
+                                / (2.0 * popsizes[b-1])))
+            else:
+                # HACK
+                f *= 0.0
             if node1 != node2:
                 transprob[i][j] = f * S[a][b]
             elif a != b:
@@ -1171,8 +1191,37 @@ def calc_transition_probs(tree, states, nlineages, times,
         transprob[i][i] = 1.0 - sum(transprob[i])
         for j in xrange(len(states)):
             transprob[i][j] = util.safelog(transprob[i][j])
-        
+
     return transprob
+
+
+def calc_transition_probs_c(tree, states, nlineages, times,
+                            time_steps, popsizes, rho):
+    
+    nbranches, nrecombs, ncoals = nlineages
+
+    times_lookup = dict((t, i) for i, t in enumerate(times))
+    tree2 = tree.get_tree()
+    ptree, nodes, nodelookup = make_ptree(tree2)
+    int_states = [[nodelookup[tree2[node]], timei]
+                  for node, timei in states]
+    nstates = len(int_states)
+    ages_index = [times_lookup[tree[node.name].age]
+                  for node in nodes]
+    treelen = sum(x.dist for x in tree2)
+    transmat = new_transition_probs(
+        len(nodes), ages_index, treelen,
+        ((c_int * 2) * nstates)
+        (* ((c_int * 2)(n, t) for n, t in int_states)), nstates,
+        len(time_steps), times, time_steps,
+        nbranches, nrecombs, ncoals, 
+        popsizes, rho)
+
+    transmat2 = [transmat[i][:nstates]
+        for i in range(nstates)]
+    
+    return transmat2
+        
 
 
 def find_recomb_coal(tree, last_tree, recomb_name=None, pos=None):
@@ -1226,7 +1275,7 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
     
     # compute transition probability matrix
     transprob = util.make_matrix(len(states1), len(states2), 0.0)
-    determ = get_deterministic_transitions2(states1, states2, times,
+    determ = get_deterministic_transitions(states1, states2, times,
                                            tree, last_tree,
                                            recomb_branch, k,
                                            coal_branch, coal_time)
@@ -1313,99 +1362,6 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
 
 
 
-def get_deterministic_transitions(states1, states2, times, tree, last_tree,
-                                  recomb_branch, recomb_time,
-                                  coal_branch, coal_time):
-
-    # recomb_branch in tree
-    # coal_branch in last_tree
-    
-    # get leaves under recomb_node
-    recomb_leaves = set(last_tree.leaves(last_tree[recomb_branch]))
-
-    def find_state(node, time):
-        b = util.INF
-        state2 = None
-        
-        while len(node.children) == 1:
-            node = node.children[0]
-        
-        for j, (n, t) in enumerate(states2):
-            if node.name == n and time <= t < b:
-                b = t
-                state2 = j
-        assert state2 is not None, ((node, time), states2)
-        return state2
-                
-
-    def trace_up(node, time):
-        last = node
-        while node.age <= times[time]:
-            if len(node.children) != 1:
-                last = node
-            if not node.parents:
-                break
-            node = node.parents[0]
-        return last
-
-    next_states = []
-    for i, state1 in enumerate(states1):
-        node1, a = state1
-        leaves1 = set(last_tree.leaves(last_tree[node1]))
-        remain = leaves1 - recomb_leaves
-
-        if (node1, a) == (coal_branch, coal_time):
-            # not a deterministic case (just mark i-->i)
-            next_states.append(i)
-        
-        elif len(remain) > 0:
-            # SPR only removes a subset of descendents
-            # trace up from remaining leaf to find correct new state
-            ptr = tree[iter(remain).next().name]
-            node = trace_up(ptr, a)
-            next_states.append(find_state(node, a))
-
-        else:
-            # SPR is on same branch as new chromosome
-            if recomb_time >= a:
-                # we move with SPR subtree
-                ptr = tree[iter(recomb_leaves).next().name]
-                node = trace_up(ptr, a)
-                next_states.append(find_state(node, a))
-
-            elif coal_time <= a and coal_branch == node1:
-                # SPR subtree coals back underneath us
-                next_states.append(find_state(tree[node1], a))
-
-            else:
-                # SPR subtree moves out from underneath us
-                # therefore therefore the new chromosome coalesces with
-                # the branch above the subtree
-
-                # search up for parent
-                ptr = last_tree[recomb_branch]
-                ptr = ptr.parents[0]
-                while len(ptr.children) == 1:
-                    ptr = ptr.parents[0]
-                b = times.index(ptr.age)
-
-                # go over to new tree
-                if ptr.name not in tree:
-                    # we are above root
-                    assert ptr.age >= tree.root.age
-                    next_states.append(find_state(tree.root, b))
-                else:
-                    ptr = tree[ptr.name]
-                    next_states.append(find_state(ptr, b))
-
-    return next_states
-
-
-#=============================================================================
-
-
-
-
 
 def arg_lca(arg, leaves, time, pos, ignore=None):
 
@@ -1432,12 +1388,9 @@ def arg_lca(arg, leaves, time, pos, ignore=None):
                   arg.get_local_parent(ptr.children[0], pos-.5) == ptr) or
                  (ptr.children[1] in local and
                   arg.get_local_parent(ptr.children[1], pos-.5) == ptr))):
-                #print "halt", ptr
                 break
-            #print "remove", ptr
             local.remove(ptr)
             ptr = arg.get_local_parent(ptr, pos-.5)
-    #print local
 
     queue = [(order[arg[x]], arg[x]) for x in leaves]
     seen = set(x[1] for x in queue)
@@ -1456,7 +1409,6 @@ def arg_lca(arg, leaves, time, pos, ignore=None):
     if time is not None:
         while parent and parent.age <= time:
             if is_local_coal(arg, parent, pos, local):
-                #print "stop", node.age, parent.age, parent.children
                 break            
             node = parent
             parent = arg.get_local_parent(node, pos-.5)
@@ -1471,77 +1423,149 @@ def arg_lca(arg, leaves, time, pos, ignore=None):
 
     return node
 
+'''
+def tree_lca(tree, leaves, time, pos, ignore=None, order=None):
+
+    if order is None:
+        order = dict((node, i) for i, node in enumerate(
+            tree.postorder_marginal_tree(pos-.5)))
+    local = set(order.keys())
+    if ignore is not None and ignore in tree:
+        ptr = tree[ignore]
+        local.remove(ptr)
+        ptr = ptr.parents[0] if ptr.parents else None
+
+        while ptr and ptr in local:
+            if len(ptr.children) == 2:
+                break
+            local.remove(ptr)
+            #print "remove", ptr
+            ptr = ptr.parents[0] if ptr.parents else None
+
+    queue = [(order[tree[x]], tree[x]) for x in leaves]
+    seen = set(x[1] for x in queue)
+    heapq.heapify(queue)
+
+    while len(queue) > 1:
+        i, node = heapq.heappop(queue)
+        parent = node.parents[0] if node.parents else None
+        if parent and parent not in seen:
+            seen.add(parent)
+            heapq.heappush(queue, (order[parent], parent))
+    node = queue[0][1]
+    parent = node.parents[0] if node.parents else None
+
+    # walk up appropriate time if given
+    if time is not None:
+        while parent and parent.age <= time:
+            #print "up", parent
+            if (len(parent.children) == 2 and
+                parent.children[0] in local and
+                parent.children[1] in local):
+                #print "halt"
+                break
+            node = parent
+            parent = node.parents[0] if node.parents else None
+
+        if parent:
+            if parent.age < time:
+                print (leaves, parent.age, time, ignore)
+                print local
+                tree = tree.get_tree()
+                treelib.draw_tree_names(tree, maxlen=8, minlen=8)
+                treelib.remove_single_children(tree)
+                tree.write()
+                assert False
+
+    return node
+'''
 
 
-
-def get_deterministic_transitions2(states1, states2, times,
-                                   tree, last_tree,
-                                   recomb_branch, recomb_time,
-                                   coal_branch, coal_time):
+def get_deterministic_transitions(states1, states2, times,
+                                  tree, last_tree,
+                                  recomb_branch, recomb_time,
+                                  coal_branch, coal_time):
 
     # recomb_branch in tree
     # coal_branch in last_tree
+
+    def walk_up(node, start, time, ignore=None):
+        if (coal_branch == node or coal_branch == start) and coal_time < time:
+            # coal occurs under us
+            # TODO: make this probabilistic
+            ptr = tree[start].parents[0]
+            while len(ptr.children) != 2 or ptr.name == ignore:
+                ptr = ptr.parents[0]
+            return ptr.name
+        else:
+            return start
+
     
     def find_state(node, time):
-        b = util.INF
-        state2 = None
-        
         while len(node.children) == 1:
             node = node.children[0]
-        
-        for j, (n, t) in enumerate(states2):
-            if node.name == n and time <= t < b:
-                b = t
-                state2 = j
-        assert state2 is not None, ((node, time), states2)
-        return state2
+        return state2_lookup[(node.name, time)]
+
     
-
-    # get leaves under recomb_node
-    recomb_leaves = set(last_tree.leaves(last_tree[recomb_branch]))
-    tree2 = tree.copy()
-    arglib.remove_single_lineages(tree2)
-
+    state2_lookup = util.list2lookup(states2)
     
     next_states = []
     for i, state1 in enumerate(states1):
         node1, a = state1
         time = times[a]
         
-        leaves1 = set(last_tree.leaves(last_tree[node1]))        
-        remain = leaves1 - recomb_leaves
-        
-
         if (node1, a) == (coal_branch, coal_time):
             # not a deterministic case (just mark i-->i)
             next_states.append(i)
         
-        elif len(remain) > 0:
-            # SPR only removes a subset of descendents
+        elif node1 != recomb_branch:
+            # SPR only removes a subset of descendents, if any
             # trace up from remaining leaf to find correct new state
-            node = arg_lca(tree2, [x.name for x in remain],
-                           time, 0, ignore=recomb_branch)
-            next_states.append(find_state(node, a))
 
+            node = last_tree[node1]
+
+            #print "node1 =", (node1, a)
+            #print "recomb =", recomb_branch, recomb_time
+            #treelib.draw_tree_names(last_tree.get_tree(),
+            #                        minlen=8, maxlen=8)
+            #treelib.draw_tree_names(tree.get_tree(),
+            #                        minlen=8, maxlen=8)
+
+            if node.is_leaf():
+                # SPR can't disrupt leaf branch
+                node2 = walk_up(node1, node1, a)
+                next_states.append(state2_lookup[(node2, a)])
+
+            else:
+                child1 = node.children[0]
+                while len(child1.children) == 1:
+                    child1 = child1.children[0]
+
+                child2 = node.children[1]
+                while len(child2.children) == 1:
+                    child2 = child2.children[0]
+                
+                if recomb_branch == child1.name:
+                    # right child is not disrupted
+                    node2 = walk_up(node1, child2.name, a, node1)
+                    next_states.append(state2_lookup[(node2, a)])
+
+                elif recomb_branch == child2.name:
+                    # left child is not disrupted
+                    node2 = walk_up(node1, child1.name, a, node1)
+                    next_states.append(state2_lookup[(node2, a)])
+
+                else:
+                    # node is not disrupted
+                    node2 = walk_up(node1, node1, a)
+                    next_states.append(state2_lookup[(node2, a)])
+                  
+                
         else:
             # SPR is on same branch as new chromosome
             if recomb_time >= a:
                 # we move with SPR subtree
-                node = arg_lca(tree2, [x.name for x in leaves1],
-                               time, 0)
-                #assert set(tree2.leaf_names(node)) == \
-                #       set(x.name for x in leaves1), (
-                #    list(tree2.leaf_names(node)),
-                #    [x.name for x in leaves1])
-                
-                j = find_state(node, a)
-                
-                #node2, b = states2[j]
-                #assert set(tree2.leaf_names(tree2[node2])) == \
-                #       set(x.name for x in leaves1), (
-                #    list(tree2.leaf_names(tree2[node2])),
-                #    [x.name for x in leaves1])
-                next_states.append(j)
+                next_states.append(state2_lookup[(recomb_branch, a)])
 
             else:
                 # SPR should not be able to coal back onto same branch
@@ -1582,7 +1606,6 @@ def get_deterministic_transitions2(states1, states2, times,
                     ptr = ptr.parents[0]
                 b = times.index(ptr.age)
 
-                # go over to new tree
                 if ptr.name not in tree:
                     # we are above root
                     assert ptr.age >= tree.root.age
@@ -1593,6 +1616,110 @@ def get_deterministic_transitions2(states1, states2, times,
 
     return next_states
 
+
+
+def get_deterministic_transitions2(states1, states2, times,
+                                  tree, last_tree,
+                                  recomb_branch, recomb_time,
+                                  coal_branch, coal_time):
+
+    # recomb_branch in tree
+    # coal_branch in last_tree
+    
+    def find_state(node, time):
+        b = util.INF
+        state2 = None
+        
+        while len(node.children) == 1:
+            node = node.children[0]
+        
+        for j, (n, t) in enumerate(states2):
+            if node.name == n and time <= t < b:
+                b = t
+                state2 = j
+        assert b == time
+        assert state2 is not None, ((node, time), states2)
+        return state2
+    
+
+    # get leaves under recomb_node
+    recomb_leaves = set(last_tree.leaves(last_tree[recomb_branch]))
+    
+    next_states = []
+    for i, state1 in enumerate(states1):
+        node1, a = state1
+        time = times[a]
+        
+        leaves1 = set(last_tree.leaves(last_tree[node1]))        
+        remain = leaves1 - recomb_leaves
+        
+
+        if (node1, a) == (coal_branch, coal_time):
+            # not a deterministic case (just mark i-->i)
+            next_states.append(i)
+        
+        elif len(remain) > 0:
+            # SPR only removes a subset of descendents
+            # trace up from remaining leaf to find correct new state
+            node = arg_lca(tree, [x.name for x in remain],
+                           time, 0, ignore=recomb_branch)
+            next_states.append(find_state(node, a))
+
+        else:
+            # SPR is on same branch as new chromosome
+            if recomb_time >= a:
+                # we move with SPR subtree
+                node = arg_lca(tree, [x.name for x in leaves1], None, 0)
+                next_states.append(find_state(node, a))
+
+            else:
+                # SPR should not be able to coal back onto same branch
+                # this would be a self cycle
+                if coal_branch == node1:
+                    print (recomb_branch, recomb_time), \
+                          (coal_branch, coal_time)
+                    treelib.draw_tree_names(last_tree.get_tree(),
+                                            minlen=8, maxlen=8)
+                    treelib.draw_tree_names(tree.get_tree(),
+                                            minlen=8, maxlen=8)
+
+                    print "path1"
+                    ptr = last_tree[recomb_branch]
+                    ptr = ptr.parents[0]
+                    while len(ptr.children) == 1:
+                        print ptr.name, ptr.event
+                        ptr = ptr.parents[0]
+
+                    print "path2"
+                    ptr = tree[recomb_branch]
+                    ptr = ptr.parents[0]
+                    while len(ptr.children) == 1:
+                        print ptr.name, ptr.event
+                        ptr = ptr.parents[0]
+                    
+                    assert False
+
+                
+                # SPR subtree moves out from underneath us
+                # therefore therefore the new chromosome coalesces with
+                # the branch above the subtree
+
+                # search up for parent
+                ptr = last_tree[recomb_branch]
+                ptr = ptr.parents[0]
+                while len(ptr.children) == 1:
+                    ptr = ptr.parents[0]
+                b = times.index(ptr.age)
+
+                if ptr.name not in tree:
+                    # we are above root
+                    assert ptr.age >= tree.root.age
+                    next_states.append(find_state(tree.root, b))
+                else:
+                    ptr = tree[ptr.name]
+                    next_states.append(find_state(ptr, b))
+
+    return next_states
 
 
 #=============================================================================
@@ -1760,7 +1887,6 @@ class ArgHmm (hmm.HMM):
             
 
         self.last_pos = pos
-
 
 
     def get_num_states(self, pos):
@@ -1945,7 +2071,6 @@ def forward_algorithm(model, n, verbose=False):
         
         col1 = probs[i-1]
 
-        #util.tic("switch")
         # find total transition and emission
         col2 = []
         for k in xrange(nstates2):
@@ -1961,7 +2086,6 @@ def forward_algorithm(model, n, verbose=False):
         i += 1
         if i >= n:
             break
-        #util.toc()
 
         # do rest of block quickly
         space = model.get_state_space(i)
@@ -1969,10 +2093,8 @@ def forward_algorithm(model, n, verbose=False):
         blocklen = block[1] - i
 
         if i > block[0] and blocklen > 4:
-            #util.tic("prep")
             nstates = model.get_num_states(i)
 
-            #util.tic("emit")
             # setup tree and states
             tree = model.arg.get_marginal_tree(i-.5)
             tree2 = tree.get_tree()
@@ -1985,34 +2107,23 @@ def forward_algorithm(model, n, verbose=False):
             seqs.append(model.seqs[model.new_name][i-1:block[1]])
             seqlen = blocklen + 1
             
-            #emit = c_matrix(
-            #    c_double,
-            #    [[model.prob_emission(pos, k) for k in xrange(nstates)]
-            #     for pos in xrange(i-1, block[1])])
-            
             emit = new_emissions(
                 ((c_int * 2) * nstates)
                 (* ((c_int * 2)(n, t) for n, t in int_states)), nstates, 
                 ptree, len(ptree), ages,
                 (c_char_p * len(seqs))(*seqs), len(seqs), seqlen,
                 model.times, len(model.times), model.mu)
-            #util.toc()
 
-            #util.tic("trans")
             trans = c_matrix(
                 c_double,
                 [[model.prob_transition(i-1, j, i, k)
                   for k in xrange(nstates)] for j in xrange(nstates)])
-            #util.toc()
             
             fw = [probs[-1]]
             for pos in xrange(i, block[1]):
                 fw.append([0.0 for k in xrange(nstates)])
-            #util.toc()
                 
-            #util.tic("fw %d" % blocklen)
             forward_alg(blocklen+1, nstates, nstates, fw, trans, emit)
-            #util.toc()
 
             delete_emissions(emit, blocklen)
 
@@ -2023,6 +2134,176 @@ def forward_algorithm(model, n, verbose=False):
             
     return probs
 
+
+def forward_algorithm2(model, n, verbose=False):
+
+    # setup all matrices
+    if verbose:
+        util.tic("setup matrices")
+    blocklens = []
+    transmats = []
+    transmats_switch = []
+
+    '''
+    # get prior matrix if needed
+    self.priormat = [
+        log((1 - exp(- self.time_steps[b-1] * self.nlineages[0][b-1] /
+                 (2.0 * self.popsizes[b-1]))) / self.nlineages[2][b] *
+             exp(-sum(self.time_steps[m] * self.nlineages[0][m] /
+                      (2.0 * self.popsizes[m])
+                      for m in range(0, b-1))))
+            for node, b in self.states[pos]]
+    '''
+
+    for rpos in model.recomb_pos[:-1]:
+        pos = rpos + 1
+        if verbose:
+            util.logger(" pos %d" % pos)
+
+
+        # get new local information
+        local_tree = model.arg.get_marginal_tree(pos-.5)
+        local_block = model.get_local_block(model.state_spaces[pos])
+        nlineages = get_nlineages_recomb_coal(local_tree, model.times)
+        nbranches, nrecombs, ncoals = nlineages
+            
+        # get new transition matrices
+        #transmat = calc_transition_probs(
+        #    local_tree, model.states[pos], nlineages,
+        #    model.times, model.time_steps, model.popsizes, model.rho)
+
+        times_lookup = dict((t, i) for i, t in enumerate(model.times))
+        tree2 = local_tree.get_tree()
+        ptree, nodes, nodelookup = make_ptree(tree2)
+        int_states = [[nodelookup[tree2[node]], timei]
+                      for node, timei in model.states[pos]]
+        nstates = len(int_states)
+        ages_index = [times_lookup[local_tree[node.name].age]
+                      for node in nodes]
+        treelen = sum(x.dist for x in tree2)
+        transmat = new_transition_probs(
+            len(nodes), ages_index, treelen,
+            ((c_int * 2) * nstates)
+            (* ((c_int * 2)(n, t) for n, t in int_states)), nstates,
+            len(model.time_steps), model.times, model.time_steps,
+            nbranches, nrecombs, ncoals, 
+            model.popsizes, model.rho)
+        
+        # get switch matrix for beginning of block
+        start = local_block[0]
+        recomb = find_tree_next_recomb(model.arg, start - 1)
+        if start > 0 and recomb is not None:
+            last_tree = model.arg.get_marginal_tree(start-1-.5)
+            transmat_switch = calc_transition_probs_switch(
+                local_tree, last_tree, recomb.name,
+                model.states[start-1], model.states[start],
+                nlineages, model.times,
+                model.time_steps, model.popsizes, model.rho)
+        else:
+            transmat_switch = None
+
+        transmats.append(transmat)
+        transmats_switch.append(transmat_switch)
+        blocklens.append(local_block[1] - local_block[0] + 1)
+        
+    if verbose:
+        util.toc()
+
+    '''
+    probs = []
+
+    # calc first position
+    nstates = model.get_num_states(0)
+    probs.append([model.prob_prior(0, j) + model.prob_emission(0, j)
+                  for j in xrange(nstates)])
+    
+    if n > 20:
+        step = (n // 20)
+    else:
+        step = 1
+    
+    # loop through positions
+    nstates1 = nstates
+    i = 1
+    next_print = step    
+    while i < n:
+        while verbose and i > next_print:
+            next_print += step
+            print " forward iter=%d/%d" % (i+1, n)
+
+        # do first position manually
+        nstates2 = model.get_num_states(i)
+        model.check_local_tree(i)
+        if i == model.local_block[0] and model.transmat_switch:
+            trans = model.transmat_switch
+        else:
+            trans = model.transmat
+        
+        col1 = probs[i-1]
+
+        # find total transition and emission
+        col2 = []
+        for k in xrange(nstates2):
+            tot = -util.INF
+            emit = model.prob_emission(i, k)
+            for j in xrange(nstates1):
+                p = col1[j] + trans[j][k] + emit
+                tot = logadd(tot, p)
+            col2.append(tot)
+                
+        probs.append(col2)
+        nstates1 = nstates2
+        i += 1
+        if i >= n:
+            break
+
+        # do rest of block quickly
+        space = model.get_state_space(i)
+        block = model.get_local_block(space)
+        blocklen = block[1] - i
+
+        if i > block[0] and blocklen > 4:
+            nstates = model.get_num_states(i)
+
+            # setup tree and states
+            tree = model.arg.get_marginal_tree(i-.5)
+            tree2 = tree.get_tree()
+            ptree, nodes, nodelookup = make_ptree(tree2)
+            int_states = [[nodelookup[tree2[node]], timei]
+                          for node, timei in model.states[i]]
+            ages = [tree[node.name].age for node in nodes]
+            seqs = [model.seqs[node.name][i-1:block[1]]
+                    for node in nodes if node.is_leaf()]
+            seqs.append(model.seqs[model.new_name][i-1:block[1]])
+            seqlen = blocklen + 1
+            
+            emit = new_emissions(
+                ((c_int * 2) * nstates)
+                (* ((c_int * 2)(n, t) for n, t in int_states)), nstates, 
+                ptree, len(ptree), ages,
+                (c_char_p * len(seqs))(*seqs), len(seqs), seqlen,
+                model.times, len(model.times), model.mu)
+
+            trans = c_matrix(
+                c_double,
+                [[model.prob_transition(i-1, j, i, k)
+                  for k in xrange(nstates)] for j in xrange(nstates)])
+            
+            fw = [probs[-1]]
+            for pos in xrange(i, block[1]):
+                fw.append([0.0 for k in xrange(nstates)])
+                
+            forward_alg(blocklen+1, nstates, nstates, fw, trans, emit)
+
+            delete_emissions(emit, blocklen)
+
+            for col in fw[1:]:
+                probs.append(col[:nstates])
+            nstates1 = nstates
+            i = block[1]
+            
+    return probs
+    '''
 
 
 
@@ -2298,3 +2579,93 @@ def make_ptree(tree, skip_single=True):
 # OLD CODE
 
 
+'''
+
+def get_deterministic_transitions(states1, states2, times, tree, last_tree,
+                                  recomb_branch, recomb_time,
+                                  coal_branch, coal_time):
+
+    # recomb_branch in tree
+    # coal_branch in last_tree
+    
+    # get leaves under recomb_node
+    recomb_leaves = set(last_tree.leaves(last_tree[recomb_branch]))
+
+    def find_state(node, time):
+        b = util.INF
+        state2 = None
+        
+        while len(node.children) == 1:
+            node = node.children[0]
+        
+        for j, (n, t) in enumerate(states2):
+            if node.name == n and time <= t < b:
+                b = t
+                state2 = j
+        assert state2 is not None, ((node, time), states2)
+        return state2
+                
+
+    def trace_up(node, time):
+        last = node
+        while node.age <= times[time]:
+            if len(node.children) != 1:
+                last = node
+            if not node.parents:
+                break
+            node = node.parents[0]
+        return last
+
+    next_states = []
+    for i, state1 in enumerate(states1):
+        node1, a = state1
+        leaves1 = set(last_tree.leaves(last_tree[node1]))
+        remain = leaves1 - recomb_leaves
+
+        if (node1, a) == (coal_branch, coal_time):
+            # not a deterministic case (just mark i-->i)
+            next_states.append(i)
+        
+        elif len(remain) > 0:
+            # SPR only removes a subset of descendents
+            # trace up from remaining leaf to find correct new state
+            ptr = tree[iter(remain).next().name]
+            node = trace_up(ptr, a)
+            next_states.append(find_state(node, a))
+
+        else:
+            # SPR is on same branch as new chromosome
+            if recomb_time >= a:
+                # we move with SPR subtree
+                ptr = tree[iter(recomb_leaves).next().name]
+                node = trace_up(ptr, a)
+                next_states.append(find_state(node, a))
+
+            elif coal_time <= a and coal_branch == node1:
+                # SPR subtree coals back underneath us
+                next_states.append(find_state(tree[node1], a))
+
+            else:
+                # SPR subtree moves out from underneath us
+                # therefore therefore the new chromosome coalesces with
+                # the branch above the subtree
+
+                # search up for parent
+                ptr = last_tree[recomb_branch]
+                ptr = ptr.parents[0]
+                while len(ptr.children) == 1:
+                    ptr = ptr.parents[0]
+                b = times.index(ptr.age)
+
+                # go over to new tree
+                if ptr.name not in tree:
+                    # we are above root
+                    assert ptr.age >= tree.root.age
+                    next_states.append(find_state(tree.root, b))
+                else:
+                    ptr = tree[ptr.name]
+                    next_states.append(find_state(ptr, b))
+
+    return next_states
+
+'''
