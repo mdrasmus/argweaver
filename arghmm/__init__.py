@@ -125,7 +125,7 @@ def iter_coal_states(tree, times):
 
         seen.add(node)
 
-
+'''
 def get_nlineages(tree, times):
     """Count the number of lineages in each time segment"""
     nlineages = [0 for i in times]
@@ -139,9 +139,43 @@ def get_nlineages(tree, times):
             nlineages[i-1] += 1
     nlineages[-1] = 1
     return nlineages
-
+'''
 
 def get_nlineages_recomb_coal(tree, times):
+    """
+    Count the number of lineages at each time point that can coal and recomb
+    """
+
+    # TODO: add recomb points at end of branches too.
+    
+    nbranches = [0 for i in times]
+    nrecombs = [0 for i in times]
+    ncoals = [0 for i in times]
+
+    for name, timei in iter_coal_states(tree, times):
+        node = tree[name]
+
+        # find parent node
+        if node.parents:
+            parent = node.parents[0]
+            while len(parent.children) == 1:
+                parent = parent.parents[0]
+        else:
+            parent = None
+
+        # count who passes through this time segment
+        if not parent or times[timei] < parent.age:
+            nbranches[timei] += 1
+
+        # count as recomb and coal point
+        nrecombs[timei] += 1
+        ncoals[timei] += 1
+    nbranches[-1] = 1
+    
+    return nbranches, nrecombs, ncoals
+
+
+def get_nlineages_recomb_coal2(tree, times):
     """
     Count the number of lineages at each time point that can coal and recomb
     """

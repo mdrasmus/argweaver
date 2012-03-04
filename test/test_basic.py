@@ -150,21 +150,20 @@ class Basic (unittest.TestCase):
 
 
     def test_nlineages(self):
-        k = 10
+        k = 4
         n = 1e4
-        rho = 1.5e-8 * 100
+        rho = 1.5e-8 * 1
         length = 1000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
 
-        times = arghmm.get_time_points()
+        times = arghmm.get_time_points(ntimes=6)
         arghmm.discretize_arg(arg, times)
         tree = arg.get_marginal_tree(0)
-        nlineages = arghmm.get_nlineages(tree, times)
 
         nlineages, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
             tree, times)
         
-        treelib.draw_tree_names(tree.get_tree(), scale=4e-4)
+        treelib.draw_tree_names(tree.get_tree(), scale=4e-3)
 
         print list(arghmm.iter_coal_states(tree, times))
         print nlineages
