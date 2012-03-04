@@ -152,6 +152,8 @@ def get_nlineages_recomb_coal(tree, times):
     """
     Count the number of lineages at each time point that can coal and recomb
     """
+
+    # TODO: add recomb points at end of branches too.
     
     nlineages = [0 for i in times]
     nlineages_recomb = [0 for i in times]
@@ -311,18 +313,22 @@ def iter_visible_recombs(arg, start=None, end=None):
 def sample_recombinations_thread(model, thread, use_times=True):
     
     r = 0
+    
     # assumes that recomb_pos starts with -1 and ends with arg.end
     arg_recomb = model.recomb_pos
+    time_lookup = util.list2lookup(model.times)
+    
     tree = model.arg.get_marginal_tree(-.5)
     treelen = sum(x.get_dist() for x in tree)
     new_node = model.new_name
     selftrans = None
 
-    #next_recomb = -1
+    next_recomb = -1
+    print arg_recomb
     
     for pos, state in enumerate(thread):
         node, node_time = state
-        timei = model.times.index(node_time)
+        timei = time_lookup[node_time]
         
         # update local tree if needed
         while r < len(arg_recomb) and arg_recomb[r] < pos:
@@ -339,6 +345,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
             A = calc_A_matrix(model.time_steps, nbranches, model.popsizes)
             statei = model.states[pos].index((node, timei))
             selftrans = transmat[statei][statei]
+            next_recomb = -1
 
         if pos == 0 or arg_recomb[r-1] == pos - 1:
             # previous arg recomb is right behind us, sample no recomb
@@ -348,7 +355,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
         # since their no recomb in G_{n-1}, last_tree == tree
         last_state = thread[pos-1]
         last_node, last_time = last_state
-        last_timei = model.times.index(last_time)
+        last_timei = time_lookup[last_time]
         last_tree = tree
         last_treelen = treelen
 
@@ -356,13 +363,31 @@ def sample_recombinations_thread(model, thread, use_times=True):
         last_treelen2 = last_treelen + blen
         if node == last_tree.root.name:
             last_treelen2 += blen - last_tree.root.age
+        assert last_treelen2 > last_treelen
 
         if state == last_state:
-            # state is the same, there is a chance of no recomb
-            p = exp(-model.rho * (last_treelen2 - last_treelen) - selftrans)
-            if random.random() < p:
-                # sample no recombination
+            if pos > next_recomb:
+                # sample the next recomb pos
+                assert selftrans >= -model.rho * (last_treelen2 - last_treelen)
+                rate = 1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
+                                 - selftrans)
+                assert rate > 0.0
+                next_recomb = pos + int(random.expovariate(rate))
+                print rate, next_recomb
+            
+            if pos < next_recomb:
                 continue
+
+            # NOTE: if pos == next_recomb then it is time to recombine
+
+            # state is the same, there is a chance of no recomb
+            #p = exp(-model.rho * (last_treelen2 - last_treelen) - selftrans)
+            #if random.random() < p:
+            #    # sample no recombination
+            #    continue
+
+
+        next_recomb = -1
         statei = model.states[pos].index((node, timei))
         selftrans = transmat[statei][statei]
 
@@ -374,7 +399,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
                 # y = node, k in Sr(node)
                 # if node.parent.age == model.times[timei],
                 #   y = sis(last_tree, node.name), k in Sr(y)
-                node_timei = model.times.index(tree[node].age)
+                node_timei = time_lookup[tree[node].age]
                 recombs = [(new_node, k) for k in
                            range(0, min(timei, last_timei))] + \
                           [(node, k) for k in
@@ -390,7 +415,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
             else:
                 # y = v, k in [0, min(timei, last_timei))
                 # y = node, k in Sr(node)
-                node_timei = model.times.index(tree[node].age)
+                node_timei = time_lookup[tree[node].age]
                 recombs = [(new_node, k) for k in
                            range(0, min(timei, last_timei))] + \
                           [(node, k) for k in
@@ -1177,7 +1202,6 @@ def calc_transition_probs(tree, states, nlineages, times,
     for i, (node1, a) in enumerate(states):
         c = time_lookup[tree[node1].age]
         for j, (node2, b) in enumerate(states):
-            #assert a < ntimes and b < ntimes
             
             treelen2 = treelen + max(times[a], mintime)
             f = ((1.0 - exp(-rho * treelen2)) /
@@ -1690,7 +1714,7 @@ class ArgHmm (hmm.HMM):
         self.transmat = None
         self.transmat_switch = None
         
-        #self.check_local_tree(0, force=True)
+        self.check_local_tree(0, force=True)
 
 
     def get_state_space(self, pos):

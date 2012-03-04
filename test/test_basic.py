@@ -466,13 +466,23 @@ class Basic (unittest.TestCase):
         i = 1
         nstates1 = model.get_num_states(i-1)
         nstates2 = model.get_num_states(i)
+        treelen = sum(x.get_dist() for x in model.local_tree)
         for a in xrange(nstates1):
             trans = [model.prob_transition(i-1, a, i, b)
                      for b in xrange(nstates2)]
-            print a
-            print trans
-            print sum(map(exp, trans))
+            #print trans
+            print a, sum(map(exp, trans))
             fequal(sum(map(exp, trans)), 1.0, rel=.01)
+
+            # is non-transition greater than no-recomb prob
+            node, timei = model.states[i][a]
+            blen = model.times[timei]
+            treelen2 = treelen + blen
+            if node == model.local_tree.root.name:
+                treelen2 += blen - model.local_tree.root.age
+            norecomb = -model.rho * (treelen2 - treelen)
+            
+            print trans[a], norecomb, norecomb <= trans[a]
             
 
     def test_trans2(self):
@@ -1427,7 +1437,7 @@ class Basic (unittest.TestCase):
 
     def test_sample_recomb(self):
 
-        k = 3
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
