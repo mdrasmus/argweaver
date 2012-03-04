@@ -49,6 +49,7 @@ BINARIES = $(SCRIPTS)
 
 ARGHMM_SRC = \
     src/arghmm.cpp \
+    src/hmm.cpp \
     src/itree.cpp \
     src/ptree.cpp \
     src/seq.cpp

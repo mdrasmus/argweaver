@@ -1,15 +1,6 @@
-#ifndef DLCOAL_COMMON_H
-#define DLCOAL_COMMON_H
+#ifndef ARGHMM_COMMON_H
+#define ARGHMM_COMMON_H
 
-/*=============================================================================
-
-    SPIDIR - SPecies Informed DIstanced-based Reconstruction
-    
-    Matt Rasmussen
-    Wed Jun 13 22:09:24 EDT 2007
-
-
-=============================================================================*/
 
 // headers c++ 
 #include <math.h>
@@ -143,4 +134,4 @@ double fchoose(int n, int k);
 
 } // namespace spidir
 
-#endif // DLCOAL_COMMON_H
+#endif // ARGHMM_COMMON_H

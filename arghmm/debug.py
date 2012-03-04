@@ -1402,3 +1402,169 @@ def add_arg_thread(arg, new_name, thread, recombs):
 
 #=============================================================================
 '''
+
+
+
+'''
+
+def get_deterministic_transitions2(states1, states2, times,
+                                  tree, last_tree,
+                                  recomb_branch, recomb_time,
+                                  coal_branch, coal_time):
+
+    # recomb_branch in tree
+    # coal_branch in last_tree
+    
+    def find_state(node, time):
+        b = util.INF
+        state2 = None
+        
+        while len(node.children) == 1:
+            node = node.children[0]
+        
+        for j, (n, t) in enumerate(states2):
+            if node.name == n and time <= t < b:
+                b = t
+                state2 = j
+        assert b == time
+        assert state2 is not None, ((node, time), states2)
+        return state2
+    
+
+    # get leaves under recomb_node
+    recomb_leaves = set(last_tree.leaves(last_tree[recomb_branch]))
+    
+    next_states = []
+    for i, state1 in enumerate(states1):
+        node1, a = state1
+        time = times[a]
+        
+        leaves1 = set(last_tree.leaves(last_tree[node1]))        
+        remain = leaves1 - recomb_leaves
+        
+
+        if (node1, a) == (coal_branch, coal_time):
+            # not a deterministic case (just mark i-->i)
+            next_states.append(i)
+        
+        elif len(remain) > 0:
+            # SPR only removes a subset of descendents
+            # trace up from remaining leaf to find correct new state
+            node = arg_lca(tree, [x.name for x in remain],
+                           time, 0, ignore=recomb_branch)
+            next_states.append(find_state(node, a))
+
+        else:
+            # SPR is on same branch as new chromosome
+            if recomb_time >= a:
+                # we move with SPR subtree
+                node = arg_lca(tree, [x.name for x in leaves1], None, 0)
+                next_states.append(find_state(node, a))
+
+            else:
+                # SPR should not be able to coal back onto same branch
+                # this would be a self cycle
+                if coal_branch == node1:
+                    print (recomb_branch, recomb_time), \
+                          (coal_branch, coal_time)
+                    treelib.draw_tree_names(last_tree.get_tree(),
+                                            minlen=8, maxlen=8)
+                    treelib.draw_tree_names(tree.get_tree(),
+                                            minlen=8, maxlen=8)
+
+                    print "path1"
+                    ptr = last_tree[recomb_branch]
+                    ptr = ptr.parents[0]
+                    while len(ptr.children) == 1:
+                        print ptr.name, ptr.event
+                        ptr = ptr.parents[0]
+
+                    print "path2"
+                    ptr = tree[recomb_branch]
+                    ptr = ptr.parents[0]
+                    while len(ptr.children) == 1:
+                        print ptr.name, ptr.event
+                        ptr = ptr.parents[0]
+                    
+                    assert False
+
+                
+                # SPR subtree moves out from underneath us
+                # therefore therefore the new chromosome coalesces with
+                # the branch above the subtree
+
+                # search up for parent
+                ptr = last_tree[recomb_branch]
+                ptr = ptr.parents[0]
+                while len(ptr.children) == 1:
+                    ptr = ptr.parents[0]
+                b = times.index(ptr.age)
+
+                if ptr.name not in tree:
+                    # we are above root
+                    assert ptr.age >= tree.root.age
+                    next_states.append(find_state(tree.root, b))
+                else:
+                    ptr = tree[ptr.name]
+                    next_states.append(find_state(ptr, b))
+
+    return next_states
+'''
+
+'''
+def tree_lca(tree, leaves, time, pos, ignore=None, order=None):
+
+    if order is None:
+        order = dict((node, i) for i, node in enumerate(
+            tree.postorder_marginal_tree(pos-.5)))
+    local = set(order.keys())
+    if ignore is not None and ignore in tree:
+        ptr = tree[ignore]
+        local.remove(ptr)
+        ptr = ptr.parents[0] if ptr.parents else None
+
+        while ptr and ptr in local:
+            if len(ptr.children) == 2:
+                break
+            local.remove(ptr)
+            #print "remove", ptr
+            ptr = ptr.parents[0] if ptr.parents else None
+
+    queue = [(order[tree[x]], tree[x]) for x in leaves]
+    seen = set(x[1] for x in queue)
+    heapq.heapify(queue)
+
+    while len(queue) > 1:
+        i, node = heapq.heappop(queue)
+        parent = node.parents[0] if node.parents else None
+        if parent and parent not in seen:
+            seen.add(parent)
+            heapq.heappush(queue, (order[parent], parent))
+    node = queue[0][1]
+    parent = node.parents[0] if node.parents else None
+
+    # walk up appropriate time if given
+    if time is not None:
+        while parent and parent.age <= time:
+            #print "up", parent
+            if (len(parent.children) == 2 and
+                parent.children[0] in local and
+                parent.children[1] in local):
+                #print "halt"
+                break
+            node = parent
+            parent = node.parents[0] if node.parents else None
+
+        if parent:
+            if parent.age < time:
+                print (leaves, parent.age, time, ignore)
+                print local
+                tree = tree.get_tree()
+                treelib.draw_tree_names(tree, maxlen=8, minlen=8)
+                treelib.remove_single_children(tree)
+                tree.write()
+                assert False
+
+    return node
+'''
+
