@@ -1594,11 +1594,11 @@ class Basic (unittest.TestCase):
         Test adding a sampled thread to an ARG
         """
 
-        k = 10
+        k = 3
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 40000
+        length = 2000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         arghmm.discretize_arg_recomb(arg)
         arg.set_ancestral()

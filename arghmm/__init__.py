@@ -103,29 +103,22 @@ def get_time_points(ntimes=30, maxtime=45000, delta=.01):
 def iter_coal_states(tree, times):
 
     seen = set()
+    time_lookup = dict((t, i) for i, t in enumerate(times))
     
     for node in tree.preorder():
         if len(node.children) == 1:
             continue
-        i, j = util.binsearch(times, node.age)
+        i = time_lookup[node.age]
         
         if node.parents:
             parent = node.parents[0]
             while parent and parent not in seen:
                 parent = parent.parents[0]
             
-            # do not offer coalescing at bottom of branch
-            # if branch is non-zero len
-            #if parent.age > node.age:
-            #    i += 1
             while i < len(times) and times[i] <= parent.age:
                 yield (node.name, i)
                 i += 1
         else:
-            # do not coalesce at bottom of root branch, unless root of tree
-            # is at top time
-            #if i < len(times) - 1:
-            #    i += 1
             while i < len(times):
                 yield (node.name, i)
                 i += 1
@@ -317,6 +310,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
     # assumes that recomb_pos starts with -1 and ends with arg.end
     arg_recomb = model.recomb_pos
     time_lookup = util.list2lookup(model.times)
+    minlen = model.time_steps[0]
     
     tree = model.arg.get_marginal_tree(-.5)
     treelen = sum(x.get_dist() for x in tree)
@@ -363,14 +357,20 @@ def sample_recombinations_thread(model, thread, use_times=True):
         last_treelen2 = last_treelen + blen
         if node == last_tree.root.name:
             last_treelen2 += blen - last_tree.root.age
+        if last_treelen2 == last_treelen:
+            # because of discritization we need to enfore nonzero branch change
+            last_treelen2 += minlen
         assert last_treelen2 > last_treelen
 
         if state == last_state:
             if pos > next_recomb:
                 # sample the next recomb pos
-                assert selftrans >= -model.rho * (last_treelen2 - last_treelen)
+                #assert selftrans >= -model.rho * (last_treelen2 - last_treelen)
+
                 rate = 1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
                                  - selftrans)
+                # HACK: enfore positive rate
+                rate = max(rate, model.rho)
                 assert rate > 0.0
                 next_recomb = pos + int(random.expovariate(rate))
                 print rate, next_recomb
