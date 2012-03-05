@@ -471,6 +471,7 @@ class Basic (unittest.TestCase):
                      for b in xrange(nstates2)]
             #print trans
             print a, sum(map(exp, trans))
+            print map(exp, trans)
             fequal(sum(map(exp, trans)), 1.0, rel=.01)
 
             # is non-transition greater than no-recomb prob
@@ -484,9 +485,9 @@ class Basic (unittest.TestCase):
             print trans[a], norecomb, norecomb <= trans[a]
             
 
-    def test_trans2(self):
+    def test_trans_switch(self):
 
-        # test with recombinations (default_state code)
+        # test transition switch matrix
 
         k = 10
         n = 1e4
@@ -1289,7 +1290,6 @@ class Basic (unittest.TestCase):
             trans2 = arghmm.calc_transition_probs_c(
                 model.local_tree, model.states[i], model.nlineages,
                 model.times, model.time_steps, model.popsizes, model.rho)
-            
 
             for a in xrange(nstates1):
                 for b in xrange(nstates1):
@@ -1436,7 +1436,7 @@ class Basic (unittest.TestCase):
 
     def test_sample_recomb(self):
 
-        k = 5
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -1593,11 +1593,11 @@ class Basic (unittest.TestCase):
         Test adding a sampled thread to an ARG
         """
 
-        k = 3
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 2000
+        length = 10000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         arghmm.discretize_arg_recomb(arg)
         arg.set_ancestral()
