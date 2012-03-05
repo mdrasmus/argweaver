@@ -2377,7 +2377,7 @@ def sample_posterior(model, n, probs_forward=None, verbose=False):
 
     # get forward probabilities
     if probs_forward is None:
-        probs_forward = forward_algorithm2(model, n, verbose=verbose)
+        probs_forward = forward_algorithm(model, n, verbose=verbose)
 
     # base case i=n-1
     B = 0.0
