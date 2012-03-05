@@ -434,9 +434,9 @@ def sample_recombinations_thread(model, thread, use_times=True):
                 #   y = sis(last_tree, node.name), k in Sr(y)
                 node_timei = time_lookup[tree[node].age]
                 recombs = [(new_node, k) for k in
-                           range(0, min(timei, last_timei)+1)] + \
+                           range(0, min(timei, last_timei))] + \
                           [(node, k) for k in
-                           range(node_timei, min(timei, last_timei)+1)]
+                           range(node_timei, min(timei, last_timei))]
 
                 # TODO: add back
                 #if last_tree[node].parents[0].age == model.times[timei]:
@@ -450,14 +450,14 @@ def sample_recombinations_thread(model, thread, use_times=True):
                 # y = node, k in Sr(node)
                 node_timei = time_lookup[tree[node].age]
                 recombs = [(new_node, k) for k in
-                           range(0, min(timei, last_timei)+1)] + \
+                           range(0, min(timei, last_timei))] + \
                           [(node, k) for k in
-                           range(node_timei, min(timei, last_timei)+1)]
+                           range(node_timei, min(timei, last_timei))]
             
         else:
             # y = v, k in [0, min(timei, last_timei)]
             recombs = [(new_node, k)
-                       for k in range(0, min(timei, last_timei)+1)]
+                       for k in range(0, min(timei, last_timei))]
 
         if len(recombs) == 0:
             continue
