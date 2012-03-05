@@ -1593,7 +1593,7 @@ class Basic (unittest.TestCase):
         Test adding a sampled thread to an ARG
         """
 
-        k = 5
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -1634,13 +1634,8 @@ class Basic (unittest.TestCase):
                    style="points")
 
         # sample a chrom thread
-        util.tic("forward algorithm")
-        fw = probs_forward = arghmm.forward_algorithm(
-            model, length, verbose=True)
-        util.toc()
         util.tic("sample thread")
-        path = arghmm.sample_posterior(model, length, verbose=True,
-                                       probs_forward=fw)
+        path = arghmm.sample_posterior(model, length, verbose=True)
         util.toc()
 
         thread2 = list(arghmm.iter_thread_from_path(model, path))
@@ -1720,7 +1715,7 @@ class Basic (unittest.TestCase):
             util.logger("states", len(model.states[0]))
 
             util.tic("forward algorithm")
-            fw = probs_forward = arghmm.forward_algorithm2(
+            fw = probs_forward = arghmm.forward_algorithm(
                 model, length, verbose=True)
             util.toc()
             

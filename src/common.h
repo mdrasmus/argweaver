@@ -131,6 +131,26 @@ int choose(int n, int k);
 double fchoose(int n, int k);
 
 
+inline int sample(double *weights, int nweights)
+{
+    // find total weight
+    double total = 0.0;
+    for (int i=0; i<nweights; i++)
+        total += weights[i];
+
+    // make random sample
+    double pick = frand(total);
+
+    // find choosen item index
+    double x = 0.0;
+    for (int i=0; i<nweights; i++) {
+        x += weights[i];
+        if (x >= pick)
+            return i;
+    }
+    return nweights - 1;
+}
+
 
 } // namespace spidir
 

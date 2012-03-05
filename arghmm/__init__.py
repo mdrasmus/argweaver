@@ -53,14 +53,20 @@ if arghmmc:
             c_double_matrix, "trans", c_double_list, "emit"])
 
     export(arghmmc, "forward_alg", c_int,
-           [c_int, "n", c_int, "nstates1", c_int, "nstates2",
-            c_double_matrix, "fw", c_double_p_p, "trans",
-            c_double_p_p, "emit"])
+           [c_int, "n", c_int, "nstates",
+            c_double_p_p, "trans", c_double_p_p, "emit",
+            c_double_matrix, "fw"])
 
     export(arghmmc, "backward_alg", c_int,
-           [c_int, "n", c_int, "nstates1", c_int, "nstates2",
-            c_double_matrix, "fw", c_double_p_p, "trans",
-            c_double_p_p, "emit"])
+           [c_int, "n", c_int, "nstates",
+            c_double_p_p, "trans", c_double_p_p, "emit",
+            c_double_matrix, "bw"])
+
+    export(arghmmc, "sample_hmm_posterior", c_int,
+           [c_int, "n", c_int, "nstates",
+            c_double_p_p, "trans", c_double_p_p, "emit", 
+            c_double_matrix, "fw", c_int_list, "path"])
+
 
     export(arghmmc, "new_transition_probs", c_double_p_p,
            [c_int, "nnodes", c_int_list, "ages_index", c_double, "treelen",
@@ -2079,7 +2085,7 @@ def forward_algorithm(model, n, verbose=False):
         for pos in xrange(block[0]+1, block[1]):
             fw.append([0.0 for k in xrange(nstates)])
         
-        forward_alg(blocklen, nstates, nstates, fw, transmat, emit)
+        forward_alg(blocklen, nstates, transmat, emit, fw)
 
         delete_emissions(emit, blocklen)
         delete_transition_probs(transmat, nstates)
@@ -2092,6 +2098,123 @@ def forward_algorithm(model, n, verbose=False):
         util.toc()
             
     return probs
+
+
+
+def sample_posterior(model, n, probs_forward=None, verbose=False):
+
+
+    matrices = list(iter_trans_emit_matrices(model, n))
+
+
+    if probs_forward:
+        probs = probs_forward
+    else:
+        probs = []
+
+        if verbose:
+            util.tic("forward")
+
+        # get prior matrix
+        local_tree = model.arg.get_marginal_tree(-.5)
+        nlineages = get_nlineages_recomb_coal(local_tree, model.times)
+        priors = calc_state_priors(
+            local_tree, model.states[0], nlineages,
+            model.times, model.time_steps, model.popsizes, model.rho)
+        probs.append(priors)
+
+        # iterate over blocks
+        for block, nstates, transmat, transmat_switch, emit in matrices:
+            if verbose:
+                util.logger(" pos %d" % block[0])
+
+            blocklen = block[1] - block[0]
+
+            # use switch matrix for first col
+            if block[0] > 0:
+                nstates1 = len(transmat_switch)
+                nstates2 = len(transmat_switch[0])
+
+                col1 = probs[-1]
+                col2 = []
+                for k in xrange(nstates2):
+                    e = emit[0][k]
+                    col2.append(stats.logsum(
+                        [col1[j] + transmat_switch[j][k] + e
+                         for j in xrange(nstates1)]))
+                probs.append(col2)
+
+            # use transmat for rest of block
+            # make forward table for block
+            fw = [probs[-1]]
+            for pos in xrange(block[0]+1, block[1]):
+                fw.append([0.0 for k in xrange(nstates)])
+
+            forward_alg(blocklen, nstates, transmat, emit, fw)
+            for col in fw[1:]:
+                probs.append(col[:nstates])
+
+        if verbose:
+            util.toc()
+
+
+    if verbose:
+        util.tic("sample thread")
+
+    # choose last column first
+    path = range(n)
+    i = n-1
+    total = stats.logsum(probs[-1])
+    path[i] = stats.sample([exp(x - total) for x in probs[-1]])
+    
+    for block, nstates, transmat, transmat_switch, emit in reversed(matrices):
+        if verbose:
+            util.logger(" pos %d" % block[0])
+        blocklen = block[1] - block[0]
+
+        # use transmat and sample path for block
+
+        # make fw and path inputs
+        fw = []
+        for i in xrange(block[0], block[1]):
+            fw.append(probs[i])
+        path2 = range(block[0], block[1])
+        path2[-1] = path[block[1]-1]
+
+        sample_hmm_posterior(blocklen, nstates, transmat, emit, fw, path2)
+
+        # get path output
+        for i in xrange(block[0], block[1]-1):
+            path[i] = path2[i-block[0]]
+
+
+        # use switch matrix for last col of next block
+        if block[0] > 0:
+            nstates1 = len(transmat_switch)
+            nstates2 = len(transmat_switch[0])
+
+            #print nstates1, nstates2, path[block[0]]
+            assert path[block[0]] < nstates2
+            
+            i = block[0] - 1
+            C = []
+            A = []
+            e = emit[0]
+            k = path[i+1]
+            for j in range(nstates1):
+                # C_{i,j} = trans(j, Y[i+1]) * emit(X[i+1], Y[i+1])
+                # A_{j,i} = F_{i,j} C_{i,j} 
+                C.append(transmat_switch[j][k] + e[k])
+                A.append(probs[i][j] + C[j])
+            tot = stats.logsum(A)
+            path[i] = stats.sample([exp(x - tot) for x in A])
+        
+        delete_emissions(emit, blocklen)
+        delete_transition_probs(transmat, nstates)
+        
+    util.toc()
+            
+    return path
 
 
 
@@ -2147,7 +2270,7 @@ def forward_step(i, col1, col2, nstates1, nstates2, trans, emit):
 '''
 
 
-def forward_algorithm_old(model, n, verbose=False):
+def py_forward_algorithm(model, n, verbose=False):
 
     probs = []
 
@@ -2232,7 +2355,7 @@ def forward_algorithm_old(model, n, verbose=False):
             for pos in xrange(i, block[1]):
                 fw.append([0.0 for k in xrange(nstates)])
                 
-            forward_alg(blocklen+1, nstates, nstates, fw, trans, emit)
+            forward_alg(blocklen+1, nstates, trans, emit, fw)
 
             delete_emissions(emit, blocklen)
 
@@ -2371,7 +2494,45 @@ def get_posterior_probs(model, n, verbose=False,
     return probs_post
 
 
-def sample_posterior(model, n, probs_forward=None, verbose=False):
+def py_sample_posterior(model, n, probs_forward=None, verbose=False):
+
+    # NOTE: logsum is used for numerical stability
+
+    path = range(n)
+
+    # get forward probabilities
+    if probs_forward is None:
+        probs_forward = forward_algorithm(model, n, verbose=verbose)
+
+    # base case i=n-1
+    i = n-1
+    A = [probs_forward[i][j] for j in range(model.get_num_states(i))]
+    tot = stats.logsum(A)
+    path[i] = stats.sample([exp(x - tot) for x in A])
+    #path[i] = stats.sample(map(exp, A))
+  
+    # recurse
+    for i in xrange(n-2, -1, -1):
+        C = []
+        A = []
+        for j in range(model.get_num_states(i)):
+            # C_{i,j} = trans(j, Y[i+1]) * emit(X[i+1], Y[i+1])
+            # !$A_{j,i} = F_{i,j} C_{i,j}$!
+            C.append(
+                model.prob_transition(i, j, i+1, path[i+1]) +
+                model.prob_emission(i+1, path[i+1]))
+            A.append(probs_forward[i][j] + C[j])
+        tot = stats.logsum(A)
+        path[i] = j = stats.sample([exp(x - tot) for x in A])
+        #path[i] = j = stats.sample(map(exp, A))
+    
+    return path
+
+
+
+def sample_posterior_old(model, n, probs_forward=None, verbose=False):
+
+    # NOTE: logsum is used for numerical stability
 
     path = range(n)
 
@@ -2384,7 +2545,8 @@ def sample_posterior(model, n, probs_forward=None, verbose=False):
     i = n-1
     A = [probs_forward[i][j] for j in range(model.get_num_states(i))]
     tot = stats.logsum(A)
-    path[i] = j = stats.sample([exp(x - tot) for x in A])
+    path[i] = stats.sample([exp(x - tot) for x in A])
+    #path[i] = stats.sample(map(exp, A))
   
     # recurse
     for i in xrange(n-2, -1, -1):
@@ -2397,13 +2559,13 @@ def sample_posterior(model, n, probs_forward=None, verbose=False):
                 model.prob_transition(i, j, i+1, path[i+1]) +
                 model.prob_emission(i+1, path[i+1]))
             A.append(probs_forward[i][j] + C[j] + B)
-        tot = stats.logsum(A)
+        #tot = stats.logsum(A)
         path[i] = j = stats.sample([exp(x - tot) for x in A])
+        #path[i] = j = stats.sample(map(exp, A))
         # !$B_{i,j} = C_{i,j} B_{i+1,l}$!
         B += C[j]
     
     return path
-
 
 
 #=============================================================================
