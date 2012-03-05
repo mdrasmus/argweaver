@@ -342,7 +342,7 @@ def iter_visible_recombs(arg, start=None, end=None):
             break
 
 
-    
+
 def sample_recombinations_thread(model, thread, use_times=True):
     
     r = 0
@@ -372,7 +372,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
             nlineages = get_nlineages_recomb_coal(tree, model.times)
             nbranches, nrecombs, ncoals = nlineages
 
-            transmat = calc_transition_probs(
+            transmat = calc_transition_probs2(
                 tree, model.states[pos], nlineages,
                 model.times, model.time_steps, model.popsizes, model.rho)
             A = calc_A_matrix(model.time_steps, nbranches, model.popsizes)
@@ -483,8 +483,6 @@ def sample_recombinations_thread(model, thread, use_times=True):
         if use_times:
             recomb_time = model.times[recomb_time]
         yield (pos, recomb_node, recomb_time)
-
-    
 
         
 
@@ -1265,6 +1263,7 @@ def calc_transition_probs(tree, states, nlineages, times,
                 # is such a small term in comparison
                 transprob[i][j] = exp(-rho * (treelen2-treelen))
 
+
         # normalize row to sum to one
         tot = sum(transprob[i])
         # TODO: ideally this should be below 1
@@ -1273,6 +1272,80 @@ def calc_transition_probs(tree, states, nlineages, times,
             transprob[i][j] = util.safelog(transprob[i][j] / tot)
 
     return transprob
+
+
+
+def calc_transition_probs2(tree, states, nlineages, times,
+                          time_steps, popsizes, rho):
+
+    ntimes = len(time_steps)
+    treelen = sum(x.get_dist() for x in tree)
+    mintime = time_steps[0]
+    nbranches, nrecombs, ncoals = nlineages
+    
+    # A_{k,j} =& s'_{j-2} k_{j-2} / (2N) + \sum_{m=k}^{j-3} s'_m k_m / (2N) 
+    #         =& s'_{j-2} k_{j-2} / (2N) + A_{k,j-1}.
+    
+    A = util.make_matrix(ntimes, ntimes, 0.0)
+    for k in xrange(ntimes):
+        # A[k][k] = A[k][k+1] = 0
+        for j in xrange(k+2, ntimes):
+            l = j - 2
+            A[k][j] = A[k][j-1] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l])
+
+    # B_{c,a} =& \sum_{k=0}^{c} \exp(- A_{k,a}) 
+    #         =& B_{c-1,a} + \exp(- A_{c,a}).
+
+
+    B = util.make_matrix(ntimes, ntimes, 0.0)
+    for b in xrange(ntimes):
+        B[0][b] = nbranches[0] * time_steps[0] / nrecombs[0] * exp(-A[0][b])
+        for c in xrange(1, b):
+            B[c][b] = (B[c-1][b] + nbranches[c] * time_steps[c] / nrecombs[c]
+                       * exp(-A[c][b]))
+
+    # S_{a,b} &= B_{min(a-1,b-1),a}
+    S = util.make_matrix(ntimes, ntimes, 0.0)
+    for a in xrange(1, ntimes):
+        for b in xrange(1, ntimes):
+            S[a][b] = B[min(a-1, b-1)][b]
+
+    # f =\frac{[1 - \exp(- \rho (|T^{n-1}_{i-1}| + s_a))] 
+    #       [1 - \exp(- s'_{b-1} k_{b-1} / (2N))]}
+    #      {\exp(-\rho |T^{n-1}_{i-1}|) (|T^{n-1}_{i-1}| + s_a) k^C_b}
+    # |T^{n-1}_{i-1}| = treelen
+
+    # TODO: fix for case where b=0
+    
+    time_lookup = util.list2lookup(times)
+    transprob = util.make_matrix(len(states), len(states), 0.0)
+    for i, (node1, a) in enumerate(states):
+        c = time_lookup[tree[node1].age]
+        for j, (node2, b) in enumerate(states):
+            
+            treelen2 = treelen + max(times[a], mintime)
+            f = ((1.0 - exp(-rho * treelen2)) /
+                 (exp(-rho * treelen) * treelen2 * ncoals[b]))
+            if b > 0:
+                f *= (1.0 - exp(-time_steps[b-1] * nbranches[b-1]
+                                / (2.0 * popsizes[b-1])))
+            else:
+                # HACK
+                f *= 0.0
+            if node1 != node2:
+                transprob[i][j] = f * S[a][b]
+            elif a != b:
+                transprob[i][j] = f * (2*S[a][b] - S[c][b])
+            else:
+                # compute at the end
+                pass
+
+        transprob[i][i] = 1.0 - sum(transprob[i])
+        for j in xrange(len(states)):
+            transprob[i][j] = util.safelog(transprob[i][j])
+
+    return transprob
+
 
 
 def calc_transition_probs_c(tree, states, nlineages, times,
@@ -2211,8 +2284,9 @@ def sample_posterior(model, n, probs_forward=None, verbose=False):
         
         delete_emissions(emit, blocklen)
         delete_transition_probs(transmat, nstates)
-        
-    util.toc()
+
+    if verbose:
+        util.toc()
             
     return path
 

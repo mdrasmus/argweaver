@@ -1502,7 +1502,7 @@ class Basic (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 40000
+        length = 20000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         arghmm.discretize_arg_recomb(arg)
         arg = arglib.smcify_arg(arg)
@@ -1593,11 +1593,11 @@ class Basic (unittest.TestCase):
         Test adding a sampled thread to an ARG
         """
 
-        k = 4
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 40000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         arghmm.discretize_arg_recomb(arg)
         arg.set_ancestral()
@@ -1635,7 +1635,7 @@ class Basic (unittest.TestCase):
 
         # sample a chrom thread
         util.tic("sample thread")
-        path = arghmm.sample_posterior(model, length, verbose=True)
+        path = arghmm.sample_posterior(model, length, verbose=False)
         util.toc()
 
         thread2 = list(arghmm.iter_thread_from_path(model, path))
@@ -1714,14 +1714,8 @@ class Basic (unittest.TestCase):
                                   times=times, rho=rho, mu=mu)
             util.logger("states", len(model.states[0]))
 
-            util.tic("forward algorithm")
-            fw = probs_forward = arghmm.forward_algorithm(
-                model, length, verbose=True)
-            util.toc()
-            
             util.tic("sample thread")
-            path = arghmm.sample_posterior(
-                model, length, verbose=True, probs_forward=fw)
+            path = arghmm.sample_posterior(model, length)
             util.toc()
 
             util.tic("sample recombs")
