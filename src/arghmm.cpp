@@ -47,6 +47,108 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
     //         =& s'_{j-1} k_{j-1} / (2N) + A_{k,j-1}.
     double **A = new_matrix<double>(ntimes, ntimes);
     for (int k=0; k<ntimes; k++) {
+        A[k][k] = A[k][min(k+1, ntimes-1)] = 0.0;
+        for (int j=k+2; j<ntimes; j++) {
+            const int l = j - 2;
+            A[k][j] = A[k][j-1] + time_steps[l] * nbranches[l] / 
+                (2.0 * popsizes[l]);
+        }
+    }
+
+    // B_{c,a} =& \sum_{k=0}^{c} \exp(- A_{k,a})
+    //         =& B_{c-1,a} + \exp(- A_{c,a}).
+    double **B = new_matrix<double>(ntimes, ntimes);
+    for (int b=0; b<ntimes; b++) {
+        B[0][b] = nbranches[0] * time_steps[0] / nrecombs[0] * exp(-A[0][b]);
+        for (int c=1; c<b; c++) {
+            B[c][b] = B[c-1][b] + nbranches[c] * time_steps[c] / nrecombs[c]
+                * exp(-A[c][b]);
+        }
+    }
+
+    // S_{a,b} &= B_{min(a-1,b-1),b}
+    double **S = new_matrix<double>(ntimes, ntimes);
+    for (int a=1; a<ntimes; a++) {
+        for (int b=1; b<ntimes; b++)
+            S[a][b] = B[min(a-1, b-1)][b];
+    }
+    
+    // f =\frac{[1 - \exp(- \rho (|T^{n-1}_{i-1}| + s_a))] 
+    //       [1 - \exp(- s'_b k_b / (2N))]}
+    //      {\exp(-\rho |T^{n-1}_{i-1}|) (|T^{n-1}_{i-1}| + s_a) k^C_b}
+    // |T^{n-1}_{i-1}| = treelen
+    for (int i=0; i<nstates; i++) {
+        const int node1 = states[i][0];
+        const int a = states[i][1];
+        const int c = ages_index[node1];
+        assert(a < ntimes);
+
+        double treelen2 = treelen + times[a];
+        if (node1 == nnodes-1)
+            treelen2 += times[a] - root_age;
+        if (treelen2 <= treelen)
+            // because of discritization we need to enfore
+            // nonzero branch change
+           treelen2 += treelen + mintime;
+
+        for (int j=0; j<nstates; j++) {
+            const int node2 = states[j][0];
+            const int b = states[j][1];
+            assert(b < ntimes);
+            
+            //double treelen2 = treelen + max(times[a], mintime);
+            double f = ((1.0 - exp(-rho * treelen2)) /
+                              (exp(-rho * treelen) * 
+                               (treelen2 + topbranch) * ncoals[b]));
+            if (b > 0)
+                f *= (1.0 - exp(-time_steps[b-1] * nbranches[b-1]
+                                / (2.0 * popsizes[b-1])));
+
+            if (node1 != node2)
+                transprob[i][j] = f * S[a][b];
+            else if (a != b) 
+                transprob[i][j] = f * (2*S[a][b] - S[c][b]);
+            else
+                transprob[i][j] = 0.0;
+        }
+
+        double sum = 0.0;
+        for (int j=0; j<nstates; j++)
+            sum += transprob[i][j];
+        transprob[i][i] = 1.0 - sum;
+        for (int j=0; j<nstates; j++)
+            transprob[i][j] = log(transprob[i][j]);
+    }
+
+    delete_matrix<double>(A, ntimes);
+    delete_matrix<double>(B, ntimes);
+    delete_matrix<double>(S, ntimes);
+}
+
+
+void calc_transition_probs2(int nnodes, int *ages_index, double treelen,
+                           State *states, int nstates,
+                           int ntimes, double *times, double *time_steps,
+                           int *nbranches, int *nrecombs, int *ncoals, 
+                           double *popsizes, double rho,
+                           double **transprob)
+{
+    
+    // TODO: correctly use root node to calc treelen2
+    
+    //double time_steps[ntimes];
+    //for (int i=1; i<=ntimes; i++)
+    //    time_steps[i-1] = times[i] - times[i-1];
+    const double mintime = time_steps[0];
+    const int root = nnodes - 1;
+    const double root_age = times[ages_index[root]];
+    const double topbranch = time_steps[ages_index[root]];
+    
+    
+    // A_{k,j} =& s'_{j-1} k_{j-1} / (2N) + \sum_{m=k}^{j-2} s'_m k_m / (2N)
+    //         =& s'_{j-1} k_{j-1} / (2N) + A_{k,j-1}.
+    double **A = new_matrix<double>(ntimes, ntimes);
+    for (int k=0; k<ntimes; k++) {
         A[k][k] = 0.0;
         for (int j=k+1; j<ntimes; j++) {
             const int l = j - 1;
@@ -121,6 +223,7 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
     delete_matrix<double>(B, ntimes);
     delete_matrix<double>(S, ntimes);
 }
+
 
 double **new_transition_probs(int nnodes, int *ages_index, double treelen,
                               State *states, int nstates,
@@ -357,51 +460,6 @@ void delete_emissions(double **emit, int seqlen)
 }
 
 
-
-
-
-
-
-//=========================================================================
-// old code
-
-void forward_alg2(int n, int nstates1, int nstates2, double **fw, 
-                 double **trans, double **emit)
-{
-    for (int i=1; i<n; i++) {
-        double *col1 = fw[i-1];
-        double *col2 = fw[i];
-        double *emit2 = emit[i];
-
-        for (int k=0; k<nstates2; k++) {
-            double tot = -INFINITY;
-            for (int j=0; j<nstates1; j++) {
-                tot = logadd(tot, col1[j] + trans[j][k]);
-            }
-            col2[k] = tot + emit2[k];
-        }
-    }
-}
-
-
-
-void backward_alg2(int n, int nstates1, int nstates2, double **bw, 
-                  double **trans, double **emit)
-{
-    for (int i=n-2; i>-1; i--) {
-        double *col1 = bw[i];
-        double *col2 = bw[i+1];
-        double *emit2 = emit[i+1];
-
-        for (int j=0; j<nstates1; j++) {
-            double tot = -INFINITY;
-            for (int k=0; k<nstates2; k++) {
-                tot = logadd(tot, trans[j][k] + col2[k] + emit2[k]);
-            }
-            col1[j] = tot;
-        }
-    }
-}
 
 
 

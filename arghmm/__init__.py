@@ -101,13 +101,16 @@ def get_time_point(i, ntimes, maxtime, delta=10):
     return (exp(i/float(ntimes) * log(1 + delta * maxtime)) - 1) / delta
 
 
-def get_time_points(ntimes=30, maxtime=45000, delta=.01):
+def get_time_points(ntimes=30, maxtime=80000, delta=.01):
     return [get_time_point(i, ntimes, maxtime, delta)
             for i in range(ntimes+1)]
 
 
 def iter_coal_states(tree, times):
 
+    # NOTE: do not use top time
+    
+    ntimes = len(times) - 1
     seen = set()
     time_lookup = dict((t, i) for i, t in enumerate(times))
     
@@ -121,11 +124,11 @@ def iter_coal_states(tree, times):
             while parent and parent not in seen:
                 parent = parent.parents[0]
             
-            while i < len(times) and times[i] <= parent.age:
+            while i < ntimes and times[i] <= parent.age:
                 yield (node.name, i)
                 i += 1
         else:
-            while i < len(times):
+            while i < ntimes:
                 yield (node.name, i)
                 i += 1
 
@@ -218,8 +221,16 @@ def get_nlineages_recomb_coal2(tree, times):
     return nlineages, nlineages_recomb, nlineages_coal
 
 
-def discretize_arg(arg, times):
-    """Round node ages to the nearest time point"""
+def discretize_arg(arg, times, ignore_top=True):
+    """
+    Round node ages to the nearest time point
+
+    If 'ignore_top' is True, then do not use last time point for rounding
+    """
+
+    if ignore_top:
+        times = times[:-1]
+    
     for node in arg:
         i, j = util.binsearch(times, node.age)
         if j is None: j = len(times) - 1
@@ -268,6 +279,12 @@ def discretize_arg_recomb(arg):
             seen.add(node.pos)
             
 
+def get_treelen(tree, times):
+    """Calculate tree length"""
+    treelen = sum(x.get_dist() for x in tree)
+    rooti = times.index(tree.root.age)
+    root_time = times[rooti+1] - times[rooti]
+    return treelen + root_time
 
 
 #=============================================================================
@@ -353,7 +370,8 @@ def sample_recombinations_thread(model, thread, use_times=True):
     minlen = model.time_steps[0]
     
     tree = model.arg.get_marginal_tree(-.5)
-    treelen = sum(x.get_dist() for x in tree)
+    #treelen = sum(x.get_dist() for x in tree)
+    treelen = get_treelen(tree, model.times)
     new_node = model.new_name
     selftrans = None
 
@@ -368,7 +386,8 @@ def sample_recombinations_thread(model, thread, use_times=True):
             r += 1
             
             tree = model.arg.get_marginal_tree(pos-.5)
-            treelen = sum(x.get_dist() for x in tree)
+            treelen = get_treelen(tree, model.times)
+            #treelen = sum(x.get_dist() for x in tree)
             nlineages = get_nlineages_recomb_coal(tree, model.times)
             nbranches, nrecombs, ncoals = nlineages
 
@@ -404,7 +423,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
         if state == last_state:
             if pos > next_recomb:
                 # sample the next recomb pos
-                #assert selftrans >= -model.rho * (last_treelen2 - last_treelen)
+                #assert selftrans>=-model.rho*(last_treelen2-last_treelen)
 
                 rate = 1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
                                  - selftrans)
@@ -412,8 +431,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
                 rate = max(rate, model.rho)
                 assert rate > 0.0
                 next_recomb = pos + int(random.expovariate(rate))
-                #print rate, next_recomb
-            
+                
             if pos < next_recomb:
                 continue
 
@@ -1198,7 +1216,8 @@ def calc_transition_probs(tree, states, nlineages, times,
 
     ntimes = len(time_steps)
     minlen = time_steps[0]
-    treelen = max(sum(x.get_dist() for x in tree), minlen)
+    treelen = get_treelen(tree, times)
+    #treelen = max(sum(x.get_dist() for x in tree), minlen)
     nbranches, nrecombs, ncoals = nlineages
     
     # A_{k,j} =& s'_{j-2} k_{j-1} / (2N) + \sum_{m=k}^{j-2} s'_m k_m / (2N) \\
@@ -1279,7 +1298,8 @@ def calc_transition_probs2(tree, states, nlineages, times,
                           time_steps, popsizes, rho):
 
     ntimes = len(time_steps)
-    treelen = sum(x.get_dist() for x in tree)
+    #treelen = sum(x.get_dist() for x in tree)
+    treelen = get_treelen(tree, times)
     mintime = time_steps[0]
     nbranches, nrecombs, ncoals = nlineages
     
@@ -1361,7 +1381,8 @@ def calc_transition_probs_c(tree, states, nlineages, times,
     nstates = len(int_states)
     ages_index = [times_lookup[tree[node.name].age]
                   for node in nodes]
-    treelen = sum(x.dist for x in tree2)
+    #treelen = sum(x.dist for x in tree2)
+    treelen = get_treelen(tree, times)
     transmat = new_transition_probs(
         len(nodes), ages_index, treelen, 
         ((c_int * 2) * nstates)
@@ -1418,7 +1439,8 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
                                  nlineages, times,
                                  time_steps, popsizes, rho):
 
-    treelen = sum(x.get_dist() for x in last_tree)
+    #treelen = sum(x.get_dist() for x in last_tree)
+    treelen = get_treelen(last_tree, times)
     nbranches, nrecombs, ncoals = nlineages
     
     (recomb_branch, recomb_time), (coal_branch, coal_time) = \
@@ -2074,7 +2096,8 @@ def iter_trans_emit_matrices(model, n):
         ages = [tree[node.name].age for node in nodes]
         ages_index = [times_lookup[tree[node.name].age]
                       for node in nodes]
-        treelen = sum(x.dist for x in tree2)
+        #treelen = sum(x.dist for x in tree2)
+        treelen = get_treelen(tree, model.times)
 
             
         # get new transition matrices
@@ -2498,8 +2521,6 @@ def backward_algorithm(model, n, verbose=False):
         block = model.get_local_block(space)
         blocklen = i+1 - block[0]
         if i < block[1]-1 and blocklen > 4:
-            #print i, block, blocklen
-
             nstates = model.get_num_states(i)
 
             #util.tic("emit")
@@ -2514,11 +2535,6 @@ def backward_algorithm(model, n, verbose=False):
                     for node in nodes if node.is_leaf()]
             seqs.append(model.seqs[model.new_name][block[0]:i+2])
             seqlen = blocklen + 1
-            
-            
-            #emit = c_matrix(c_double,
-            #    [[model.prob_emission(pos, k) for k in xrange(nstates)]
-            #     for pos in xrange(block[0], i+2)])
             
             emit = new_emissions(
                 ((c_int * 2) * nstates)
@@ -2536,7 +2552,8 @@ def backward_algorithm(model, n, verbose=False):
             bw = [[0.0 for k in xrange(nstates)]
                   for pos in xrange(block[0], i+1)]
             bw.append(probs[i+1])
-            backward_alg(blocklen+1, nstates, nstates, bw, trans, emit)
+            
+            backward_alg(blocklen+1, nstates, trans, emit, bw)
             for j in xrange(blocklen):
                 probs[block[0]+j] = bw[j][:nstates]
             i = block[0] - 1
@@ -2576,7 +2593,7 @@ def py_sample_posterior(model, n, probs_forward=None, verbose=False):
 
     # get forward probabilities
     if probs_forward is None:
-        probs_forward = forward_algorithm(model, n, verbose=verbose)
+        probs_forward = py_forward_algorithm(model, n, verbose=verbose)
 
     # base case i=n-1
     i = n-1

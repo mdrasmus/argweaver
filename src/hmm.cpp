@@ -96,8 +96,51 @@ void sample_hmm_posterior(int n, int nstates, double **trans, double **emit,
 }
 
 
+//=========================================================================
+// old code
+
+void forward_alg2(int n, int nstates1, int nstates2, double **fw, 
+                 double **trans, double **emit)
+{
+    for (int i=1; i<n; i++) {
+        double *col1 = fw[i-1];
+        double *col2 = fw[i];
+        double *emit2 = emit[i];
+
+        for (int k=0; k<nstates2; k++) {
+            double tot = -INFINITY;
+            for (int j=0; j<nstates1; j++) {
+                tot = logadd(tot, col1[j] + trans[j][k]);
+            }
+            col2[k] = tot + emit2[k];
+        }
+    }
+}
+
+
+
+void backward_alg2(int n, int nstates1, int nstates2, double **bw, 
+                  double **trans, double **emit)
+{
+    for (int i=n-2; i>-1; i--) {
+        double *col1 = bw[i];
+        double *col2 = bw[i+1];
+        double *emit2 = emit[i+1];
+
+        for (int j=0; j<nstates1; j++) {
+            double tot = -INFINITY;
+            for (int k=0; k<nstates2; k++) {
+                tot = logadd(tot, trans[j][k] + col2[k] + emit2[k]);
+            }
+            col1[j] = tot;
+        }
+    }
+}
+
+
 
 } // extern C
 } // namespace arghmm
+
 
 
