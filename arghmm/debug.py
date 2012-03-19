@@ -1,6 +1,60 @@
 
 
 
+def get_nlineages_recomb_coal2(tree, times):
+    """
+    Count the number of lineages at each time point that can coal and recomb
+    """
+
+    # TODO: add recomb points at end of branches too.
+    
+    nlineages = [0 for i in times]
+    nlineages_recomb = [0 for i in times]
+    nlineages_coal = [0 for i in times]
+
+    for name, timei in iter_coal_states(tree, times):
+        node = tree[name]
+
+        # find parent node
+        if node.parents:
+            parent = node.parents[0]
+            while len(parent.children) == 1:
+                parent = parent.parents[0]
+        else:
+            parent = None
+
+        # count who passes through this time segment
+        if not parent or times[timei] < parent.age:
+            nlineages[timei-1] += 1
+
+        # count as recomb unless it is last time point on branch
+        if not parent or times[timei] < parent.age:
+            nlineages_recomb[timei] += 1
+
+        # count as coal point
+        nlineages_coal[timei] += 1
+    nlineages[-1] = 1
+    
+    return nlineages, nlineages_recomb, nlineages_coal
+
+
+'''
+def get_nlineages(tree, times):
+    """Count the number of lineages in each time segment"""
+    nlineages = [0 for i in times]
+    for name, i in iter_coal_states(tree, times):
+        node = tree[name]
+        if node.parents:
+            parent = node.parents[0]
+            while len(parent.children) == 1:
+                parent = parent.parents[0]
+        if not node.parents or times[i] < parent.age:
+            nlineages[i-1] += 1
+    nlineages[-1] = 1
+    return nlineages
+'''
+
+
 
 '''
 def add_arg_thread3(arg, new_name, thread, recombs):
