@@ -38,6 +38,106 @@ def get_nlineages_recomb_coal2(tree, times):
     return nlineages, nlineages_recomb, nlineages_coal
 
 
+
+def backward_algorithm2(model, n, verbose=False):
+
+    probs = []
+
+    # calc last position
+    nstates = model.get_num_states(n-1)
+    for i in xrange(n):
+        probs.append(None)
+    probs[n-1] = [model.prob_prior(n-1, j) + model.prob_emission(n-1, j)
+                  for j in xrange(nstates)]
+    
+    if n > 20:
+        step = (n // 20)
+    else:
+        step = 1
+    
+    # loop through positions
+    nstates1 = nstates
+    i = n-2
+    next_print = n-step
+    if verbose:
+        util.tic("backward")
+    while i > -1:
+        if verbose and i < next_print:
+            next_print -= step
+            print " backward iter=%d/%d" % (i+1, n)
+
+        # do first position manually
+        nstates1 = model.get_num_states(i)
+        nstates2 = model.get_num_states(i+1)
+        col2 = probs[i+1]
+
+        model.check_local_tree(i+1)
+        if i+1 == model.local_block[0] and model.transmat_switch:
+            trans = model.transmat_switch
+        else:
+            trans = model.transmat
+
+
+        # find total transition and emission
+        col1 = []
+        emit = [model.prob_emission(i+1, k) for k in xrange(nstates2)]
+        for j in xrange(nstates1):
+            tot = -util.INF
+            for k in xrange(nstates2):
+                p = col2[k] + emit[k] + trans[j][k]
+                tot = logadd(tot, p)
+            col1.append(tot)
+        probs[i] = col1
+        i -= 1
+        if i <= -1:
+            break
+
+        # do rest of block quickly
+        space = model.get_state_space(i)
+        block = model.get_local_block(space)
+        blocklen = i+1 - block[0]
+        if i < block[1]-1 and blocklen > 4:
+            nstates = model.get_num_states(i)
+
+            # setup tree and states
+            tree = model.arg.get_marginal_tree(i-.5)
+            tree2 = tree.get_tree()
+            ptree, nodes, nodelookup = make_ptree(tree2)
+            int_states = [[nodelookup[tree2[node]], timei]
+                          for node, timei in model.states[i]]
+            ages = [tree[node.name].age for node in nodes]
+            seqs = [model.seqs[node.name][block[0]:i+2]
+                    for node in nodes if node.is_leaf()]
+            seqs.append(model.seqs[model.new_name][block[0]:i+2])
+            seqlen = blocklen + 1
+            
+            emit = new_emissions(
+                ((c_int * 2) * nstates)
+                (* ((c_int * 2)(n, t) for n, t in int_states)), nstates, 
+                ptree, len(ptree), ages,
+                (c_char_p * len(seqs))(*seqs), len(seqs), seqlen,
+                model.times, len(model.times), model.mu)
+            
+            trans = c_matrix(c_double,
+                             [[model.prob_transition(i, j, i+1, k)
+                               for k in xrange(nstates)]
+                              for j in xrange(nstates)])
+            bw = [[0.0 for k in xrange(nstates)]
+                  for pos in xrange(block[0], i+1)]
+            bw.append(probs[i+1])
+            
+            backward_alg(blocklen+1, nstates, trans, emit, bw)
+            for j in xrange(blocklen):
+                probs[block[0]+j] = bw[j][:nstates]
+            i = block[0] - 1
+
+    if verbose:
+        util.toc()
+
+    return probs
+
+
+
 '''
 def get_nlineages(tree, times):
     """Count the number of lineages in each time segment"""

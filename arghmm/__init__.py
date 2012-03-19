@@ -344,14 +344,14 @@ def sample_recombinations_thread(model, thread, use_times=True):
             nlineages = get_nlineages_recomb_coal(tree, model.times)
             nbranches, nrecombs, ncoals = nlineages
 
-            transmat = calc_transition_probs2(
-                tree, model.states[pos], nlineages,
-                model.times, model.time_steps, model.popsizes, model.rho)
-            #if transmat is not None:
-            #    delete_transition_probs(transmat, nstates)
-            #transmat = calc_transition_probs_c(
+            #transmat = calc_transition_probs2(
             #    tree, model.states[pos], nlineages,
             #    model.times, model.time_steps, model.popsizes, model.rho)
+            if transmat is not None:
+                delete_transition_probs(transmat, nstates)
+            transmat = calc_transition_probs_c(
+                tree, model.states[pos], nlineages,
+                model.times, model.time_steps, model.popsizes, model.rho)
             nstates = len(model.states[pos])
             #A = calc_A_matrix(model.time_steps, nbranches, model.popsizes)
             statei = model.states[pos].index((node, timei))
@@ -1247,18 +1247,20 @@ def calc_transition_probs(tree, states, nlineages, times,
             elif a != b:
                 transprob[i][j] = f * (2*S[a][b] - S[c][b])
             else:
+                transprob[i][i] = 0.0
                 # approximation
                 # the probability of recombining and choosing the same state
                 # is such a small term in comparison
-                transprob[i][j] = exp(-rho * (treelen2-treelen))
+                #transprob[i][j] = exp(-rho * (treelen2-treelen))
 
 
         # normalize row to sum to one
         tot = sum(transprob[i])
-        # TODO: ideally this should be below 1
-        #print tot
+        transprob[i][i] = 1.0 - tot
+        #for j in xrange(len(states)):
+        #    transprob[i][j] = util.safelog(transprob[i][j] / tot)
         for j in xrange(len(states)):
-            transprob[i][j] = util.safelog(transprob[i][j] / tot)
+            transprob[i][j] = util.safelog(transprob[i][j])
 
     return transprob
 
@@ -2054,7 +2056,7 @@ def iter_trans_emit_matrices(model, n):
     # get transition matrices and emissions
     for rpos in model.recomb_pos[:-1]:
         pos = rpos + 1
-
+        
         # get new local information
         tree = model.arg.get_marginal_tree(pos-.5)
         block = model.get_local_block(model.state_spaces[pos])
@@ -2113,7 +2115,7 @@ def iter_trans_emit_matrices(model, n):
 
     
 
-def forward_algorithm(model, n, verbose=False):
+def forward_algorithm(model, n, verbose=False, matrices=None):
 
     probs = []
 
@@ -2128,8 +2130,12 @@ def forward_algorithm(model, n, verbose=False):
         model.times, model.time_steps, model.popsizes, model.rho)
     probs.append(priors)
 
+    matrices_given = matrices is not None
+    if matrices is None:
+        matrices = iter_trans_emit_matrices(model, n)
+
     # iterate over blocks
-    for block, nstates, transmat, transmat_switch, emit in iter_trans_emit_matrices(model, n):
+    for block, nstates, transmat, transmat_switch, emit in matrices:
         if verbose:
             util.logger(" pos %d" % block[0])
 
@@ -2156,8 +2162,9 @@ def forward_algorithm(model, n, verbose=False):
         
         forward_alg(blocklen, nstates, transmat, emit, fw)
 
-        delete_emissions(emit, blocklen)
-        delete_transition_probs(transmat, nstates)
+        if not matrices_given:
+            delete_emissions(emit, blocklen)
+            delete_transition_probs(transmat, nstates)
         
         for col in fw[1:]:
             probs.append(col[:nstates])
@@ -2167,6 +2174,122 @@ def forward_algorithm(model, n, verbose=False):
         util.toc()
             
     return probs
+
+
+
+def backward_algorithm(model, n, verbose=False, matrices=None):
+
+    probs = []
+
+    if verbose:
+        util.tic("backward")
+
+    # get prior matrix
+    local_tree = model.arg.get_marginal_tree(n-.5)
+    nlineages = get_nlineages_recomb_coal(local_tree, model.times)
+    priors = calc_state_priors(
+        local_tree, model.states[n-1], nlineages,
+        model.times, model.time_steps, model.popsizes, model.rho)
+    
+    for i in xrange(n):
+        probs.append(None)
+    nstates = model.get_num_states(n-1)
+    probs[n-1] = [priors[j] + model.prob_emission(n-1, j)
+                  for j in xrange(nstates)]
+
+    # get transition matrices
+    matrices_given = matrices is not None
+    if matrices is None:
+        matrices = list(iter_trans_emit_matrices(model, n))
+
+    # iterate over blocks
+    for block, nstates, transmat, transmat_switch, emit in reversed(matrices):
+        if verbose:
+            util.logger(" pos %d" % block[0])
+
+        blocklen = block[1] - block[0]
+
+        # use transmat for rest of block
+        # make forward table for block
+        bw = []
+        for pos in xrange(block[0], block[1]-1):
+            bw.append([0.0 for k in xrange(nstates)])
+        assert len(probs[block[1]-1]) == nstates
+        bw.append(probs[block[1]-1])
+
+        assert len(bw) == blocklen
+        
+        backward_alg(blocklen, nstates, transmat, emit, bw)
+
+        i = block[0]
+        for j in range(blocklen-1):
+            probs[i+j] = bw[j][:nstates]
+
+        # use switch matrix for first col
+        if block[0] > 0:
+            nstates1 = len(transmat_switch)
+            nstates2 = len(transmat_switch[0])
+            i = block[0] - 1
+            e = emit[0]
+            col2 = probs[i+1]
+            assert len(col2) == nstates2 == nstates
+            col1 = []
+            for j in xrange(nstates1):
+                col1.append(stats.logsum([
+                    col2[k] + e[k] + transmat_switch[j][k]
+                    for k in xrange(nstates2)]))
+            probs[i] = col1
+
+        if not matrices_given:
+            delete_emissions(emit, blocklen)
+            delete_transition_probs(transmat, nstates)
+
+
+    if verbose:
+        util.toc()
+            
+    return probs
+
+
+def get_posterior_probs(model, n, verbose=False,
+                        probs_forward=None, probs_backward=None):
+    """
+    Returns posterior decoding of thread state
+    """
+    
+    matrices = None
+
+    if probs_forward is None:
+        if verbose:
+            util.tic("calculate transition matrices")
+        matrices = list(iter_trans_emit_matrices(model, n))
+        if verbose:
+            util.toc()
+        probs_forward = forward_algorithm(model, n, matrices=matrices,
+                                          verbose=verbose)
+    if probs_backward is None:
+        probs_backward = backward_algorithm(model, n, matrices=matrices,
+                                            verbose=verbose)
+
+    if matrices:
+        for block, nstates, transmat, transmat_switch, emit in matrices:
+            delete_emissions(emit, block[1] - block[0])
+            delete_transition_probs(transmat, nstates)
+            
+
+    total_prob = -util.INF
+    for j in xrange(model.get_num_states(0)):
+        total_prob = logadd(total_prob,
+                            model.prob_prior(0, j) +
+                            model.prob_emission(0, j) +
+                            probs_backward[0][j])
+
+    probs_post = [
+        [probs_forward[i][j] + probs_backward[i][j] - total_prob
+         for j in xrange(model.get_num_states(i))]
+        for i in xrange(n)]
+
+    return probs_post
 
 
 
@@ -2288,7 +2411,10 @@ def sample_posterior(model, n, probs_forward=None, verbose=False):
 
 
 
+
 def iter_forward_algorithm(model, n, verbose=False):
+
+    # NOTE: not currently used
     
     # calc first position
     nstates = model.get_num_states(0)
@@ -2308,12 +2434,7 @@ def iter_forward_algorithm(model, n, verbose=False):
         while verbose and i > next_print:
             next_print += step
             print " forward iter=%d/%d" % (i+1, n)
-
-        #space = model.get_space(i)
-        #block = model.get_local_block(space)
-
-        #blocklen = block[1] - i
-
+        
         nstates2 = model.get_num_states(i)
         col2 = [0] * nstates2
         emit = [model.prob_emission(i, k) for k in xrange(nstates2)]
@@ -2327,195 +2448,6 @@ def iter_forward_algorithm(model, n, verbose=False):
         nstates1 = nstates2
         i += 1
 
-'''
-def forward_step(i, col1, col2, nstates1, nstates2, trans, emit):
-
-    # find total transition and emission
-    for k in xrange(nstates2):
-        tot = -util.INF
-        for j in xrange(nstates1):
-            p = col1[j] + trans[j][k] + emit[k]
-            tot = logadd(tot, p)
-        col2[k] = tot
-'''
-
-
-
-def backward_algorithm(model, n, verbose=False):
-
-    probs = []
-
-    # calc last position
-    nstates = model.get_num_states(n-1)
-    for i in xrange(n):
-        probs.append(None)
-    probs[n-1] = [model.prob_prior(n-1, j) + model.prob_emission(n-1, j)
-                  for j in xrange(nstates)]
-    
-    if n > 20:
-        step = (n // 20)
-    else:
-        step = 1
-    
-    # loop through positions
-    nstates1 = nstates
-    i = n-2
-    next_print = n-step
-    while i > -1:
-        if verbose and i < next_print:
-            next_print -= step
-            print " backward iter=%d/%d" % (i+1, n)
-
-        # do first position manually
-        nstates1 = model.get_num_states(i)
-        nstates2 = model.get_num_states(i+1)
-        col2 = probs[i+1]
-
-        model.check_local_tree(i+1)
-        if i+1 == model.local_block[0] and model.transmat_switch:
-            trans = model.transmat_switch
-        else:
-            trans = model.transmat
-
-
-        # find total transition and emission
-        col1 = []
-        emit = [model.prob_emission(i+1, k) for k in xrange(nstates2)]
-        for j in xrange(nstates1):
-            tot = -util.INF
-            for k in xrange(nstates2):
-                p = col2[k] + emit[k] + trans[j][k]
-                tot = logadd(tot, p)
-            col1.append(tot)
-        probs[i] = col1
-        i -= 1
-        if i <= -1:
-            break
-
-        # do rest of block quickly
-        space = model.get_state_space(i)
-        block = model.get_local_block(space)
-        blocklen = i+1 - block[0]
-        if i < block[1]-1 and blocklen > 4:
-            nstates = model.get_num_states(i)
-
-            #util.tic("emit")
-            # setup tree and states
-            tree = model.arg.get_marginal_tree(i-.5)
-            tree2 = tree.get_tree()
-            ptree, nodes, nodelookup = make_ptree(tree2)
-            int_states = [[nodelookup[tree2[node]], timei]
-                          for node, timei in model.states[i]]
-            ages = [tree[node.name].age for node in nodes]
-            seqs = [model.seqs[node.name][block[0]:i+2]
-                    for node in nodes if node.is_leaf()]
-            seqs.append(model.seqs[model.new_name][block[0]:i+2])
-            seqlen = blocklen + 1
-            
-            emit = new_emissions(
-                ((c_int * 2) * nstates)
-                (* ((c_int * 2)(n, t) for n, t in int_states)), nstates, 
-                ptree, len(ptree), ages,
-                (c_char_p * len(seqs))(*seqs), len(seqs), seqlen,
-                model.times, len(model.times), model.mu)
-
-            #util.toc()
-            
-            trans = c_matrix(c_double,
-                             [[model.prob_transition(i, j, i+1, k)
-                               for k in xrange(nstates)]
-                              for j in xrange(nstates)])
-            bw = [[0.0 for k in xrange(nstates)]
-                  for pos in xrange(block[0], i+1)]
-            bw.append(probs[i+1])
-            
-            backward_alg(blocklen+1, nstates, trans, emit, bw)
-            for j in xrange(blocklen):
-                probs[block[0]+j] = bw[j][:nstates]
-            i = block[0] - 1
-
-    return probs
-
-
-def backward_algorithm2(model, n, verbose=False):
-
-    probs = []
-
-    if verbose:
-        util.tic("forward")
-
-    # get prior matrix
-    local_tree = model.arg.get_marginal_tree(-.5)
-    nlineages = get_nlineages_recomb_coal(local_tree, model.times)
-    priors = calc_state_priors(
-        local_tree, model.states[0], nlineages,
-        model.times, model.time_steps, model.popsizes, model.rho)
-    probs.append(priors)
-
-    # iterate over blocks
-    for block, nstates, transmat, transmat_switch, emit in iter_trans_emit_matrices(model, n):
-        if verbose:
-            util.logger(" pos %d" % block[0])
-
-        blocklen = block[1] - block[0]
-
-        # use switch matrix for first col
-        if block[0] > 0:
-            nstates1 = len(transmat_switch)
-            nstates2 = len(transmat_switch[0])
-            
-            col1 = probs[-1]
-            col2 = []
-            for k in xrange(nstates2):
-                e = emit[0][k]
-                col2.append(stats.logsum([col1[j] + transmat_switch[j][k] + e
-                                          for j in xrange(nstates1)]))
-            probs.append(col2)
-
-        # use transmat for rest of block
-        # make forward table for block
-        fw = [probs[-1]]
-        for pos in xrange(block[0]+1, block[1]):
-            fw.append([0.0 for k in xrange(nstates)])
-        
-        forward_alg(blocklen, nstates, transmat, emit, fw)
-
-        delete_emissions(emit, blocklen)
-        delete_transition_probs(transmat, nstates)
-        
-        for col in fw[1:]:
-            probs.append(col[:nstates])
-
-
-    if verbose:
-        util.toc()
-            
-    return probs
-
-
-
-
-def get_posterior_probs(model, n, verbose=False,
-                        probs_forward=None, probs_backward=None):
-
-    if probs_forward is None:
-        probs_forward = forward_algorithm(model, n, verbose=verbose)
-    if probs_backward is None:
-        probs_backward = backward_algorithm(model, n, verbose=verbose)
-
-    total_prob = -util.INF
-    for j in xrange(model.get_num_states(0)):
-        total_prob = logadd(total_prob,
-                            model.prob_prior(0, j) +
-                            model.prob_emission(0, j) +
-                            probs_backward[0][j])
-
-    probs_post = [
-        [probs_forward[i][j] + probs_backward[i][j] - total_prob
-         for j in xrange(model.get_num_states(i))]
-        for i in xrange(n)]
-
-    return probs_post
 
 
 #=============================================================================
