@@ -215,7 +215,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_recomb(self):
 
-        k = 2
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -332,7 +332,7 @@ class Sample (unittest.TestCase):
                 ry.append(len(recombs))
 
                 if ry[-1] - rx[-1] > 40:
-                    print path[0:length:length//20]
+                    print thread[0:length:length//20]
             util.toc()
 
         p = plot(dither(rx, .2), dither(ry, .2),

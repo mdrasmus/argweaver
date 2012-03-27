@@ -39,10 +39,8 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
     //double time_steps[ntimes];
     //for (int i=1; i<=ntimes; i++)
     //    time_steps[i-1] = times[i] - times[i-1];
-    const double mintime = time_steps[0];
     const int root = nnodes - 1;
     const double root_age = times[ages_index[root]];
-    const double topbranch = time_steps[ages_index[root]];
     
 
     // C_j = C_{j-1} + s'_{j-1} k_{j-1} / (2N)
@@ -60,14 +58,15 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
     double S[ntimes * ntimes];
     
     C[0] = 0.0;
-    B[0] = nbranches[0] * time_steps[0] / nrecombs[0];
+    B[0] = nbranches[0] * time_steps[0] / (nrecombs[0] + 1.0);
     D[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
                           / (2.0 * popsizes[0]))) / ncoals[0];
 
     for (int b=1; b<ntimes; b++) {
         const int l = b - 1;
         C[b] = C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
-        B[b] = B[b-1] + nbranches[b] * time_steps[b] / nrecombs[b] * exp(C[b]);
+        B[b] = B[b-1] + nbranches[b] * time_steps[b] / 
+            (nrecombs[b] + 1.0) * exp(C[b]);
         D[b] = (1.0 - exp(-time_steps[b] * nbranches[b]
                           / (2.0 * popsizes[b]))) / ncoals[b];
     }
@@ -94,14 +93,15 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
         assert(a < ntimes);
 
         double treelen2 = treelen + times[a];
-        if (node1 == nnodes-1)
+        if (node1 == root) {
             treelen2 += times[a] - root_age;
-        if (treelen2 <= treelen)
-            // because of discritization we need to enfore
-            // nonzero branch change
-            treelen2 += treelen + mintime;
+            treelen2 += time_steps[a]; // add basal branch
+        } else {
+            treelen2 += time_steps[ages_index[root]]; // add basal branch
+        }
+        
         double const F = (1.0 - exp(-rho * treelen2)) /
-            (exp(-rho * treelen) * (treelen2 + topbranch));
+            (exp(-rho * treelen) * treelen2);
         
         for (int j=0; j<nstates; j++) {
             const int node2 = states[j][0];

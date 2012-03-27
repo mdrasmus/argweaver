@@ -242,6 +242,29 @@ def get_treelen(tree, times):
     return treelen + root_time
 
 
+def get_treelen_branch(tree, times, node, time, treelen=None):
+
+    if treelen is None:
+        treelen = sum(x.get_dist() for x in tree)
+    else:
+        rooti = times.index(tree.root.age)
+        root_time = times[rooti+1] - times[rooti]
+        treelen -= root_time
+
+    blen = time
+    treelen2 = treelen + blen
+    if node == tree.root.name:
+        treelen2 += blen - tree.root.age
+        rooti = times.index(time)
+        root_time = times[rooti+1] - times[rooti]
+    else:
+        rooti = times.index(tree.root.age)
+        root_time = times[rooti+1] - times[rooti]
+    
+    return treelen2 + root_time
+
+
+
 #=============================================================================
 # helper functions
 
@@ -353,7 +376,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
             #    model.times, model.time_steps, model.popsizes, model.rho)
             if transmat is not None:
                 delete_transition_probs(transmat, nstates)
-            transmat = calc_transition_probs2_c(
+            transmat = calc_transition_probs_c(
                 tree, model.states[pos], nlineages,
                 model.times, model.time_steps, model.popsizes, model.rho)
             nstates = len(model.states[pos])
@@ -374,22 +397,27 @@ def sample_recombinations_thread(model, thread, use_times=True):
         last_tree = tree
         last_treelen = treelen
 
-        blen = last_time
-        last_treelen2 = last_treelen + blen
-        if node == last_tree.root.name:
-            last_treelen2 += blen - last_tree.root.age
-        if last_treelen2 <= last_treelen:
-            # because of discritization we need to enfore nonzero branch change
-            last_treelen2 += last_treelen + minlen
+        
+        #blen = last_time
+        #last_treelen2 = last_treelen + blen
+        #if node == last_tree.root.name:
+        #    last_treelen2 += blen - last_tree.root.age        
+        #if last_treelen2 <= last_treelen:
+        #    # because of discritization we need to enfore nonzero branch change
+        #    last_treelen2 += last_treelen + minlen        
 
         if state == last_state:
             if pos > next_recomb:
+                last_treelen2 = get_treelen_branch(
+                    last_tree, model.times, last_node, last_time)
+                
                 # sample the next recomb pos
                 #assert selftrans>=-model.rho*(last_treelen2-last_treelen)
 
                 rate = 1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
                                  - selftrans)
                 # HACK: enfore positive rate
+                #print rate
                 rate = max(rate, model.rho)
                 assert rate > 0.0, rate
                 next_recomb = pos + int(random.expovariate(rate))
@@ -405,6 +433,8 @@ def sample_recombinations_thread(model, thread, use_times=True):
             #    # sample no recombination
             #    continue
 
+        last_treelen2 = get_treelen_branch(
+            last_tree, model.times, last_node, last_time)
 
         next_recomb = -1
         statei = model.states[pos].index((node, timei))
@@ -456,7 +486,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
         for recomb in recombs:
             k = recomb[1]
             probs.append((nbranches[k] + 1) * model.time_steps[k] /
-                         (ncoals[j] * (nrecombs[k] + 1) * last_treelen2) *
+                         (ncoals[j] * (nrecombs[k] + 1.0) * last_treelen2) *
                          (1.0 - exp(-model.time_steps[j] * nbranches[j] /
                                     (2.0 * model.popsizes[j-1]))) *
                          (1.0 - exp(-model.rho * last_treelen2)) *
@@ -1374,9 +1404,9 @@ def calc_transition_probs(tree, states, nlineages, times,
 
     B = util.make_matrix(ntimes, ntimes, 0.0)
     for b in xrange(ntimes):
-        B[0][b] = nbranches[0] * time_steps[0] / nrecombs[0] * exp(-A[0][b])
+        B[0][b] = nbranches[0] * time_steps[0] / (nrecombs[0] + 1.0) * exp(-A[0][b])
         for c in xrange(1, min(b+1, ntimes-1)):
-            B[c][b] = (B[c-1][b] + nbranches[c] * time_steps[c] / nrecombs[c]
+            B[c][b] = (B[c-1][b] + nbranches[c] * time_steps[c] / (nrecombs[c] + 1.0)
                        * exp(-A[c][b]))
 
     # S_{a,b} &= B_{min(a,b),b}
@@ -1399,18 +1429,16 @@ def calc_transition_probs(tree, states, nlineages, times,
         treelen2 = treelen + blen
         if node1 == tree.root.name:
             treelen2 += blen - tree.root.age
-        if treelen2 <= treelen:
-            # because of discritization we need to enfore
-            # nonzero branch change
-            treelen2 += treelen + minlen
-        top = time_steps[time_lookup[tree.root.age]]
+            treelen2 += time_steps[a]
+        else:
+            treelen2 += time_steps[time_lookup[tree.root.age]]        
         
         for j, (node2, b) in enumerate(states):
             
             f = ((1.0 - exp(-rho * treelen2)) *
                  (1.0 - exp(-time_steps[b] * nbranches[b]
                             / (2.0 * popsizes[b]))) /
-                 (exp(-rho * treelen) * (treelen2 + top) * ncoals[b]))
+                 (exp(-rho * treelen) * treelen2 * ncoals[b]))
             if node1 != node2:
                 transprob[i][j] = f * S[a][b]
             elif a != b:
@@ -1522,8 +1550,8 @@ def calc_transition_probs_c(tree, states, nlineages, times,
     nstates = len(int_states)
     ages_index = [times_lookup[tree[node.name].age]
                   for node in nodes]
-    #treelen = sum(x.dist for x in tree2)
-    treelen = get_treelen(tree, times)
+    treelen = sum(x.dist for x in tree2)
+    #treelen = get_treelen(tree, times)
     transmat = new_transition_probs(
         len(nodes), ages_index, treelen, 
         ((c_int * 2) * nstates)
