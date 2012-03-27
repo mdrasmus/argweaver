@@ -34,7 +34,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_thread(self):
 
-        k = 2
+        k = 10
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -95,7 +95,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_thread2(self):
 
-        k = 10
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -123,14 +123,18 @@ class Sample (unittest.TestCase):
             model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1),
                                   times=times, rho=rho, mu=mu)
 
-            fw = probs_forward = arghmm.forward_algorithm(model, length,
-                                                          verbose=True)
+            matrices = list(arghmm.iter_trans_emit_matrices(model, length))
+            fw = probs_forward = arghmm.forward_algorithm(
+                model, length, matrices=matrices, verbose=True)
             for i in xrange(20):
                 path = arghmm.sample_posterior(model, length, verbose=True,
+                                               matrices=matrices,
                                                probs_forward=fw)
                 thread2 = list(arghmm.iter_thread_from_path(model, path))
                 x.extend(cget(thread, 1)[::100])
                 y.extend(cget(thread2, 1)[::100])
+
+            arghmm.delete_trans_emit_matrices(matrices)
 
         x = map(safelog, x)
         y = map(safelog, y)
@@ -211,7 +215,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_recomb(self):
 
-        k = 4
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -267,6 +271,9 @@ class Sample (unittest.TestCase):
         p = plot(dither(rx, .2), dither(ry, .2),
                  xlab="actual new recombs", ylab="sampled new recombs")
         p.plot([0, max(rx)], [0, max(rx)], style="lines")
+
+        data = zip(rx, ry)
+        write_delim("tmp/recomb", data)
         
         pause()
 
@@ -276,7 +283,7 @@ class Sample (unittest.TestCase):
         Test the sampling of thread and recombinations
         """
 
-        k = 2
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -402,9 +409,8 @@ class Sample (unittest.TestCase):
             p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
 
 
-        #arg3 = arglib.read_arg("test/data/add_thread.arg")
-        arg = arghmm.add_arg_thread(arg, new_name, thread, recombs)
-        arglib.assert_arg(arg)
+        arg3 = arglib.read_arg("test/data/add_thread.arg")
+        arg = arghmm.add_arg_thread2(arg, new_name, thread, recombs, arg3=arg3)
 
         
         # check thread
@@ -425,11 +431,11 @@ class Sample (unittest.TestCase):
         Test adding a sampled thread to an ARG
         """
 
-        k = 4
+        k = 16
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 40000
+        length = 20000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         arghmm.discretize_arg_recomb(arg)
         arg.set_ancestral()
@@ -519,7 +525,7 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch
         """
 
-        k = 8
+        k = 16
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -648,6 +654,66 @@ class Sample (unittest.TestCase):
         pause()
 
 
+    def test_sample_arg3(self):
+        """
+        Fully sample an ARG from stratch
+        """
+
+        k = 5
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 2000
+        times = arghmm.get_time_points(ntimes=20)
+
+        def sample_arg(seqs):
+            def add_chrom(arg, new_name):
+                util.tic("adding %s..." % new_name)
+
+                model = arghmm.ArgHmm(arg, seqs, new_name=new_name,
+                                      times=times, rho=rho, mu=mu)
+                util.logger("states", len(model.states[0]))
+
+                util.tic("sample thread")
+                path = arghmm.sample_posterior(model, length)
+                util.toc()
+
+                util.tic("sample recombs")
+                thread = list(arghmm.iter_thread_from_path(model, path))
+                recombs = list(arghmm.sample_recombinations_thread(
+                    model, thread))
+                util.toc()
+
+                util.tic("add thread")
+                arg = arghmm.add_arg_thread(arg, new_name, thread, recombs)
+                util.toc()
+
+                util.toc()
+                return arg, thread
+
+            names = seqs.keys()
+            arg = arghmm.make_trunk_arg(0, length, name=names[0])
+            for j in xrange(1, len(names)):
+                arg, thread2 = add_chrom(arg, names[j])
+
+            return arg
+
+
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        arghmm.discretize_arg_recomb(arg)
+        arg = arglib.smcify_arg(arg)
+        arg.set_ancestral()
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        seqs.names.sort()
+
+        util.tic()
+        arg2 = sample_arg(seqs)
+        util.toc()
+        
+
+
     def test_sample_arg_recomb(self):
         """
         Fully sample an ARG from stratch
@@ -664,9 +730,11 @@ class Sample (unittest.TestCase):
             def add_chrom(arg, new_name):
                 util.tic("adding %s..." % new_name)
 
+                util.tic("create model")
                 model = arghmm.ArgHmm(arg, seqs, new_name=new_name,
                                       times=times, rho=rho, mu=mu)
                 util.logger("states", len(model.states[0]))
+                util.toc()
 
                 util.tic("sample thread")
                 path = arghmm.sample_posterior(model, length)
@@ -709,12 +777,7 @@ class Sample (unittest.TestCase):
 
             for j in range(3):
                 util.tic("sample ARG %d, %d" % (i, j))
-                try:
-                    arg2 = sample_arg(seqs)
-                except Exception, e:
-                    print e
-                    util.toc()
-                    continue
+                arg2 = sample_arg(seqs)
                 util.toc()
                 
                 nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
@@ -723,6 +786,7 @@ class Sample (unittest.TestCase):
         util.toc()
 
         print rx, ry
+
 
         p = plot(rx, ry,
                  xlab="true # recombinations",

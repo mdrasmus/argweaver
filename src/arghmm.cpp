@@ -64,27 +64,15 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
     D[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
                           / (2.0 * popsizes[0]))) / ncoals[0];
 
-    for (int a=0; a<ntimes; a++)
-        S[matind(ntimes, a, 0) = B[a];
-
     for (int b=1; b<ntimes; b++) {
         const int l = b - 1;
-        const double ec = exp(-C[b]);
         C[b] = C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
-        //B[b] = B[b-1] + nbranches[b] * time_steps[b] / nrecombs[b] * exp(C[b]);
-        B[b] = B[b-1] + nbranches[b] * time_steps[b] / nrecombs[b] / ec;
+        B[b] = B[b-1] + nbranches[b] * time_steps[b] / nrecombs[b] * exp(C[b]);
         D[b] = (1.0 - exp(-time_steps[b] * nbranches[b]
                           / (2.0 * popsizes[b]))) / ncoals[b];
-
-        int a;
-        for (a=0; a<b; a++)
-            S[matind(ntimes, a, b)] = ec * B[a];
-        const double sab = ec * B[b];
-        for (; a<ntimes; a++)
-            S[matind(ntimes, a, b)] = sab;        
     }
 
-    /*
+
     for (int b=0; b<ntimes; b++) {
         int a;
         const double ec = exp(-C[b]);
@@ -94,7 +82,6 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
         for (; a<ntimes; a++)
             S[matind(ntimes, a, b)] = sab;
     }
-    */
     
     // f =\frac{[1 - \exp(- \rho (|T^{n-1}_{i-1}| + s_a))] 
     //       [1 - \exp(- s'_b k_b / (2N))]}
@@ -285,7 +272,10 @@ void calc_transition_probs2(int nnodes, int *ages_index, double treelen,
 
     // S_{a,b} &= B_{min(a-1,b-1),b}
     double **S = new_matrix<double>(ntimes, ntimes);
-    for (int a=1; a<ntimes; a++) {
+    for (int b=0; b<ntimes; b++)
+        S[0][b] = 0.0;
+    for (int a=1; a<ntimes; a++) {        
+        S[a][0] = 0.0;
         for (int b=1; b<ntimes; b++)
             S[a][b] = B[min(a-1, b-1)][b];
     }
@@ -320,6 +310,8 @@ void calc_transition_probs2(int nnodes, int *ages_index, double treelen,
             if (b > 0)
                 f *= (1.0 - exp(-time_steps[b-1] * nbranches[b-1]
                                 / (2.0 * popsizes[b-1])));
+            else
+                f = 0.0;
 
             if (node1 != node2)
                 transprob[i][j] = f * S[a][b];
@@ -353,6 +345,22 @@ double **new_transition_probs(int nnodes, int *ages_index, double treelen,
 {
     double **transprob = new_matrix<double>(nstates, nstates);
     calc_transition_probs(nnodes, ages_index, treelen, 
+                          states, nstates,
+                          ntimes, times, time_steps,
+                          nbranches, nrecombs, ncoals, 
+                          popsizes, rho, transprob);
+    return transprob;
+}
+
+
+double **new_transition_probs2(int nnodes, int *ages_index, double treelen,
+                              State *states, int nstates,
+                              int ntimes, double *times, double *time_steps,
+                              int *nbranches, int *nrecombs, int *ncoals, 
+                              double *popsizes, double rho)
+{
+    double **transprob = new_matrix<double>(nstates, nstates);
+    calc_transition_probs2(nnodes, ages_index, treelen, 
                           states, nstates,
                           ntimes, times, time_steps,
                           nbranches, nrecombs, ncoals, 

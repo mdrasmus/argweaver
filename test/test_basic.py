@@ -1072,6 +1072,98 @@ class Basic (unittest.TestCase):
         pause()
 
 
+
+    def test_determ(self):
+
+        k = 8
+        n = 1e4
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = 100000
+        
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+        times = arghmm.get_time_points(maxtime=50000, ntimes=20)
+        arghmm.discretize_arg(arg, times)
+
+        new_name = "n%d" % (k - 1)
+        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
+                                               by_block=False))
+        thread_clades = list(arghmm.iter_chrom_thread(
+            arg, arg[new_name], by_block=True, use_clades=True))
+
+        # remove chrom
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+        arg = arglib.smcify_arg(arg)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
+                              rho=rho, mu=mu)
+
+
+        for i, rpos in enumerate(model.recomb_pos[1:-1]):
+            pos = rpos + 1
+
+            model.check_local_tree(pos, force=True)
+
+            #recomb = arghmm.find_tree_next_recomb(arg, pos - 1)
+            tree = arg.get_marginal_tree(pos-.5)
+            last_tree = arg.get_marginal_tree(pos-1-.5)
+            states1 = model.states[pos-1]
+            states2 = model.states[pos]
+            (recomb_branch, recomb_time), (coal_branch, coal_time) = \
+                arghmm.find_recomb_coal(tree, last_tree, pos=rpos)
+            recomb_time = times.index(recomb_time)
+            coal_time = times.index(coal_time)
+
+            determ = arghmm.get_deterministic_transitions(
+                states1, states2, times,
+                tree, last_tree,
+                recomb_branch, recomb_time,
+                coal_branch, coal_time)
+
+
+            leaves1, time1, block1 = thread_clades[i]
+            leaves2, time2, block2 = thread_clades[i+1]
+            if new_name in leaves1:
+                leaves1.remove(new_name)
+            if new_name in leaves2:
+                leaves2.remove(new_name)
+            node1 = arghmm.arg_lca(arg, leaves1, None, pos-1).name
+            node2 = arghmm.arg_lca(arg, leaves2, None, pos).name
+
+            state1 = (node1, times.index(time1))
+            state2 = (node2, times.index(time2))
+            print pos, state1, state2
+            try:
+                statei1 = states1.index(state1)
+                statei2 = states2.index(state2)
+            except:
+                print "states1", states1
+                print "states2", states2
+                raise
+
+            statei3 = determ[statei1]
+            print "  ", statei1, statei2, statei3, states2[statei3]
+            if statei2 != statei3 and statei3 != -1:
+                tree = tree.get_tree()
+                treelib.remove_single_children(tree)
+                last_tree = last_tree.get_tree()
+                treelib.remove_single_children(last_tree)
+
+                print "block1", block1
+                print "block2", block2
+                print "r=", (recomb_branch, recomb_time)
+                print "c=", (coal_branch, coal_time)
+
+                print "tree"
+                treelib.draw_tree_names(tree, minlen=8, maxlen=8)
+            
+                print "last_tree"
+                treelib.draw_tree_names(last_tree, minlen=8, maxlen=8)
+                assert False
+
     #=========================================================================
     
     def test_forward_c(self):
