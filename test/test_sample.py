@@ -381,7 +381,7 @@ class Sample (unittest.TestCase):
         arg = arglib.smcify_arg(arg)
 
         # setup model
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
                               rho=rho, mu=mu)
         print "states", len(model.states[0])
         print "muts", len(muts)
@@ -431,11 +431,11 @@ class Sample (unittest.TestCase):
         Test adding a sampled thread to an ARG
         """
 
-        k = 16
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 20000
+        length = 10000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         arghmm.discretize_arg_recomb(arg)
         arg.set_ancestral()

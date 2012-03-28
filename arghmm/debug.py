@@ -1,6 +1,166 @@
 
 
 
+def get_deterministic_transitions_debug(states1, states2, times,
+                                  tree, last_tree,
+                                  recomb_branch, recomb_time,
+                                  coal_branch, coal_time):
+
+    # recomb_branch in tree and last_tree
+    # coal_branch in last_tree
+
+    def walk_up(node, start, time, ignore=None):
+        if (coal_branch == node or coal_branch == start) and coal_time < time:
+            # coal occurs under us
+            # TODO: make this probabilistic
+            ptr = tree2[start].parents[0]
+            while len(ptr.children) != 2 or ptr.name == ignore:
+                ptr = ptr.parents[0]
+            return ptr.name
+        else:
+            return start
+
+    
+    state2_lookup = util.list2lookup(states2)
+    last_tree2 = last_tree.copy()
+    arglib.remove_single_lineages(last_tree2)
+    tree2 = tree.copy()
+    arglib.remove_single_lineages(tree2)
+    
+    
+    next_states = []
+    for i, state1 in enumerate(states1):
+        node1, a = state1
+        time = times[a]
+        
+        if (node1, a) == (coal_branch, coal_time):
+            # not a deterministic case
+            next_states.append(-1)
+        
+        elif node1 != recomb_branch:
+            # SPR only removes a subset of descendents, if any
+            # trace up from remaining leaf to find correct new state
+
+            node = last_tree2.nodes.get(node1, None)
+            if node is None:
+                print node1
+                treelib.draw_tree_names(last_tree.get_tree(),
+                                        minlen=8, maxlen=8)
+                raise Exception("unknown node name '%s'" % node1)
+
+            
+            if node.is_leaf():
+                # SPR can't disrupt leaf branch
+                node2 = walk_up(node1, node1, a)
+                next_states.append(state2_lookup[(node2, a)])
+
+            else:
+                child1 = node.children[0]
+                while len(child1.children) == 1:
+                    child1 = child1.children[0]
+
+                child2 = node.children[1]
+                while len(child2.children) == 1:
+                    child2 = child2.children[0]
+                
+                if recomb_branch == child1.name:
+                    # right child is not disrupted
+                    node2 = walk_up(node1, child2.name, a, node1)
+                    next_states.append(state2_lookup[(node2, a)])
+
+                elif recomb_branch == child2.name:
+                    # left child is not disrupted
+                    node2 = walk_up(node1, child1.name, a, node1)
+                    next_states.append(state2_lookup[(node2, a)])
+
+                else:
+                    # node is not disrupted
+                    node2 = walk_up(node1, node1, a)
+                    next_states.append(state2_lookup[(node2, a)])
+                  
+                
+        else:
+            # SPR is on same branch as new chromosome
+            if recomb_time >= a:
+                # we move with SPR subtree
+                # TODO: we could probabilistically have subtree move
+                # out from underneath.
+                next_states.append(state2_lookup[(recomb_branch, a)])
+
+            else:
+                # SPR should not be able to coal back onto same branch
+                # this would be a self cycle
+                if coal_branch == node1:
+                    print (recomb_branch, recomb_time), \
+                          (coal_branch, coal_time)
+                    treelib.draw_tree_names(last_tree.get_tree(),
+                                            minlen=8, maxlen=8)
+                    treelib.draw_tree_names(tree.get_tree(),
+                                            minlen=8, maxlen=8)
+
+                    print "path1"
+                    ptr = last_tree[recomb_branch]
+                    ptr = ptr.parents[0]
+                    while len(ptr.children) == 1:
+                        print ptr.name, ptr.event
+                        ptr = ptr.parents[0]
+
+                    print "path2"
+                    ptr = tree[recomb_branch]
+                    ptr = ptr.parents[0]
+                    while len(ptr.children) == 1:
+                        print ptr.name, ptr.event
+                        ptr = ptr.parents[0]
+                    
+                    assert False
+
+                
+                # SPR subtree moves out from underneath us
+                # therefore therefore the new chromosome coalesces with
+                # the branch above the subtree
+
+                # search up for parent
+                recomb = last_tree2[recomb_branch]
+                parent = recomb.parents[0]
+                b = times.index(parent.age)
+
+                # find other child
+                c = parent.children
+                other = c[0] if c[1] == recomb else c[1]
+
+                # find new state in tree
+                if other.name == coal_branch:
+                    next_state = (tree2[other.name].parents[0].name, b)
+                else:
+                    next_state = (other.name, b)
+                
+                next_states.append(state2_lookup[next_state])
+
+                # search up for parent
+                ptr = last_tree[recomb_branch]
+                ptr = ptr.parents[0]
+                while len(ptr.children) == 1:
+                    ptr = ptr.parents[0]
+                b = times.index(ptr.age)
+
+                if ptr.name not in tree:
+                    # we are above root
+                    assert ptr.age >= tree.root.age
+                    ptr = tree.root
+                else:
+                    ptr = tree[ptr.name]
+                    
+                # walk down for next coal node
+                while len(ptr.children) == 1:
+                    ptr = ptr.children[0]
+
+                next_state2 = (ptr.name, b)
+                assert next_state2 == next_state
+
+    return next_states
+
+
+
 def get_nlineages_recomb_coal2(tree, times):
     """
     Count the number of lineages at each time point that can coal and recomb

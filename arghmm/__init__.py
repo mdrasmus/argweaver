@@ -371,9 +371,6 @@ def sample_recombinations_thread(model, thread, use_times=True):
             nlineages = get_nlineages_recomb_coal(tree, model.times)
             nbranches, nrecombs, ncoals = nlineages
 
-            #transmat = calc_transition_probs2(
-            #    tree, model.states[pos], nlineages,
-            #    model.times, model.time_steps, model.popsizes, model.rho)
             if transmat is not None:
                 delete_transition_probs(transmat, nstates)
             transmat = calc_transition_probs_c(
@@ -396,16 +393,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
         last_timei = time_lookup[last_time]
         last_tree = tree
         last_treelen = treelen
-
         
-        #blen = last_time
-        #last_treelen2 = last_treelen + blen
-        #if node == last_tree.root.name:
-        #    last_treelen2 += blen - last_tree.root.age        
-        #if last_treelen2 <= last_treelen:
-        #    # because of discritization we need to enfore nonzero branch change
-        #    last_treelen2 += last_treelen + minlen        
-
         if state == last_state:
             if pos > next_recomb:
                 last_treelen2 = get_treelen_branch(
@@ -425,18 +413,10 @@ def sample_recombinations_thread(model, thread, use_times=True):
             if pos < next_recomb:
                 continue
 
-            # NOTE: if pos == next_recomb then it is time to recombine
-
-            # state is the same, there is a chance of no recomb
-            #p = exp(-model.rho * (last_treelen2 - last_treelen) - selftrans)
-            #if random.random() < p:
-            #    # sample no recombination
-            #    continue
-
-        last_treelen2 = get_treelen_branch(
-            last_tree, model.times, last_node, last_time)
 
         next_recomb = -1
+        last_treelen2 = get_treelen_branch(
+            last_tree, model.times, last_node, last_time)
         statei = model.states[pos].index((node, timei))
         selftrans = transmat[statei][statei]
         
@@ -491,7 +471,6 @@ def sample_recombinations_thread(model, thread, use_times=True):
                                     (2.0 * model.popsizes[j-1]))) *
                          (1.0 - exp(-model.rho * last_treelen2)) *
                          exp(-C[k] + C[k]))
-                         #exp(-A[k][j]))
         recomb_node, recomb_time = recombs[stats.sample(probs)]
         
         if use_times:
@@ -1642,7 +1621,6 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
                                  nlineages, times,
                                  time_steps, popsizes, rho):
 
-    #treelen = sum(x.get_dist() for x in last_tree)
     treelen = get_treelen(last_tree, times)
     nbranches, nrecombs, ncoals = nlineages
     
@@ -1653,9 +1631,14 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
     
     # compute transition probability matrix
     transprob = util.make_matrix(len(states1), len(states2), -util.INF)
+    
+    last_tree2 = last_tree.copy()
+    arglib.remove_single_lineages(last_tree2)
+    tree2 = tree.copy()
+    arglib.remove_single_lineages(tree2)
 
     determ = get_deterministic_transitions(states1, states2, times,
-                                           tree, last_tree,
+                                           tree2, last_tree2,
                                            recomb_branch, k,
                                            coal_branch, coal_time)
 
@@ -1747,36 +1730,22 @@ def get_deterministic_transitions(states1, states2, times,
                                   recomb_branch, recomb_time,
                                   coal_branch, coal_time):
 
-    # recomb_branch in tree
+    # recomb_branch in tree and last_tree
     # coal_branch in last_tree
 
     def walk_up(node, start, time, ignore=None):
         if (coal_branch == node or coal_branch == start) and coal_time < time:
             # coal occurs under us
             # TODO: make this probabilistic
-            ptr = tree2[start].parents[0]
+            ptr = tree[start].parents[0]
             while len(ptr.children) != 2 or ptr.name == ignore:
                 ptr = ptr.parents[0]
             return ptr.name
         else:
             return start
 
-    def find_state(node, time):
-        while len(node.children) == 1:
-            node = node.children[0]
-        return state2_lookup[(node.name, time)]
-
     
     state2_lookup = util.list2lookup(states2)
-
-
-    #util.tic("single")
-    last_tree2 = last_tree.copy()
-    arglib.remove_single_lineages(last_tree2)
-    
-    tree2 = tree.copy()
-    arglib.remove_single_lineages(tree2)
-    #util.toc()
     
     next_states = []
     for i, state1 in enumerate(states1):
@@ -1791,21 +1760,14 @@ def get_deterministic_transitions(states1, states2, times,
             # SPR only removes a subset of descendents, if any
             # trace up from remaining leaf to find correct new state
 
-            node = last_tree2.nodes.get(node1, None)
+            node = last_tree.nodes.get(node1, None)
             if node is None:
                 print node1
                 treelib.draw_tree_names(last_tree.get_tree(),
                                         minlen=8, maxlen=8)
                 raise Exception("unknown node name '%s'" % node1)
 
-
-            #print "node1 =", (node1, a)
-            #print "recomb =", recomb_branch, recomb_time
-            #treelib.draw_tree_names(last_tree.get_tree(),
-            #                        minlen=8, maxlen=8)
-            #treelib.draw_tree_names(tree.get_tree(),
-            #                        minlen=8, maxlen=8)
-
+            
             if node.is_leaf():
                 # SPR can't disrupt leaf branch
                 node2 = walk_up(node1, node1, a)
@@ -1877,19 +1839,21 @@ def get_deterministic_transitions(states1, states2, times,
                 # the branch above the subtree
 
                 # search up for parent
-                ptr = last_tree[recomb_branch]
-                ptr = ptr.parents[0]
-                while len(ptr.children) == 1:
-                    ptr = ptr.parents[0]
-                b = times.index(ptr.age)
+                recomb = last_tree[recomb_branch]
+                parent = recomb.parents[0]
+                b = times.index(parent.age)
 
-                if ptr.name not in tree:
-                    # we are above root
-                    assert ptr.age >= tree.root.age                    
-                    next_states.append(find_state(tree.root, b))
+                # find other child
+                c = parent.children
+                other = c[0] if c[1] == recomb else c[1]
+
+                # find new state in tree
+                if other.name == coal_branch:
+                    next_state = (tree[other.name].parents[0].name, b)
                 else:
-                    ptr = tree[ptr.name]
-                    next_states.append(find_state(ptr, b))
+                    next_state = (other.name, b)
+                
+                next_states.append(state2_lookup[next_state])
 
     return next_states
 
