@@ -33,12 +33,6 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
                            double *popsizes, double rho,
                            double **transprob)
 {
-    
-    // TODO: correctly use root node to calc treelen2
-    
-    //double time_steps[ntimes];
-    //for (int i=1; i<=ntimes; i++)
-    //    time_steps[i-1] = times[i] - times[i-1];
     const int root = nnodes - 1;
     const double root_age = times[ages_index[root]];
     
@@ -49,9 +43,6 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
     //         =& B_{c-1,a} + \exp(- A_{c,a}).
 
     // S_{a,b} &= exp(C_b) * B_{min(a,b),b}
-    //double **S = new_matrix<double>(ntimes, ntimes);
-
-
     double C[ntimes];
     double B[ntimes];
     double D[ntimes];
@@ -85,7 +76,6 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
     // f =\frac{[1 - \exp(- \rho (|T^{n-1}_{i-1}| + s_a))] 
     //       [1 - \exp(- s'_b k_b / (2N))]}
     //      {\exp(-\rho |T^{n-1}_{i-1}|) (|T^{n-1}_{i-1}| + s_a) k^C_b}
-    // |T^{n-1}_{i-1}| = treelen
     for (int i=0; i<nstates; i++) {
         const int node1 = states[i][0];
         const int a = states[i][1];

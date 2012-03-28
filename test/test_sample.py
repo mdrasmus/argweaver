@@ -378,7 +378,7 @@ class Sample (unittest.TestCase):
         # remove chrom
         keep = ["n%d" % i for i in range(k-1)]
         arglib.subarg_by_leaf_names(arg, keep)
-        arg = arglib.smcify_arg(arg)        
+        arg = arglib.smcify_arg(arg)
 
         # setup model
         model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,

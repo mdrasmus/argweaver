@@ -792,6 +792,9 @@ def add_arg_thread2(arg, new_name, thread, recombs, arg3=None):
             cleaves, ctime = get_clade_point(
                 arg, child.name, node.age, rpos-.5)
 
+            # ensure this is not a cycle
+            assert set(rleaves) != set(cleaves), rleaves
+
             # get local tree T^{n-1}_i and add new branch
             tree = arg.get_marginal_tree(rpos+.5)
             arglib.remove_single_lineages(tree)            
@@ -1064,10 +1067,6 @@ def add_arg_thread(arg, new_name, thread, recombs, arg3=None):
 
     # add each recomb and re-coal
     for rpos, rname, rleaves, rtime in recomb_clades:
-        for node in arg2:
-            if node.event == "recomb":
-                assert len(node.parents) == 2, node
-        
         if rpos in arg_recomb:
             # find re-coal for existing recomb
 
@@ -1762,7 +1761,6 @@ def get_deterministic_transitions(states1, states2, times,
         else:
             return start
 
-    
     def find_state(node, time):
         while len(node.children) == 1:
             node = node.children[0]
@@ -1887,7 +1885,7 @@ def get_deterministic_transitions(states1, states2, times,
 
                 if ptr.name not in tree:
                     # we are above root
-                    assert ptr.age >= tree.root.age
+                    assert ptr.age >= tree.root.age                    
                     next_states.append(find_state(tree.root, b))
                 else:
                     ptr = tree[ptr.name]
@@ -2363,7 +2361,7 @@ def iter_trans_emit_matrices(model, n):
 def delete_trans_emit_matrices(matrices):
     """Delete matrices"""
     for block, nstates, transmat, transmat_switch, emit in matrices:
-        delete_emissions(emit, blocklen)
+        delete_emissions(emit, block[1] - block[0])
         delete_transition_probs(transmat, nstates)
         
 
