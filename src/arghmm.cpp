@@ -45,7 +45,6 @@ public:
     int nnodes;
     list<intnode *> trees;
     list<Block> blocks;
-    
 };
 
 
@@ -64,7 +63,6 @@ public:
     double *popsizes;
     double rho;
     double mut;
-
 };
 
 
@@ -72,6 +70,7 @@ class NodeStateLookup
 {
 public:
     NodeStateLookup(State *states, int nstates, int nnodes) :
+        states(states),
         nstates(nstates),
         nnodes(nnodes)
     {
@@ -89,12 +88,12 @@ public:
             nstates_per_node[i] = 0;
             node_mintimes[i] = nstates;
         }
-        
+
         for (int i=0; i<nstates; i++) {
             nstates_per_node[states[i][0]]++;
-            node_mintimes[i] = min(node_mintimes[i], states[i][1]);
+            node_mintimes[states[i][0]] = min(node_mintimes[states[i][0]], 
+                                              states[i][1]);
         }
-        
 
         // setup node_offsets
         int offset = 0;
@@ -116,6 +115,9 @@ public:
     }
 
     inline int lookup(int node, int time) {
+        int i = state_lookup[node_offset[node] + time];
+        assert(node == states[i][0]);
+        assert(time == states[i][1]);
         return state_lookup[node_offset[node] + time];
     }
 
@@ -123,6 +125,8 @@ public:
     int nnodes;
     int *node_offset;
     int *state_lookup;
+
+    State *states;
 };
 
 
@@ -132,16 +136,26 @@ public:
 
 
 
-void calc_transition_probs(int nnodes, int *ages_index, double treelen,
+void calc_transition_probs(int nnodes, 
+                           int *ptree, int *ages_index, double treelen,
                            State *states, int nstates,
                            int ntimes, double *times, double *time_steps,
                            int *nbranches, int *nrecombs, int *ncoals, 
                            double *popsizes, double rho,
                            double **transprob)
 {
-    const int root = nnodes - 1;
-    const double root_age = times[ages_index[root]];
-    
+    // find root node
+    int root = 0;
+    for (int i=0; i<nnodes; i++) {
+        if (ptree[i] == -1) {
+            root = i;
+            break;
+        }
+    }
+    const int root_age_index = ages_index[root];
+    const double root_age = times[root_age_index];
+
+
 
     // C_j = C_{j-1} + s'_{j-1} k_{j-1} / (2N)
 
@@ -193,7 +207,7 @@ void calc_transition_probs(int nnodes, int *ages_index, double treelen,
             treelen2 += times[a] - root_age;
             treelen2 += time_steps[a]; // add basal branch
         } else {
-            treelen2 += time_steps[ages_index[root]]; // add basal branch
+            treelen2 += time_steps[root_age_index]; // add basal branch
         }
         
         double const F = (1.0 - exp(-rho * treelen2)) /
@@ -243,6 +257,10 @@ void get_deterministic_transitions(
     // make state lookup
     NodeStateLookup state2_lookup(states2, nstates2, nnodes);
 
+    // find old node
+    int old_node = last_itree[recomb_name].parent;
+
+
     for (int i=0; i<nstates1; i++) {
         const int node1 = states1[i][0];
         const int time1 = states1[i][1];
@@ -256,7 +274,6 @@ void get_deterministic_transitions(
             // trace up from remaining leaf to find correct new state
 
             int node2;
-            int ignore = -1;
             intnode *node = &last_itree[node1];
 
             if (node->child[0] == -1) {
@@ -270,11 +287,9 @@ void get_deterministic_transitions(
                 if (recomb_name == child1) {
                     // right child is not disrupted
                     node2 = child2;
-                    ignore = node1;
                 } else if (recomb_name == child2) {
                     // left child is not disrupted
                     node2 = child1;
-                    ignore = node1;
                 } else {
                     // node is not disrupted
                     node2 = node1;
@@ -282,45 +297,48 @@ void get_deterministic_transitions(
             }
 
             // optionally walk up
-            if ((coal_name == node1 or coal_name == node2) and
+            if ((coal_name == node1 || 
+                 (coal_name == node2 && coal_name != old_node)) && 
                 coal_time < time1)
             {
                 // coal occurs under us
-                // TODO: make this probabilistic
+                // TODO: make this probabilistic (is this true?)
                 node2 = itree[node2].parent;
-                if (node2 == ignore)
-                    node2 = itree[node2].parent;
             }
             
             // set next state
             next_states[i] = state2_lookup.lookup(node2, time1);
 
         } else {
-            // SPR should not be able to coal back onto same branch
-            // this would be a self cycle
-            assert (coal_name != node1);
+            // SPR is on same branch as new chromosome
+            if (recomb_time >= time1) {
+                // we move with SPR subtree
+                // TODO: we could probabilistically have subtree move
+                // out from underneath.
+                next_states[i] = state2_lookup.lookup(recomb_name, time1);
+
+            } else {
+                // SPR should not be able to coal back onto same branch
+                // this would be a self cycle
+                assert(coal_name != node1);
                 
-            // SPR subtree moves out from underneath us
-            // therefore therefore the new chromosome coalesces with
-            // the branch above the subtree
+                // SPR subtree moves out from underneath us
+                // therefore therefore the new chromosome coalesces with
+                // the branch above the subtree
 
-            // search up for parent
-            int parent = last_itree[recomb_name].parent;
-            int time2 = last_ages_index[parent];
-            int node2;
+                // search up for parent
+                int parent = last_itree[recomb_name].parent;
+                int time2 = last_ages_index[parent];
+                int node2;
 
-            // find other child
-            int *c = last_itree[parent].child;
-            int other = (c[1] == recomb_name ? c[0] : c[1]);
+                // find other child
+                int *c = last_itree[parent].child;
+                int other = (c[1] == recomb_name ? c[0] : c[1]);
 
-            // find new state in tree
-            if (other == coal_name)
-                node2 = itree[other].parent;
-            else
-                node2 = other;
-               
-            // set next state 
-            next_states[i] = state2_lookup.lookup(node2, time2);
+                // find new state in tree
+                node2 = (other == coal_name ? itree[other].parent : other);
+                next_states[i] = state2_lookup.lookup(node2, time2);
+            }
         }
     }
     
@@ -341,11 +359,20 @@ void calc_transition_probs_switch(
     double *popsizes, double rho,
     double **transprob)
 {
-
+    
     // create inttree data structures
     intnode *last_itree = make_itree(nnodes, last_ptree);
     intnode *itree = make_itree(nnodes, ptree);
 
+    // find root node
+    int last_root;
+    for (int i=0; i<nnodes; i++) {
+        if (itree[i].parent == -1) {
+            last_root = i;
+            break;
+        }
+    }
+    
 
     // get deterministic transitions
     int determ[nstates1];
@@ -355,109 +382,112 @@ void calc_transition_probs_switch(
                                   coal_name, coal_time,
                                   states1, nstates1, states2, nstates2,
                                   ntimes, times, determ);
-
+    
 
     for (int i=0; i<nstates1; i++) {
         const int node1 = states1[i][0];
         const int time1 = states1[i][1];
 
         if (node1 != coal_name || time1 != coal_time) {
-            // deterministic transition
+            // deterministic transition case
             assert (determ[i] != -1);
+            for (int j=0; j<nstates2; j++)
+                transprob[i][j] = -INFINITY;
             transprob[i][determ[i]] = 0.0;
 
         } else {
             // probabilistic transition case
-            
+
+            // determine if node1 is still here or not
+            int node3;
+            int last_parent = last_itree[recomb_name].parent;
+            if (last_parent == node1) {
+                // recomb breaks node1 branch, we need to use the other child
+                int *c = last_itree[last_parent].child;
+                node3 = (c[1] == recomb_name ? c[0] : c[1]);
+            } else {
+                node3 = node1;
+            }
+
+            // find parent of recomb_branch and node1
+            int last_parent_age = last_ages_index[last_parent];
+            int parent = itree[recomb_name].parent;
+            assert(parent == itree[node3].parent);
+
+            // treelen of T^n_{i-1}
+            double blen = times[time1];
+            double treelen2 = treelen + blen;
+            if (node1 == last_root) {
+                treelen2 += blen - times[last_ages_index[last_root]];
+                treelen2 += time_steps[time1];
+            } else {
+                treelen2 += time_steps[last_ages_index[last_root]];
+            }
+
+
+            for (int j=0; j<nstates2; j++) {
+                int node2 = states2[j][0];
+                int time2 = states2[j][1];
+
+                transprob[i][j] = 0.0;
+                if (! ((node2 == recomb_name && time2 >= recomb_time) ||
+                       (node2 == node3 && time2 == time1) ||
+                       (node2 == parent && time2 == time1)))
+                    // not a probabilistic transition
+                    continue;
+
+                // get lineage counts
+                // remove recombination branch and add new branch
+                int kbn = nbranches[time2];
+                int kcn = ncoals[time2] + 1;
+                if (time2 < ages_index[parent]) {
+                    kbn -= 1;
+                    kcn -= 1;
+                }
+                if (time2 < time1)
+                    kbn += 1;
+
+                double sum = 0.0;
+                for (int m=recomb_time; m<time2; m++) {
+                    const int nlineages = nbranches[m] + 1
+                        - (m < last_parent_age ? 1 : 0);
+                    sum += time_steps[m] * nlineages / (2.0 * popsizes[m]);
+                }
+                transprob[i][j] =
+                    (1.0 - exp(- time_steps[time2] * kbn /  
+                               (2.0 * popsizes[time2]))) / kcn * exp(-sum);
+            }
+
+            // normalize row to ensure they add up to one
+            double sum = 0.0;
+            for (int j=0; j<nstates2; j++)
+                sum += transprob[i][j];
+            for (int j=0; j<nstates2; j++) {
+                double x = transprob[i][j];
+                if (sum > 0.0 and x > 0.0)
+                    transprob[i][j] = log(x / sum);
+                else
+                    transprob[i][j] = -INFINITY;
+            }
+        }
     }
 
-    /*
-            # probabilistic transition case
-            
-            # \frac{k^{(n-1)}_{j-1}}{k^{(n-1)}_{j-1} + 1}
-            # \frac{[1 - \exp(- s'_{j-1} k^{(n)}_{j-1} / (2N))]}
-            #      {[1 - \exp(- s'_{j-1} k^{(n-1)}_{j-1} / (2N))]}
-            # \frac{|T^{n-1}_{i-1}|
-            #       [1 - \exp(- \rho (|T^{n-1}_{i-1}| + t_{i-1}))]}
-            #      {[|T^{n-1}_{i-1}| + t_{i-1}]
-            #       [1 - \exp(- \rho |T^{n-1}_{i-1}|)]} 
-            # \exp(- \sum_{m=k}^{j-2} s'_k / (2N))
-            
-            if (node1, a) in states2:
-                j = states2.index((node1, a))
-
-                # TODO: add ncoals and nrecomb
-                # - 1 lineage if recomb br in time segment b-1
-                b = a                
-                if (recomb_branch, b) in states2:
-                    kbn1 = max(nbranches[b-1] - 1, 1.0)
-                else:
-                    kbn1 = nbranches[b-1]
-                kbn  = kbn1 + 1
-
-                transprob[i][j] = (
-                    (kbn1/float(kbn)) *
-                    ((1.0 - exp(-time_steps[b-1] * kbn /
-                                (2.0*popsizes[b-1])))/
-                     (1.0 - exp(-time_steps[b-1] * kbn1 /
-                                (2.0*popsizes[b-1]))))*
-                    (treelen / (treelen + times[a])) *
-                    ((1.0 - exp(-rho * (treelen + times[a]))) /
-                     (1.0 - exp(-rho * treelen))) *
-                    exp(- sum(time_steps[m] / (2.0 * popsizes[m])
-                              for m in xrange(k, b-1))))
-
-            for j, (node2, b) in enumerate(states2):
-                transprob[i][j] = 0.0
-                if node2 != recomb_branch:
-                    continue
-
-                # require coal above recomb
-                if b < k:
-                    continue
-
-                # TODO: fix
-                # - 1 lineage if recomb br in time segment b-1
-                if (recomb_branch, b) in states2:
-                    kbn1 = max(nbranches[b-1] - 1, 1.0)
-                else:
-                    kbn1 = nbranches[b-1]
-                kbn  = kbn1 + 1
-
-                transprob[i][j] = (
-                    (kbn1/float(kbn)) *
-                    ((1.0 - exp(-time_steps[b-1] * kbn /
-                                (2.0*popsizes[b-1])))/
-                     (1.0 - exp(-time_steps[b-1] * kbn1 /
-                                (2.0*popsizes[b-1]))))*
-                    (treelen / (treelen + times[a])) *
-                    ((1.0 - exp(-rho * (treelen + times[a]))) /
-                     (1.0 - exp(-rho * treelen))) *
-                    exp(- sum(time_steps[m] / (2.0 * popsizes[m])
-                              for m in xrange(k, b-1))))            
-
-            # HACK for now:  renormalize row to ensure they add up to one
-            tot = sum(transprob[i])
-            for j in xrange(len(states2)):
-                x = transprob[i][j]
-                if tot > 0.0 and x > 0.0:
-                    transprob[i][j] = log(x / tot)
-                else:
-                    transprob[i][j] = -1e1000
-    */
+    free_itree(last_itree);
+    free_itree(itree);
 }
 
 
 
 
-double **new_transition_probs(int nnodes, int *ages_index, double treelen,
+double **new_transition_probs(int nnodes, int *ptree, 
+                              int *ages_index, double treelen,
                               State *states, int nstates,
                               int ntimes, double *times, double *time_steps,
                               int *nbranches, int *nrecombs, int *ncoals, 
                               double *popsizes, double rho)
 {
     double **transprob = new_matrix<double>(nstates, nstates);
-    calc_transition_probs(nnodes, ages_index, treelen, 
+    calc_transition_probs(nnodes, ptree, ages_index, treelen, 
                           states, nstates,
                           ntimes, times, time_steps,
                           nbranches, nrecombs, ncoals, 

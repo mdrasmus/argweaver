@@ -1358,10 +1358,10 @@ class Basic (unittest.TestCase):
 
         k = 10
         n = 1e4
-        rho = 1.5e-8
-        mu = 2.5e-8
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
         length = 1000
-        arg = arglib.sample_arg(k, n, rho*100, start=0, end=length)
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
 
@@ -1391,6 +1391,65 @@ class Basic (unittest.TestCase):
                     fequal(trans[a][b], trans2[a][b])
                     
             nstates1 = nstates2
+
+
+    def test_trans_switch_c(self):
+
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 5000
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        times = arghmm.get_time_points(20)
+        arghmm.discretize_arg(arg, times)
+        arg = arglib.smcify_arg(arg)
+        print "recomb", arglib.get_recomb_pos(arg)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % k, times=times)
+
+        for pos in model.recomb_pos[:-1][1:50]:
+            nstates1 = model.get_num_states(pos)
+            print pos, nstates1
+            nstates2 = model.get_num_states(pos+1)
+
+            last_tree = model.arg.get_marginal_tree(pos-.5)
+            nlineages = arghmm.get_nlineages_recomb_coal(last_tree, model.times)
+            tree = model.arg.get_marginal_tree(pos+1-.5)
+            recomb = arghmm.find_tree_next_recomb(arg, pos)
+
+            states1 = model.states[pos]
+            states2 = model.states[pos+1]
+
+            trans = arghmm.calc_transition_probs_switch(
+                tree, last_tree, recomb.name,
+                states1, states2,
+                nlineages, model.times,
+                model.time_steps, model.popsizes, model.rho)
+
+            for a in xrange(nstates1):
+                fequal(sum(map(exp, trans[a])), 1.0, rel=.01)
+
+            trans2 = arghmm.calc_transition_probs_switch_c(
+                tree, last_tree, recomb.name,
+                states1, states2,
+                nlineages, model.times,
+                model.time_steps, model.popsizes, model.rho, raw=False)
+
+            for a in xrange(nstates1):
+                for b in xrange(nstates2):
+                    #if trans[a][b] == 0.0:
+                    #    print a, states1[a], states2[b], \
+                    #          trans[a].index(0.0), trans2[a].index(0.0), \
+                    #          trans[a][b] == trans2[a][b]
+                    
+                    if trans[a][b] in (0.0, -util.INF):
+                        assert trans[a][b] == trans2[a][b], (
+                            trans[a][b], trans2[a][b])
+                    fequal(trans[a][b], trans2[a][b])
 
 
 
