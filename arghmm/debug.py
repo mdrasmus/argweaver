@@ -1,6 +1,199 @@
 
 
 
+def calc_transition_probs_switch2(tree, last_tree, recomb_name,
+                                 states1, states2,
+                                 nlineages, times,
+                                 time_steps, popsizes, rho):
+
+    treelen = get_treelen(last_tree, times)
+    nbranches, nrecombs, ncoals = nlineages
+    (recomb_branch, recomb_time), (coal_branch, coal_time) = \
+        find_recomb_coal(tree, last_tree, recomb_name=recomb_name)
+
+    k = times.index(recomb_time)
+    coal_time = times.index(coal_time)
+
+    last_tree2 = last_tree.copy()
+    arglib.remove_single_lineages(last_tree2)
+    tree2 = tree.copy()
+    arglib.remove_single_lineages(tree2)
+    
+    # compute transition probability matrix
+    transprob = util.make_matrix(len(states1), len(states2), -util.INF)
+    
+    determ = get_deterministic_transitions(states1, states2, times,
+                                           tree2, last_tree2,
+                                           recomb_branch, k,
+                                           coal_branch, coal_time)
+
+    for i, (node1, a) in enumerate(states1):        
+        if (node1, a) != (coal_branch, coal_time):
+            # deterministic transition
+            assert determ[i] != -1, determ
+            transprob[i][determ[i]] = 0.0
+
+        else:
+            # probabilistic transition case
+            
+            # \frac{k^{(n-1)}_{j-1}}{k^{(n-1)}_{j-1} + 1}
+            # \frac{[1 - \exp(- s'_{j-1} k^{(n)}_{j-1} / (2N))]}
+            #      {[1 - \exp(- s'_{j-1} k^{(n-1)}_{j-1} / (2N))]}
+            # \frac{|T^{n-1}_{i-1}|
+            #       [1 - \exp(- \rho (|T^{n-1}_{i-1}| + t_{i-1}))]}
+            #      {[|T^{n-1}_{i-1}| + t_{i-1}]
+            #       [1 - \exp(- \rho |T^{n-1}_{i-1}|)]} 
+            # \exp(- \sum_{m=k}^{j-2} s'_k / (2N))
+            
+            if (node1, a) in states2:
+                j = states2.index((node1, a))
+
+                # TODO: add ncoals and nrecomb
+                # - 1 lineage if recomb br in time segment b-1
+                b = a                
+                if (recomb_branch, b) in states2:
+                    kbn1 = max(nbranches[b-1] - 1, 1.0)
+                else:
+                    kbn1 = nbranches[b-1]
+                kbn  = kbn1 + 1
+
+                transprob[i][j] = (
+                    (kbn1/float(kbn)) *
+                    ((1.0 - exp(-time_steps[b-1] * kbn /
+                                (2.0*popsizes[b-1])))/
+                     (1.0 - exp(-time_steps[b-1] * kbn1 /
+                                (2.0*popsizes[b-1]))))*
+                    (treelen / (treelen + times[a])) *
+                    ((1.0 - exp(-rho * (treelen + times[a]))) /
+                     (1.0 - exp(-rho * treelen))) *
+                    exp(- sum(time_steps[m] / (2.0 * popsizes[m])
+                              for m in xrange(k, b-1))))
+
+            for j, (node2, b) in enumerate(states2):
+                transprob[i][j] = 0.0
+                if node2 != recomb_branch:
+                    continue
+
+                # require coal above recomb
+                if b < k:
+                    continue
+
+                # TODO: fix
+                # - 1 lineage if recomb br in time segment b-1
+                if (recomb_branch, b) in states2:
+                    kbn1 = max(nbranches[b-1] - 1, 1.0)
+                else:
+                    kbn1 = nbranches[b-1]
+                kbn  = kbn1 + 1
+
+                transprob[i][j] = (
+                    (kbn1/float(kbn)) *
+                    ((1.0 - exp(-time_steps[b-1] * kbn /
+                                (2.0*popsizes[b-1])))/
+                     (1.0 - exp(-time_steps[b-1] * kbn1 /
+                                (2.0*popsizes[b-1]))))*
+                    (treelen / (treelen + times[a])) *
+                    ((1.0 - exp(-rho * (treelen + times[a]))) /
+                     (1.0 - exp(-rho * treelen))) *
+                    exp(- sum(time_steps[m] / (2.0 * popsizes[m])
+                              for m in xrange(k, b-1))))            
+
+            # HACK for now:  renormalize row to ensure they add up to one
+            tot = sum(transprob[i])
+            for j in xrange(len(states2)):
+                x = transprob[i][j]
+                if tot > 0.0 and x > 0.0:
+                    transprob[i][j] = log(x / tot)
+                else:
+                    transprob[i][j] = -1e1000
+
+    return transprob
+
+
+
+def calc_transition_probs(tree, states, nlineages, times,
+                          time_steps, popsizes, rho):
+
+    ntimes = len(time_steps)
+    minlen = time_steps[0]
+    treelen = get_treelen(tree, times)
+    #treelen = max(sum(x.get_dist() for x in tree), minlen)
+    nbranches, nrecombs, ncoals = nlineages
+    
+    # A_{k,j} =& s'_{j-2} k_{j-1} / (2N) + \sum_{m=k}^{j-2} s'_m k_m / (2N) \\
+    #         =& s'_{j-2} k_{j-1} / (2N) + A_{k,j-1}.
+    
+    A = util.make_matrix(ntimes, ntimes, 0.0)
+    for k in xrange(ntimes):
+        # A[k][k] = 0
+        for j in xrange(k+1, ntimes):
+            l = j - 1
+            A[k][j] = A[k][j-1] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l])
+
+    # B_{c,a} =& \sum_{k=0}^{c} \exp(- A_{k,a}) \\
+    #         =& B_{c-1,a} + \exp(- A_{c,a}).
+
+    B = util.make_matrix(ntimes, ntimes, 0.0)
+    for b in xrange(ntimes):
+        B[0][b] = nbranches[0] * time_steps[0] / (nrecombs[0] + 1.0) * exp(-A[0][b])
+        for c in xrange(1, min(b+1, ntimes-1)):
+            B[c][b] = (B[c-1][b] + nbranches[c] * time_steps[c] / (nrecombs[c] + 1.0)
+                       * exp(-A[c][b]))
+
+    # S_{a,b} &= B_{min(a,b),b}
+    S = util.make_matrix(ntimes, ntimes, 0.0)
+    for a in xrange(ntimes):
+        for b in xrange(ntimes):
+            S[a][b] = B[min(a, b)][b]
+
+    # f =\frac{[1 - \exp(- \rho (|T^{n-1}_{i-1}| + s_a))] 
+    #       [1 - \exp(- s'_b k_b / (2N))]}
+    #      {\exp(-\rho |T^{n-1}_{i-1}|) (|T^{n-1}_{i-1}| + s_a) k^C_b}
+    # |T^{n-1}_{i-1}| = treelen
+    
+    time_lookup = util.list2lookup(times)
+    transprob = util.make_matrix(len(states), len(states), 0.0)
+    for i, (node1, a) in enumerate(states):
+        c = time_lookup[tree[node1].age]
+
+        blen = times[a]
+        treelen2 = treelen + blen
+        if node1 == tree.root.name:
+            treelen2 += blen - tree.root.age
+            treelen2 += time_steps[a]
+        else:
+            treelen2 += time_steps[time_lookup[tree.root.age]]        
+        
+        for j, (node2, b) in enumerate(states):
+            
+            f = ((1.0 - exp(-rho * treelen2)) *
+                 (1.0 - exp(-time_steps[b] * nbranches[b]
+                            / (2.0 * popsizes[b]))) /
+                 (exp(-rho * treelen) * treelen2 * ncoals[b]))
+            if node1 != node2:
+                transprob[i][j] = f * S[a][b]
+            elif a != b:
+                transprob[i][j] = f * (2*S[a][b] - S[c][b])
+            else:
+                transprob[i][i] = 0.0
+                # approximation
+                # the probability of recombining and choosing the same state
+                # is such a small term in comparison
+                #transprob[i][j] = exp(-rho * (treelen2-treelen))
+
+
+        # normalize row to sum to one
+        tot = sum(transprob[i])
+        transprob[i][i] = 1.0 - tot
+        #for j in xrange(len(states)):
+        #    transprob[i][j] = util.safelog(transprob[i][j] / tot)
+        for j in xrange(len(states)):
+            transprob[i][j] = util.safelog(transprob[i][j])
+
+    return transprob
+
+
+
 
 def add_arg_thread2(arg, new_name, thread, recombs, arg3=None):
 

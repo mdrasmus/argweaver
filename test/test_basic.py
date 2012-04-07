@@ -1451,6 +1451,41 @@ class Basic (unittest.TestCase):
                             trans[a][b], trans2[a][b])
                     fequal(trans[a][b], trans2[a][b])
 
+    def test_emit_c(self):
+        
+        k = 10
+        n = 1e4
+        rho = 0.0
+        mu = 2.5e-8 * 100
+        length = 10000
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+        
+        times = arghmm.get_time_points(10)
+        arghmm.discretize_arg(arg, times)
+        
+        new_name = "n%d" % (k-1)
+        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name]))
+        
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+        
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
+        
+        nstates = model.get_num_states(1)
+        emit = arghmm.iter_trans_emit_matrices(model, length).next()[4]
+        
+        for i in xrange(1, length):
+            for j in xrange(nstates):
+                try:
+                    fequal(emit[i][j], model.prob_emission(i, j))
+                except:
+                    print i, j, emit[i][j], model.prob_emission(i, j)
+                    print model.states[i][j]
+                    raise
+
+        
 
 
 

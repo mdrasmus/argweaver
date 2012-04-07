@@ -19,13 +19,15 @@ namespace arghmm {
 
 extern "C" {
 
-typedef int State[2];
+typedef int intstate[2];
 
 
 
 //=============================================================================
-// ArgHMM model
+// Local trees
 
+
+// A block within a sequence alignment
 class Block 
 {
 public:
@@ -36,23 +38,255 @@ public:
 };
 
 
-class LocalTrees 
+// A Subtree Pruning and Regrafting operation
+class Spr
 {
 public:
-    LocalTrees() {}
-    ~LocalTrees() {}
+    Spr() {}
+    Spr(int recomb_node, int recomb_time, 
+        int coal_node, int coal_time) :
+        recomb_node(recomb_node), recomb_time(recomb_time),
+        coal_node(coal_node), coal_time(coal_time) {}
 
-    int nnodes;
-    list<intnode *> trees;
-    list<Block> blocks;
+    int recomb_node;
+    int recomb_time;
+    int coal_node;
+    int coal_time;
 };
 
 
-class ArgHmm 
+
+// A node in a local tree
+class LocalNode 
 {
 public:
-    ArgHmm() {}
-    ~ArgHmm() {}
+    LocalNode() {}
+    LocalNode(int parent, int left_child, int right_child, int age=-1) :
+        parent(parent), age(age)
+    {
+        child[0] = left_child;
+        child[1] = right_child;
+    }
+
+    int parent;
+    int child[2];
+    int age;
+};
+
+
+// A local tree in a set of local trees
+class LocalTree
+{
+public:
+    LocalTree() :
+        nnodes(0),
+        nodes(NULL) 
+    {}
+
+    LocalTree(int *ptree, int nnodes, int *ages=NULL) :
+        nodes(NULL) 
+    {
+        set_ptree(ptree, nnodes, ages);
+    }
+
+    ~LocalTree() {
+        if (nodes)
+            delete [] nodes;
+    }
+
+    // initialize a local tree by on a parent array
+    void set_ptree(int *ptree, int _nnodes, int *ages=NULL) 
+    {
+        nnodes = _nnodes;
+        if (nodes)
+            delete [] nodes;
+        nodes = new LocalNode [nnodes];
+
+        // initialize nodes
+        for (int i=0; i<nnodes; i++) {
+            nodes[i].parent = ptree[i];
+            nodes[i].child[0] = -1;
+            nodes[i].child[1] = -1;
+        }
+
+        if (ages)
+            for (int i=0; i<nnodes; i++)
+                nodes[i].age = ages[i];
+
+    
+        // populate children
+        for (int i=0; i<nnodes; i++) {
+            const int parent = ptree[i];
+        
+            if (parent != -1) {
+                int *child = nodes[parent].child;
+                if (child[0] == -1)
+                    child[0] = i;
+                else
+                    child[1] = i;
+            }
+        }
+    }
+    
+
+    int nnodes;
+    LocalNode *nodes;
+};
+
+
+class LocalTreeSpr
+{
+public:
+    LocalTreeSpr(int start, int end, LocalTree *tree, int *ispr) :
+        block(start, end),
+        tree(tree),
+        spr(ispr[0], ispr[1], ispr[2], ispr[3])
+    {}
+
+    LocalTreeSpr(int start, int end, LocalTree *tree, Spr spr) :
+        block(start, end),
+        tree(tree),
+        spr(spr)
+    {}
+
+    Block block;
+    LocalTree *tree;
+    Spr spr;
+};
+
+
+class LocalTrees 
+{
+public:
+    LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
+               int ntrees, int nnodes, int start=0) : 
+        start_coord(start),
+        nnodes(nnodes)
+    {
+        // copy data
+        int pos = start;
+        for (int i=0; i<ntrees; i++) {
+            end_coord = pos + blocklens[i];
+            trees.push_back(
+                LocalTreeSpr(pos, end_coord,
+                             new LocalTree(ptrees[i], nnodes, ages[i]),
+                             isprs[i]));
+            pos = end_coord;
+        }
+
+    }
+    ~LocalTrees() {}
+
+    typedef list<LocalTreeSpr>::iterator iterator;
+
+    iterator begin()
+    {
+        return trees.begin();
+    }
+
+    iterator end()
+    {
+        return trees.end();
+    }
+
+
+    int start_coord;
+    int end_coord;
+    int nnodes;
+    list<LocalTreeSpr> trees;
+};
+
+
+
+void count_lineages(LocalTree *tree, int ntimes,
+                    int *nbranches, int *nrecombs, int *ncoals)
+{
+    const LocalNode *nodes = tree->nodes;
+
+    // initialize counts
+    for (int i=0; i<ntimes; i++) {
+        nbranches[i] = 0;
+        nrecombs[i] = 0;
+        ncoals[i] = 0;
+    }
+
+    for (int i=0; i<tree->nnodes; i++) {
+        const int parent = tree->nodes[i].parent;
+        const int parent_age = ((parent == -1) ? ntimes - 2 : 
+                                nodes[parent].age);
+        
+        for (int j=nodes[i].age; j<parent_age; j++) {
+            nbranches[j]++;
+            nrecombs[j]++;
+            ncoals[j]++;
+        }
+
+        if (parent_age > nodes[i].age) {
+            nrecombs[parent_age]++;
+            ncoals[parent_age]++;
+        }            
+    }
+    
+    nbranches[ntimes - 1] = 1;
+}
+
+
+
+class LineageCounts
+{
+public:
+    LineageCounts(int ntimes) :
+        ntimes(ntimes)
+    {
+        nbranches = new int [ntimes];
+        nrecombs = new int [ntimes];
+        ncoals = new int [ntimes];
+    }
+
+    ~LineageCounts()
+    {
+        delete [] nbranches;
+        delete [] nrecombs;
+        delete [] ncoals;
+    }
+
+    inline void count(LocalTree *tree) {
+        count_lineages(tree, ntimes, nbranches, nrecombs, ncoals);
+    }
+
+    int ntimes;
+    int *nbranches;
+    int *nrecombs;
+    int *ncoals;
+};
+
+
+
+
+//=============================================================================
+// ArgHmm model
+
+
+class ArgModel 
+{
+public:
+    ArgModel(int ntimes, double *times, double *popsizes, 
+             double rho, double mu) :
+        ntimes(ntimes),
+        times(times),
+        popsizes(popsizes),
+        rho(rho),
+        mu(mu)
+    {
+        time_steps = new double [ntimes];
+        for (int i=0; i<ntimes-1; i++)
+            time_steps[i] = times[i+1] - times[i];
+        time_steps[ntimes-1] = INFINITY;
+    }
+    ~ArgModel()
+    {
+        delete [] time_steps;
+    }
 
     // time points
     int ntimes;
@@ -62,15 +296,39 @@ public:
     // parameters
     double *popsizes;
     double rho;
-    double mut;
+    double mu;
 };
 
 
+
+
+
+//=============================================================================
+// state methods
+
+
+class State
+{
+public:
+    State(int node=0, int time=0) :
+        node(node), time(time) {}
+
+    int node;
+    int time;
+};
+
+
+typedef vector<State> States;
+
+
+//
+//  This data structure provides a mapping from (node, time) tuples
+//  to the corresponding state index.
+//
 class NodeStateLookup
 {
 public:
-    NodeStateLookup(State *states, int nstates, int nnodes) :
-        states(states),
+    NodeStateLookup(intstate *states, int nstates, int nnodes) :
         nstates(nstates),
         nnodes(nnodes)
     {
@@ -115,9 +373,6 @@ public:
     }
 
     inline int lookup(int node, int time) {
-        int i = state_lookup[node_offset[node] + time];
-        assert(node == states[i][0]);
-        assert(time == states[i][1]);
         return state_lookup[node_offset[node] + time];
     }
 
@@ -125,9 +380,50 @@ public:
     int nnodes;
     int *node_offset;
     int *state_lookup;
-
-    State *states;
 };
+
+
+// convert integer-based states to State class
+void make_states(intstate *istates, int nstates, States &states) {
+    states.clear();
+    for (int i=0; i<nstates; i++)
+        states.push_back(State(istates[i][0], istates[i][1]));
+}
+
+
+void make_intstates(States states, intstate *istates)
+{
+    const int nstates = states.size();
+    for (int i=0; i<nstates; i++) {
+        istates[i][0] = states[i].node;
+        istates[i][1] = states[i].time;
+    }
+}
+
+
+//
+// get the possible coalescing states for a tree
+// NOTE: Do not allow coalescing at top time
+//
+void get_coal_states(LocalTree *tree, int ntimes, States &states)
+{
+    states.clear();
+    LocalNode *nodes = tree->nodes;
+    
+    for (int i=0; i<tree->nnodes; i++) {
+        int time = nodes[i].age;
+        const int parent = nodes[i].parent;
+        
+        if (parent == -1) {
+            for (; time<ntimes-1; time++)
+                states.push_back(State(i, time));
+        } else {
+            const int parent_age = nodes[parent].age;
+            for (; time<=parent_age; time++)
+                states.push_back(State(i, time));
+        }
+    }
+}
 
 
 
@@ -138,7 +434,7 @@ public:
 
 void calc_transition_probs(int nnodes, 
                            int *ptree, int *ages_index, double treelen,
-                           State *states, int nstates,
+                           intstate *states, int nstates,
                            int ntimes, double *times, double *time_steps,
                            int *nbranches, int *nrecombs, int *ncoals, 
                            double *popsizes, double rho,
@@ -246,7 +542,7 @@ void get_deterministic_transitions(
     intnode *itree, intnode *last_itree, int nnodes, 
     int *last_ages_index,
     int recomb_name, int recomb_time, int coal_name, int coal_time,
-    State *states1, int nstates1, State *states2, int nstates2,
+    intstate *states1, int nstates1, intstate *states2, int nstates2,
     int ntimes, double *times, int *next_states)
 {
 
@@ -351,8 +647,8 @@ void calc_transition_probs_switch(
     int recomb_name, int recomb_time, int coal_name, int coal_time,
     int *ages_index, int *last_ages_index,
     double treelen, double last_treelen,
-    State *states1, int nstates1,
-    State *states2, int nstates2,
+    intstate *states1, int nstates1,
+    intstate *states2, int nstates2,
     
     int ntimes, double *times, double *time_steps,
     int *nbranches, int *nrecombs, int *ncoals, 
@@ -481,7 +777,7 @@ void calc_transition_probs_switch(
 
 double **new_transition_probs(int nnodes, int *ptree, 
                               int *ages_index, double treelen,
-                              State *states, int nstates,
+                              intstate *states, int nstates,
                               int ntimes, double *times, double *time_steps,
                               int *nbranches, int *nrecombs, int *ncoals, 
                               double *popsizes, double rho)
@@ -501,8 +797,8 @@ double **new_transition_probs_switch(
     int recomb_name, int recomb_time, int coal_name, int coal_time,
     int *ages_index, int *last_ages_index,
     double treelen, double last_treelen,
-    State *states1, int nstates1,
-    State *states2, int nstates2,
+    intstate *states1, int nstates1,
+    intstate *states2, int nstates2,
     
     int ntimes, double *times, double *time_steps,
     int *nbranches, int *nrecombs, int *ncoals, 
@@ -529,13 +825,37 @@ void delete_transition_probs(double **transmat, int nstates)
 
 
 
+void calc_state_priors(const States &states, LineageCounts *lineages, 
+                       ArgModel *model, double *priors)
+{
+    const int nstates = states.size();
+    const double *time_steps = model->time_steps;
+    const double *popsizes = model->popsizes;
+    const int *nbranches = lineages->nbranches;
+    const int *ncoals = lineages->ncoals;
+    
+    for (int i=0; i<nstates; i++) {
+        int b = states[i].time;
+
+        double sum = 0.0;
+        for (int m=0; m<b; b++)
+            sum += time_steps[m] * nbranches[m] / (2.0 * popsizes[m]);
+        
+        priors[i] = log((1.0 - exp(- time_steps[b] * nbranches[b] /
+                                   (2.0 * popsizes[b]))) / ncoals[b] * 
+                        exp(-sum)); 
+    }
+}
+
+
+
 //============================================================================
 // emissions
 
 void parsimony_ancestral_seq(intnode *itree, int nnodes, char **seqs, 
                              int nseqs, int seqlen, char **ancestral) 
 {
-    char *sets = new char [nnodes];
+    char sets[nnodes];
     const int nleaves = (nnodes + 1) / 2;
     int pchar;
     
@@ -597,13 +917,11 @@ void parsimony_ancestral_seq(intnode *itree, int nnodes, char **seqs,
             }
         }
     }
-
-    delete [] sets;
 }
 
 
-void calc_emissions(State *states, int nstates, 
-                    int *ptree, int nnodes, double *ages,
+void calc_emissions(intstate *states, int nstates, 
+                    int *ptree, int nnodes, double *ages, 
                     char **seqs, int nseqs, int seqlen, 
                     double *times, int ntimes,
                     double mu, double **emit)
@@ -721,15 +1039,147 @@ void calc_emissions(State *states, int nstates,
 }
 
 
-double **new_emissions(State *states, int nstates, 
-                       int *ptree, int nnodes, double *ages,
+void calc_emissions2(const States &states,
+                    int *ptree, int nnodes, int *ages_index, 
+                    char **seqs, int nseqs, int seqlen, 
+                    double *times, int ntimes,
+                    double mu, double **emit)
+{
+    const double mintime = times[1];
+    const double maxtime = times[ntimes - 1];
+    double t1, t2, t2a, t2b, t3;
+    double parent_age;
+    int parent;
+    int newnode = nseqs - 1;
+    
+
+    double ages[nnodes];
+    for (int i=0; i<nnodes; i++) {
+        ages[i] = times[ages_index[i]];
+        printf("%d %d %f\n", i, ages_index[i], ages[i]);
+    }
+
+    // create inttree data structure
+    intnode *itree = make_itree(nnodes, ptree);
+
+    // infer parsimony ancestral sequences
+    char **ancestral = new_matrix<char>(nnodes, seqlen);
+    parsimony_ancestral_seq(itree, nnodes, seqs, nseqs, seqlen, ancestral);
+
+
+    // base variables
+    // v = new chromosome
+    // x = current branch
+    // p = parent of current branch
+    char v, x, p;
+
+    // iterate through positions
+    for (int i=0; i<seqlen; i++) {
+        v = seqs[newnode][i];
+        
+        // iterate through states
+        for (unsigned int j=0; j<states.size(); j++) {
+            int node = states[j].node;
+            int timei = states[j].time;
+            double time = times[timei];
+            double node_age = ages[node];
+
+            x = ancestral[node][i];
+
+            if (itree[node].parent != -1) {
+                parent = itree[node].parent;
+                parent_age = ages[parent];
+
+                if (itree[parent].parent == -1) {
+                    // unwrap top branch
+                    int *c = itree[parent].child;
+                    int sib = (node == c[0] ? c[1] : c[1]);
+                    p = ancestral[sib][i];
+
+                    // modify (x,p) length to (x,p) + (sib,p)
+                    parent_age = 2 * parent_age - ages[sib];
+
+                } else {
+                    p = ancestral[parent][i];
+                }
+            } else {
+                // adjust time by unwrapping branch e(v)
+                parent = -1;
+                parent_age = -1;
+                time = 2 * time - node_age;
+                p = x;
+            }
+
+            // ensure mintime
+            if (time < mintime) 
+                time = mintime;
+
+            if (v == x && x == p) {
+                // no mutation
+                emit[i][j] = - mu * time;
+
+            } else if (v != p && p == x) {
+                // mutation on v
+                emit[i][j] = log(.33 - .33 * exp(-mu * time));
+
+            } else if (v == p && p != x) {
+                // mutation on x
+                t1 = max(parent_age - node_age, mintime);
+                t2 = max(time - node_age, mintime);
+
+                emit[i][j] = log((1 - exp(-mu *t2)) / (1 - exp(-mu * t1))
+                                 * exp(-mu * (time + t2 - t1)));
+
+            } else if (v == x && x != p) {
+                // mutation on (y,p)
+                t1 = max(parent_age - node_age, mintime);
+                t2 = max(parent_age - time, mintime);
+
+                emit[i][j] = log((1 - exp(-mu * t2)) / (1 - exp(-mu * t1))
+                                 * exp(-mu * (time + t2 - t1)));
+
+            } else {
+                // two mutations (v,x)
+
+                // mutation on x
+                if (parent != -1) {
+                    t1 = max(parent_age - node_age, mintime);
+                    t2a = max(parent_age - time, mintime);
+                } else {
+                    t1 = max(maxtime - node_age, mintime);
+                    t2a = max(maxtime - time, mintime);
+                }
+                t2b = max(time - node_age, mintime);
+                t2 = max(t2a, t2b);
+                t3 = time;
+
+                emit[i][j] = log((1 - exp(-mu *t2)) * (1 - exp(-mu *t3))
+                                 / (1 - exp(-mu * t1))
+                                 * exp(-mu * (time + t2 + t3 - t1)));
+            }
+        }
+    }
+
+    free_itree(itree);
+    delete_matrix(ancestral, nnodes);
+}
+
+
+double **new_emissions(intstate *istates, int nstates, 
+                       int *ptree, int nnodes, int *ages_index,
                        char **seqs, int nseqs, int seqlen, 
                        double *times, int ntimes,
                        double mu)
 {
     double **emit = new_matrix<double>(seqlen, nstates);
-    calc_emissions(states, nstates, 
-                   ptree, nnodes, ages,
+
+    States states;
+    make_states(istates, nstates, states);
+    //LocalTree tree(ptree, nnodes, ages);
+
+
+    calc_emissions2(states, 
+                   ptree, nnodes, ages_index,
                    seqs, nseqs, seqlen,
                    times, ntimes,
                    mu, emit);
@@ -740,6 +1190,120 @@ double **new_emissions(State *states, int nstates,
 void delete_emissions(double **emit, int seqlen)
 {
     delete_matrix<double>(emit, seqlen);
+}
+
+
+
+//=============================================================================
+
+
+
+void arghmm_forward_alg(int **ptrees, int **ages, int **sprs, int *blocklens,
+                        int ntrees, int nnodes, 
+                        double *times, int ntimes,
+                        double *popsizes, double rho, double mu,
+                        double **fw)
+{
+    
+    // allocate lineage counts
+    LineageCounts lineages(ntimes);
+    
+    // setup model
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    
+    // setup local trees
+    LocalTrees local_trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+    
+    // state spaces
+    States states1;
+    States states2;
+    States *states = &states1;
+    States *last_states = NULL;
+    
+
+    double **emit;
+    
+    // iterate over local trees
+    for (LocalTrees::iterator it=local_trees.begin();
+         it != local_trees.end(); it++)
+    {
+        int pos = it->block.start;
+        LocalTree *tree = it->tree;
+        get_coal_states(tree, ntimes, *states);
+        lineages.count(tree);
+        
+        // TODO: calculate emissions
+
+
+        // use switch matrix for first column of forward table
+        // if we have a previous state space (i.e. not first block)
+        if (!last_states) {
+            // calculate prior of first state
+            calc_state_priors(*states, &lineages, &model, fw[0]);  
+
+        } else {
+            double *col1 = fw[pos-1];
+            double *col2 = fw[pos];
+
+            int nstates1 = last_states->size();
+            int nstates2 = states->size();
+            double tmp[nstates1];
+
+            // TODO: calculate transmat_switch
+            double **transmat_switch;
+
+            for (int k=0; k<nstates2; k++) {
+                double e = emit[0][k];
+                for (int j=0; j<nstates1; j++)
+                    tmp[j] = col1[j] + transmat_switch[j][k] + e;
+                col2[k] = logsum(tmp, nstates1);
+            }
+            
+        }
+
+        // update state space pointers
+        last_states = states;
+        states = ((states == &states1) ? &states2 : &states1);
+    }
+
+    /*
+        # iterate over blocks
+    for block, nstates, transmat, transmat_switch, emit in matrices:
+        if verbose:
+            util.logger(" pos %d" % block[0])
+
+        blocklen = block[1] - block[0]
+
+        # use switch matrix for first col
+        if block[0] > 0:
+            nstates1 = len(transmat_switch)
+            nstates2 = len(transmat_switch[0])
+            
+            col1 = probs[-1]
+            col2 = []
+            for k in xrange(nstates2):
+                e = emit[0][k]
+                col2.append(stats.logsum([col1[j] + transmat_switch[j][k] + e
+                                          for j in xrange(nstates1)]))
+            probs.append(col2)
+
+        # use transmat for rest of block
+        # make forward table for block
+        fw = [probs[-1]]
+        for pos in xrange(block[0]+1, block[1]):
+            fw.append([0.0 for k in xrange(nstates)])
+        
+        forward_alg(blocklen, nstates, transmat, emit, fw)
+
+        if not matrices_given:
+            delete_emissions(emit, blocklen)
+            delete_transition_probs(transmat, nstates)
+        
+        for col in fw[1:]:
+            probs.append(col[:nstates])
+*/
+
+
 }
 
 
