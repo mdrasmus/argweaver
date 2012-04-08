@@ -1059,14 +1059,14 @@ def calc_transition_probs(tree, states, nlineages, times,
             treelen2 += blen - tree.root.age
             treelen2 += time_steps[a]
         else:
-            treelen2 += time_steps[time_lookup[tree.root.age]]        
+            treelen2 += time_steps[time_lookup[tree.root.age]]
         
         for j, (node2, b) in enumerate(states):
-            
             f = ((1.0 - exp(-rho * treelen2)) *
                  (1.0 - exp(-time_steps[b] * nbranches[b]
                             / (2.0 * popsizes[b]))) /
                  (exp(-rho * treelen) * treelen2 * ncoals[b]))
+            
             if node1 != node2:
                 transprob[i][j] = f * S[a][b]
             else:
@@ -1098,7 +1098,8 @@ def calc_transition_probs_c(tree, states, nlineages, times,
     nstates = len(int_states)
     ages_index = [times_lookup[tree[node.name].age]
                   for node in nodes]
-    treelen = sum(x.dist for x in tree2)
+    #treelen = sum(x.dist for x in tree2)
+    treelen = get_treelen(tree, times)
     transmat = new_transition_probs(
         len(nodes), ptree, ages_index, treelen, 
         ((c_int * 2) * nstates)
