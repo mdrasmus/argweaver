@@ -215,20 +215,22 @@ void count_lineages(LocalTree *tree, int ntimes,
     }
 
     for (int i=0; i<tree->nnodes; i++) {
-        const int parent = tree->nodes[i].parent;
+        const int parent = nodes[i].parent;
         const int parent_age = ((parent == -1) ? ntimes - 2 : 
                                 nodes[parent].age);
         
+        // add counts for every segment along branch
         for (int j=nodes[i].age; j<parent_age; j++) {
             nbranches[j]++;
             nrecombs[j]++;
             ncoals[j]++;
         }
 
-        if (parent_age > nodes[i].age) {
-            nrecombs[parent_age]++;
-            ncoals[parent_age]++;
-        }            
+        // recomb and coal is also allowed at the top of a branch
+        nrecombs[parent_age]++;
+        ncoals[parent_age]++;
+        if (parent == -1)
+            nbranches[parent_age]++;
     }
     
     nbranches[ntimes - 1] = 1;
@@ -537,14 +539,25 @@ void calc_transition_probs2(LocalTree *tree, double treelen,
 
 
 
-void calc_transition_probs(LocalTree *tree, double treelen,
-                           intstate *states, int nstates,
-                           int ntimes, double *times, double *time_steps,
-                           int *nbranches, int *nrecombs, int *ncoals, 
-                           double *popsizes, double rho,
+void calc_transition_probs(LocalTree *tree, double treelen, ArgModel *model,
+                           const States &states, LineageCounts *lineages,
                            double **transprob)
 {
+    // get model parameters
+    const int ntimes = model->ntimes;
+    const double *times = model->times;
+    const double *time_steps = model->time_steps;
+    const double *popsizes = model->popsizes;
+    const double rho = model->rho;
+
+    const int nstates = states.size();
+
+    // get tree information
     LocalNode *nodes = tree->nodes;
+    const int *nbranches = lineages->nbranches;
+    const int *nrecombs = lineages->nrecombs;
+    const int *ncoals = lineages->ncoals;
+
 
     // find root node
     int root = tree->root;
@@ -591,8 +604,8 @@ void calc_transition_probs(LocalTree *tree, double treelen,
     //       [1 - \exp(- s'_b k_b / (2N))]}
     //      {\exp(-\rho |T^{n-1}_{i-1}|) (|T^{n-1}_{i-1}| + s_a) k^C_b}
     for (int i=0; i<nstates; i++) {
-        const int node1 = states[i][0];
-        const int a = states[i][1];
+        const int node1 = states[i].node;
+        const int a = states[i].time;
         const int c = nodes[node1].age;
         assert(a < ntimes);
 
@@ -608,8 +621,8 @@ void calc_transition_probs(LocalTree *tree, double treelen,
             (exp(-rho * treelen) * treelen2);
         
         for (int j=0; j<nstates; j++) {
-            const int node2 = states[j][0];
-            const int b = states[j][1];
+            const int node2 = states[j].node;
+            const int b = states[j].time;
             assert(b < ntimes);
             
             const double f = F * D[b];
@@ -877,26 +890,38 @@ void calc_transition_probs_switch(
 
 double **new_transition_probs(int nnodes, int *ptree, 
                               int *ages, double treelen,
-                              intstate *states, int nstates,
+                              intstate *istates, int nstates,
                               int ntimes, double *times, double *time_steps,
                               int *nbranches, int *nrecombs, int *ncoals, 
                               double *popsizes, double rho)
 {
-    // allocate lineage counts
-    LineageCounts lineages(ntimes);
-    
+
     // setup model
     ArgModel model(ntimes, times, popsizes, rho, 0.0);
     
     // setup local tree
     LocalTree tree(ptree, nnodes, ages);
+    LineageCounts lineages(ntimes);
+    lineages.count(&tree);
+    
+    /*
+    for (int i=0; i<ntimes; i++) {
+        //printf("b[%d] %d %d\n", i, nbranches[i], lineages.nbranches[i]);
+        //printf("r[%d] %d %d\n", i, nrecombs[i], lineages.nrecombs[i]);
+        //printf("c[%d] %d %d\n", i, ncoals[i], lineages.ncoals[i]);
+ 
+        assert(nbranches[i] == lineages.nbranches[i]);
+        assert(nrecombs[i] == lineages.nrecombs[i]);
+        assert(ncoals[i] == lineages.ncoals[i]);
+    }*/
+
+    // setup states
+    States states;
+    make_states(istates, nstates, states);
 
     double **transprob = new_matrix<double>(nstates, nstates);
-    calc_transition_probs(&tree, treelen, 
-                          states, nstates,
-                          ntimes, times, time_steps,
-                          nbranches, nrecombs, ncoals, 
-                          popsizes, rho, transprob);
+    calc_transition_probs(&tree, treelen, &model, states, &lineages,
+                          transprob);
     return transprob;
 }
 
@@ -913,6 +938,18 @@ double **new_transition_probs_switch(
     int *nbranches, int *nrecombs, int *ncoals, 
     double *popsizes, double rho)
 {
+    // setup model
+    ArgModel model(ntimes, times, popsizes, rho, 0.0);
+    
+    // setup local tree
+    LocalTree tree(ptree, nnodes, ages_index);
+    LineageCounts lineages(ntimes);
+    lineages.count(&tree);
+    
+    // setup states
+    //States states;
+    //make_states(istates, nstates, states);
+    
     double **transprob = new_matrix<double>(nstates1, nstates2);
     calc_transition_probs_switch(
         ptree, last_ptree, nnodes, 
