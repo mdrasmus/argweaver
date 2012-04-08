@@ -1,5 +1,5 @@
-#ifndef ARGHMM_COMMON_H
-#define ARGHMM_COMMON_H
+#ifndef ARGHMM_HMM_H
+#define ARGHMM_HMM_H
 
 
 namespace arghmm {
@@ -24,4 +24,4 @@ void sample_hmm_posterior(int n, int nstates, double **trans, double **emit,
 
 
 
-#endif // ARGHMM_COMMON_H
+#endif // ARGHMM_HMM_H

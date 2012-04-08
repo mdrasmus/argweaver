@@ -907,7 +907,7 @@ class Basic (unittest.TestCase):
 
     def test_post_plot(self):
 
-        k = 10
+        k = 7
         n = 1e4
         rho = 1.5e-8 * 50
         mu = 2.5e-8 * 50
@@ -1196,11 +1196,7 @@ class Basic (unittest.TestCase):
         util.tic("C")
         probs1 = list(arghmm.forward_algorithm(model, length, verbose=True))
         util.toc()
-
-        util.tic("C2")
-        probs1 = list(arghmm.forward_algorithm2(model, length, verbose=True))
-        util.toc()
-
+        
         util.tic("python")
         probs2 = list(hmm.forward_algorithm(model, length, verbose=True))
         util.toc()
@@ -1417,8 +1413,9 @@ class Basic (unittest.TestCase):
             nstates2 = model.get_num_states(pos+1)
 
             last_tree = model.arg.get_marginal_tree(pos-.5)
-            nlineages = arghmm.get_nlineages_recomb_coal(last_tree, model.times)
             tree = model.arg.get_marginal_tree(pos+1-.5)
+
+            nlineages = arghmm.get_nlineages_recomb_coal(last_tree, model.times)
             recomb = arghmm.find_tree_next_recomb(arg, pos)
 
             states1 = model.states[pos]

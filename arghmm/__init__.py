@@ -103,6 +103,16 @@ if arghmmc:
            [c_double_p_p, "emit", c_int, "seqlen"])
 
 
+    export(arghmmc, "arghmm_forward_alg", c_int,
+           [c_int_matrix, "ptrees", c_int_matrix, "ages",
+            c_int_matrix, "sprs", c_int_list, "blocklens",
+            c_int, "ntrees", c_int, "nnodes", 
+            c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_double_p_p, "fw"])
+
+
 
 #=============================================================================
 # discretization
@@ -1171,7 +1181,6 @@ def calc_transition_probs_switch_c(tree, last_tree, recomb_name,
 
     last_treelen = sum(x.dist for x in last_tree2)
     treelen = sum(x.dist for x in tree2)
-
     
     transmat = new_transition_probs_switch(
         ptree, last_ptree, len(nodes),
@@ -1557,6 +1566,7 @@ def get_treeset(arg, times, start=None, end=None):
     ptrees  = []
     ages = []
     sprs = []
+    blocks = []
     all_nodes = []
 
     for block, tree, last_tree, spr in iter_arg_sprs(arg, start, end):
@@ -1596,6 +1606,7 @@ def get_treeset(arg, times, start=None, end=None):
         ptrees.append(ptree)
         ages.append(age)
         sprs.append(ispr)
+        blocks.append(block)
         all_nodes.append(nodes)
 
         # setup last tree
@@ -1603,7 +1614,7 @@ def get_treeset(arg, times, start=None, end=None):
         last_tree2 = tree2
         last_ptree, last_nodes, last_nodelookup = ptree, nodes, nodelookup
 
-    return (ptrees, ages, sprs), all_nodes
+    return (ptrees, ages, sprs, blocks), all_nodes
 
         
 
@@ -1937,6 +1948,7 @@ def arghmm_sim(arg, seqs, name=None, times=None,
 def iter_trans_emit_matrices(model, n):
 
     last_tree = None
+    last_nlineages = None
     
     # get transition matrices and emissions
     for rpos in model.recomb_pos[:-1]:
@@ -1991,13 +2003,13 @@ def iter_trans_emit_matrices(model, n):
             transmat_switch = calc_transition_probs_switch(
                 tree, last_tree, recomb.name,
                 model.states[start-1], model.states[start],
-                nlineages, model.times,
+                last_nlineages, model.times,
                 model.time_steps, model.popsizes, model.rho)
 
             #transmat_switch = calc_transition_probs_switch_c(
             #    tree, last_tree, recomb.name,
             #    model.states[start-1], model.states[start],
-            #    nlineages, model.times,
+            #    last_nlineages, model.times,
             #    model.time_steps, model.popsizes, model.rho, raw=False)
             
         else:
@@ -2016,6 +2028,7 @@ def iter_trans_emit_matrices(model, n):
             model.times, len(model.times), model.mu)
 
         last_tree = tree
+        last_nlineages = nlineages
 
         yield block, nstates, transmat, transmat_switch, emit
 
@@ -2030,6 +2043,36 @@ def delete_trans_emit_matrices(matrices):
     
 
 def forward_algorithm(model, n, verbose=False, matrices=None):
+
+    probs = []
+
+    if verbose:
+        util.tic("forward")
+
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        model.arg, model.times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    seqlen = sum(blocklens)
+
+    seqs = [model.seqs[node.name] for node in all_nodes[0] if node.is_leaf()]
+    fw = arghmm_forward_alg(ptrees, ages, sprs, blocklens,
+                            len(ptrees), len(ptrees[0]), 
+                            model.times, len(model.times),
+                            model.popsizes, model.rho, model.mu,
+                            (c_char_p * len(seqs))(*seqs), len(model.seqs),
+                            seqlen, None)
+
+    probs = []
+    for i in xrange(seqlen):
+        probs.append(fw[i][:model.get_num_states(i)])
+            
+    return probs
+
+
+    
+
+def forward_algorithm2(model, n, verbose=False, matrices=None):
 
     probs = []
 
@@ -2088,7 +2131,6 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
         util.toc()
             
     return probs
-
 
 
 def backward_algorithm(model, n, verbose=False, matrices=None):
