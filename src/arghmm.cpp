@@ -652,8 +652,7 @@ void calc_transition_probs(LocalTree *tree, double treelen, ArgModel *model,
 
 
 void get_deterministic_transitions(
-    intnode *itree, intnode *last_itree, int nnodes, 
-    int *last_ages_index,
+    LocalTree *tree, LocalTree *last_tree,
     int recomb_name, int recomb_time, int coal_name, int coal_time,
     intstate *states1, int nstates1, intstate *states2, int nstates2,
     int ntimes, double *times, int *next_states)
@@ -661,13 +660,17 @@ void get_deterministic_transitions(
 
     // recomb_node in tree and last_tree
     // coal_node in last_tree
+    
+    const int nnodes = tree->nnodes;
+    const LocalNode *nodes = tree->nodes;
+    const LocalNode *last_nodes = last_tree->nodes;
 
 
     // make state lookup
     NodeStateLookup state2_lookup(states2, nstates2, nnodes);
 
     // find old node
-    int old_node = last_itree[recomb_name].parent;
+    int old_node = last_nodes[recomb_name].parent;
 
 
     for (int i=0; i<nstates1; i++) {
@@ -683,7 +686,7 @@ void get_deterministic_transitions(
             // trace up from remaining leaf to find correct new state
 
             int node2;
-            intnode *node = &last_itree[node1];
+            const LocalNode *node = &last_nodes[node1];
 
             if (node->child[0] == -1) {
                 // SPR can't disrupt leaf branch
@@ -712,7 +715,7 @@ void get_deterministic_transitions(
             {
                 // coal occurs under us
                 // TODO: make this probabilistic (is this true?)
-                node2 = itree[node2].parent;
+                node2 = nodes[node2].parent;
             }
             
             // set next state
@@ -736,16 +739,16 @@ void get_deterministic_transitions(
                 // the branch above the subtree
 
                 // search up for parent
-                int parent = last_itree[recomb_name].parent;
-                int time2 = last_ages_index[parent];
+                int parent = last_nodes[recomb_name].parent;
+                int time2 = last_nodes[parent].age;
                 int node2;
 
                 // find other child
-                int *c = last_itree[parent].child;
+                const int *c = last_nodes[parent].child;
                 int other = (c[1] == recomb_name ? c[0] : c[1]);
 
                 // find new state in tree
-                node2 = (other == coal_name ? itree[other].parent : other);
+                node2 = (other == coal_name ? nodes[other].parent : other);
                 next_states[i] = state2_lookup.lookup(node2, time2);
             }
         }
@@ -756,9 +759,8 @@ void get_deterministic_transitions(
 
 
 void calc_transition_probs_switch(
-    int *ptree, int *last_ptree, int nnodes, 
+    LocalTree *tree, LocalTree *last_tree, 
     int recomb_name, int recomb_time, int coal_name, int coal_time,
-    int *ages_index, int *last_ages_index,
     double treelen, double last_treelen,
     intstate *states1, int nstates1,
     intstate *states2, int nstates2,
@@ -768,25 +770,13 @@ void calc_transition_probs_switch(
     double *popsizes, double rho,
     double **transprob)
 {
-    
-    // create inttree data structures
-    intnode *last_itree = make_itree(nnodes, last_ptree);
-    intnode *itree = make_itree(nnodes, ptree);
-
-    // find root node
-    int last_root;
-    for (int i=0; i<nnodes; i++) {
-        if (itree[i].parent == -1) {
-            last_root = i;
-            break;
-        }
-    }
-    
+    const int last_root = last_tree->root;
+    const LocalNode *nodes = tree->nodes;
+    const LocalNode *last_nodes = last_tree->nodes;
 
     // get deterministic transitions
     int determ[nstates1];
-    get_deterministic_transitions(itree, last_itree, nnodes,
-                                  last_ages_index,
+    get_deterministic_transitions(tree, last_tree, 
                                   recomb_name, recomb_time,
                                   coal_name, coal_time,
                                   states1, nstates1, states2, nstates2,
@@ -809,28 +799,28 @@ void calc_transition_probs_switch(
 
             // determine if node1 is still here or not
             int node3;
-            int last_parent = last_itree[recomb_name].parent;
+            int last_parent = last_nodes[recomb_name].parent;
             if (last_parent == node1) {
                 // recomb breaks node1 branch, we need to use the other child
-                int *c = last_itree[last_parent].child;
+                const int *c = last_nodes[last_parent].child;
                 node3 = (c[1] == recomb_name ? c[0] : c[1]);
             } else {
                 node3 = node1;
             }
 
             // find parent of recomb_branch and node1
-            int last_parent_age = last_ages_index[last_parent];
-            int parent = itree[recomb_name].parent;
-            assert(parent == itree[node3].parent);
+            int last_parent_age = last_nodes[last_parent].age;
+            int parent = nodes[recomb_name].parent;
+            assert(parent == nodes[node3].parent);
 
             // treelen of T^n_{i-1}
             double blen = times[time1];
             double treelen2 = treelen + blen;
             if (node1 == last_root) {
-                treelen2 += blen - times[last_ages_index[last_root]];
+                treelen2 += blen - times[last_nodes[last_root].age];
                 treelen2 += time_steps[time1];
             } else {
-                treelen2 += time_steps[last_ages_index[last_root]];
+                treelen2 += time_steps[last_nodes[last_root].age];
             }
 
 
@@ -849,7 +839,7 @@ void calc_transition_probs_switch(
                 // remove recombination branch and add new branch
                 int kbn = nbranches[time2];
                 int kcn = ncoals[time2] + 1;
-                if (time2 < ages_index[parent]) {
+                if (time2 < nodes[parent].age) {
                     kbn -= 1;
                     kcn -= 1;
                 }
@@ -880,9 +870,6 @@ void calc_transition_probs_switch(
             }
         }
     }
-
-    free_itree(last_itree);
-    free_itree(itree);
 }
 
 
@@ -941,8 +928,10 @@ double **new_transition_probs_switch(
     // setup model
     ArgModel model(ntimes, times, popsizes, rho, 0.0);
     
-    // setup local tree
+    // setup local trees
     LocalTree tree(ptree, nnodes, ages_index);
+    LocalTree last_tree(last_ptree, nnodes, last_ages_index);
+
     LineageCounts lineages(ntimes);
     lineages.count(&tree);
     
@@ -952,9 +941,8 @@ double **new_transition_probs_switch(
     
     double **transprob = new_matrix<double>(nstates1, nstates2);
     calc_transition_probs_switch(
-        ptree, last_ptree, nnodes, 
+        &tree, &last_tree,
         recomb_name, recomb_time, coal_name, coal_time,
-        ages_index, last_ages_index,
         treelen, last_treelen,
         states1, nstates1, states2, nstates2,
         ntimes, times, time_steps,
@@ -998,7 +986,7 @@ void calc_state_priors(const States &states, LineageCounts *lineages,
 //============================================================================
 // emissions
 
-
+// TODO: do not rely on node order for postorder traversal
 void parsimony_ancestral_seq(LocalTree *tree, char **seqs, 
                              int nseqs, int seqlen, int pos, char *ancestral) 
 {
