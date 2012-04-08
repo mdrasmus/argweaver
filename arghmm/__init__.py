@@ -296,13 +296,20 @@ def parsimony_ancestral_seq(tree, seqs, pos):
     for node in tree.preorder():
         s = sets[node]
         if len(s) == 1 or not node.parents:
-            ancestral[node.name] = s.pop()
+            # NOTE: this technique is used to make assignment deterministic
+            ancestral[node.name] = ("A" if "A" in s else
+                                    "C" if "C" in s else
+                                    "G" if "G" in s else
+                                    "T")
         else:
             pchar = ancestral[node.parents[0].name]
             if pchar in s:
                 ancestral[node.name] = pchar
             else:
-                ancestral[node.name] = s.pop()
+                ancestral[node.name] = ("A" if "A" in s else
+                                        "C" if "C" in s else
+                                        "G" if "G" in s else
+                                        "T")
 
     return ancestral
 
@@ -1806,14 +1813,20 @@ class ArgHmm (hmm.HMM):
         # x = current branch
         # p = parent of current branch
 
+        #if state == 0:
+        #    ptree, nodes, node_lookup = make_ptree(self.local_tree.get_tree())
+        #    print pos, "".join(self.local_site[x.name] for x in nodes), "'"
+
         if node.parents:
             parent = node.parents[0]
             parent_age = parent.age
 
+            #print "parent.parents", parent.parents
+
             if not parent.parents:
                 # unwrap top branch
                 c = parent.children
-                sib = c[1] if node == c[0] else c[1]
+                sib = (c[1] if node == c[0] else c[0])
                 
                 v = self.seqs[self.new_name][pos]
                 x = self.local_site[node.name]
@@ -1828,6 +1841,7 @@ class ArgHmm (hmm.HMM):
                 p = self.local_site[parent.name]
 
         else:
+            #print "parent", None
             parent = None
             parent_age = None
 
@@ -1840,7 +1854,7 @@ class ArgHmm (hmm.HMM):
 
         time = max(time, mintime)
 
-        #print pos, v, x, p
+        #print " ", pos, state, v, x, p, "'"
 
         if v == x == p:
             # no mutation
@@ -1868,14 +1882,13 @@ class ArgHmm (hmm.HMM):
 
         else:
             # two mutations (v,x)
-
             # mutation on x
             if parent:
                 t1 = max(parent_age - node.age, mintime)
                 t2a = max(parent_age - time, mintime)
             else:
                 t1 = max(self.times[-1] - node.age, mintime)
-                t2a = max(self.times[-1].age - time, mintime)
+                t2a = max(self.times[-1] - time, mintime)
             t2b = max(time - node.age, mintime)
             t2 = max(t2a, t2b)
             t3 = time

@@ -907,7 +907,7 @@ class Basic (unittest.TestCase):
 
     def test_post_plot(self):
 
-        k = 5
+        k = 10
         n = 1e4
         rho = 1.5e-8 * 50
         mu = 2.5e-8 * 50
@@ -1457,7 +1457,7 @@ class Basic (unittest.TestCase):
         n = 1e4
         rho = 0.0
         mu = 2.5e-8 * 100
-        length = 10000
+        length = 100
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)

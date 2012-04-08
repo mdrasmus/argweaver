@@ -852,10 +852,10 @@ void calc_state_priors(const States &states, LineageCounts *lineages,
 //============================================================================
 // emissions
 
-void parsimony_ancestral_seq(intnode *itree, int nnodes, char **seqs, 
-                             int nseqs, int seqlen, char **ancestral) 
+void parsimony_ancestral_seq_all(intnode *itree, int nnodes, char **seqs, 
+                                 int nseqs, int seqlen, char **ancestral) 
 {
-    char sets[nnodes];
+    char *sets = new char [nnodes];
     const int nleaves = (nnodes + 1) / 2;
     int pchar;
     
@@ -872,6 +872,9 @@ void parsimony_ancestral_seq(intnode *itree, int nnodes, char **seqs,
                 char lset = sets[itree[node].child[0]];
                 char rset = sets[itree[node].child[1]];
                 char intersect = lset & rset;
+
+                assert(lset != 0 && rset != 0);
+
                 if (intersect > 0)
                     sets[node] = intersect;
                 else
@@ -917,6 +920,79 @@ void parsimony_ancestral_seq(intnode *itree, int nnodes, char **seqs,
             }
         }
     }
+
+    delete [] sets;
+}
+
+
+void get_posterior_order(intnode *itree, int nnodes)
+{
+    
+}
+
+void parsimony_ancestral_seq(intnode *itree, int nnodes, char **seqs, 
+                             int nseqs, int seqlen, int pos, char *ancestral) 
+{
+    char sets[nnodes];
+    const int nleaves = (nnodes + 1) / 2;
+    int pchar;
+    
+        // clear sets
+        for (int node=0; node<nnodes; node++)
+            sets[node] = 0;
+
+        // do unweighted parsimony by postorder traversal
+        for (int node=0; node<nnodes; node++) {
+            if (node < nleaves) {
+                sets[node] = 1 << dna2int[(int)seqs[node][pos]];
+            } else {
+                char lset = sets[itree[node].child[0]];
+                char rset = sets[itree[node].child[1]];
+                char intersect = lset & rset;
+                if (intersect > 0)
+                    sets[node] = intersect;
+                else
+                    sets[node] = lset | rset;
+            }
+        }
+
+        // traceback
+        // arbitrary choose root base from set
+        char rootset = sets[nnodes-1];
+        ancestral[nnodes-1] = (rootset & 1) ? int2dna[0] :
+            (rootset & 2) ? int2dna[1] :
+            (rootset & 4) ? int2dna[2] : int2dna[3];
+        
+        // traceback with preorder traversal
+        for (int node=nnodes-2; node>-1; node--) {
+            char s = sets[node];
+            
+            switch (s) {
+            case 1: // just A
+                ancestral[node] = int2dna[0];
+                break;
+            case 2: // just C
+                ancestral[node] = int2dna[1];
+                break;
+            case 4: // just G
+                ancestral[node] = int2dna[2];
+                break;
+            case 8: // just T
+                ancestral[node] = int2dna[3];
+                break;
+            default:
+                pchar = ancestral[itree[node].parent];
+                if (dna2int[pchar] & s) {
+                    // use parent char if possible
+                    ancestral[node] = pchar;
+                } else {
+                    // use arbitrary char otherwise
+                    ancestral[node] = (s & 1) ? int2dna[0] :
+                        (s & 2) ? int2dna[1] :
+                        (s & 4) ? int2dna[2] : int2dna[3];
+                }
+            }
+        }
 }
 
 
@@ -938,7 +1014,7 @@ void calc_emissions(intstate *states, int nstates,
 
     // infer parsimony ancestral sequences
     char **ancestral = new_matrix<char>(nnodes, seqlen);
-    parsimony_ancestral_seq(itree, nnodes, seqs, nseqs, seqlen, ancestral);
+    parsimony_ancestral_seq_all(itree, nnodes, seqs, nseqs, seqlen, ancestral);
 
 
     // base variables
@@ -967,7 +1043,7 @@ void calc_emissions(intstate *states, int nstates,
                 if (itree[parent].parent == -1) {
                     // unwrap top branch
                     int *c = itree[parent].child;
-                    int sib = (node == c[0] ? c[1] : c[1]);
+                    int sib = (node == c[0] ? c[1] : c[0]);
                     p = ancestral[sib][i];
 
                     // modify (x,p) length to (x,p) + (sib,p)
@@ -1014,7 +1090,6 @@ void calc_emissions(intstate *states, int nstates,
 
             } else {
                 // two mutations (v,x)
-
                 // mutation on x
                 if (parent != -1) {
                     t1 = max(parent_age - node_age, mintime);
@@ -1056,15 +1131,16 @@ void calc_emissions2(const States &states,
     double ages[nnodes];
     for (int i=0; i<nnodes; i++) {
         ages[i] = times[ages_index[i]];
-        printf("%d %d %f\n", i, ages_index[i], ages[i]);
+        //rintf("%d %d %f\n", i, ages_index[i], ages[i]);
     }
 
     // create inttree data structure
     intnode *itree = make_itree(nnodes, ptree);
 
     // infer parsimony ancestral sequences
-    char **ancestral = new_matrix<char>(nnodes, seqlen);
-    parsimony_ancestral_seq(itree, nnodes, seqs, nseqs, seqlen, ancestral);
+    //char **ancestral = new_matrix<char>(nnodes, seqlen);
+    //parsimony_ancestral_seq(itree, nnodes, seqs, nseqs, seqlen, ancestral);
+    char ancestral[nnodes];
 
 
     // base variables
@@ -1076,7 +1152,15 @@ void calc_emissions2(const States &states,
     // iterate through positions
     for (int i=0; i<seqlen; i++) {
         v = seqs[newnode][i];
+
+        parsimony_ancestral_seq(itree, nnodes, seqs, nseqs, seqlen, 
+                                 i, ancestral);
         
+        //printf("%d ", i);
+        //for (int j=0; j<nnodes; j++)
+        //    putc(ancestral[j], stdout);
+        //printf("\n");
+
         // iterate through states
         for (unsigned int j=0; j<states.size(); j++) {
             int node = states[j].node;
@@ -1084,7 +1168,7 @@ void calc_emissions2(const States &states,
             double time = times[timei];
             double node_age = ages[node];
 
-            x = ancestral[node][i];
+            x = ancestral[node];
 
             if (itree[node].parent != -1) {
                 parent = itree[node].parent;
@@ -1093,14 +1177,14 @@ void calc_emissions2(const States &states,
                 if (itree[parent].parent == -1) {
                     // unwrap top branch
                     int *c = itree[parent].child;
-                    int sib = (node == c[0] ? c[1] : c[1]);
-                    p = ancestral[sib][i];
+                    int sib = (node == c[0] ? c[1] : c[0]);
+                    p = ancestral[sib];
 
                     // modify (x,p) length to (x,p) + (sib,p)
                     parent_age = 2 * parent_age - ages[sib];
 
                 } else {
-                    p = ancestral[parent][i];
+                    p = ancestral[parent];
                 }
             } else {
                 // adjust time by unwrapping branch e(v)
@@ -1109,6 +1193,10 @@ void calc_emissions2(const States &states,
                 time = 2 * time - node_age;
                 p = x;
             }
+
+
+            //printf(" %d %d %c %c %c\n", i, j, v, x, p);
+
 
             // ensure mintime
             if (time < mintime) 
@@ -1140,7 +1228,6 @@ void calc_emissions2(const States &states,
 
             } else {
                 // two mutations (v,x)
-
                 // mutation on x
                 if (parent != -1) {
                     t1 = max(parent_age - node_age, mintime);
@@ -1161,7 +1248,6 @@ void calc_emissions2(const States &states,
     }
 
     free_itree(itree);
-    delete_matrix(ancestral, nnodes);
 }
 
 
@@ -1177,12 +1263,27 @@ double **new_emissions(intstate *istates, int nstates,
     make_states(istates, nstates, states);
     //LocalTree tree(ptree, nnodes, ages);
 
+    double ages[nnodes];
+    for (int i=0; i<nnodes; i++) {
+        ages[i] = times[ages_index[i]];
+        //printf("%d %d %f\n", i, ages_index[i], ages[i]);
+    }
+
+    /*
+    calc_emissions(istates, nstates,
+                   ptree, nnodes, ages,
+                   seqs, nseqs, seqlen,
+                   times, ntimes,
+                   mu, emit);
+    */
 
     calc_emissions2(states, 
                    ptree, nnodes, ages_index,
                    seqs, nseqs, seqlen,
                    times, ntimes,
                    mu, emit);
+    
+
     return emit;
 }
 
