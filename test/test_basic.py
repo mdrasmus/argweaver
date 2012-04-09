@@ -1168,11 +1168,11 @@ class Basic (unittest.TestCase):
     
     def test_forward_c(self):
 
-        k = 5
+        k = 10
         n = 1e4
-        rho = 1.5e-8 * 3
-        mu = 2.5e-8 * 100
-        length = 10000
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 1000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -1198,19 +1198,24 @@ class Basic (unittest.TestCase):
         util.toc()
         
         util.tic("python")
-        probs2 = list(hmm.forward_algorithm(model, length, verbose=True))
+        probs2 = list(arghmm.forward_algorithm2(model, length, verbose=True))
         util.toc()
 
         #print "probs1"
         #pc(probs1)
-
+        
         #print "probs2"
         #pc(probs2)
         
 
-        for col1, col2 in izip(probs1, probs2):
+        for i, (col1, col2) in enumerate(izip(probs1, probs2)):
             for a, b in izip(col1, col2):
-                fequal(a, b, rel=.01)
+                try:
+                    fequal(a, b, rel=.01)
+                except:
+                    print i, col1
+                    print i, col2
+                    raise
 
         
 

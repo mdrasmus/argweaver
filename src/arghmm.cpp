@@ -923,7 +923,7 @@ void calc_state_priors(const States &states, LineageCounts *lineages,
         int b = states[i].time;
 
         double sum = 0.0;
-        for (int m=0; m<b; b++)
+        for (int m=0; m<b; m++)
             sum += time_steps[m] * nbranches[m] / (2.0 * popsizes[m]);
         
         priors[i] = log((1.0 - exp(- time_steps[b] * nbranches[b] /
@@ -1168,12 +1168,11 @@ void delete_emissions(double **emit, int seqlen)
 
 
 
-void arghmm_forward_alg(int **ptrees, int **ages, int **sprs, int *blocklens,
-                        int ntrees, int nnodes, 
-                        double *times, int ntimes,
-                        double *popsizes, double rho, double mu,
-                        char **seqs, int nseqs, int seqlen,
-                        double **fw=NULL)
+double **arghmm_forward_alg(
+    int **ptrees, int **ages, int **sprs, int *blocklens,
+    int ntrees, int nnodes, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, double **fw=NULL)
 {
     
     // allocate lineage counts
@@ -1220,15 +1219,14 @@ void arghmm_forward_alg(int **ptrees, int **ages, int **sprs, int *blocklens,
             }
         }
 
-        printf("pos %d %d\n", pos, pos+blocklen);
+        printf("posc %d %d\n", pos, blocklen);
         
         // calculate emissions
         for (int i=0; i<nseqs; i++)
             subseqs[i] = &seqs[i][pos];
         double **emit = new_matrix<double>(blocklen, nstates);
-        calc_emissions(*states, tree, seqs, nseqs, blocklen, &model, emit);
-
-        continue;
+        calc_emissions(*states, tree, subseqs, nseqs, blocklen, &model, emit);
+        
         
         // use switch matrix for first column of forward table
         // if we have a previous state space (i.e. not first block)
@@ -1264,7 +1262,6 @@ void arghmm_forward_alg(int **ptrees, int **ages, int **sprs, int *blocklens,
             // update lineages to current tree
             lineages.count(tree);
         }
-
         
         // calculate transmat and use it for rest of block
         double **transmat = new_matrix<double>(nstates, nstates);
@@ -1276,13 +1273,46 @@ void arghmm_forward_alg(int **ptrees, int **ages, int **sprs, int *blocklens,
 
         // clean up
         delete_matrix<double>(transmat, nstates);
-        delete_matrix<double>(emit, nstates);
+        delete_matrix<double>(emit, blocklen);
 
         // update pointers
         last_tree = tree;
         last_states = states;
         states = ((states == &states1) ? &states2 : &states1);
     }
+
+    return fw;
+}
+
+
+intstate **get_state_spaces(int **ptrees, int **ages, int **sprs, 
+                            int *blocklens, int ntrees, int nnodes, int ntimes)
+{
+    LocalTrees local_trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+    States states;
+    
+    // allocate state space
+    intstate **all_states = new intstate* [ntrees];
+
+    // iterate over local trees
+    int i = 0;
+    for (LocalTrees::iterator it=local_trees.begin();
+         it != local_trees.end(); it++)
+    {
+        LocalTree *tree = it->tree;
+        get_coal_states(tree, ntimes, states);
+        int nstates = states.size();
+        all_states[i] = new intstate [nstates];
+        
+        for (int j=0; j<nstates; j++) {
+            all_states[i][j][0] = states[j].node;
+            all_states[i][j][1] = states[j].time;
+        }
+        
+        i++;
+    }
+
+    return all_states;
 }
 
 

@@ -103,7 +103,7 @@ if arghmmc:
            [c_double_p_p, "emit", c_int, "seqlen"])
 
 
-    export(arghmmc, "arghmm_forward_alg", c_int,
+    export(arghmmc, "arghmm_forward_alg", c_double_p_p,
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
             c_int_matrix, "sprs", c_int_list, "blocklens",
             c_int, "ntrees", c_int, "nnodes", 
@@ -112,6 +112,11 @@ if arghmmc:
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_double_p_p, "fw"])
 
+
+    export(arghmmc, "get_state_spaces", POINTER(POINTER(c_int * 2)),
+           [c_int_matrix, "ptrees", c_int_matrix, "ages",
+            c_int_matrix, "sprs", c_int_list, "blocklens",
+            c_int, "ntrees", c_int, "nnodes", c_int, "ntimes"])
 
 
 #=============================================================================
@@ -1544,7 +1549,7 @@ def iter_arg_sprs(arg, start=None, end=None):
     last_tree = None
     for block, tree_full in arglib.iter_tree_tracks(arg, start, end):
         if last_tree_full:
-            recomb = (x for x in last_tree_full if x.pos == block[0]).next()
+            recomb = (x for x in tree_full if x.pos == block[0]).next()
             spr = find_recomb_coal(tree_full, last_tree_full,
                                    recomb_name=recomb.name)
         else:
@@ -1552,6 +1557,20 @@ def iter_arg_sprs(arg, start=None, end=None):
         
         tree = tree_full.copy()
         tree = arglib.remove_single_lineages(tree)
+
+        # convert block to our system
+        a, b = block
+        if a == 0:
+            a = -1
+        if b == end:
+            b -= 1
+        block = [a+1, b+1]
+
+        #print "-----------"
+        #print spr
+        #if last_tree:
+        #    last_tree.get_tree().write()
+        #tree.get_tree().write()
         
         yield block, tree, last_tree, spr
 
@@ -1607,7 +1626,7 @@ def get_treeset(arg, times, start=None, end=None):
         ages.append(age)
         sprs.append(ispr)
         blocks.append(block)
-        all_nodes.append(nodes)
+        all_nodes.append([x.name for x in nodes])
 
         # setup last tree
         last_tree = tree
@@ -2055,7 +2074,9 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
     blocklens = [x[1] - x[0] for x in blocks]
     seqlen = sum(blocklens)
 
-    seqs = [model.seqs[node.name] for node in all_nodes[0] if node.is_leaf()]
+    seqs = [model.seqs[node] for node in all_nodes[0]
+            if model.arg[node].is_leaf()]
+    seqs.append(model.seqs[model.new_name])
     fw = arghmm_forward_alg(ptrees, ages, sprs, blocklens,
                             len(ptrees), len(ptrees[0]), 
                             model.times, len(model.times),
@@ -2063,9 +2084,32 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
                             (c_char_p * len(seqs))(*seqs), len(model.seqs),
                             seqlen, None)
 
+    # map states to python state space
+    all_states = get_state_spaces(ptrees, ages, sprs, blocklens,
+                                  len(ptrees), len(ptrees[0]), len(model.times))
+
     probs = []
-    for i in xrange(seqlen):
-        probs.append(fw[i][:model.get_num_states(i)])
+    for k, (start, end) in enumerate(blocks):
+        states = model.states[start]
+        nstates = len(states)
+        istates = all_states[k]
+        nodes = all_nodes[k]
+        lookup = util.list2lookup(states)
+        
+        tree = model.arg.get_marginal_tree(start-.5).get_tree()
+        treelib.remove_single_children(tree)
+        
+        mapping = [0] * nstates
+        for j, (inode, itime) in enumerate(istates[:nstates]):
+            s = (nodes[inode], itime)
+            assert nodes[inode] in tree, nodes[inode]
+            mapping[lookup[s]] = j
+        
+        for i in range(start, end):
+            col = []
+            probs.append(col)
+            for j in xrange(nstates):
+                col.append(fw[i][mapping[j]])
             
     return probs
 
@@ -2094,7 +2138,7 @@ def forward_algorithm2(model, n, verbose=False, matrices=None):
     # iterate over blocks
     for block, nstates, transmat, transmat_switch, emit in matrices:
         if verbose:
-            util.logger(" pos %d" % block[0])
+            util.logger(" pos %d %d" % (block[0], block[1] - block[0]))
 
         blocklen = block[1] - block[0]
 
