@@ -164,28 +164,6 @@ public:
                     order[end++] = parent;
             }
         }
-
-        /*
-        printf("root %d\n", root);
-        for (int i=0; i<nnodes; i++) {
-            printf("order[%d] %d\n", i, order[i]);
-        }
-
-        assert(root==order[nnodes-1]);
-
-        char seen[nnodes];
-        for (i=0; i<nnodes; i++)
-            seen[i] = 0;
-
-        for (i=0; i<nnodes; i++) {
-            int node = order[i];
-            seen[node] = 1;
-            if (!nodes[node].is_leaf()) {
-                assert(seen[nodes[node].child[0]]);
-                assert(seen[nodes[node].child[1]]);
-            }
-        }
-        */
     }
     
 
@@ -193,6 +171,32 @@ public:
     int root;
     LocalNode *nodes;
 };
+
+
+
+bool assert_tree_postorder(LocalTree *tree, int *order)
+{
+    if (tree->root != order[tree->nnodes-1])
+        return false;
+
+    char seen[tree->nnodes];
+    for (int i=0; i<tree->nnodes; i++)
+        seen[i] = 0;
+
+    for (int i=0; i<tree->nnodes; i++) {
+        int node = order[i];
+        seen[node] = 1;
+        if (!tree->nodes[node].is_leaf()) {
+            if (! seen[tree->nodes[node].child[0]] ||
+                ! seen[tree->nodes[node].child[1]])
+                return false;
+        }
+    }
+    
+    return true;
+}
+
+
 
 
 class LocalTreeSpr
@@ -382,6 +386,17 @@ public:
 };
 
 
+class Sequences
+{
+public:
+    Sequences(char **seqs, int nseqs, int seqlen) :
+        seqs(seqs), nseqs(nseqs), seqlen(seqlen)
+    {}
+    
+    char **seqs;
+    int nseqs;
+    int seqlen;
+};
 
 
 
@@ -1188,6 +1203,130 @@ void delete_emissions(double **emit, int seqlen)
 
 //=============================================================================
 
+class ArgHmmMatrices
+{
+public:
+    ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
+                   double **transmat, double **transmat_switch, double **emit):
+        nstates1(nstates1),
+        nstates2(nstates2),
+        blocklen(blocklen),
+        transmat(transmat),
+        transmat_switch(transmat_switch),
+        emit(emit)
+    {}
+    ~ArgHmmMatrices() {}
+
+    int nstates1;
+    int nstates2;
+    int blocklen;
+    double **transmat;
+    double **transmat_switch;
+    double **emit;
+};
+
+
+class ArgHmmMatrixList
+{
+public:
+    ArgHmmMatrixList() {}
+    ~ArgHmmMatrixList() {}
+    
+    void setup(ArgModel *model, Sequences *seqs, LocalTrees *trees) 
+    {
+        setup(model, seqs, trees->begin(), trees->end());
+    }
+
+    void setup(ArgModel *_model, Sequences *_seqs, LocalTrees::iterator start, 
+               LocalTrees::iterator end)
+    {
+        model = _model;
+        char **seqs = _seqs->seqs;
+        int nseqs = _seqs->nseqs;
+    
+        // allocate lineage counts
+        LineageCounts lineages(model->ntimes);
+    
+        LocalTree *last_tree = NULL;
+    
+        // state spaces
+        States states1;
+        States states2;
+        States *states = &states1;
+        States *last_states = NULL;
+        int nstates1, nstates2;
+    
+        // temporary subsequence of the sequences
+        char *subseqs[nseqs];
+        
+        // matrices
+        double **transmat_switch;
+        double **transmat;
+        
+        // iterate over local trees
+        for (LocalTrees::iterator it=start; it != end; it++) {
+            int pos = it->block.start;
+            int blocklen = it->block.end - it->block.start;
+            LocalTree *tree = it->tree;
+            get_coal_states(tree, model->ntimes, *states);
+            int nstates = states->size();
+                
+            // calculate emissions
+            for (int i=0; i<nseqs; i++)
+                subseqs[i] = &seqs[i][pos];
+            double **emit = new_matrix<double>(blocklen, nstates);
+            calc_emissions(*states, tree, subseqs, nseqs, blocklen, 
+                           model, emit);
+        
+            
+            // use switch matrix for first column of forward table
+            // if we have a previous state space (i.e. not first block)
+            if (!last_states) {
+                transmat_switch = NULL;
+                nstates1 = nstates2 = nstates;
+            } else {
+                nstates1 = last_states->size();
+                nstates2 = states->size();
+            
+                // calculate transmat_switch
+                lineages.count(last_tree);
+                transmat_switch = new_matrix<double>(nstates1, nstates2);
+            
+                calc_transition_probs_switch(
+                    tree, last_tree, it->spr, *last_states, *states,
+                    model, &lineages, transmat_switch);
+
+                // update lineages to current tree
+                lineages.count(tree);
+            }
+        
+            // calculate transmat and use it for rest of block
+            transmat = new_matrix<double>(nstates, nstates);
+            calc_transition_probs(tree, model, *states, &lineages, transmat);
+        
+
+            // store matrices
+            matrices.push_back(ArgHmmMatrices(nstates1, nstates2, blocklen,
+                transmat, transmat_switch, emit));
+
+
+            // update pointers
+            last_tree = tree;
+            last_states = states;
+            states = ((states == &states1) ? &states2 : &states1);
+        }
+
+        
+    }
+
+    ArgModel *model;
+    vector<ArgHmmMatrices> matrices;
+};
+
+
+//=============================================================================
+// HMM algorithms
+
 
 
 double **arghmm_forward_alg(
@@ -1204,7 +1343,135 @@ double **arghmm_forward_alg(
     ArgModel model(ntimes, times, popsizes, rho, mu);
     
     // setup local trees
-    LocalTrees local_trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+    LocalTree *last_tree = NULL;
+    
+    // state spaces
+    States states1;
+    States states2;
+    States *states = &states1;
+    States *last_states = NULL;
+    
+    // temporary subsequence of the sequence
+    char *subseqs[nseqs];
+    
+    // allocate the forward table if necessary
+    if (fw == NULL) {
+        fw = new double* [seqlen];
+        for (int i=0; i<seqlen; i++)
+            fw[i] = NULL;
+    }
+    
+
+    // iterate over local trees to find largest blocklen and nstates
+    int max_nstates = 0;
+    int max_blocklen = 0;
+    for (LocalTrees::iterator it=trees.begin(); it != trees.end(); it++) {
+        int blocklen = it->block.end - it->block.start;
+        get_coal_states(it->tree, ntimes, *states);
+        int nstates = states->size();
+        max_nstates = max(max_nstates, nstates);
+        max_blocklen = max(max_blocklen, blocklen);
+    }
+
+
+    // HMM matrices
+    double **emit = new_matrix<double>(max_blocklen, max_nstates);
+    double **transmat = new_matrix<double>(max_nstates, max_nstates);
+    double **transmat_switch = new_matrix<double>(max_nstates, max_nstates);
+    
+    
+    // iterate over local trees
+    for (LocalTrees::iterator it=trees.begin(); it != trees.end(); it++) {
+        int pos = it->block.start;
+        int blocklen = it->block.end - it->block.start;
+        LocalTree *tree = it->tree;
+        get_coal_states(tree, ntimes, *states);
+        int nstates = states->size();
+        
+        // allocate the forward table column if necessary
+        if (fw[pos] == NULL) {
+            for (int i=pos; i<pos+blocklen; i++) {
+                fw[i] = new double [nstates];
+            }
+        }
+        
+        // calculate emissions
+        for (int i=0; i<nseqs; i++)
+            subseqs[i] = &seqs[i][pos];
+        calc_emissions(*states, tree, subseqs, nseqs, blocklen, &model, emit);
+        
+        
+        // use switch matrix for first column of forward table
+        // if we have a previous state space (i.e. not first block)
+        if (!last_states) {
+            // calculate prior of first state
+            lineages.count(tree);
+            calc_state_priors(*states, &lineages, &model, fw[0]);  
+
+        } else {
+            double *col1 = fw[pos-1];
+            double *col2 = fw[pos];
+            int nstates1 = last_states->size();
+            int nstates2 = states->size();
+            
+            // calculate transmat_switch
+            lineages.count(last_tree);
+            calc_transition_probs_switch(tree, last_tree, it->spr,
+                                         *last_states, *states,
+                                         &model, &lineages, transmat_switch);
+
+            // perform one column of forward algorithm
+            double tmp[nstates1];
+            for (int k=0; k<nstates2; k++) {
+                double e = emit[0][k];
+                for (int j=0; j<nstates1; j++)
+                    tmp[j] = col1[j] + transmat_switch[j][k] + e;
+                col2[k] = logsum(tmp, nstates1);
+            }
+            
+            // update lineages to current tree
+            lineages.count(tree);
+        }
+        
+        // calculate transmat and use it for rest of block
+        calc_transition_probs(tree, &model, *states, &lineages, transmat);
+        
+        double **subfw = &fw[pos];
+        forward_alg(blocklen, nstates, transmat, emit, subfw);
+        
+        // update pointers
+        last_tree = tree;
+        last_states = states;
+        states = ((states == &states1) ? &states2 : &states1);
+    }
+
+    // cleanup
+    delete_matrix<double>(emit, max_blocklen);
+    delete_matrix<double>(transmat, max_nstates);
+    delete_matrix<double>(transmat_switch, max_nstates);
+
+
+    return fw;
+}
+
+
+
+double **arghmm_posterior_sample(
+    int **ptrees, int **ages, int **sprs, int *blocklens,
+    int ntrees, int nnodes, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, double **fw=NULL)
+{
+    
+    // allocate lineage counts
+    LineageCounts lineages(ntimes);
+    
+    // setup model
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    
+    // setup local trees
+    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
     LocalTree *last_tree = NULL;
     
     // state spaces
@@ -1225,9 +1492,7 @@ double **arghmm_forward_alg(
     
     
     // iterate over local trees
-    for (LocalTrees::iterator it=local_trees.begin();
-         it != local_trees.end(); it++)
-    {
+    for (LocalTrees::iterator it=trees.begin(); it != trees.end(); it++) {
         int pos = it->block.start;
         int blocklen = it->block.end - it->block.start;
         LocalTree *tree = it->tree;
@@ -1240,8 +1505,6 @@ double **arghmm_forward_alg(
                 fw[i] = new double [nstates];
             }
         }
-
-        printf("posc %d %d\n", pos, blocklen);
         
         // calculate emissions
         for (int i=0; i<nseqs; i++)
@@ -1308,10 +1571,19 @@ double **arghmm_forward_alg(
 }
 
 
+
+
+void delete_double_matrix(double **mat, int nrows)
+{
+    delete_matrix<double>(mat, nrows);
+}
+
+
+
 intstate **get_state_spaces(int **ptrees, int **ages, int **sprs, 
                             int *blocklens, int ntrees, int nnodes, int ntimes)
 {
-    LocalTrees local_trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
     States states;
     
     // allocate state space
@@ -1319,8 +1591,7 @@ intstate **get_state_spaces(int **ptrees, int **ages, int **sprs,
 
     // iterate over local trees
     int i = 0;
-    for (LocalTrees::iterator it=local_trees.begin();
-         it != local_trees.end(); it++)
+    for (LocalTrees::iterator it=trees.begin(); it != trees.end(); it++)
     {
         LocalTree *tree = it->tree;
         get_coal_states(tree, ntimes, states);
@@ -1336,6 +1607,14 @@ intstate **get_state_spaces(int **ptrees, int **ages, int **sprs,
     }
 
     return all_states;
+}
+
+
+void delete_state_spaces(intstate **all_states, int ntrees)
+{
+    for (int i=0; i<ntrees; i++) {
+        delete [] all_states[i];
+    }
 }
 
 

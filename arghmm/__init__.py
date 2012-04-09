@@ -113,10 +113,17 @@ if arghmmc:
             c_double_p_p, "fw"])
 
 
+    export(arghmmc, "delete_double_matrix", c_int,
+           [c_double_p_p, "mat", c_int, "nrows"])
+
+
     export(arghmmc, "get_state_spaces", POINTER(POINTER(c_int * 2)),
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
             c_int_matrix, "sprs", c_int_list, "blocklens",
             c_int, "ntrees", c_int, "nnodes", c_int, "ntimes"])
+
+    export(arghmmc, "delete_state_spaces", c_int,
+           [POINTER(POINTER(c_int * 2)), "all_states", c_int, "ntrees"])
 
 
 #=============================================================================
@@ -2080,7 +2087,7 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
                             len(ptrees), len(ptrees[0]), 
                             model.times, len(model.times),
                             model.popsizes, model.rho, model.mu,
-                            (c_char_p * len(seqs))(*seqs), len(model.seqs),
+                            (c_char_p * len(seqs))(*seqs), len(seqs),
                             seqlen, None)
 
     # map states to python state space
@@ -2095,13 +2102,9 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
         nodes = all_nodes[k]
         lookup = util.list2lookup(states)
         
-        tree = model.arg.get_marginal_tree(start-.5).get_tree()
-        treelib.remove_single_children(tree)
-        
         mapping = [0] * nstates
         for j, (inode, itime) in enumerate(istates[:nstates]):
             s = (nodes[inode], itime)
-            assert nodes[inode] in tree, nodes[inode]
             mapping[lookup[s]] = j
         
         for i in range(start, end):
@@ -2109,11 +2112,17 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
             probs.append(col)
             for j in xrange(nstates):
                 col.append(fw[i][mapping[j]])
+
+
+    delete_state_spaces(all_states, len(ptrees))
+    delete_double_matrix(fw, seqlen)
+
+    if verbose:
+        util.toc()
             
     return probs
 
 
-    
 
 def forward_algorithm2(model, n, verbose=False, matrices=None):
 

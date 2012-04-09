@@ -916,7 +916,7 @@ class Basic (unittest.TestCase):
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
 
-        times = arghmm.get_time_points(ntimes=20)
+        times = arghmm.get_time_points(ntimes=30)
         arghmm.discretize_arg(arg, times)
 
         # save
