@@ -70,7 +70,7 @@ inline double logadd(double lna, double lnb)
 
 inline double logsum(double *vals, int nvals)
 {
-    const double SUM_LOG_THRESHOLD = -INFINITY; //15;
+    const double SUM_LOG_THRESHOLD = -15; //-INFINITY;
     double maxval = vals[0];
     int maxi = 0;
 

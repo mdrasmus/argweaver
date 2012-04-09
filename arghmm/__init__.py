@@ -1259,7 +1259,7 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
 
     k = times.index(recomb_time)
     coal_time = times.index(coal_time)
-
+    
     last_tree2 = last_tree.copy()
     arglib.remove_single_lineages(last_tree2)
     tree2 = tree.copy()
@@ -2005,7 +2005,6 @@ def iter_trans_emit_matrices(model, n):
         start = block[0]
         recomb = find_tree_next_recomb(model.arg, start - 1)
         if start > 0 and recomb is not None:
-            #last_tree = model.arg.get_marginal_tree(start-1-.5)
             assert last_tree is not None
 
             # debug:

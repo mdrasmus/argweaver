@@ -1171,7 +1171,7 @@ class Basic (unittest.TestCase):
         k = 10
         n = 1e4
         rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
+        mu = 2.5e-8 / 1000.0
         length = 1000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
@@ -1181,7 +1181,7 @@ class Basic (unittest.TestCase):
         print "muts", len(muts)
         print "recomb", len(arglib.get_recomb_pos(arg))
 
-        times = arghmm.get_time_points(ntimes=30)
+        times = arghmm.get_time_points(ntimes=20)
         arghmm.discretize_arg(arg, times)
 
         # remove chrom
@@ -1201,18 +1201,14 @@ class Basic (unittest.TestCase):
         probs2 = list(arghmm.forward_algorithm2(model, length, verbose=True))
         util.toc()
 
-        #print "probs1"
-        #pc(probs1)
-        
-        #print "probs2"
-        #pc(probs2)
-        
-
         for i, (col1, col2) in enumerate(izip(probs1, probs2)):
+            #print sum(map(exp, col1)), sum(map(exp, col2))
+            
             for a, b in izip(col1, col2):
                 try:
                     fequal(a, b, rel=.01)
                 except:
+                    print model.states[i]
                     print i, col1
                     print i, col2
                     raise
@@ -1448,7 +1444,8 @@ class Basic (unittest.TestCase):
                     #          trans[a].index(0.0), trans2[a].index(0.0), \
                     #          trans[a][b] == trans2[a][b]
                     
-                    if trans[a][b] in (0.0, -util.INF):
+                    if trans[a][b] in (0.0, -util.INF) or \
+                       trans2[a][b] in (0.0, -util.INF):
                         assert trans[a][b] == trans2[a][b], (
                             trans[a][b], trans2[a][b])
                     fequal(trans[a][b], trans2[a][b])

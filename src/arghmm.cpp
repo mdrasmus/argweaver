@@ -151,11 +151,11 @@ public:
                 break;
             order[i] = i;
         }
-
+        
         // add the remaining nodes
         int end = i;
         for (i=0; i<nnodes; i++) {
-            int parent = nodes[i].parent;
+            int parent = nodes[order[i]].parent;
             if (parent != -1) {
                 visit[parent]++;
                 
@@ -164,7 +164,28 @@ public:
                     order[end++] = parent;
             }
         }
-        
+
+        /*
+        printf("root %d\n", root);
+        for (int i=0; i<nnodes; i++) {
+            printf("order[%d] %d\n", i, order[i]);
+        }
+
+        assert(root==order[nnodes-1]);
+
+        char seen[nnodes];
+        for (i=0; i<nnodes; i++)
+            seen[i] = 0;
+
+        for (i=0; i<nnodes; i++) {
+            int node = order[i];
+            seen[node] = 1;
+            if (!nodes[node].is_leaf()) {
+                assert(seen[nodes[node].child[0]]);
+                assert(seen[nodes[node].child[1]]);
+            }
+        }
+        */
     }
     
 
@@ -937,7 +958,7 @@ void calc_state_priors(const States &states, LineageCounts *lineages,
 //============================================================================
 // emissions
 
-// TODO: do not rely on node order for postorder traversal
+
 void parsimony_ancestral_seq(LocalTree *tree, char **seqs, 
                              int nseqs, int seqlen, int pos, char *ancestral) 
 {
@@ -971,8 +992,9 @@ void parsimony_ancestral_seq(LocalTree *tree, char **seqs,
 
     // traceback
     // arbitrary choose root base from set
-    char rootset = sets[nnodes-1];
-    ancestral[nnodes-1] = (rootset & 1) ? int2dna[0] :
+    int root = postorder[nnodes-1];
+    char rootset = sets[root];
+    ancestral[root] = (rootset & 1) ? int2dna[0] :
         (rootset & 2) ? int2dna[1] :
         (rootset & 4) ? int2dna[2] : int2dna[3];
         
@@ -1240,10 +1262,11 @@ double **arghmm_forward_alg(
             double *col2 = fw[pos];
             int nstates1 = last_states->size();
             int nstates2 = states->size();
-
+            
             // calculate transmat_switch
             lineages.count(last_tree);
             double **transmat_switch = new_matrix<double>(nstates1, nstates2);
+            
             calc_transition_probs_switch(tree, last_tree, it->spr,
                                          *last_states, *states,
                                          &model, &lineages, transmat_switch);
