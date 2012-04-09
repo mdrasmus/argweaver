@@ -637,7 +637,7 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
 
         // convert to log scale
         for (int j=0; j<nstates; j++)
-            transprob[i][j] = log(transprob[i][j] / sum);
+            transprob[i][j] = logf(transprob[i][j] / sum);
     }
 }
 
