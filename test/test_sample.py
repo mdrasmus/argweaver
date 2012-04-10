@@ -71,8 +71,7 @@ class Sample (unittest.TestCase):
         p.plot(model.recomb_pos, [10000] * len(model.recomb_pos),
                style="points")
 
-        fw = probs_forward = arghmm.forward_algorithm(model, length,
-                                                      verbose=True)
+        fw = arghmm.forward_algorithm(model, length, verbose=True)
         probs = arghmm.get_posterior_probs(model, length, verbose=True,
                                            probs_forward=fw)
         
@@ -95,7 +94,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_thread2(self):
 
-        k = 2
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -109,7 +108,7 @@ class Sample (unittest.TestCase):
             arg = arglib.sample_arg(k, n, rho, start=0, end=length)
             muts = arglib.sample_arg_mutations(arg, mu)
             seqs = arglib.make_alignment(arg, muts)
-            times = arghmm.get_time_points(ntimes=20)
+            times = arghmm.get_time_points(ntimes=40)
             arghmm.discretize_arg(arg, times)
 
             new_name = "n%d" % (k-1)
@@ -525,7 +524,7 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch
         """
 
-        k = 16
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20

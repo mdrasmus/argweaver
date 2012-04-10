@@ -1198,12 +1198,10 @@ class Basic (unittest.TestCase):
         util.toc()
         
         util.tic("python")
-        probs2 = list(arghmm.forward_algorithm2(model, length, verbose=True))
+        probs2 = list(arghmm.py_forward_algorithm2(model, length, verbose=True))
         util.toc()
 
         for i, (col1, col2) in enumerate(izip(probs1, probs2)):
-            #print sum(map(exp, col1)), sum(map(exp, col2))
-            
             for a, b in izip(col1, col2):
                 try:
                     fequal(a, b, rel=.01)
@@ -1212,7 +1210,6 @@ class Basic (unittest.TestCase):
                     print i, col1
                     print i, col2
                     raise
-
         
 
     def test_backward_c(self):

@@ -26,7 +26,8 @@ void forward_step(int i, double *col1, double* col2,
 void forward_alg(int n, int nstates, double **trans, double **emit, 
                  double **fw)
 {
-    double *vec = new double [nstates];
+    //double *vec = new double [nstates];
+    double vec[nstates];
 
     for (int i=1; i<n; i++) {
         double *col1 = fw[i-1];
@@ -40,7 +41,7 @@ void forward_alg(int n, int nstates, double **trans, double **emit,
         }
     }
 
-    delete [] vec;
+    //delete [] vec;
 }
 
 
@@ -70,6 +71,33 @@ void sample_hmm_posterior(int n, int nstates, double **trans, double **emit,
 {
     // NOTE: path[n-1] must already be sampled
     
+    double A[nstates];
+
+    // recurse
+    for (int i=n-2; i>=0; i--) {
+        path[i] = 0;
+    }
+    return;
+
+    // recurse
+    for (int i=n-2; i>=0; i--) {
+        int k = path[i+1];
+        for (int j=0; j<nstates; j++)
+            A[j] = fw[i][j] + trans[j][k];
+        double total = logsum(A, nstates);
+        for (int j=0; j<nstates; j++)
+            A[j] = exp(A[j] - total);
+        path[i] = sample(A, nstates);
+    }
+}
+
+
+
+void sample_hmm_posterior2(int n, int nstates, double **trans, double **emit, 
+                          double **fw, int *path)
+{
+    // NOTE: path[n-1] must already be sampled
+    
     double *A = new double [nstates];
     double *C = new double [nstates];
     
@@ -79,6 +107,38 @@ void sample_hmm_posterior(int n, int nstates, double **trans, double **emit,
     for (int i=n-2; i>=0; i--) {
         double *e = emit[i+1];
         int k = path[i+1];
+        for (int j=0; j<nstates; j++) {
+            // A_{j,i} = F_{i,j} trans(j, Y[i+1]) * emit(X[i+1], Y[i+1])
+            A[j] = fw[i][j] + trans[j][k] + e[k];
+        }
+        double total = logsum(A, nstates);
+        for (int j=0; j<nstates; j++)
+            A[j] = exp(A[j] - total);
+        path[i] = sample(A, nstates);
+    }
+
+    delete [] A;
+    delete [] C;
+}
+
+
+
+// assume tranistioning to the same state is always most probable
+void sample_hmm_posterior_fast(
+    int n, int nstates, double **trans, double **emit, double **fw, int *path)
+{
+    // NOTE: path[n-1] must already be sampled
+    
+    double A[nstates];
+    double C[nstates];
+    
+    // recurse
+    for (int i=n-2; i>=0; i--) {
+        double *e = emit[i+1];
+        int k = path[i+1];
+
+        
+
         for (int j=0; j<nstates; j++) {
             // C_{i,j} = trans(j, Y[i+1]) * emit(X[i+1], Y[i+1])
             // A_{j,i} = F_{i,j} C_{i,j}
@@ -90,9 +150,6 @@ void sample_hmm_posterior(int n, int nstates, double **trans, double **emit,
             A[j] = exp(A[j] - total);
         path[i] = sample(A, nstates);
     }
-
-    delete [] A;
-    delete [] C;
 }
 
 

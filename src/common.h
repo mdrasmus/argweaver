@@ -70,7 +70,7 @@ inline double logadd(double lna, double lnb)
 
 inline double logsum(double *vals, int nvals)
 {
-    const double SUM_LOG_THRESHOLD = -15;
+    const double SUM_LOG_THRESHOLD = -10;
     double maxval = vals[0];
     int maxi = 0;
 
@@ -81,10 +81,13 @@ inline double logsum(double *vals, int nvals)
             maxi = i;
         }
     }
-
-    double expsum = 1.0;
+    
+    // NOTE: for i = maxi, exp(vals[i] - maxval) = 1.0
+    // inorder to discount for this value, we start the expsum at 0.0 
+    // instead of 1.0
+    double expsum = 0.0;
     for (int i=0; i<nvals; i++)
-        if (i != maxi && vals[i] - maxval > SUM_LOG_THRESHOLD)
+        if (vals[i] - maxval > SUM_LOG_THRESHOLD)
             expsum += exp(vals[i] - maxval);
   
     return maxval + log(expsum);        
