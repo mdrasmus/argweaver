@@ -2,6 +2,7 @@
 // c++ includes
 #include <list>
 #include <vector>
+#include <string.h>
 
 // arghmm includes
 #include "common.h"
@@ -1263,7 +1264,18 @@ public:
         transmat_switch(transmat_switch),
         emit(emit)
     {}
-    ~ArgHmmMatrices() {}
+    ~ArgHmmMatrices() 
+    {}
+
+    void clear()
+    {
+        if (transmat)
+            delete_matrix<double>(transmat, nstates2);
+        if (transmat_switch)
+            delete_matrix<double>(transmat_switch, nstates1);
+        if (emit)
+            delete_matrix<double>(emit, blocklen);
+    }
 
     int nstates1;
     int nstates2;
@@ -1332,6 +1344,7 @@ public:
             if (!last_states) {
                 transmat_switch = NULL;
                 nstates1 = nstates2 = nstates;
+                lineages.count(tree);
             } else {
                 nstates1 = last_states->size();
                 nstates2 = states->size();
@@ -1351,7 +1364,6 @@ public:
             // calculate transmat and use it for rest of block
             transmat = new_matrix<double>(nstates, nstates);
             calc_transition_probs(tree, model, *states, &lineages, transmat);
-        
 
             // store matrices
             matrices.push_back(ArgHmmMatrices(nstates1, nstates2, blocklen,
@@ -1365,6 +1377,13 @@ public:
         }
 
         
+    }
+
+    void clear()
+    {
+        for (unsigned int i=0; i<matrices.size(); i++)
+            matrices[i].clear();
+        matrices.clear();
     }
 
     ArgModel *model;
@@ -1383,6 +1402,26 @@ void arghmm_forward_alg_block(
     double **trans, double **emit, double **fw)
 {
     const int nstates = states.size();
+    double vec[nstates];
+    
+    for (int i=1; i<n; i++) {
+        double *col1 = fw[i-1];
+        double *col2 = fw[i];
+        double *emit2 = emit[i];
+
+        for (int k=0; k<nstates; k++) {
+            for (int j=0; j<nstates; j++)
+                vec[j] = col1[j] + trans[j][k];
+            col2[k] = logsum(vec, nstates) + emit2[k];
+        }
+    }
+}
+
+
+void arghmm_forward_alg_block2(
+    int n, int nstates, 
+    double **trans, double **emit, double **fw)
+{
     double vec[nstates];
     
     for (int i=1; i<n; i++) {
@@ -1597,8 +1636,6 @@ intstate *arghmm_sample_posterior(
     
     // allocate the forward table if necessary
     double **fw = new double* [seqlen];
-    for (int i=0; i<seqlen; i++)
-        fw[i] = NULL;
 
     
     // forward algorithm over local trees
@@ -1612,15 +1649,14 @@ intstate *arghmm_sample_posterior(
         int nstates2 = matrices.nstates2;
         
         // allocate the forward table column if necessary
-        if (fw[pos] == NULL)
-            for (int i=pos; i<pos+blocklen; i++)
-                fw[i] = new double [nstates2];
+        for (int i=pos; i<pos+blocklen; i++)
+            fw[i] = new double [nstates2];
         
         // use switch matrix for first column of forward table
         // if we have a previous state space (i.e. not first block)
-        if (blocki == 0) {
+        if (pos == 0) {
             // calculate prior of first state
-            LocalTree *tree = trees.begin()->tree;
+            LocalTree *tree = it->tree;
             get_coal_states(tree, ntimes, states);
             lineages.count(tree);
             calc_state_priors(states, &lineages, &model, fw[0]);
@@ -1630,17 +1666,20 @@ intstate *arghmm_sample_posterior(
             double *col2 = fw[pos];
             double tmp[nstates1];
             double **transmat_switch = matrices.transmat_switch;
+
             for (int k=0; k<nstates2; k++) {
-                double e = matrices.emit[0][k];
-                for (int j=0; j<nstates1; j++)
-                    tmp[j] = col1[j] + transmat_switch[j][k] + e;
-                col2[k] = logsum(tmp, nstates1);
+                for (int j=0; j<nstates1; j++) {
+                    tmp[j] = col1[j] + transmat_switch[j][k];
+                }
+                col2[k] = logsum(tmp, nstates1) + matrices.emit[0][k];
             }
         }
-        
+
         // calculate rest of block
         double **subfw = &fw[pos];
-        forward_alg(blocklen, nstates2, matrices.transmat,matrices.emit,subfw);
+        //forward_alg(blocklen, nstates2, matrices.transmat,matrices.emit,subfw);
+        arghmm_forward_alg_block2(blocklen, nstates2, matrices.transmat,
+                                  matrices.emit, subfw);
     }
 
     
@@ -1655,16 +1694,17 @@ intstate *arghmm_sample_posterior(
         vec[i] = exp(fw[seqlen - 1][i] - total);
     ipath[seqlen - 1] = sample(vec, nstates);
     
+
     // iterate backward through blocks
     int pos = seqlen;
-    for (blocki = seqlen - 1; blocki >= 0; blocki--) {
+    for (blocki = ntrees - 1; blocki >= 0; blocki--) {
         ArgHmmMatrices mat = matrix_list.matrices[blocki];
         int blocklen = blocklens[blocki];
         pos -= blocklen;
         
         sample_hmm_posterior(mat.blocklen, mat.nstates2, mat.transmat, 
                              mat.emit, &fw[pos], &ipath[pos]);
-
+        
         // use switch matrix for last col of next block
         if (pos > 0) {
             int i = pos - 1;
@@ -1679,21 +1719,22 @@ intstate *arghmm_sample_posterior(
         }
     }
 
+    
     // convert path
     if (path == NULL)
         path = new intstate [seqlen];
 
     blocki = 0;
-    pos = 0;
     for (LocalTrees::iterator it=trees.begin(); 
          it != trees.end(); it++, blocki++) 
     {
         ArgHmmMatrices mat = matrix_list.matrices[blocki];
-        int end = pos + mat.blocklen;
+        int start = it->block.start;
+        int end = it->block.end;
         LocalTree *tree = it->tree;
         get_coal_states(tree, ntimes, states);
 
-        for (int i=pos; i<end; i++) {
+        for (int i=start; i<end; i++) {
             int istate = ipath[i];
             path[i][0] = states[istate].node;
             path[i][1] = states[istate].time;
@@ -1704,6 +1745,7 @@ intstate *arghmm_sample_posterior(
     // clean up
     delete_matrix<double>(fw, seqlen);
     delete [] ipath;
+    matrix_list.clear();
 
     return path;
 }

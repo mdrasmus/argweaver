@@ -94,7 +94,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_thread2(self):
 
-        k = 4
+        k = 10
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -108,7 +108,7 @@ class Sample (unittest.TestCase):
             arg = arglib.sample_arg(k, n, rho, start=0, end=length)
             muts = arglib.sample_arg_mutations(arg, mu)
             seqs = arglib.make_alignment(arg, muts)
-            times = arghmm.get_time_points(ntimes=40)
+            times = arghmm.get_time_points(ntimes=20)
             arghmm.discretize_arg(arg, times)
 
             new_name = "n%d" % (k-1)
@@ -122,18 +122,16 @@ class Sample (unittest.TestCase):
             model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1),
                                   times=times, rho=rho, mu=mu)
 
-            matrices = list(arghmm.iter_trans_emit_matrices(model, length))
-            fw = probs_forward = arghmm.forward_algorithm(
-                model, length, matrices=matrices, verbose=True)
+            #matrices = list(arghmm.iter_trans_emit_matrices(model, length))
+            #fw = probs_forward = arghmm.forward_algorithm(
+            #    model, length, matrices=matrices, verbose=True)
             for i in xrange(20):
-                path = arghmm.sample_posterior(model, length, verbose=True,
-                                               matrices=matrices,
-                                               probs_forward=fw)
+                path = arghmm.sample_posterior(model, length, verbose=True)
                 thread2 = list(arghmm.iter_thread_from_path(model, path))
                 x.extend(cget(thread, 1)[::100])
                 y.extend(cget(thread2, 1)[::100])
 
-            arghmm.delete_trans_emit_matrices(matrices)
+            #arghmm.delete_trans_emit_matrices(matrices)
 
         x = map(safelog, x)
         y = map(safelog, y)

@@ -115,7 +115,7 @@ if arghmmc:
     export(arghmmc, "delete_double_matrix", c_int,
            [c_double_p_p, "mat", c_int, "nrows"])
 
-    export(arghmmc, "arghmm_sample_posterior", POINTER(POINTER(c_int *2)),
+    export(arghmmc, "arghmm_sample_posterior", POINTER(c_int *2),
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
             c_int_matrix, "sprs", c_int_list, "blocklens",
             c_int, "ntrees", c_int, "nnodes", 
@@ -125,7 +125,7 @@ if arghmmc:
             POINTER(POINTER(c_int *2)), "path"])
 
     export(arghmmc, "delete_path", c_int,
-           [POINTER(POINTER(c_int * 2)), "path"])
+           [POINTER(c_int * 2), "path"])
 
 
     export(arghmmc, "get_state_spaces", POINTER(POINTER(c_int * 2)),
@@ -2269,8 +2269,7 @@ def sample_posterior(model, n, probs_forward=None,
         model.popsizes, model.rho, model.mu,
         (c_char_p * len(seqs))(*seqs), len(seqs),
         seqlen, None)
-
-
+    
     path2 = []
     for k, (start, end) in enumerate(blocks):
         states = model.states[start]
@@ -2278,9 +2277,13 @@ def sample_posterior(model, n, probs_forward=None,
         nodes = all_nodes[k]
         
         for i in range(start, end):
-            path2.append(lookup[(nodes[path[i][0]].name, path[i][1])])
+            s = (nodes[path[i][0]], path[i][1])
+            path2.append(lookup[s])
 
     delete_path(path)
+
+    if verbose:
+        util.toc()
 
     return path2
 

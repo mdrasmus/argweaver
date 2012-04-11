@@ -75,12 +75,6 @@ void sample_hmm_posterior(int n, int nstates, double **trans, double **emit,
 
     // recurse
     for (int i=n-2; i>=0; i--) {
-        path[i] = 0;
-    }
-    return;
-
-    // recurse
-    for (int i=n-2; i>=0; i--) {
         int k = path[i+1];
         for (int j=0; j<nstates; j++)
             A[j] = fw[i][j] + trans[j][k];
