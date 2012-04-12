@@ -8,11 +8,11 @@
 =============================================================================*/
 
 
-#ifndef SPIDIR_SEQ_H
-#define SPIDIR_SEQ_H
+#ifndef ARGHMM_SEQ_H
+#define ARGHMM_SEQ_H
 
 
-namespace spidir {
+namespace arghmm {
 
 
 // convert dna characters into standard numbers
@@ -36,11 +36,25 @@ enum {
 extern int dnatype[];
 
 
-
 // compute background frequencies
 void computeBgfreq(int nseq, char **seqs, float *bgfreq);
 
 
+// The alignment of sequences
+class Sequences
+{
+public:
+    Sequences(char **seqs, int nseqs, int seqlen) :
+        seqs(seqs), nseqs(nseqs), seqlen(seqlen)
+    {}
+    
+    char **seqs;
+    int nseqs;
+    int seqlen;
+};
+
+
+
 } // namespace spidir
 
-#endif // SPIDIR_SEQ_H
+#endif // ARGHMM_SEQ_H

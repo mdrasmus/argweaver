@@ -9,7 +9,7 @@ extern "C" {
 //=============================================================================
 // Hidden Markov Models (HMM)
 
-void forward_step(int i, double *col1, double* col2, 
+void forward_step(double *col1, double* col2, 
                   int nstates1, int nstates2, double **trans, double *emit);
 void forward_alg(int n, int nstates, 
                  double **trans, double **emit, double **fw);

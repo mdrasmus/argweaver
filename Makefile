@@ -51,6 +51,7 @@ ARGHMM_SRC = \
     src/arghmm.cpp \
     src/hmm.cpp \
     src/itree.cpp \
+    src/local_tree.cpp \
     src/ptree.cpp \
     src/seq.cpp
 

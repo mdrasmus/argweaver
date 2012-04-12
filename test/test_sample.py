@@ -534,10 +534,7 @@ class Sample (unittest.TestCase):
         
         # save
         arglib.write_arg("test/data/sample_arg.arg", arg)
-        fasta.write_fasta("test/data/sample_arg.fa", seqs)
-        #arg = arglib.read_arg("test/data/sample_arg.arg")
-        #seqs = fasta.read_fasta("test/data/sample_arg.fa")
-        
+        fasta.write_fasta("test/data/sample_arg.fa", seqs)       
 
         # get new chrom
         new_name = "n%d" % (k-1)

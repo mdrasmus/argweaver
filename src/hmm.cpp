@@ -10,15 +10,15 @@ extern "C" {
 //=============================================================================
 // Hidden Markov Models (HMM)
 
-void forward_step(int i, double *col1, double* col2, 
+void forward_step(double *col1, double* col2, 
                   int nstates1, int nstates2, double **trans, double *emit)
 {
+    double tmp[nstates1];
+    
     for (int k=0; k<nstates2; k++) {
-        double tot = -INFINITY;
-        for (int j=0; j<nstates1; j++) {
-            tot = logadd(tot, col1[j] + trans[j][k]);
-        }
-        col2[k] = tot + emit[k];
+        for (int j=0; j<nstates1; j++)
+            tmp[j] = col1[j] + trans[j][k];
+        col2[k] = logsum(tmp, nstates1) + emit[k];
     }
 }
 
@@ -26,7 +26,6 @@ void forward_step(int i, double *col1, double* col2,
 void forward_alg(int n, int nstates, double **trans, double **emit, 
                  double **fw)
 {
-    //double *vec = new double [nstates];
     double vec[nstates];
 
     for (int i=1; i<n; i++) {
@@ -40,15 +39,13 @@ void forward_alg(int n, int nstates, double **trans, double **emit,
             col2[k] = logsum(vec, nstates) + emit2[k];
         }
     }
-
-    //delete [] vec;
 }
 
 
 void backward_alg(int n, int nstates, double **trans, double **emit, 
                   double **bw)
 {
-    double *vec = new double [nstates];
+    double vec[nstates];
 
     for (int i=n-2; i>-1; i--) {
         double *col1 = bw[i];
@@ -61,8 +58,6 @@ void backward_alg(int n, int nstates, double **trans, double **emit,
             col1[j] = logsum(vec, nstates);
         }
     }
-
-    delete []  vec;
 }
 
 

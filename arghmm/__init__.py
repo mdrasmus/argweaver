@@ -440,18 +440,11 @@ def sample_recombinations_thread(model, thread, use_times=True):
         
         if state == last_state:
             if pos > next_recomb:
+                # sample the next recomb pos
                 last_treelen2 = get_treelen_branch(
                     last_tree, model.times, last_node, last_time)
-                
-                # sample the next recomb pos
-                #assert selftrans>=-model.rho*(last_treelen2-last_treelen)
-
-                rate = 1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
-                                 - selftrans)
-                # HACK: enfore positive rate
-                #print rate
-                rate = max(rate, model.rho)
-                assert rate > 0.0, rate
+                rate = max(1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
+                                     - selftrans), model.rho)
                 next_recomb = pos + int(random.expovariate(rate))
                 
             if pos < next_recomb:
@@ -463,7 +456,6 @@ def sample_recombinations_thread(model, thread, use_times=True):
             last_tree, model.times, last_node, last_time)
         statei = model.states[pos].index((node, timei))
         selftrans = transmat[statei][statei]
-        
 
         # there must be a recombination
         # either because state changed or we choose to recombine
@@ -962,6 +954,19 @@ def resample_arg(arg, seqs, new_name,
 
     return arg
 
+
+def resample_arg_all(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+                     times=None, verbose=False):
+    if verbose:
+        util.tic("resample all chromosomes")
+    for new_name in sorted(seqs.keys()):
+        arg = resample_arg(arg, seqs, new_name,
+                           ntimes=ntimes, rho=rho, mu=mu, popsize=popsize,
+                           times=times, verbose=verbose)
+    if verbose:
+        util.toc()
+    return arg
+    
 
 def resample_arg_max(arg, seqs, new_name,
                      ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,

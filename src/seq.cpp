@@ -1,7 +1,6 @@
 /*=============================================================================
 
   Matt Rasmussen
-  Copyright 2007-2012
 
   Common sequence functions
 
@@ -10,7 +9,7 @@
 
 #include "seq.h"
 
-namespace spidir {
+namespace arghmm {
 
 
 const int dna2int [256] = 
@@ -78,4 +77,4 @@ void computeBgfreq(int nseqs, char **seqs, float *bgfreq)
 }
 
 
-} // namespace spidir
+} // namespace arghmm
