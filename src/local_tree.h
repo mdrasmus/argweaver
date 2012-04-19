@@ -25,6 +25,10 @@ public:
         start(start), end(end) {}
     int start;
     int end;
+
+    int length() {
+        return end - start;
+    }
 };
 
 
@@ -58,6 +62,18 @@ public:
     int coal_time;
 };
 
+
+
+// A node point can be either a recombination point or a coalescing point
+class NodePoint
+{
+public:
+    NodePoint(int node, int time) :
+        node(node), time(time) {}
+
+    int node;
+    int time;
+};
 
 
 // A node in a local tree
@@ -96,10 +112,21 @@ public:
         nodes(NULL) 
     {}
 
-    LocalTree(int *ptree, int nnodes, int *ages=NULL) :
+    LocalTree(int nnodes, int capacity=-1) :
+        nnodes(nnodes),
+        capacity(capacity),
+        root(-1)
+    {
+        if (capacity < nnodes)
+            capacity = nnodes;
+        nodes = new LocalNode [capacity];
+    }
+
+
+    LocalTree(int *ptree, int nnodes, int *ages=NULL, int capacity=-1) :
         nodes(NULL) 
     {
-        set_ptree(ptree, nnodes, ages);
+        set_ptree(ptree, nnodes, ages, capacity);
     }
 
     ~LocalTree() {
@@ -108,14 +135,16 @@ public:
     }
 
     // initialize a local tree by on a parent array
-    void set_ptree(int *ptree, int _nnodes, int *ages=NULL) 
+    void set_ptree(int *ptree, int _nnodes, int *ages=NULL, int capacity=-1) 
     {
         nnodes = _nnodes;
+        if (capacity < nnodes)
+            capacity = nnodes;
 
         // delete existing nodes if they exist
         if (nodes)
             delete [] nodes;
-        nodes = new LocalNode [nnodes];
+        nodes = new LocalNode [capacity];
 
         // populate parent pointers
         for (int i=0; i<nnodes; i++) {
@@ -145,6 +174,33 @@ public:
             }
         }
     }
+
+
+    void set_capacity(int _capacity)
+    {
+        if (_capacity == capacity)
+            return;
+
+        LocalNode *tmp = new LocalNode[_capacity];
+        assert(tmp);
+
+        // copy over nodes
+        std::copy(nodes, nodes + capacity, tmp);   
+        delete [] nodes;
+
+        nodes = tmp;
+        capacity = _capacity;
+    }
+
+
+
+    void ensure_capacity(int _capacity)
+    {
+        if (capacity < _capacity)
+            set_capacity(_capacity);
+    }
+    
+    
 
     // Returns the postorder traversal of the nodes
     void get_postorder(int *order) const
@@ -193,6 +249,7 @@ public:
 
 
     int nnodes;
+    int capacity;
     int root;
     LocalNode *nodes;
 };
@@ -208,21 +265,65 @@ public:
 class LocalTreeSpr
 {
 public:
-    LocalTreeSpr(int start, int end, LocalTree *tree, int *ispr) :
+    LocalTreeSpr(int start, int end, LocalTree *tree, int *ispr,
+                 int *mapping=NULL) :
         block(start, end),
         tree(tree),
-        spr(ispr[0], ispr[1], ispr[2], ispr[3])
+        spr(ispr[0], ispr[1], ispr[2], ispr[3]),
+        mapping(mapping)
     {}
 
-    LocalTreeSpr(int start, int end, LocalTree *tree, Spr spr) :
+    LocalTreeSpr(int start, int end, LocalTree *tree, Spr spr, 
+                 int *mapping) :
         block(start, end),
         tree(tree),
-        spr(spr)
+        spr(spr),
+        mapping(mapping)
     {}
+    
+    void clear() {
+        if (tree) {
+            delete tree;
+            tree = NULL;
+        }
+        
+        if (mapping) {
+            delete [] mapping;
+            mapping = NULL;
+        }
+    }
+
+    void set_capacity(int _capacity)
+    {
+        if (tree->capacity == _capacity)
+            return;
+
+        tree->set_capacity(_capacity);
+
+        // ensure capacity of mapping
+        int *tmp = new int [_capacity];
+        assert(tmp);
+
+        if (mapping) {
+            std::copy(mapping, mapping + _capacity, tmp);   
+            delete [] mapping;
+        }
+        mapping = tmp;
+    }
+
+
+
+    void ensure_capacity(int _capacity)
+    {
+        if (tree->capacity < _capacity)
+            set_capacity(_capacity);
+    }
+        
 
     Block block;
     LocalTree *tree;
     Spr spr;
+    int *mapping;
 };
 
 
@@ -236,23 +337,11 @@ class LocalTrees
 {
 public:
     LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
-               int ntrees, int nnodes, int start=0) : 
-        start_coord(start),
-        nnodes(nnodes)
+               int ntrees, int nnodes, int capacity=-1, int start=0);
+    ~LocalTrees() 
     {
-        // copy data
-        int pos = start;
-        for (int i=0; i<ntrees; i++) {
-            end_coord = pos + blocklens[i];
-            trees.push_back(
-                LocalTreeSpr(pos, end_coord,
-                             new LocalTree(ptrees[i], nnodes, ages[i]),
-                             isprs[i]));
-            pos = end_coord;
-        }
-
+        clear();
     }
-    ~LocalTrees() {}
 
     // iterator for the local trees
     typedef list<LocalTreeSpr>::iterator iterator;
@@ -267,6 +356,19 @@ public:
     iterator end()
     {
         return trees.end();
+    }
+
+    inline int get_num_leaves() const
+    {
+        return (nnodes + 1) / 2;
+    }
+
+    // deallocate local trees
+    void clear()
+    {
+        for (iterator it=begin(); it!=end(); it++)
+            it->clear();
+        trees.clear();
     }
 
 
@@ -313,8 +415,19 @@ public:
 
 // tree methods
 double get_treelen(const LocalTree *tree, const double *times, int ntimes);
+double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
+                          int node, int time, double treelen=-1.0);
 
-
+inline void make_node_mapping(int *mapping, int nnodes, 
+                              int *ptree, int recomb_node)
+{
+    for (int j=0; j<nnodes; j++)
+        mapping[j] = j;
+            
+    // parent of recomb is broken and therefore does not map
+    const int parent = ptree[recomb_node];
+    mapping[parent] = -1;
+}
 
 
 } // namespace arghmm

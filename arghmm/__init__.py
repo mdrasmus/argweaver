@@ -124,6 +124,24 @@ if arghmmc:
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             POINTER(POINTER(c_int *2)), "path"])
 
+    export(arghmmc, "arghmm_sample_thread", c_void_p,
+           [c_int_matrix, "ptrees", c_int_matrix, "ages",
+            c_int_matrix, "sprs", c_int_list, "blocklens",
+            c_int, "ntrees", c_int, "nnodes", 
+            c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
+
+    export(arghmmc, "get_local_trees_ntrees", c_int,
+           [c_void_p, "trees"])
+    export(arghmmc, "get_local_trees_nnodes", c_int,
+           [c_void_p, "trees"])
+    export(arghmmc, "get_local_trees_ptrees", c_int,
+           [c_void_p, "trees", c_int_matrix, "ptrees", c_int_matrix, "ages",
+            c_int_matrix, "sprs", c_int_list, "blocklens"])
+    export(arghmmc, "delete_local_trees", c_int,
+           [c_void_p, "trees"])
+
     export(arghmmc, "delete_path", c_int,
            [POINTER(c_int * 2), "path"])
 
@@ -459,33 +477,17 @@ def sample_recombinations_thread(model, thread, use_times=True):
 
         # there must be a recombination
         # either because state changed or we choose to recombine
+        recombs = []
         if node == last_node:
-            if timei == last_timei:
-                # y = v, k in [0, min(timei, last_timei)]
-                # y = node, k in Sr(node)
-                # if node.parent.age == model.times[timei],
-                #   y = sis(last_tree, node.name), k in Sr(y)
-                node_timei = time_lookup[tree[node].age]
-                recombs = [(new_node, k) for k in
-                           range(0, min(timei, last_timei)+1)] + \
-                          [(node, k) for k in
-                           range(node_timei, min(timei, last_timei)+1)]
-            else:
-                # y = v, k in [0, min(timei, last_timei)]
-                # y = node, k in Sr(node)
-                node_timei = time_lookup[tree[node].age]
-                recombs = [(new_node, k) for k in
-                           range(0, min(timei, last_timei)+1)] + \
-                          [(node, k) for k in
-                           range(node_timei, min(timei, last_timei)+1)]
-        else:
-            # y = v, k in [0, min(timei, last_timei)]
-            recombs = [(new_node, k)
-                       for k in range(0, min(timei, last_timei)+1)]
+            # y = node, k in Sr(node)
+            node_timei = time_lookup[tree[node].age]
+            for k in range(node_timei, min(timei, last_timei)+1):
+                recombs.append((node, k))
+    
+        # y = v, k in [0, min(timei, last_timei)]
+        for k in range(0, min(timei, last_timei)+1):
+            recombs.append((new_node, k))
 
-        if len(recombs) == 0:
-            print ((last_node, last_timei), (node, timei))
-            raise Exception("recomb not sampled!")
 
         C = calc_C(model.time_steps, nbranches, model.popsizes)
         j = timei
@@ -1658,6 +1660,54 @@ def get_treeset(arg, times, start=None, end=None):
 
     return (ptrees, ages, sprs, blocks), all_nodes
 
+
+def treeset2arg(ptrees, ages, sprs, blocks, names, times):
+
+    arg = arglib.ARG()
+
+    # build first tree
+    lookup = {}
+    for i, p in enumerate(ptrees[0]):
+        if i < len(names):
+            # make leaf
+            lookup[i] = arg.new_node(names[i], age=times[ages[0][i]],
+                                     event="gene")
+        else:
+            lookup[i] = arg.new_node(age=times[ages[0][i]], event="coal")
+
+    # set parents of new tree
+    for i, p in enumerate(ptrees[0]):
+        node = lookup[i]
+        node.parent = lookup[p]
+        node.parent.children.append(node)
+
+    # convert sprs
+    sprs2 = []
+    for i, (rinode, ritime, cinode, citime) in enumerate(sprs):
+        pos = blocks[i][0] - 1
+
+        # make local tree
+        ptree = ptrees[i]
+        tree = treelib.Tree()
+        lookup = []
+        for j in range(len(ptree)):
+            if j < len(names):
+                lookup.append(tree.new_node(names[j]))
+            else:
+                lookup.append(tree.new_node())
+        for j in range(len(ptree)):
+            parent = lookup[ptree[j]]
+            tree.add_child(parent, lookup[j])
+
+        # get leaf sets
+        rleaves = lookup[rinode].leaf_names()
+        cleaves = lookup[cinode].leaf_names()
+        
+        sprs2.append((pos, (rleaves, times[ritime]), (cleaves, times[citime])))
+
+    make_arg_from_sprs(arg, sprs2)
+    return arg
+    
         
 
 #=============================================================================
@@ -2360,6 +2410,61 @@ def sample_posterior2(model, n, probs_forward=None, matrices=None,
             
     return path
 
+
+
+def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
+
+    if verbose:
+        util.tic("sample thread")
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        model.arg, model.times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    seqlen = sum(blocklens)
+
+    seqs = [model.seqs[node] for node in all_nodes[0]
+            if model.arg[node].is_leaf()]
+    seqs.append(model.seqs[model.new_name])
+    trees = arghmm_sample_thread(
+        ptrees, ages, sprs, blocklens,
+        len(ptrees), len(ptrees[0]), 
+        model.times, len(model.times),
+        model.popsizes, model.rho, model.mu,
+        (c_char_p * len(seqs))(*seqs), len(seqs),
+        seqlen, None)
+
+
+    nnodes = get_local_trees_nnodes(trees)
+    ntrees = get_local_trees_ntrees(trees)
+    ptrees = []
+    ages = []
+    sprs = []
+    blocklens = [0] * ntrees
+    for i in range(ntrees):
+        ptrees.append([0] * nnodes)
+        ages.append([0] * nnodes)
+        sprs.append([0, 0, 0, 0])
+
+    # TODO: finish
+    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
+
+    blocks = []
+    start = 0
+    for blocklen in blocklens:
+        end = start + blocklen
+        blocks.append((start, end))
+        start = end
+
+    names = all_nodes[0][:len(seqs)]
+    
+    arg = treeset2arg(ptrees, ages, sprs, blocks, names, model.times)
+    
+    delete_local_trees(trees)
+
+    if verbose:
+        util.toc()
+
+    return arg
 
 
 

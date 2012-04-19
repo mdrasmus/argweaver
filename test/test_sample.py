@@ -280,11 +280,11 @@ class Sample (unittest.TestCase):
         Test the sampling of thread and recombinations
         """
 
-        k = 5
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 100000
 
         rx = []
         ry = []
@@ -515,6 +515,63 @@ class Sample (unittest.TestCase):
                             cget(thread3, 1)), .1))
         
         pause()
+
+
+    def test_add_thread_sample_c(self):
+        """
+        Test adding a sampled thread to an ARG
+        """
+
+        k = 5
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 10000
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        arghmm.discretize_arg_recomb(arg)
+        arg.set_ancestral()
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        times = arghmm.get_time_points(ntimes=20)
+        arghmm.discretize_arg(arg, times)
+
+        # save
+        arglib.write_arg("test/data/sample_recomb.arg", arg)
+        fasta.write_fasta("test/data/sample_recomb.fa", seqs)
+
+        # get new chrom
+        new_name = "n%d" % (k-1)
+        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
+                                               by_block=False))    
+        p = plot(cget(thread, 1), style="lines", ymin=8, ylog=10)
+        
+        # remove chrom
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+        arg = arglib.smcify_arg(arg)
+        
+        # setup model
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
+                              rho=rho, mu=mu)
+        print "states", len(model.states[0])
+        print "muts", len(muts)
+        print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
+        r = list(arghmm.iter_visible_recombs(arg))
+        if len(r) > 0:
+            p.plot([x.pos for x in r], [max(x.age,10) for x in r],
+                   style="points")
+        nrecombs1 = len(r)
+        
+        
+        # sample a chrom thread
+        util.tic("sample thread")        
+        arg = arghmm.sample_thread(model, length)
+        util.toc()
+
+        
+        pause()
+
 
 
     def test_sample_arg(self):

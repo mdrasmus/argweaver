@@ -6,6 +6,36 @@
 namespace arghmm {
 
 
+LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
+                       int ntrees, int nnodes, int capacity, int start) :
+    start_coord(start),
+    nnodes(nnodes)
+{
+    if (capacity < nnodes)
+        capacity = nnodes;
+
+    // copy data
+    int pos = start;
+    for (int i=0; i<ntrees; i++) {
+        end_coord = pos + blocklens[i];
+        
+        // make mapping
+        int *mapping = NULL;
+        if (i > 0) {
+            mapping = new int [nnodes];
+            make_node_mapping(mapping, nnodes, ptrees[i-1], isprs[i][0]);
+        }
+
+        trees.push_back(LocalTreeSpr(pos, end_coord,
+                                     new LocalTree(ptrees[i], nnodes, ages[i],
+                                                   capacity),
+                                     isprs[i], mapping));
+        pos = end_coord;
+    }
+}
+
+
+
 // Asserts that a postorder traversal is correct
 bool assert_tree_postorder(LocalTree *tree, int *order)
 {
@@ -100,4 +130,31 @@ double get_treelen(const LocalTree *tree, const double *times, int ntimes)
 }
 
 
+double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
+                          int node, int time, double treelen)
+{
+
+    if (treelen < 0.0)
+        treelen = get_treelen(tree, times, ntimes);
+    
+    int rooti = tree->nodes[tree->root].age;
+    double root_time = times[rooti+1] - times[rooti];
+    treelen -= root_time;  // discount root time
+
+    double blen = times[time];
+    double treelen2 = treelen + blen;
+    if (node == tree->root) {
+        treelen2 += blen - times[tree->nodes[tree->root].age];
+        root_time = times[time+1] - times[time];
+    } else {
+        rooti = tree->nodes[tree->root].age;
+        root_time = times[rooti+1] - times[rooti];
+    }
+    
+    return treelen2 + root_time;
+}
+
+
+
 } // namespace arghmm
+
