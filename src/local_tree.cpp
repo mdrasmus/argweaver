@@ -1,5 +1,5 @@
 
-
+#include "stdio.h"
 #include "local_tree.h"
 
 
@@ -30,6 +30,7 @@ LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
                                      new LocalTree(ptrees[i], nnodes, ages[i],
                                                    capacity),
                                      isprs[i], mapping));
+
         pos = end_coord;
     }
 }
@@ -58,6 +59,37 @@ bool assert_tree_postorder(LocalTree *tree, int *order)
     
     return true;
 }
+
+
+// Asserts structure of tree
+bool assert_tree(LocalTree *tree)
+{
+    LocalNode *nodes = tree->nodes;
+    
+    for (int i=0; i<tree->nnodes; i++) {
+        int *c = nodes[i].child;
+
+        // assert parent child links
+        if (c[0] != -1)
+            if (nodes[c[0]].parent != i)
+                return false;
+        if (c[1] != -1)
+            if (nodes[c[1]].parent != i)
+                return false;
+
+        // check root
+        if (nodes[i].parent == -1)
+            if (tree->root != i)
+                return false;
+    }
+
+    // check root
+    if (nodes[tree->root].parent != -1)
+        return false;
+    
+    return true;
+}
+
 
 
 

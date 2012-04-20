@@ -280,16 +280,17 @@ class Sample (unittest.TestCase):
         Test the sampling of thread and recombinations
         """
 
-        k = 2
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 100000
+        length = 10000
 
         rx = []
         ry = []
         
         for i in range(20):
+            util.tic("sim arg")
             arg = arglib.sample_arg(k, n, rho, start=0, end=length)
             arghmm.discretize_arg_recomb(arg)
             arg = arglib.smcify_arg(arg)
@@ -298,6 +299,7 @@ class Sample (unittest.TestCase):
             seqs = arglib.make_alignment(arg, muts)
             times = arghmm.get_time_points(ntimes=20)
             arghmm.discretize_arg(arg, times)
+            util.toc()
             
             # count initial recomb count
             nrecombs = ilen(arghmm.iter_visible_recombs(arg))
@@ -321,12 +323,17 @@ class Sample (unittest.TestCase):
 
             util.tic("sample recomb")
             for j in range(2):
-                path = arghmm.sample_posterior(model, length, verbose=False)
-                thread = list(arghmm.iter_thread_from_path(model, path))
-                recombs = list(arghmm.sample_recombinations_thread(
-                    model, thread))
+                #path = arghmm.sample_posterior(model, length, verbose=False)
+                #thread = list(arghmm.iter_thread_from_path(model, path))
+                #recombs = list(arghmm.sample_recombinations_thread(
+                #    model, thread))
+                #rx.append(new_recombs)
+                #ry.append(len(recombs))
+
+                arg2 = arghmm.sample_thread(model, length)
+                recombs = ilen(x for x in arg2 if x.event == "recomb")
                 rx.append(new_recombs)
-                ry.append(len(recombs))
+                ry.append(recombs - nrecombs2)
 
                 if ry[-1] - rx[-1] > 40:
                     print thread[0:length:length//20]
@@ -522,7 +529,7 @@ class Sample (unittest.TestCase):
         Test adding a sampled thread to an ARG
         """
 
-        k = 5
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -544,7 +551,7 @@ class Sample (unittest.TestCase):
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
                                                by_block=False))    
-        p = plot(cget(thread, 1), style="lines", ymin=8, ylog=10)
+        #p = plot(cget(thread, 1), style="lines", ymin=8, ylog=10)
         
         # remove chrom
         keep = ["n%d" % i for i in range(k-1)]
@@ -557,20 +564,11 @@ class Sample (unittest.TestCase):
         print "states", len(model.states[0])
         print "muts", len(muts)
         print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
-        r = list(arghmm.iter_visible_recombs(arg))
-        if len(r) > 0:
-            p.plot([x.pos for x in r], [max(x.age,10) for x in r],
-                   style="points")
-        nrecombs1 = len(r)
-        
         
         # sample a chrom thread
         util.tic("sample thread")        
         arg = arghmm.sample_thread(model, length)
         util.toc()
-
-        
-        pause()
 
 
 

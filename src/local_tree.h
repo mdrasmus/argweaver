@@ -108,6 +108,7 @@ class LocalTree
 public:
     LocalTree() :
         nnodes(0),
+        capacity(0),
         root(-1),
         nodes(NULL) 
     {}
@@ -135,9 +136,11 @@ public:
     }
 
     // initialize a local tree by on a parent array
-    void set_ptree(int *ptree, int _nnodes, int *ages=NULL, int capacity=-1) 
+    void set_ptree(int *ptree, int _nnodes, int *ages=NULL, int _capacity=-1) 
     {
         nnodes = _nnodes;
+        if (_capacity >= 0)
+            capacity = _capacity;
         if (capacity < nnodes)
             capacity = nnodes;
 
@@ -171,6 +174,17 @@ public:
                     child[1] = i;
             } else {
                 root = i;
+            }
+        }
+    }
+
+    
+    void set_root()
+    {
+        for (int j=0; j<nnodes; j++) {
+            if (nodes[j].parent == -1) {
+                root = j;
+                break;
             }
         }
     }
@@ -274,7 +288,7 @@ public:
     {}
 
     LocalTreeSpr(int start, int end, LocalTree *tree, Spr spr, 
-                 int *mapping) :
+                 int *mapping=NULL) :
         block(start, end),
         tree(tree),
         spr(spr),
@@ -301,14 +315,15 @@ public:
         tree->set_capacity(_capacity);
 
         // ensure capacity of mapping
-        int *tmp = new int [_capacity];
-        assert(tmp);
-
         if (mapping) {
+            int *tmp = new int [_capacity];
+            assert(tmp);
+
             std::copy(mapping, mapping + _capacity, tmp);   
             delete [] mapping;
+
+            mapping = tmp;
         }
-        mapping = tmp;
     }
 
 
@@ -414,6 +429,7 @@ public:
 
 
 // tree methods
+bool assert_tree(LocalTree *tree);
 double get_treelen(const LocalTree *tree, const double *times, int ntimes);
 double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
                           int node, int time, double treelen=-1.0);

@@ -962,6 +962,7 @@ void sample_recombinations(
         get_coal_states(tree, model->ntimes, states);
         int statei = thread_path[start];
         int next_recomb = -1;
+
         
         // loop through positions in block
         for (int i=start; i<end; i++) {
@@ -979,7 +980,11 @@ void sample_recombinations(
                     double rate = max(
                         1.0 - exp(-model->rho * (treelen2 - treelen)
                               - self_trans), model->rho);
-                    next_recomb = i + int(expovariate(rate));
+
+                    next_recomb = min(float(end), i + expovariate(rate));
+
+                    //printf("next %d %e %d\n", i, 
+                    //       expovariate(rate), next_recomb);
                 }
 
                 if (i < next_recomb)
@@ -1001,16 +1006,16 @@ void sample_recombinations(
             // find candidates
             vector <NodePoint> candidates;
             vector <double> probs;
-            int end_time = min(state.time, last_state.time) + 1;
+            int end_time = min(state.time, last_state.time);
 
             if (state.node == last_state.node) {
                 // y = v, k in [0, min(timei, last_timei)]
                 // y = node, k in Sr(node)
-                for (int k=tree->nodes[state.node].age; k<end_time; k++)
+                for (int k=tree->nodes[state.node].age; k<=end_time; k++)
                     candidates.push_back(NodePoint(state.node, k));
             }
             
-            for (int k=0; k<end_time; k++)
+            for (int k=0; k<=end_time; k++)
                 candidates.push_back(NodePoint(new_node, k));
 
 
@@ -1041,6 +1046,9 @@ void sample_recombinations(
             // sample recombination
             recomb_pos.push_back(i);
             recombs.push_back(candidates[sample(&probs[0], probs.size())]);
+
+            assert(recombs[recombs.size()-1].time <= min(state.time,
+                                                         last_state.time));
         }
     }
 }
@@ -1055,25 +1063,27 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
     int nleaves = trees->get_num_leaves();
     int nnodes = trees->nnodes;
     int nnodes2 = nnodes + 2;
-
-    int newleaf = nleaves + 1;
+    
+    int newleaf = nleaves;
     int displaced = nnodes;
     int newcoal = nnodes + 1;
 
     States states;
     LocalTree *last_tree = NULL;
+    int last_node = -1;
+
+    //printf(">> %d %d\n", trees->trees.size(), recombs.size());
 
     // loop through blocks
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); it++) {
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
         LocalTree *tree = it->tree;
         const int start = it->block.start;
         const int end = it->block.end;
         get_coal_states(tree, ntimes, states);
-
+        
         // add new branch to local tree
         it->ensure_capacity(nnodes2);
         LocalNode *nodes = tree->nodes;
-        LocalNode *last_nodes = last_tree->nodes;
         State state = states[thread_path[start]];
         
         // determine displacement
@@ -1082,18 +1092,21 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
         int parent2 = (parent != newleaf ? parent : displaced);
 
         // displace node
-        nodes[displaced] = nodes[newleaf]; // copy displaced node
-        if (nodes[displaced].parent != -1) {
-            int *c = nodes[nodes[displaced].parent].child;
-            if (c[0] == newleaf)
-                c[0] = displaced;
-            else
-                c[1] = displaced;
+        if (newleaf < displaced) {
+            nodes[displaced] = nodes[newleaf]; // copy displaced node
+            if (nodes[displaced].parent != -1) {
+                int *c = nodes[nodes[displaced].parent].child;
+                if (c[0] == newleaf)
+                    c[0] = displaced;
+                else
+                    c[1] = displaced;
+            }
+            int *c = nodes[displaced].child;
+            nodes[c[0]].parent = displaced;
+            nodes[c[1]].parent = displaced;
         }
-        int *c = nodes[displaced].child;
-        nodes[c[0]].parent = displaced;
-        nodes[c[1]].parent = displaced;
-    
+   
+
         // add new leaf
         nodes[newleaf].parent = newcoal;
         nodes[newleaf].child[0] = -1;
@@ -1116,6 +1129,12 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
                 c[1] = newcoal;
         }
 
+        // fix up tree data
+        tree->nnodes = nnodes2;
+        tree->set_root();
+        assert(assert_tree(tree));
+
+
         // update mapping and spr
         int *mapping = it->mapping;
         if (mapping) {
@@ -1134,36 +1153,68 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
                 spr->recomb_node = displaced;
             if (spr->coal_node == newleaf)
                 spr->coal_node = displaced;
+
+            LocalNode *last_nodes = last_tree->nodes;
         
             // parent of recomb node should be the recoal point
-            // however, if it equals newcoal, then newcoal was below recomb
-            int recoal = nodes[spr->recomb_node].parent;
+            // however, if it equals newcoal, then recomb branch is 
+            // either renamed or we have mediation
+            int recoal = nodes[mapping[spr->recomb_node]].parent;
             if (recoal == newcoal) {
-                // rename spr recomb node
-                spr->recomb_node = newcoal;
+                if (mapping[last_node] == node2) {
+                    // recomb is above coal state, we rename spr recomb node
+                    spr->recomb_node = newcoal;
+                } else {
+                    // this is a mediated coal
+                    // rename coal node and time
+                    spr->coal_node = newleaf;
+                    spr->coal_time = state.time;
+                }
             } else {
                 // the other possibility is that newcoal is under recoal point
                 // if newcoal is child of recoal, then coal is renamed
                 int *c = nodes[recoal].child;
                 if (c[0] == newcoal || c[1] == newcoal) {
-                    spr->coal_node = newcoal;
+                    // we either coal above the newcoal or our existing
+                    // node just broke and newcoal was underneath.
+
+                    // if newcoal was previously above spr->coal_node
+                    // then we rename the spr coal node
+                    if (last_nodes[spr->coal_node].parent == newcoal) {
+                        spr->coal_node = newcoal;
+                    }
                 }
             }
 
+            // assert SPR
+            assert(spr->recomb_time <= 
+                   last_nodes[last_nodes[spr->recomb_node].parent].age);
+            if (last_nodes[spr->coal_node].parent != -1) {
+                assert(spr->coal_time <= 
+                       last_nodes[last_nodes[spr->coal_node].parent].age);
+            }
+
+            
             // determine if mapping of new node needs to be changed
             // newcoal was parent of recomb, it is broken
-            if (last_nodes[spr->recomb_node].parent == newcoal) {
+            if (last_tree->nodes[spr->recomb_node].parent == newcoal) {
                 mapping[newcoal] = -1;
-                int p = last_nodes[newcoal].parent;
-                assert(p != -1);
-                mapping[p] = newcoal;
+                int p = last_tree->nodes[newcoal].parent;
+                if (p != -1)
+                    mapping[p] = newcoal;
             }
         }
+
+        assert(tree->nodes[newcoal].age == states[thread_path[start]].time);
+
 
         // break this block for each new recomb within this block
         for (;irecomb < recombs.size() && 
               recomb_pos[irecomb] < end; irecomb++) {
             int pos = recomb_pos[irecomb];
+            //printf("start %d pos %d\n", start, pos);
+
+            assert(tree->nodes[newcoal].age == states[thread_path[pos-1]].time);
 
             // determine real name of recomb node
             // it may be different due to displacement
@@ -1172,15 +1223,35 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
             if (recomb_node == newleaf)
                 recomb_node = displaced;
             
+            assert(recomb_time <= tree->nodes[newcoal].age);
+
             // determine coal node and time
             int istate = thread_path[pos];
             int coal_node, coal_time;
             if (recomb_node == -1) {
                 // recomb on new branch, coal given thread
-                coal_node = states[istate].node;   
+                recomb_node = newleaf;
+                coal_node = states[istate].node;
+
+                // fix coal node due to displacement
+                if (coal_node == newleaf)
+                    coal_node = displaced;
+
+                // rename due to newcoal
+                if (states[istate].node == states[thread_path[pos-1]].node &&
+                    states[istate].time > states[thread_path[pos-1]].time)
+                    coal_node = newcoal;
+
             } else {
                 // recomb in ARG, coal on new branch
-                coal_node = newleaf;
+                // fix recomb node due to displacement
+                if (recomb_node == newleaf)
+                    recomb_node = displaced;
+
+                if (states[istate].time > states[thread_path[pos-1]].time)
+                    coal_node = nodes[newleaf].parent;
+                else
+                    coal_node = newleaf;
             }
             coal_time = states[istate].time;
 
@@ -1200,29 +1271,70 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
                 new_nodes[j].age = nodes[j].age;
             }
 
+            //       bp          cp
+            //      / \           \ 
+            //     rc              c
+            //    / \ 
+            //   r   rs
+
+            //    bp         cp
+            //   /  \         \ 
+            //  rs             rc
+            //                /  \ 
+            //               r    c
+
 
             // apply spr to new tree
+            // recoal is also the node we are breaking
             int recoal = new_nodes[recomb_node].parent;
 
-            // fix recomb node sibling
+            // find recomb node sibling and broke node parent
             int *c = new_nodes[recoal].child;
             int other = (c[0] == recomb_node ? 1 : 0);
-            new_nodes[c[other]].parent = new_nodes[recoal].parent;
+            int recomb_sib = c[other];
+            int broke_parent =  new_nodes[recoal].parent;
+
+
+            // fix recomb sib pointer
+            new_nodes[recomb_sib].parent = broke_parent;
+
+            // fix parent of broken node
+            int x;
+            if (broke_parent != -1) {
+                c = new_nodes[broke_parent].child;
+                x = (c[0] == recoal ? 0 : 1);
+                new_nodes[broke_parent].child[x] = recomb_sib;
+            }
 
             // reuse node as recoal
-            new_nodes[recoal].child[other] = coal_node;
-            new_nodes[recoal].parent = new_nodes[coal_node].parent;
+            if (coal_node == recoal) {
+                // we just broke coal_node, so use recomb_sib
+                new_nodes[recoal].child[other] = recomb_sib;
+                new_nodes[recoal].parent = new_nodes[recomb_sib].parent;
+                new_nodes[recomb_sib].parent = recoal;
+                if (broke_parent != -1)
+                    new_nodes[broke_parent].child[x] = recoal;
+            } else {
+                new_nodes[recoal].child[other] = coal_node;
+                new_nodes[recoal].parent = new_nodes[coal_node].parent;
+                new_nodes[coal_node].parent = recoal;
 
-            // fix coal_node
-            new_nodes[coal_node].parent = recoal;
+                // fix coal_node parent
+                int parent = new_nodes[recoal].parent;
+                if (parent != -1) {
+                    c = new_nodes[parent].child;
+                    if (c[0] == coal_node) 
+                        c[0] = recoal;
+                    else
+                        c[1] = recoal;
+                }
+            }
+            new_nodes[recoal].age = coal_time;   
             
-            // fix coal_node parent
-            int parent = new_nodes[recoal].parent;
-            c = new_nodes[parent].child;
-            if (c[0] == coal_node) 
-                c[0] = recoal;
-            else
-                c[1] = recoal;
+
+            // set tree data
+            new_tree->set_root();
+            assert(assert_tree(new_tree));
 
             int block_end;
             if (irecomb < recombs.size() - 1)
@@ -1230,20 +1342,37 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
             else
                 block_end = end;
             
-            
+
+            assert(new_tree->nodes[newcoal].age == 
+                   states[thread_path[pos]].time);
+
+            // assert SPR
+            assert(recomb_time <= nodes[nodes[recomb_node].parent].age);
+            if (nodes[coal_node].parent != -1) {
+                assert(coal_time <= nodes[nodes[coal_node].parent].age);
+            }
+
+
             // insert new tree into local trees list
             ++it;
             it = trees->trees.insert(it, 
                 LocalTreeSpr(pos, block_end, new_tree,
                              Spr(recomb_node, recomb_time,
-                                 coal_node, coal_time), mapping));
-
+                                 coal_node, coal_time), mapping2));
+            
             tree = new_tree;
+            nodes = tree->nodes;
         }
 
         last_tree = tree;
+        last_node = states[thread_path[end-1]].node;
+        if (last_node == newleaf)
+            last_node = displaced;
     }
 
+    
+    // update number of nodes
+    trees->nnodes = nnodes2;
 }
 
 

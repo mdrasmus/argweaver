@@ -1614,16 +1614,18 @@ def get_treeset(arg, times, start=None, end=None):
     all_nodes = []
 
     for block, tree, last_tree, spr in iter_arg_sprs(arg, start, end):
+
+        tree2 = tree.get_tree()
+        #phylo.hash_order_tree(tree2)
+        #print block[0], tree2.get_one_line_newick()
         
         if last_tree is None:
             # get frist ptree
-            tree2 = tree.get_tree()
             ptree, nodes, nodelookup = make_ptree(tree2)
             ispr = [-1, -1, -1, -1]
             age = [times_lookup[tree[x.name].age] for x in nodes]
 
         else:
-            tree2 = tree.get_tree()
             (rname, rtime), (cname, ctime) = spr
             
             # find old node and new node
@@ -1646,6 +1648,8 @@ def get_treeset(arg, times, start=None, end=None):
             ispr = [recomb_name, times_lookup[rtime],
                     coal_name, times_lookup[ctime]]
 
+            #print last_tree2[rname].leaf_names()
+
         # append integer-based data
         ptrees.append(ptree)
         ages.append(age)
@@ -1665,6 +1669,7 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
 
     arg = arglib.ARG()
 
+    
     # build first tree
     lookup = {}
     for i, p in enumerate(ptrees[0]):
@@ -1674,17 +1679,23 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
                                      event="gene")
         else:
             lookup[i] = arg.new_node(age=times[ages[0][i]], event="coal")
-
+    
     # set parents of new tree
     for i, p in enumerate(ptrees[0]):
         node = lookup[i]
-        node.parent = lookup[p]
-        node.parent.children.append(node)
+        if p != -1:
+            node.parents.append(lookup[p])
+            node.parents[0].children.append(node)
 
+    
     # convert sprs
     sprs2 = []
     for i, (rinode, ritime, cinode, citime) in enumerate(sprs):
         pos = blocks[i][0] - 1
+
+        # check for null spr
+        if rinode == -1:
+            continue
 
         # make local tree
         ptree = ptrees[i]
@@ -1696,16 +1707,23 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
             else:
                 lookup.append(tree.new_node())
         for j in range(len(ptree)):
-            parent = lookup[ptree[j]]
-            tree.add_child(parent, lookup[j])
-
+            if ptree[j] != -1:
+                parent = lookup[ptree[j]]
+                tree.add_child(parent, lookup[j])
+            else:
+                tree.root = lookup[j]
+        #phylo.hash_order_tree(tree)
+        #print pos+1, tree.get_one_line_newick()
+        
         # get leaf sets
         rleaves = lookup[rinode].leaf_names()
         cleaves = lookup[cinode].leaf_names()
         
         sprs2.append((pos, (rleaves, times[ritime]), (cleaves, times[citime])))
 
-    make_arg_from_sprs(arg, sprs2)
+    #assert against local ptree and leading edge of ARG.
+
+    arglib.make_arg_from_sprs(arg, sprs2)
     return arg
     
         
@@ -2425,6 +2443,7 @@ def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
     seqs = [model.seqs[node] for node in all_nodes[0]
             if model.arg[node].is_leaf()]
     seqs.append(model.seqs[model.new_name])
+    
     trees = arghmm_sample_thread(
         ptrees, ages, sprs, blocklens,
         len(ptrees), len(ptrees[0]), 
@@ -2433,9 +2452,9 @@ def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
         (c_char_p * len(seqs))(*seqs), len(seqs),
         seqlen, None)
 
-
     nnodes = get_local_trees_nnodes(trees)
     ntrees = get_local_trees_ntrees(trees)
+    
     ptrees = []
     ages = []
     sprs = []
@@ -2445,9 +2464,14 @@ def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
         ages.append([0] * nnodes)
         sprs.append([0, 0, 0, 0])
 
-    # TODO: finish
     get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
 
+    for i in range(ntrees):
+        ptrees[i] = ptrees[i][:nnodes]
+        ages[i] = ages[i][:nnodes]
+        sprs[i] = sprs[i][:4]
+    
+    
     blocks = []
     start = 0
     for blocklen in blocklens:
@@ -2455,11 +2479,15 @@ def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
         blocks.append((start, end))
         start = end
 
-    names = all_nodes[0][:len(seqs)]
-    
+    names = all_nodes[0][:len(seqs)-1]
+    names.append(model.new_name)
+    assert len(names) == ((nnodes + 1) / 2)
+
+    util.tic("convert arg")
     arg = treeset2arg(ptrees, ages, sprs, blocks, names, model.times)
+    util.toc()
     
-    delete_local_trees(trees)
+    #delete_local_trees(trees)
 
     if verbose:
         util.toc()

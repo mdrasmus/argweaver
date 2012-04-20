@@ -90,7 +90,7 @@ class Exporter (object):
             sizes = {}
             for i, argtype in enumerate(prototypes[0::2]):
                 if argtype in (c_int_list, c_float_list, c_float_matrix,
-                               c_double_list, c_double_matrix):
+                               c_double_list, c_int_matrix, c_double_matrix):
                     sizes[i] = len(args[i])
 
             # convert arguments to c types
