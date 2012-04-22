@@ -435,7 +435,7 @@ class Sample (unittest.TestCase):
         Test adding a sampled thread to an ARG
         """
 
-        k = 5
+        k = 3
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -450,8 +450,8 @@ class Sample (unittest.TestCase):
         arghmm.discretize_arg(arg, times)
 
         # save
-        arglib.write_arg("test/data/sample_recomb.arg", arg)
-        fasta.write_fasta("test/data/sample_recomb.fa", seqs)
+        #arglib.write_arg("test/data/sample_recomb.arg", arg)
+        #fasta.write_fasta("test/data/sample_recomb.fa", seqs)
 
         # get new chrom
         new_name = "n%d" % (k-1)
@@ -495,12 +495,7 @@ class Sample (unittest.TestCase):
         if len(r) > 0:
             p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
         nrecombs_new = len(recombs)
-
-
-        #arg3 = arglib.read_arg("test/data/sample_recomb.arg")
-        #arg = arghmm.add_arg_thread2(arg, new_name, thread2, recombs,
-        #                             arg3=arg3)
-
+        
         util.tic("add thread")
         arg = arghmm.add_arg_thread(arg, new_name, thread2, recombs)
         util.toc()
@@ -529,7 +524,7 @@ class Sample (unittest.TestCase):
         Test adding a sampled thread to an ARG
         """
 
-        k = 8
+        k = 3
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -560,7 +555,7 @@ class Sample (unittest.TestCase):
         
         # setup model
         model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
-                              rho=rho, mu=mu)
+                              rho=rho * 10e-9, mu=mu)
         print "states", len(model.states[0])
         print "muts", len(muts)
         print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
@@ -712,7 +707,7 @@ class Sample (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 2000
+        length = 20000
         times = arghmm.get_time_points(ntimes=20)
         
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
@@ -724,7 +719,7 @@ class Sample (unittest.TestCase):
 
         seqs.names.sort()
 
-        util.tic()
+        util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho*20, mu=mu*20,
                                  times=times)
         util.toc()

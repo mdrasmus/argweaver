@@ -909,7 +909,7 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     assert len(names) == ((nnodes + 1) / 2)
 
     util.tic("convert arg")
-    arg = treeset2arg(ptrees, ages, sprs, blocks, names, model.times)
+    arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
     util.toc()
     
     return arg

@@ -91,6 +91,20 @@ bool assert_tree(LocalTree *tree)
 }
 
 
+bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping)
+{
+    int coal_node = mapping[spr->coal_node];
+    if (coal_node != -1) {
+        // coal node has not been broken
+        if (tree->nodes[mapping[spr->recomb_node]].parent !=
+            tree->nodes[coal_node].parent)
+            return false;
+    }
+    
+    return true;
+}
+
+
 
 
 // Counts the number of lineages in a tree for each time segment

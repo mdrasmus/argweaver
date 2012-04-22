@@ -451,6 +451,7 @@ public:
 
 // tree methods
 bool assert_tree(LocalTree *tree);
+bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping);
 double get_treelen(const LocalTree *tree, const double *times, int ntimes);
 double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
                           int node, int time, double treelen=-1.0);
