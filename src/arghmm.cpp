@@ -981,7 +981,7 @@ void sample_recombinations(
                         1.0 - exp(-model->rho * (treelen2 - treelen)
                               - self_trans), model->rho);
 
-                    next_recomb = min(float(end), i + expovariate(rate));
+                    next_recomb = int(min(float(end), i + expovariate(rate)));
 
                     //printf("next %d %e %d\n", i, 
                     //       expovariate(rate), next_recomb);
@@ -1272,15 +1272,15 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
             }
 
             //       bp          cp
-            //      / \           \ 
+            //      / \           \       .
             //     rc              c
-            //    / \ 
+            //    / \                     .
             //   r   rs
 
             //    bp         cp
-            //   /  \         \ 
+            //   /  \         \           .
             //  rs             rc
-            //                /  \ 
+            //                /  \        .
             //               r    c
 
 
@@ -1299,7 +1299,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
             new_nodes[recomb_sib].parent = broke_parent;
 
             // fix parent of broken node
-            int x;
+            int x = 0;
             if (broke_parent != -1) {
                 c = new_nodes[broke_parent].child;
                 x = (c[0] == recoal ? 0 : 1);
@@ -1448,48 +1448,6 @@ intstate *arghmm_sample_posterior(
     return path;
 }
 
-    /*
-void sample_recombinations(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes, double *times, int ntimes,
-    double *popsizes, double rho, double mu, 
-    intstate *path, int *nrecombs, int **recomb_pos, int **recomb_nodes,
-    int **recomb_times)
-{    
-    // setup model, local trees, sequences
-    ArgModel model(ntimes, times, popsizes, rho, mu);
-    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);    
-    
-    // build matrices
-    ArgHmmMatrixList matrix_list;
-    matrix_list.setup(&model, NULL, &trees);
-
-    // convert path
-    States states;
-    int seqlen = trees.last()->block.end;
-    int *thread_path = new int [seqlen];
-    for (LocalTrees::iterator it=trees.begin(); it!=trees.end(); ++it) {
-        int start = it->block.start;
-        int end = it->block.end;
-        get_coal_states(it->tree, ntimes, states);
-        NodeStateLookup state_lookup(states, it->tree->nnodes);
-
-        for (int i=start; i<end; i++) {
-            thread_path[i] = state_lookup.lookup(path[i][0], path[i][1]);
-        }
-    }
-    
-
-    vector<int> recomb_pos;
-    vector<NodePoint> recombs;
-    sample_recombinations(&trees, &model, &matrix_list,
-                          thread_path, recomb_pos, recombs);
-
-    // clean up
-    delete [] thread_path;
-}
-    */
-
 
 LocalTrees *arghmm_sample_thread(
     int **ptrees, int **ages, int **sprs, int *blocklens,
@@ -1531,6 +1489,62 @@ LocalTrees *arghmm_sample_thread(
 
     return trees;
 }
+
+
+
+// sequentially sample an ARG
+LocalTrees *arghmm_sample_arg_seq(
+    double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    
+    LocalTrees *trees = new LocalTrees();
+    const int capacity = 2 * nseqs - 1;
+    trees->make_trunk(0, seqlen, capacity); 
+
+    // allocate temp variables
+    double **fw = new double* [seqlen];
+    int *thread_path = new int [seqlen];
+
+    // add more chromosomes one by one
+    for (int nchroms=2; nchroms<=nseqs; nchroms++) {
+        // use first nchroms sequences
+        Sequences sequences(seqs, nchroms, seqlen);
+    
+        // build matrices
+        ArgHmmMatrixList matrix_list;
+        matrix_list.setup(&model, &sequences, trees);
+    
+        // compute forward table
+        arghmm_forward_alg(trees, &model, &sequences, &matrix_list, fw);
+
+        // traceback
+        stochastic_traceback(&matrix_list, fw, thread_path, seqlen);
+
+        // sample recombination points
+        vector<int> recomb_pos;
+        vector<NodePoint> recombs;
+        sample_recombinations(trees, &model, &matrix_list,
+                              thread_path, recomb_pos, recombs);
+
+        // add thread to ARG
+        add_arg_thread(trees, model.ntimes, thread_path, recomb_pos, recombs);
+
+        // cleanup
+        matrix_list.clear();
+        for (int i=0; i<seqlen; i++)
+            delete [] fw[i];
+    }
+
+    // clean up    
+    delete [] thread_path;
+
+    return trees;
+}
+
 
 
 int get_local_trees_ntrees(LocalTrees *trees)

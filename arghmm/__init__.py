@@ -132,6 +132,11 @@ if arghmmc:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
 
+    export(arghmmc, "arghmm_sample_arg_seq", c_void_p,
+           [c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
+
     export(arghmmc, "get_local_trees_ntrees", c_int,
            [c_void_p, "trees"])
     export(arghmmc, "get_local_trees_nnodes", c_int,
@@ -856,9 +861,62 @@ def get_clade_point(arg, node_name, time, pos):
         return ([node_name], time)
 
 
-
-
 def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+               times=None, verbose=False):
+    """
+    Sample ARG for sequences
+    """
+    if times is None:
+        times = get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    popsizes = [popsize] * len(times)
+
+    seqs2 = seqs.values()
+    
+    trees = arghmm_sample_arg_seq(
+        times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]))
+
+    nnodes = get_local_trees_nnodes(trees)
+    ntrees = get_local_trees_ntrees(trees)
+    
+    ptrees = []
+    ages = []
+    sprs = []
+    blocklens = [0] * ntrees
+    for i in range(ntrees):
+        ptrees.append([0] * nnodes)
+        ages.append([0] * nnodes)
+        sprs.append([0, 0, 0, 0])
+
+    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
+    delete_local_trees(trees)
+
+    for i in range(ntrees):
+        ptrees[i] = ptrees[i][:nnodes]
+        ages[i] = ages[i][:nnodes]
+        sprs[i] = sprs[i][:4]
+    
+    
+    blocks = []
+    start = 0
+    for blocklen in blocklens:
+        end = start + blocklen
+        blocks.append((start, end))
+        start = end
+
+    names = seqs.keys()
+    assert len(names) == ((nnodes + 1) / 2)
+
+    util.tic("convert arg")
+    arg = treeset2arg(ptrees, ages, sprs, blocks, names, model.times)
+    util.toc()
+    
+    return arg
+
+
+
+def sample_arg2(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
                verbose=False, force=False):
     """
     Sample ARG for sequences
@@ -2465,6 +2523,7 @@ def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
         sprs.append([0, 0, 0, 0])
 
     get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
+    delete_local_trees(trees)
 
     for i in range(ntrees):
         ptrees[i] = ptrees[i][:nnodes]

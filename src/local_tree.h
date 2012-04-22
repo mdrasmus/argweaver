@@ -351,6 +351,10 @@ public:
 class LocalTrees 
 {
 public:
+    LocalTrees() :
+        start_coord(0),
+        end_coord(0),
+        nnodes(0) {}
     LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
                int ntrees, int nnodes, int capacity=-1, int start=0);
     ~LocalTrees() 
@@ -373,6 +377,7 @@ public:
         return trees.end();
     }
 
+    // Returns number of leaves
     inline int get_num_leaves() const
     {
         return (nnodes + 1) / 2;
@@ -384,6 +389,22 @@ public:
         for (iterator it=begin(); it!=end(); it++)
             it->clear();
         trees.clear();
+    }
+
+    // make trunk genealogy
+    void make_trunk(int start, int end, int capacity=-1)
+    {
+        nnodes = 1;
+        start_coord = start;
+        end_coord = end;
+
+        clear();
+
+        int ptree[] = {-1};
+        int ages[] = {0};
+        LocalTree *tree = new LocalTree(ptree, 1, ages, capacity);
+        trees.push_back(
+            LocalTreeSpr(start, end, tree, Spr(-1, -1, -1, -1), NULL));
     }
 
 
