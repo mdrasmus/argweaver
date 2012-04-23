@@ -23,6 +23,10 @@ def c_matrix(c_type, mat):
     mat = mat_type(* [row_type(* row) for row in mat])
     return cast(mat, POINTER(POINTER(c_type)))
 
+class c_out (object):
+    def __init__(self, c_type):
+        self.c_type = c_type
+    
 
 # additional C types
 c_float_p = POINTER(c_float)
@@ -33,6 +37,7 @@ c_int_p = POINTER(c_int)
 c_int_p_p = POINTER(POINTER(c_int))
 c_char_p_p = POINTER(c_char_p)
 
+
 c_int_list = (c_int_p, lambda x: c_list(c_int, x))
 c_float_list = (c_float_p, lambda x: c_list(c_float, x))
 c_float_matrix = (c_float_p_p, lambda x: c_matrix(c_float, x))
@@ -40,6 +45,14 @@ c_double_list = (c_double_p, lambda x: c_list(c_double, x))
 c_double_matrix = (c_double_p_p, lambda x: c_matrix(c_double, x))
 c_int_matrix = (c_int_p_p, lambda x: c_matrix(c_int, x))
 
+'''
+c_int_list = c_out((c_int_p, lambda x: c_list(c_int, x)))
+c_float_list = c_out((c_float_p, lambda x: c_list(c_float, x)))
+c_float_matrix = c_out((c_float_p_p, lambda x: c_matrix(c_float, x)))
+c_double_list = c_out((c_double_p, lambda x: c_list(c_double, x)))
+c_double_matrix = c_out((c_double_p_p, lambda x: c_matrix(c_double, x)))
+c_int_matrix = c_out((c_int_p_p, lambda x: c_matrix(c_int, x)))
+'''
 
 class Exporter (object):
 
@@ -69,6 +82,10 @@ class Exporter (object):
         # get c arguments
         arg_types = prototypes[0::2]
         for i, arg in enumerate(arg_types):
+            if isinstance(arg, c_out):
+                # this a output argument
+                arg = arg.c_type
+            
             if isinstance(arg, tuple):
                 # use special conversion function
                 arg_types[i] = arg[0]
@@ -89,8 +106,9 @@ class Exporter (object):
             # record array sizes
             sizes = {}
             for i, argtype in enumerate(prototypes[0::2]):
-                if argtype in (c_int_list, c_float_list, c_float_matrix,
-                               c_double_list, c_int_matrix, c_double_matrix):
+                if isinstance(argtype, c_out):
+                #if argtype in (c_int_list, c_float_list, c_float_matrix,
+                #               c_double_list, c_int_matrix, c_double_matrix):
                     sizes[i] = len(args[i])
 
             # convert arguments to c types

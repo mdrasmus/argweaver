@@ -51,17 +51,17 @@ if arghmmc:
     export(arghmmc, "forward_alg", c_int,
            [c_int, "n", c_int, "nstates",
             c_double_p_p, "trans", c_double_p_p, "emit",
-            c_double_matrix, "fw"])
+            c_out(c_double_matrix), "fw"])
 
     export(arghmmc, "backward_alg", c_int,
            [c_int, "n", c_int, "nstates",
             c_double_p_p, "trans", c_double_p_p, "emit",
-            c_double_matrix, "bw"])
+            c_out(c_double_matrix), "bw"])
 
     export(arghmmc, "sample_hmm_posterior", c_int,
            [c_int, "n", c_int, "nstates",
             c_double_p_p, "trans", c_double_p_p, "emit", 
-            c_double_matrix, "fw", c_int_list, "path"])
+            c_out(c_double_matrix), "fw", c_out(c_int_list), "path"])
 
 
     export(arghmmc, "new_transition_probs", c_double_p_p,
@@ -142,8 +142,9 @@ if arghmmc:
     export(arghmmc, "get_local_trees_nnodes", c_int,
            [c_void_p, "trees"])
     export(arghmmc, "get_local_trees_ptrees", c_int,
-           [c_void_p, "trees", c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens"])
+           [c_void_p, "trees", c_out(c_int_matrix), "ptrees",
+            c_out(c_int_matrix), "ages",
+            c_out(c_int_matrix), "sprs", c_out(c_int_list), "blocklens"])
     export(arghmmc, "delete_local_trees", c_int,
            [c_void_p, "trees"])
 
@@ -1725,7 +1726,8 @@ def get_treeset(arg, times, start=None, end=None):
 
 def treeset2arg(ptrees, ages, sprs, blocks, names, times):
 
-    arg = arglib.ARG()
+    seqlen = blocks[-1][1]
+    arg = arglib.ARG(0, seqlen)
 
     
     # build first tree
@@ -2225,8 +2227,9 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
     seqs = [model.seqs[node] for node in all_nodes[0]
             if model.arg[node].is_leaf()]
     seqs.append(model.seqs[model.new_name])
+    nnodes = len(ptrees[0])
     fw = arghmm_forward_alg(ptrees, ages, sprs, blocklens,
-                            len(ptrees), len(ptrees[0]), 
+                            len(ptrees), nnodes, 
                             model.times, len(model.times),
                             model.popsizes, model.rho, model.mu,
                             (c_char_p * len(seqs))(*seqs), len(seqs),
@@ -2234,7 +2237,7 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
 
     # map states to python state space
     all_states = get_state_spaces(ptrees, ages, sprs, blocklens,
-                                  len(ptrees), len(ptrees[0]), len(model.times))
+                                  len(ptrees), nnodes, len(model.times))
 
     probs = []
     for k, (start, end) in enumerate(blocks):

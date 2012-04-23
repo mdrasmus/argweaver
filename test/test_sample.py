@@ -723,6 +723,8 @@ class Sample (unittest.TestCase):
         arg2 = arghmm.sample_arg(seqs, rho=rho*20, mu=mu*20,
                                  times=times)
         util.toc()
+
+        arg2.write("test/data/sample_arg3.arg")
         
 
 
