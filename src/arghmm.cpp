@@ -1112,6 +1112,73 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
 }
 
 
+
+void add_tree_branch(LocalTree *tree, State state)
+{
+    // get tree info
+    LocalNode *nodes = tree->nodes;
+    int nleaves = tree->get_num_leaves();
+    int nnodes = tree->nnodes;
+    int nnodes2 = nnodes + 2;
+    
+    // get major node ids
+    int newleaf = nleaves;
+    int displaced = nnodes;
+    int newcoal = nnodes + 1;
+    
+    // determine node displacement
+    int node2 = (state.node != newleaf ? state.node : displaced);
+    int parent = nodes[state.node].parent;
+    int parent2 = (parent != newleaf ? parent : displaced);
+
+    // displace node
+    if (newleaf < displaced) {
+        nodes[displaced] = nodes[newleaf]; // copy displaced node
+        if (nodes[displaced].parent != -1) {
+            int *c = nodes[nodes[displaced].parent].child;
+            if (c[0] == newleaf)
+                c[0] = displaced;
+            else
+                c[1] = displaced;
+        }
+        int *c = nodes[displaced].child;
+        nodes[c[0]].parent = displaced;
+        nodes[c[1]].parent = displaced;
+    }
+
+    // add new leaf
+    nodes[newleaf].parent = newcoal;
+    nodes[newleaf].child[0] = -1;
+    nodes[newleaf].child[1] = -1;
+    nodes[newleaf].age = 0;
+        
+    // add new coal node
+    nodes[newcoal].parent = parent2;
+    nodes[newcoal].child[0] = newleaf;
+    nodes[newcoal].child[1] = node2;
+    nodes[newcoal].age = state.time;
+
+    // fix pointers
+    nodes[node2].parent = newcoal;
+    if (parent2 != -1) {
+        int *c = nodes[parent2].child;
+        if (c[0] == node2)
+            c[0] = newcoal;
+        else
+            c[1] = newcoal;
+    }
+
+    // fix up tree data
+    tree->nnodes = nnodes2;
+    tree->set_root();
+
+    //assert(assert_tree(tree));    
+    // assert new branch is where it should be
+    assert(tree->nodes[newcoal].age == state.time);   
+}
+
+
+
 // update an SPR and mapping after adding a new branch
 void add_spr_branch(LocalTree *tree, LocalTree *last_tree, 
                     State state, State last_state,
@@ -1200,73 +1267,6 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
             mapping[newcoal] = nodes[mapping[x]].parent;
     }
 }
-
-
-
-void add_tree_branch(LocalTree *tree, State state)
-{
-    // get tree info
-    LocalNode *nodes = tree->nodes;
-    int nleaves = tree->get_num_leaves();
-    int nnodes = tree->nnodes;
-    int nnodes2 = nnodes + 2;
-    
-    // get major node ids
-    int newleaf = nleaves;
-    int displaced = nnodes;
-    int newcoal = nnodes + 1;
-    
-    // determine node displacement
-    int node2 = (state.node != newleaf ? state.node : displaced);
-    int parent = nodes[state.node].parent;
-    int parent2 = (parent != newleaf ? parent : displaced);
-
-    // displace node
-    if (newleaf < displaced) {
-        nodes[displaced] = nodes[newleaf]; // copy displaced node
-        if (nodes[displaced].parent != -1) {
-            int *c = nodes[nodes[displaced].parent].child;
-            if (c[0] == newleaf)
-                c[0] = displaced;
-            else
-                c[1] = displaced;
-        }
-        int *c = nodes[displaced].child;
-        nodes[c[0]].parent = displaced;
-        nodes[c[1]].parent = displaced;
-    }
-
-    // add new leaf
-    nodes[newleaf].parent = newcoal;
-    nodes[newleaf].child[0] = -1;
-    nodes[newleaf].child[1] = -1;
-    nodes[newleaf].age = 0;
-        
-    // add new coal node
-    nodes[newcoal].parent = parent2;
-    nodes[newcoal].child[0] = newleaf;
-    nodes[newcoal].child[1] = node2;
-    nodes[newcoal].age = state.time;
-
-    // fix pointers
-    nodes[node2].parent = newcoal;
-    if (parent2 != -1) {
-        int *c = nodes[parent2].child;
-        if (c[0] == node2)
-            c[0] = newcoal;
-        else
-            c[1] = newcoal;
-    }
-
-    // fix up tree data
-    tree->nnodes = nnodes2;
-    tree->set_root();
-
-    //assert(assert_tree(tree));    
-    // assert new branch is where it should be
-    assert(tree->nodes[newcoal].age == state.time);   
-}
-
 
 
 // add a thread to an ARG
@@ -1366,13 +1366,15 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
             }
             spr2.coal_time = states[istate].time;
 
+            
             // determine mapping
             int *mapping2 = new int [tree->capacity];
             for (int j=0; j<nnodes2; j++)
                 mapping2[j] = j;
             mapping2[nodes[spr2.recomb_node].parent] = -1;
 
-            // make new local tree
+            
+            // make new local tree and apply SPR operation
             LocalTree *new_tree = new LocalTree(nnodes2, tree->capacity);
             LocalNode *new_nodes = new_tree->nodes;
             for (int j=0; j<nnodes2; j++) {
@@ -1381,16 +1383,22 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
                 new_nodes[j].child[1] = nodes[j].child[1];
                 new_nodes[j].age = nodes[j].age;
             }
-
-            // apply spr to new tree
             apply_spr(new_tree, &spr2);
 
+            // calculate block end
             int block_end;
             if (irecomb < recombs.size() - 1)
                 block_end = min(recomb_pos[irecomb+1], end);
             else
                 block_end = end;
-            
+           
+            // insert new tree into local trees list
+            it->block.end = pos;
+            ++it;
+            it = trees->trees.insert(it, 
+                LocalTreeSpr(pos, block_end, new_tree, spr2, mapping2));
+
+
             // assert tree and SPR
             assert(assert_tree(new_tree));
             assert(new_tree->nodes[newcoal].age == 
@@ -1398,13 +1406,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
             if (!assert_spr(tree, new_tree, &spr2, mapping2))
                 printf("!!! %d spr fail\n", pos);
 
-
-            // insert new tree into local trees list
-            it->block.end = pos;
-            ++it;
-            it = trees->trees.insert(it, 
-                LocalTreeSpr(pos, block_end, new_tree, spr2, mapping2));
-            
+            // remember the previous tree
             tree = new_tree;
             nodes = tree->nodes;
         }

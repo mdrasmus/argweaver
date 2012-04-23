@@ -1465,10 +1465,7 @@ def get_deterministic_transitions(states1, states2, times,
             
             if node.is_leaf():
                 # SPR can't disrupt leaf branch
-                #node2 = walk_up(node1, node1, a)
-                #next_states.append(state2_lookup[(node2, a)])
-                start = node1
-                #ignore = None
+                node2 = node1
 
             else:
                 child1 = node.children[0]
@@ -1476,36 +1473,21 @@ def get_deterministic_transitions(states1, states2, times,
                 
                 if recomb_branch == child1.name:
                     # right child is not disrupted
-                    #node2 = walk_up(node1, child2.name, a, node1)
-                    #next_states.append(state2_lookup[(node2, a)])
-                    start = child2.name
-                    #ignore = node1
+                    node2 = child2.name
 
                 elif recomb_branch == child2.name:
                     # left child is not disrupted
-                    #node2 = walk_up(node1, child1.name, a, node1)
-                    #next_states.append(state2_lookup[(node2, a)])
-                    start = child1.name
-                    #ignore = node1
+                    node2 = child1.name
 
                 else:
                     # node is not disrupted
-                    #node2 = walk_up(node1, node1, a)
-                    #next_states.append(state2_lookup[(node2, a)])
-                    start = node1
-                    #ignore = None
-
-            #assert ignore not in tree
+                    node2 = node1
 
             # optionally walk up
-            if ((coal_branch == node1 or coal_branch == start) and
-                coal_time < a):
+            if ((coal_branch == node1 or coal_branch == node2) and
+                coal_time <= a):
                 # coal occurs under us
-                # TODO: make this probabilistic
-                ptr = tree[start].parents[0]
-                node2 = ptr.name
-            else:
-                node2 = start
+                node2 = tree[node2].parents[0].name
             next_states.append(state2_lookup[(node2, a)])
                 
         else:
