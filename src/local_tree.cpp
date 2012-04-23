@@ -94,10 +94,31 @@ bool assert_tree(LocalTree *tree)
 bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping)
 {
     int coal_node = mapping[spr->coal_node];
+    int recomb_node = mapping[spr->recomb_node];
+    LocalNode *last_nodes = last_tree->nodes;
+
+    if (recomb_node == -1)
+        return false;
+
+    // coal time is older than recomb time
+    if (spr->recomb_time > spr->coal_time)
+        return false;
+
+    // make sure recomb is within branch
+    if (spr->recomb_time > last_nodes[last_nodes[spr->recomb_node].parent].age
+        && spr->recomb_time < last_nodes[spr->recomb_node].age)
+        return false;
+    
+    // sure coal is within branch
+    if (last_nodes[spr->coal_node].parent != -1) {
+        if (spr->coal_time > last_nodes[last_nodes[spr->coal_node].parent].age
+            && spr->coal_time < last_nodes[spr->coal_node].age)
+            return false;
+    }
+
     if (coal_node != -1) {
         // coal node has not been broken
-        if (tree->nodes[mapping[spr->recomb_node]].parent !=
-            tree->nodes[coal_node].parent)
+        if (tree->nodes[recomb_node].parent != tree->nodes[coal_node].parent)
             return false;
     }
     

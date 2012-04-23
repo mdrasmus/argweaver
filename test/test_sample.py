@@ -555,7 +555,7 @@ class Sample (unittest.TestCase):
         
         # setup model
         model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
-                              rho=rho * 10e-9, mu=mu)
+                              rho=rho, mu=mu)
         print "states", len(model.states[0])
         print "muts", len(muts)
         print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
@@ -703,7 +703,7 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch
         """
 
-        k = 5
+        k = 10
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
