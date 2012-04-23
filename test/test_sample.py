@@ -703,11 +703,11 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch
         """
 
-        k = 12
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 20000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20)
         
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
@@ -720,8 +720,7 @@ class Sample (unittest.TestCase):
         seqs.names.sort()
 
         util.tic("sample ARG")
-        arg2 = arghmm.sample_arg(seqs, rho=rho*20, mu=mu*20,
-                                 times=times)
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
         util.toc()
 
         arg2.write("test/data/sample_arg3.arg")
@@ -733,47 +732,12 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch
         """
 
-        k = 4
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = 10000
         times = arghmm.get_time_points(ntimes=20)
-
-        def sample_arg(seqs):
-            def add_chrom(arg, new_name):
-                util.tic("adding %s..." % new_name)
-
-                util.tic("create model")
-                model = arghmm.ArgHmm(arg, seqs, new_name=new_name,
-                                      times=times, rho=rho, mu=mu)
-                util.logger("states", len(model.states[0]))
-                util.toc()
-
-                util.tic("sample thread")
-                path = arghmm.sample_posterior(model, length)
-                util.toc()
-
-                util.tic("sample recombs")
-                thread = list(arghmm.iter_thread_from_path(model, path))
-                recombs = list(arghmm.sample_recombinations_thread(
-                    model, thread))
-                util.toc()
-
-                util.tic("add thread")
-                arg = arghmm.add_arg_thread(arg, new_name, thread, recombs)
-                util.toc()
-
-                util.toc()
-                return arg, thread
-
-            names = seqs.keys()
-            arg = arghmm.make_trunk_arg(0, length, name=names[0])
-            for j in xrange(1, len(names)):
-                arg, thread2 = add_chrom(arg, names[j])
-
-            return arg
-
 
         rx = []
         ry = []
@@ -791,7 +755,7 @@ class Sample (unittest.TestCase):
 
             for j in range(3):
                 util.tic("sample ARG %d, %d" % (i, j))
-                arg2 = sample_arg(seqs)
+                arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
                 util.toc()
                 
                 nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))

@@ -1,6 +1,6 @@
 
 
-#include "model.h"
+#include "states.h"
 
 
 namespace arghmm {

@@ -3,6 +3,7 @@
 
 #include "local_tree.h"
 #include "model.h"
+#include "states.h"
 
 namespace arghmm {
 
