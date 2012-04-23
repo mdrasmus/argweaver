@@ -1357,15 +1357,16 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
                 // newcoal was not broken
                 // find child without recomb or coal on it
                 int x = newcoal;
-                do {
+                while (true) {
                     int y = last_nodes[x].child[0];
                     printf("x=%d, y=%d\n", x, y);
                     if (y == spr->coal_node || y == spr->recomb_node)
                         y = last_nodes[x].child[1];
                     x = y;
-                    if (mapping[x] == -1)
-                        continue;
-                } while(false);
+                    printf("  x=%d, mapping[x] = %d\n", x, mapping[x]);
+                    if (mapping[x] != -1)
+                        break;
+                }
                 printf(":: %d -> %d, x=%d\n", 
                        newcoal, nodes[mapping[x]].parent, x);
                 mapping[newcoal] = nodes[mapping[x]].parent;
