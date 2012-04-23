@@ -26,8 +26,7 @@ void make_intstates(States states, intstate *istates)
 }
 
 
-
-// Retruns the possible coalescing states for a tree
+// Returns the possible coalescing states for a tree
 //
 // NOTE: Do not allow coalescing at top time
 void get_coal_states(LocalTree *tree, int ntimes, States &states)
@@ -53,5 +52,50 @@ void get_coal_states(LocalTree *tree, int ntimes, States &states)
     }
 }
 
+
+//=============================================================================
+// C interface
+
+extern "C" {
+
+// Returns state-spaces, useful for calling from python
+intstate **get_state_spaces(int **ptrees, int **ages, int **sprs, 
+                            int *blocklens, int ntrees, int nnodes, int ntimes)
+{
+    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+    States states;
+    
+    // allocate state space
+    intstate **all_states = new intstate* [ntrees];
+
+    // iterate over local trees
+    int i = 0;
+    for (LocalTrees::iterator it=trees.begin(); it != trees.end(); it++) {
+        LocalTree *tree = it->tree;
+        get_coal_states(tree, ntimes, states);
+        int nstates = states.size();
+        all_states[i] = new intstate [nstates];
+        
+        for (int j=0; j<nstates; j++) {
+            all_states[i][j][0] = states[j].node;
+            all_states[i][j][1] = states[j].time;
+        }
+        i++;
+    }
+
+    return all_states;
+}
+
+
+// Deallocate state space memory
+void delete_state_spaces(intstate **all_states, int ntrees)
+{
+    for (int i=0; i<ntrees; i++)
+        delete [] all_states[i];
+    delete [] all_states;
+}
+
+
+} // extern "C"
 
 } // namespace arghmm

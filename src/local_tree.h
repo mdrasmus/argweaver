@@ -449,9 +449,11 @@ public:
 };
 
 
-// tree methods
-bool assert_tree(LocalTree *tree);
-bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping);
+
+//=============================================================================
+// tree functions
+
+void apply_spr(LocalTree *tree, Spr *spr);
 double get_treelen(const LocalTree *tree, const double *times, int ntimes);
 double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
                           int node, int time, double treelen=-1.0);
@@ -466,6 +468,15 @@ inline void make_node_mapping(int *mapping, int nnodes,
     const int parent = ptree[recomb_node];
     mapping[parent] = -1;
 }
+
+//=============================================================================
+// assert functions
+
+bool assert_tree(LocalTree *tree);
+bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping);
+bool assert_trees(LocalTrees *trees);
+
+
 
 
 } // namespace arghmm
