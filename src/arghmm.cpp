@@ -944,8 +944,8 @@ void stochastic_traceback(ArgHmmMatrixList *matrix_list,
                 A[j] = exp(A[j] - total);
             path[i] = sample(A, mat.nstates1);
             
-            printf("trace %d, %d %d, %e\n", pos, path[i], k,
-                   mat.transmat_switch[path[i]][k]);
+            //printf("trace %d, %d %d, %e\n", pos, path[i], k,
+            //       mat.transmat_switch[path[i]][k]);
         }
     }
 }
@@ -1238,7 +1238,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
         get_coal_states(tree, ntimes, states);
 
         // DBEUG
-        printf("add %d\n", start);        
+        //printf("add %d\n", start);        
         
         // add new branch to local tree
         it->ensure_capacity(nnodes2);
@@ -1291,7 +1291,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
         // fix up tree data
         tree->nnodes = nnodes2;
         tree->set_root();
-        assert(assert_tree(tree));
+        //assert(assert_tree(tree));
 
 
         // update mapping and spr
@@ -1359,23 +1359,22 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
                 int x = newcoal;
                 while (true) {
                     int y = last_nodes[x].child[0];
-                    printf("x=%d, y=%d\n", x, y);
+                    //printf("x=%d, y=%d\n", x, y);
                     if (y == spr->coal_node || y == spr->recomb_node)
                         y = last_nodes[x].child[1];
                     x = y;
-                    printf("  x=%d, mapping[x] = %d\n", x, mapping[x]);
+                    //printf("  x=%d, mapping[x] = %d\n", x, mapping[x]);
                     if (mapping[x] != -1)
                         break;
                 }
-                printf(":: %d -> %d, x=%d\n", 
-                       newcoal, nodes[mapping[x]].parent, x);
+                //printf(":: %d -> %d, x=%d\n", 
+                //       newcoal, nodes[mapping[x]].parent, x);
                 mapping[newcoal] = nodes[mapping[x]].parent;
             }
 
             // assert SPR
-            if (!assert_spr(last_tree, tree, spr, mapping)) {
+            if (!assert_spr(last_tree, tree, spr, mapping))
                 printf("!!! %d spr fail\n", start);
-            }
         }
 
         // assert new branch is where it should be
@@ -1386,7 +1385,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
         for (;irecomb < recombs.size() && 
               recomb_pos[irecomb] < end; irecomb++) {
             int pos = recomb_pos[irecomb];
-            printf("start %d pos %d\n", start, pos);
+            //printf("start %d pos %d\n", start, pos);
 
             assert(tree->nodes[newcoal].age == states[thread_path[pos-1]].time);
 
@@ -1457,9 +1456,8 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
             assert(assert_tree(new_tree));
             assert(new_tree->nodes[newcoal].age == 
                    states[thread_path[pos]].time);
-            if (!assert_spr(tree, new_tree, &spr2, mapping2)) {
+            if (!assert_spr(tree, new_tree, &spr2, mapping2))
                 printf("!!! %d spr fail\n", pos);
-            }
 
 
             // insert new tree into local trees list
@@ -1482,7 +1480,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path,
     // update number of nodes
     trees->nnodes = nnodes2;
 
-    assert_trees(trees);
+    //assert_trees(trees);
 }
 
 
@@ -1590,7 +1588,7 @@ LocalTrees *arghmm_sample_thread(
                           thread_path, recomb_pos, recombs);
 
     // add thread to ARG
-    assert_trees_thread(trees, thread_path, ntimes);
+    //assert_trees_thread(trees, thread_path, ntimes);
     add_arg_thread(trees, model.ntimes, thread_path, recomb_pos, recombs);
 
     // clean up
