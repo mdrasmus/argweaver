@@ -405,6 +405,15 @@ public:
         LocalTree *tree = new LocalTree(ptree, 1, ages, capacity);
         trees.push_back(
             LocalTreeSpr(start, end, tree, Spr(-1, -1, -1, -1), NULL));
+        set_default_seqids();
+    }
+
+    void set_default_seqids()
+    {
+        const int nleaves = get_num_leaves();
+        seqids.clear();
+        for (int i=0; i<nleaves; i++)
+            seqids.push_back(i);
     }
 
 
@@ -412,6 +421,7 @@ public:
     int end_coord;
     int nnodes;
     list<LocalTreeSpr> trees;
+    vector<int> seqids;
 };
 
 

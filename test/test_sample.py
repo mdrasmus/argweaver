@@ -703,7 +703,7 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch
         """
 
-        k = 4
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20

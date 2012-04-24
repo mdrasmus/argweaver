@@ -1,4 +1,3 @@
-
 // c++ includes
 #include <list>
 #include <vector>
@@ -75,10 +74,11 @@ public:
     
     void setup(ArgModel *model, Sequences *seqs, LocalTrees *trees)
     {
-        setup(model, seqs, trees->begin(), trees->end());
+        setup(model, seqs, trees, trees->begin(), trees->end());
     }
 
-    void setup(ArgModel *_model, Sequences *_seqs, LocalTrees::iterator start, 
+    void setup(ArgModel *_model, Sequences *_seqs, LocalTrees *trees,
+               LocalTrees::iterator start, 
                LocalTrees::iterator end)
     {
         model = _model;
@@ -119,6 +119,7 @@ public:
             if (seqs) {
                 for (int i=0; i<nseqs; i++)
                     subseqs[i] = &seqs[i][pos];
+                //subseqs[i] = &seqs[trees->seqids[i]][pos];
                 emit = new_matrix<double>(blocklen, nstates);
                 calc_emissions(*states, tree, subseqs, nseqs, blocklen, 
                                model, emit);
@@ -331,6 +332,7 @@ double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
         // calculate emissions
         for (int i=0; i<sequences->nseqs; i++)
             subseqs[i] = &sequences->seqs[i][pos];
+        //subseqs[i] = &sequences->seqs[trees->seqids[i]][pos];
         calc_emissions(*states, tree, subseqs, sequences->nseqs, 
                        blocklen, model, emit);
         
@@ -575,6 +577,113 @@ void sample_recombinations(
 }
 
 
+//=============================================================================
+// ARG sampling
+
+
+// sample the thread of the last chromosome
+void sample_arg_thread(ArgModel *model, Sequences *sequences, 
+                       LocalTrees *trees, int seqid,
+                       double **fw=NULL, int *thread_path=NULL)
+{
+    bool tmp_given = (fw != NULL);
+
+    // allocate temp variables
+    if (fw == NULL) {
+        fw = new double* [sequences->seqlen];
+        thread_path = new int [sequences->seqlen];
+    }
+    assert(thread_path != NULL);
+    
+    // build matrices
+    ArgHmmMatrixList matrix_list;
+    matrix_list.setup(model, sequences, trees);
+    
+    // compute forward table
+    arghmm_forward_alg(trees, model, sequences, &matrix_list, fw);
+
+    // traceback
+    stochastic_traceback(&matrix_list, fw, thread_path, sequences->seqlen);
+
+    // sample recombination points
+    vector<int> recomb_pos;
+    vector<NodePoint> recombs;
+    sample_recombinations(trees, model, &matrix_list,
+                          thread_path, recomb_pos, recombs);
+
+    // add thread to ARG
+    add_arg_thread(trees, model->ntimes, thread_path, seqid, 
+                   recomb_pos, recombs);
+
+    // cleanup
+    matrix_list.clear();
+    for (int i=0; i<sequences->seqlen; i++)
+        delete [] fw[i];
+
+    // clean up
+    if (!tmp_given) {
+        delete [] fw;
+        delete [] thread_path;
+    }
+}
+
+
+// sequentially sample an ARG from scratch
+// sequences are sampled in the order given
+void sample_arg_seq(ArgModel *model, Sequences *sequences, LocalTrees *trees)
+{
+    const int seqlen = sequences->seqlen;
+
+    // initialize ARG as trunk
+    const int capacity = 2 * sequences->nseqs - 1;
+    trees->make_trunk(0, seqlen, capacity);
+
+    // allocate temp variables
+    double **fw = new double* [seqlen];
+    int *thread_path = new int [seqlen];
+
+    // add more chromosomes one by one
+    for (int nchroms=2; nchroms<=sequences->nseqs; nchroms++) {
+        // use first nchroms sequences
+        Sequences sequences2(sequences->seqs, nchroms, seqlen);
+        int seqid = nchroms - 1;
+        sample_arg_thread(model, &sequences2, trees, seqid, fw, thread_path);
+    }
+
+    // clean up    
+    delete [] fw;
+    delete [] thread_path;
+}
+
+
+// sequentially sample an ARG from scratch
+// sequences are sampled in the order given
+void resample_arg_thread(ArgModel *model, Sequences *sequences, 
+                         LocalTrees *trees, int chrom)
+{
+    int nleaves = trees->get_num_leaves();
+    int last_leaf = nleaves - 1;
+
+    char *seqs[nleaves];
+    Sequences sequences2(seqs, nleaves - 1, sequences->seqlen);
+
+    // remove chromosome from ARG
+    // last_leaf will be renamed chrom
+    remove_arg_thread(trees, chrom);
+
+    // move sequences around to match ARG
+    for (int i=0; i<nleaves-1; i++)
+        sequences2.seqs[i] = sequences->seqs[i];
+    sequences2.seqs[chrom] = sequences->seqs[last_leaf];
+    sequences2.seqs[last_leaf] = sequences->seqs[chrom];
+
+    sample_arg_thread(model, &sequences2, trees, last_leaf);
+
+    // TODO: rename leaves to match original order?
+}
+
+
+
 
 //=============================================================================
 // C interface
@@ -679,7 +788,9 @@ LocalTrees *arghmm_sample_thread(
 
     // add thread to ARG
     //assert_trees_thread(trees, thread_path, ntimes);
-    add_arg_thread(trees, model.ntimes, thread_path, recomb_pos, recombs);
+    int seqid = trees->get_num_leaves();
+    add_arg_thread(trees, model.ntimes, thread_path, seqid, 
+                   recomb_pos, recombs);
 
     // clean up
     delete_matrix<double>(fw, seqlen);
@@ -699,51 +810,13 @@ LocalTrees *arghmm_sample_arg_seq(
 {
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    LocalTrees *trees = new LocalTrees();    
+
+    sample_arg_seq(&model, &sequences, trees);
     
-    LocalTrees *trees = new LocalTrees();
-    const int capacity = 2 * nseqs - 1;
-    trees->make_trunk(0, seqlen, capacity); 
-
-    // allocate temp variables
-    double **fw = new double* [seqlen];
-    int *thread_path = new int [seqlen];
-
-    // add more chromosomes one by one
-    for (int nchroms=2; nchroms<=nseqs; nchroms++) {
-        // use first nchroms sequences
-        Sequences sequences(seqs, nchroms, seqlen);
-    
-        // build matrices
-        ArgHmmMatrixList matrix_list;
-        matrix_list.setup(&model, &sequences, trees);
-    
-        // compute forward table
-        arghmm_forward_alg(trees, &model, &sequences, &matrix_list, fw);
-
-        // traceback
-        stochastic_traceback(&matrix_list, fw, thread_path, seqlen);
-
-        // sample recombination points
-        vector<int> recomb_pos;
-        vector<NodePoint> recombs;
-        sample_recombinations(trees, &model, &matrix_list,
-                              thread_path, recomb_pos, recombs);
-
-        // add thread to ARG
-        add_arg_thread(trees, model.ntimes, thread_path, recomb_pos, recombs);
-
-        // cleanup
-        matrix_list.clear();
-        for (int i=0; i<seqlen; i++)
-            delete [] fw[i];
-    }
-
-    // clean up    
-    delete [] thread_path;
-
     return trees;
 }
-
 
 
 void delete_path(int *path)

@@ -33,6 +33,8 @@ LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
 
         pos = end_coord;
     }
+
+    set_default_seqids();
 }
 
 
