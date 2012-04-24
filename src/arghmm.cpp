@@ -72,14 +72,17 @@ public:
     ArgHmmMatrixList() {}
     ~ArgHmmMatrixList() {}
     
-    void setup(ArgModel *model, Sequences *seqs, LocalTrees *trees)
+    void setup(ArgModel *model, Sequences *seqs, LocalTrees *trees, 
+               int new_chrom=-1)
     {
-        setup(model, seqs, trees, trees->begin(), trees->end());
+        if (new_chrom == -1)
+            new_chrom = trees->get_num_leaves() - 1;
+        setup(model, seqs, trees, trees->begin(), trees->end(), new_chrom);
     }
 
     void setup(ArgModel *_model, Sequences *_seqs, LocalTrees *trees,
-               LocalTrees::iterator start, 
-               LocalTrees::iterator end)
+               LocalTrees::iterator start, LocalTrees::iterator end, 
+               int new_chrom)
     {
         model = _model;
         char **seqs = NULL;
@@ -119,7 +122,8 @@ public:
             if (seqs) {
                 for (int i=0; i<nseqs; i++)
                     subseqs[i] = &seqs[i][pos];
-                //subseqs[i] = &seqs[trees->seqids[i]][pos];
+                    //subseqs[i] = &seqs[trees->seqids[i]][pos];
+                //subseqs[nseqs-1] = &seqs[new_chrom][pos];
                 emit = new_matrix<double>(blocklen, nstates);
                 calc_emissions(*states, tree, subseqs, nseqs, blocklen, 
                                model, emit);
@@ -269,12 +273,14 @@ void arghmm_forward_alg_block3(
 
 // run forward algorithm with low memory for matrices
 double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
-                            Sequences *sequences, double **fw=NULL)
+                            Sequences *sequences, double **fw=NULL,
+                            int new_chrom=-1)
 {
     LocalTree *last_tree = NULL;
     const int nleaves = (trees->nnodes + 1) / 2;
     const int ntimes = model->ntimes;
-    
+    if (new_chrom == -1)
+        new_chrom = nleaves - 1;
 
     // allocate lineage counts
     LineageCounts lineages(ntimes);
@@ -331,8 +337,9 @@ double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
         
         // calculate emissions
         for (int i=0; i<sequences->nseqs; i++)
+            //subseqs[i] = &sequences->seqs[trees->seqids[i]][pos];
             subseqs[i] = &sequences->seqs[i][pos];
-        //subseqs[i] = &sequences->seqs[trees->seqids[i]][pos];
+        //subseqs[sequences->nseqs-1] = &sequences->seqs[new_chrom][pos];
         calc_emissions(*states, tree, subseqs, sequences->nseqs, 
                        blocklen, model, emit);
         
@@ -583,7 +590,7 @@ void sample_recombinations(
 
 // sample the thread of the last chromosome
 void sample_arg_thread(ArgModel *model, Sequences *sequences, 
-                       LocalTrees *trees, int seqid,
+                       LocalTrees *trees, int new_chrom,
                        double **fw=NULL, int *thread_path=NULL)
 {
     bool tmp_given = (fw != NULL);
@@ -597,7 +604,7 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     
     // build matrices
     ArgHmmMatrixList matrix_list;
-    matrix_list.setup(model, sequences, trees);
+    matrix_list.setup(model, sequences, trees, new_chrom);
     
     // compute forward table
     arghmm_forward_alg(trees, model, sequences, &matrix_list, fw);
@@ -612,7 +619,7 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
                           thread_path, recomb_pos, recombs);
 
     // add thread to ARG
-    add_arg_thread(trees, model->ntimes, thread_path, seqid, 
+    add_arg_thread(trees, model->ntimes, thread_path, new_chrom, 
                    recomb_pos, recombs);
 
     // cleanup
@@ -646,8 +653,8 @@ void sample_arg_seq(ArgModel *model, Sequences *sequences, LocalTrees *trees)
     for (int nchroms=2; nchroms<=sequences->nseqs; nchroms++) {
         // use first nchroms sequences
         Sequences sequences2(sequences->seqs, nchroms, seqlen);
-        int seqid = nchroms - 1;
-        sample_arg_thread(model, &sequences2, trees, seqid, fw, thread_path);
+        int new_chrom = nchroms - 1;
+        sample_arg_thread(model, &sequences2, trees, new_chrom,fw,thread_path);
     }
 
     // clean up    
@@ -667,19 +674,10 @@ void resample_arg_thread(ArgModel *model, Sequences *sequences,
     char *seqs[nleaves];
     Sequences sequences2(seqs, nleaves - 1, sequences->seqlen);
 
-    // remove chromosome from ARG
-    // last_leaf will be renamed chrom
+    // remove chromosome from ARG and resample its thread
     remove_arg_thread(trees, chrom);
+    sample_arg_thread(model, &sequences2, trees, chrom);
 
-    // move sequences around to match ARG
-    for (int i=0; i<nleaves-1; i++)
-        sequences2.seqs[i] = sequences->seqs[i];
-    sequences2.seqs[chrom] = sequences->seqs[last_leaf];
-    sequences2.seqs[last_leaf] = sequences->seqs[chrom];
-
-    sample_arg_thread(model, &sequences2, trees, last_leaf);
-
-    // TODO: rename leaves to match original order?
 }
 
 
@@ -788,8 +786,8 @@ LocalTrees *arghmm_sample_thread(
 
     // add thread to ARG
     //assert_trees_thread(trees, thread_path, ntimes);
-    int seqid = trees->get_num_leaves();
-    add_arg_thread(trees, model.ntimes, thread_path, seqid, 
+    int new_chrom = trees->get_num_leaves();
+    add_arg_thread(trees, model.ntimes, thread_path, new_chrom, 
                    recomb_pos, recombs);
 
     // clean up

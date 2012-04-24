@@ -238,7 +238,9 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
 
 
     // update trees info
-    //trees->seqids.push_back(seqid);
+    trees->seqids.push_back(seqid);
+    //for (int i=0; i<trees->seqids.size(); i++)
+    //    printf("seqids[%d] = %d %d\n", i, trees->seqids[i], nleaves);
 
 
     // loop through blocks
@@ -388,20 +390,23 @@ void remove_arg_thread(LocalTrees *trees, int remove_leaf)
     int nleaves = trees->get_num_leaves();
     int displace[nnodes];
     int last_leaf = nleaves - 1;
+
+
+    // TODO: remove leaf must be looked up in seqids
     
     // special case for trunk genealogy
     if (nnodes == 3) {
         assert(remove_leaf == 0 || remove_leaf == 1);
         trees->make_trunk(trees->start_coord, trees->end_coord,
                           trees->begin()->tree->capacity);
-        //trees->seqids.resize(1);
-        //trees->seqids[0] = trees->seqids[1-remove_leaf];
+        trees->seqids[0] = trees->seqids[1-remove_leaf];
+        trees->seqids.resize(1);
         return;
     }
 
     // update trees info
-    //trees->seqids[remove_leaf] = trees->seqids[last_leaf];
-    //trees->seqids.resize(nleaves - 1);
+    trees->seqids[remove_leaf] = trees->seqids[last_leaf];
+    trees->seqids.resize(nleaves - 1);
     
     
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
