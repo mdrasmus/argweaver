@@ -76,7 +76,7 @@ public:
                int new_chrom=-1)
     {
         if (new_chrom == -1)
-            new_chrom = trees->get_num_leaves() - 1;
+            new_chrom = trees->get_num_leaves();
         setup(model, seqs, trees, trees->begin(), trees->end(), new_chrom);
     }
 
@@ -120,10 +120,10 @@ public:
             // calculate emissions
             double **emit = NULL;
             if (seqs) {
-                for (int i=0; i<nseqs; i++)
-                    subseqs[i] = &seqs[i][pos];
-                    //subseqs[i] = &seqs[trees->seqids[i]][pos];
-                //subseqs[nseqs-1] = &seqs[new_chrom][pos];
+                for (int i=0; i<nseqs-1; i++)
+                    //subseqs[i] = &seqs[i][pos];
+                    subseqs[i] = &seqs[trees->seqids[i]][pos];
+                subseqs[nseqs-1] = &seqs[new_chrom][pos];
                 emit = new_matrix<double>(blocklen, nstates);
                 calc_emissions(*states, tree, subseqs, nseqs, blocklen, 
                                model, emit);
@@ -280,7 +280,7 @@ double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
     const int nleaves = (trees->nnodes + 1) / 2;
     const int ntimes = model->ntimes;
     if (new_chrom == -1)
-        new_chrom = nleaves - 1;
+        new_chrom = nleaves;
 
     // allocate lineage counts
     LineageCounts lineages(ntimes);
@@ -305,7 +305,7 @@ double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
     // iterate over local trees to find largest blocklen and nstates
     int max_nstates = 0;
     int max_blocklen = 0;
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); it++) {
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
         int blocklen = it->block.end - it->block.start;
         get_coal_states(it->tree, ntimes, *states);
         int nstates = states->size();
@@ -321,7 +321,7 @@ double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
     
     
     // iterate over local trees
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); it++) {
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
         int pos = it->block.start;
         int blocklen = it->block.end - it->block.start;
         LocalTree *tree = it->tree;
@@ -336,10 +336,10 @@ double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
         }
         
         // calculate emissions
-        for (int i=0; i<sequences->nseqs; i++)
-            //subseqs[i] = &sequences->seqs[trees->seqids[i]][pos];
-            subseqs[i] = &sequences->seqs[i][pos];
-        //subseqs[sequences->nseqs-1] = &sequences->seqs[new_chrom][pos];
+        for (int i=0; i<sequences->nseqs-1; i++)
+            subseqs[i] = &sequences->seqs[trees->seqids[i]][pos];
+        //subseqs[i] = &sequences->seqs[i][pos];
+        subseqs[sequences->nseqs-1] = &sequences->seqs[new_chrom][pos];
         calc_emissions(*states, tree, subseqs, sequences->nseqs, 
                        blocklen, model, emit);
         
@@ -395,7 +395,7 @@ double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
     // forward algorithm over local trees
     int blocki = 0;
     for (LocalTrees::iterator it=trees->begin(); 
-         it != trees->end(); it++, blocki++) {
+         it != trees->end(); ++it, blocki++) {
         int pos = it->block.start;
         ArgHmmMatrices matrices = matrix_list->matrices[blocki];
 
@@ -475,11 +475,14 @@ void sample_recombinations(
     States states;
     LineageCounts lineages(model->ntimes);
     const int new_node = -1;
-    
+    vector <NodePoint> candidates;
+    vector <double> probs;
+
+
     // loop through local blocks
     int blocki = 0;
     for (LocalTrees::iterator it=trees->begin(); 
-         it != trees->end(); it++, blocki++) {
+         it != trees->end(); ++it, blocki++) {
 
         // get local block information
         int start = it->block.start + 1;  // don't allow new recomb at start
@@ -534,10 +537,8 @@ void sample_recombinations(
             // there must be a recombination
             // either because state changed or we choose to recombine
             // find candidates
-            vector <NodePoint> candidates;
-            vector <double> probs;
+            candidates.clear();
             int end_time = min(state.time, last_state.time);
-
             if (state.node == last_state.node) {
                 // y = v, k in [0, min(timei, last_timei)]
                 // y = node, k in Sr(node)
@@ -558,6 +559,7 @@ void sample_recombinations(
                     (2.0 * model->popsizes[l]);
             }
 
+            probs.clear();
             int j = state.time;
             for (vector<NodePoint>::iterator it=candidates.begin(); 
                  it != candidates.end(); ++it) {
@@ -663,23 +665,27 @@ void sample_arg_seq(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 }
 
 
-// sequentially sample an ARG from scratch
-// sequences are sampled in the order given
+// resample the threading of one chromosome
 void resample_arg_thread(ArgModel *model, Sequences *sequences, 
                          LocalTrees *trees, int chrom)
 {
-    int nleaves = trees->get_num_leaves();
-    int last_leaf = nleaves - 1;
-
-    char *seqs[nleaves];
-    Sequences sequences2(seqs, nleaves - 1, sequences->seqlen);
-
     // remove chromosome from ARG and resample its thread
     remove_arg_thread(trees, chrom);
-    sample_arg_thread(model, &sequences2, trees, chrom);
-
+    sample_arg_thread(model, sequences, trees, chrom);
 }
 
+
+// resample the threading of all the chromosomes
+void resample_arg_thread(ArgModel *model, Sequences *sequences, 
+                         LocalTrees *trees)
+{
+    const int nleaves = trees->get_num_leaves();
+    for (int chrom=0; chrom<nleaves; chrom++) {
+        // remove chromosome from ARG and resample its thread
+        remove_arg_thread(trees, chrom);
+        sample_arg_thread(model, sequences, trees, chrom);
+    }
+}
 
 
 
@@ -813,6 +819,8 @@ LocalTrees *arghmm_sample_arg_seq(
 
     sample_arg_seq(&model, &sequences, trees);
     
+    //resample_arg_thread(&model, &sequences, trees);
+
     return trees;
 }
 
