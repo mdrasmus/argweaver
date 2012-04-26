@@ -271,6 +271,9 @@ class Sample (unittest.TestCase):
 
         data = zip(rx, ry)
         write_delim("tmp/recomb", data)
+
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
+
         
         pause()
 
@@ -280,7 +283,7 @@ class Sample (unittest.TestCase):
         Test the sampling of thread and recombinations
         """
 
-        k = 10
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -707,8 +710,9 @@ class Sample (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 1000
         times = arghmm.get_time_points(ntimes=20)
+        refine = 10
         
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         arghmm.discretize_arg_recomb(arg)
@@ -716,11 +720,13 @@ class Sample (unittest.TestCase):
         arg.set_ancestral()
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
+        seqs.write("test/data/sample_arg3.fa")
 
         seqs.names.sort()
 
         util.tic("sample ARG")
-        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                 refine=refine)
         util.toc()
 
         arg2.write("test/data/sample_arg3.arg")
@@ -732,12 +738,13 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch
         """
 
-        k = 3
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 50000
         times = arghmm.get_time_points(ntimes=20)
+        refine = 0
 
         rx = []
         ry = []
@@ -755,7 +762,8 @@ class Sample (unittest.TestCase):
 
             for j in range(3):
                 util.tic("sample ARG %d, %d" % (i, j))
-                arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
+                arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                         refine=refine)
                 util.toc()
                 
                 nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
@@ -763,13 +771,60 @@ class Sample (unittest.TestCase):
                 ry.append(nrecombs2)
         util.toc()
 
-        print rx, ry
-
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
 
         p = plot(rx, ry,
                  xlab="true # recombinations",
                  ylab="inferred # recombinations")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
+        
+        
+        pause()
+
+
+    def test_sample_arg_recomb2(self):
+        """
+        Fully sample an ARG from stratch
+        """
+
+        k = 2
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20)
+
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        arghmm.discretize_arg_recomb(arg)
+        arg = arglib.smcify_arg(arg)
+        arg.set_ancestral()
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+            
+        nrecombs = ilen(arghmm.iter_visible_recombs(arg))
+        print "real # recombs", nrecombs
+
+        y = []
+        
+        util.tic("sample ARG")
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
+        util.toc()
+        
+        nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
+        y.append(nrecombs2)
+
+        for i in range(50):
+            util.tic("resample ARG %d" % i)
+            arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
+                                       refine=3)
+            util.toc()
+            nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
+            y.append(nrecombs2)
+            print nrecombs2
+
+        
+        p = plot(y)
+        p.plot([0, len(y)], [nrecombs, nrecombs], style="lines")
         
         
         pause()

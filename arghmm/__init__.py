@@ -137,6 +137,22 @@ if arghmmc:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
 
+    export(arghmmc, "arghmm_sample_arg_refine", c_void_p,
+           [c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "niters"])
+
+    export(arghmmc, "arghmm_resample_arg", c_void_p,
+           [c_int_matrix, "ptrees", c_int_matrix, "ages",
+            c_int_matrix, "sprs", c_int_list, "blocklens",
+            c_int, "ntrees", c_int, "nnodes", 
+            c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "niters"])
+
+
     export(arghmmc, "get_local_trees_ntrees", c_int,
            [c_void_p, "trees"])
     export(arghmmc, "get_local_trees_nnodes", c_int,
@@ -863,7 +879,7 @@ def get_clade_point(arg, node_name, time, pos):
 
 
 def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
-               times=None, verbose=False):
+               refine=0, times=None, verbose=False):
     """
     Sample ARG for sequences
     """
@@ -873,10 +889,10 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
 
     seqs2 = seqs.values()
     
-    trees = arghmm_sample_arg_seq(
+    trees = arghmm_sample_arg_refine(
         times, len(times),
         popsizes, rho, mu,
-        (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]))
+        (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]), refine)
 
     nnodes = get_local_trees_nnodes(trees)
     ntrees = get_local_trees_ntrees(trees)
@@ -914,6 +930,72 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     util.toc()
     
     return arg
+
+
+def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+                 refine=1, times=None, verbose=False):
+    """
+    Sample ARG for sequences
+    """
+    if times is None:
+        times = get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    popsizes = [popsize] * len(times)
+
+    seqs2 = seqs.values()
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        arg, times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    seqlen = sum(blocklens)
+
+    seqs2 = [seqs[node] for node in all_nodes[0]
+            if arg[node].is_leaf()]
+    
+    trees = arghmm_resample_arg(
+        ptrees, ages, sprs, blocklens,
+        len(ptrees), len(ptrees[0]), 
+        times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs2))(*seqs2), len(seqs2),
+        seqlen, refine)
+    
+    nnodes = get_local_trees_nnodes(trees)
+    ntrees = get_local_trees_ntrees(trees)
+    
+    ptrees = []
+    ages = []
+    sprs = []
+    blocklens = [0] * ntrees
+    for i in range(ntrees):
+        ptrees.append([0] * nnodes)
+        ages.append([0] * nnodes)
+        sprs.append([0, 0, 0, 0])
+
+    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
+    delete_local_trees(trees)
+
+    for i in range(ntrees):
+        ptrees[i] = ptrees[i][:nnodes]
+        ages[i] = ages[i][:nnodes]
+        sprs[i] = sprs[i][:4]
+    
+    
+    blocks = []
+    start = 0
+    for blocklen in blocklens:
+        end = start + blocklen
+        blocks.append((start, end))
+        start = end
+
+    names = seqs.keys()
+    assert len(names) == ((nnodes + 1) / 2)
+
+    util.tic("convert arg")
+    arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
+    util.toc()
+    
+    return arg
+
 
 
 
@@ -974,7 +1056,7 @@ def sample_arg2(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     return arg
 
 
-def resample_arg(arg, seqs, new_name,
+def resample_arg2(arg, seqs, new_name,
                  ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
                  times=None,
                  verbose=False):
@@ -1016,7 +1098,7 @@ def resample_arg(arg, seqs, new_name,
     return arg
 
 
-def resample_arg_all(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+def resample_arg_all2(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
                      times=None, verbose=False):
     if verbose:
         util.tic("resample all chromosomes")
@@ -1728,6 +1810,8 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
         if p != -1:
             node.parents.append(lookup[p])
             node.parents[0].children.append(node)
+        else:
+            arg.root = node
 
     
     # convert sprs
@@ -1740,7 +1824,7 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
             continue
 
         # make local tree
-        ptree = ptrees[i]
+        ptree = ptrees[i-1]
         tree = treelib.Tree()
         lookup = []
         for j in range(len(ptree)):
@@ -1754,18 +1838,22 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
                 tree.add_child(parent, lookup[j])
             else:
                 tree.root = lookup[j]
+        
         #phylo.hash_order_tree(tree)
         #print pos+1, tree.get_one_line_newick()
         
         # get leaf sets
         rleaves = lookup[rinode].leaf_names()
         cleaves = lookup[cinode].leaf_names()
+        assert ritime >= ages[i-1][rinode], (pos, ritime, ages[i-1][rinode])
+        assert citime >= ages[i-1][cinode], (pos, citime, ages[i-1][cinode])
         
         sprs2.append((pos, (rleaves, times[ritime]), (cleaves, times[citime])))
 
     #assert against local ptree and leading edge of ARG.
 
     arglib.make_arg_from_sprs(arg, sprs2)
+    arglib.assert_arg(arg)
     return arg
     
         

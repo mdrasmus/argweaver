@@ -9,6 +9,7 @@
 #include <list>
 #include <vector>
 #include <string.h>
+#include <stdio.h>
 
 
 namespace arghmm {
@@ -21,6 +22,7 @@ using namespace std;
 class Block 
 {
 public:
+    Block() {}
     Block(int start, int end) : 
         start(start), end(end) {}
     int start;
@@ -87,10 +89,25 @@ public:
         child[0] = left_child;
         child[1] = right_child;
     }
+    LocalNode(const LocalNode &other) :
+        parent(other.parent),
+        age(other.age)
+    {
+        child[0] = other.child[0];
+        child[1] = other.child[1];
+    }
 
     inline bool is_leaf()
     {
         return child[0] == -1;
+    }
+
+    inline void copy(const LocalNode &other)
+    {
+        parent = other.parent;
+        age = other.age;
+        child[0] = other.child[0];
+        child[1] = other.child[1];        
     }
 
     int parent;
@@ -131,8 +148,10 @@ public:
     }
 
     ~LocalTree() {
-        if (nodes)
+        if (nodes) {
             delete [] nodes;
+            nodes = NULL;
+        }
     }
 
     // initialize a local tree by on a parent array
@@ -321,7 +340,7 @@ public:
 
             std::copy(mapping, mapping + _capacity, tmp);   
             delete [] mapping;
-
+            
             mapping = tmp;
         }
     }

@@ -53,6 +53,7 @@ ARGHMM_SRC = \
     src/hmm.cpp \
     src/itree.cpp \
     src/local_tree.cpp \
+    src/logging.cpp \
     src/ptree.cpp \
     src/seq.cpp \
     src/states.cpp \

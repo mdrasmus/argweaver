@@ -9,6 +9,7 @@
 #include "hmm.h"
 #include "itree.h"
 #include "local_tree.h"
+#include "logging.h"
 #include "model.h"
 #include "ptree.h"
 #include "seq.h"
@@ -596,14 +597,15 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
                        double **fw=NULL, int *thread_path=NULL)
 {
     bool tmp_given = (fw != NULL);
+    //Timer time;
 
     // allocate temp variables
     if (fw == NULL) {
         fw = new double* [sequences->seqlen];
         thread_path = new int [sequences->seqlen];
     }
-    assert(thread_path != NULL);
-    
+    assert(thread_path != NULL);    
+
     // build matrices
     ArgHmmMatrixList matrix_list;
     matrix_list.setup(model, sequences, trees, new_chrom);
@@ -620,9 +622,14 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     sample_recombinations(trees, model, &matrix_list,
                           thread_path, recomb_pos, recombs);
 
+    //printf("sample    : %e s\n", time.time());
+    //time.start();
+
     // add thread to ARG
     add_arg_thread(trees, model->ntimes, thread_path, new_chrom, 
                    recomb_pos, recombs);
+
+    //printf("add       : %e s\n", time.time());
 
     // cleanup
     matrix_list.clear();
@@ -676,13 +683,15 @@ void resample_arg_thread(ArgModel *model, Sequences *sequences,
 
 
 // resample the threading of all the chromosomes
-void resample_arg_thread(ArgModel *model, Sequences *sequences, 
-                         LocalTrees *trees)
+void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 {
     const int nleaves = trees->get_num_leaves();
     for (int chrom=0; chrom<nleaves; chrom++) {
         // remove chromosome from ARG and resample its thread
+        //Timer time;
         remove_arg_thread(trees, chrom);
+        //printf("remove    : %e s\n", time.time());
+
         sample_arg_thread(model, sequences, trees, chrom);
     }
 }
@@ -818,9 +827,47 @@ LocalTrees *arghmm_sample_arg_seq(
     LocalTrees *trees = new LocalTrees();    
 
     sample_arg_seq(&model, &sequences, trees);
-    
-    //resample_arg_thread(&model, &sequences, trees);
 
+    return trees;
+}
+
+
+// sequentially sample an ARG and then refine with gibbs
+LocalTrees *arghmm_sample_arg_refine(
+    double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int niters)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    LocalTrees *trees = new LocalTrees();    
+
+    sample_arg_seq(&model, &sequences, trees);
+    for (int i=0; i<niters; i++)
+        resample_arg(&model, &sequences, trees);
+    
+    return trees;
+}
+
+
+// resample an ARG with gibbs
+LocalTrees *arghmm_resample_arg(
+    int **ptrees, int **ages, int **sprs, int *blocklens,
+    int ntrees, int nnodes, 
+    double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int niters)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    LocalTrees *trees = new LocalTrees(ptrees, ages, sprs, blocklens, 
+                                       ntrees, nnodes);
+
+    for (int i=0; i<niters; i++)
+        resample_arg(&model, &sequences, trees);
+    
     return trees;
 }
 

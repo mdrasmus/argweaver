@@ -246,22 +246,35 @@ bool assert_tree_postorder(LocalTree *tree, int *order)
 bool assert_tree(LocalTree *tree)
 {
     LocalNode *nodes = tree->nodes;
-    
-    for (int i=0; i<tree->nnodes; i++) {
+    int nnodes = tree->nnodes;
+
+    for (int i=0; i<nnodes; i++) {
         int *c = nodes[i].child;
 
         // assert parent child links
-        if (c[0] != -1)
+        if (c[0] != -1) {
+            if (c[0] < 0 || c[0] >= nnodes)
+                return false;
             if (nodes[c[0]].parent != i)
                 return false;
-        if (c[1] != -1)
+        }
+        if (c[1] != -1) {
+            if (c[1] < 0 || c[1] >= nnodes)
+                return false;
             if (nodes[c[1]].parent != i)
                 return false;
+        }
+
+        // check parent
 
         // check root
-        if (nodes[i].parent == -1)
+        if (nodes[i].parent == -1) {
             if (tree->root != i)
                 return false;
+        } else {
+            if (nodes[i].parent < 0 || nodes[i].parent >= nnodes)
+                return false;
+        }
     }
 
     // check root
@@ -274,35 +287,43 @@ bool assert_tree(LocalTree *tree)
 
 bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping)
 {
-    int coal_node = mapping[spr->coal_node];
-    int recomb_node = mapping[spr->recomb_node];
     LocalNode *last_nodes = last_tree->nodes;
 
-    if (recomb_node == -1)
-        return false;
+    if (spr->recomb_node == -1)
+        assert(false);
 
     // coal time is older than recomb time
     if (spr->recomb_time > spr->coal_time)
-        return false;
+        assert(false);
 
-    // make sure recomb is within branch
+    // ensure recomb is within branch
     if (spr->recomb_time > last_nodes[last_nodes[spr->recomb_node].parent].age
-        && spr->recomb_time < last_nodes[spr->recomb_node].age)
-        return false;
+        || spr->recomb_time < last_nodes[spr->recomb_node].age)
+        assert(false);
     
-    // sure coal is within branch
+    // ensure coal is within branch
+    if (spr->coal_time < last_nodes[spr->coal_node].age)
+        assert(false);
     if (last_nodes[spr->coal_node].parent != -1) {
-        if (spr->coal_time > last_nodes[last_nodes[spr->coal_node].parent].age
-            && spr->coal_time < last_nodes[spr->coal_node].age)
-            return false;
+        if (spr->coal_time > last_nodes[last_nodes[spr->coal_node].parent].age)
+            assert(false);
     }
 
-    if (coal_node != -1) {
-        // coal node has not been broken
-        if (tree->nodes[recomb_node].parent != tree->nodes[coal_node].parent)
-            return false;
+    // ensure spr matches the trees
+    int recoal = tree->nodes[mapping[spr->recomb_node]].parent;
+    int *c = tree->nodes[recoal].child;
+    int other = (c[0] == mapping[spr->recomb_node] ? c[1] : c[0]);
+    if (mapping[spr->coal_node] != -1) {
+        assert(other == mapping[spr->coal_node]);
+    } else {
+        // coal node is broken
+        int broken = last_tree->nodes[spr->recomb_node].parent;
+        int *c = last_tree->nodes[broken].child;
+        int last_other = (c[0] == spr->recomb_node ? c[1] : c[0]);
+        assert(mapping[last_other] != -1);
+        assert(tree->nodes[mapping[last_other]].parent == recoal);
     }
-    
+        
     return true;
 }
 
@@ -311,16 +332,21 @@ bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping)
 bool assert_trees(LocalTrees *trees)
 {
     LocalTree *last_tree = NULL;
+    Block last_block;
 
     // loop through blocks
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        printf("check %d,%d\n", it->block.start, it->block.end);
+        //printf("check %d,%d\n", it->block.start, it->block.end);
         LocalTree *tree = it->tree;
         Spr *spr = &it->spr;
         int *mapping = it->mapping;
-        if (last_tree)
+
+        if (last_tree) {
+            assert(it->block.start == last_block.end);
             assert(assert_spr(last_tree, tree, spr, mapping));
+        }
         last_tree = tree;
+        last_block = it->block;
     }
     
     return true;
@@ -349,19 +375,57 @@ int get_local_trees_nnodes(LocalTrees *trees)
 void get_local_trees_ptrees(LocalTrees *trees, int **ptrees, int **ages,
                             int **sprs, int *blocklens)
 {
+    // setup permutation
+    const int nleaves = trees->get_num_leaves();
+    int perm[trees->nnodes];
+    for (int i=0; i<nleaves; i++) 
+        perm[i] = trees->seqids[i];
+    for (int i=nleaves; i<trees->nnodes; i++) 
+        perm[i] = i;
+
+    //for (int i=0; i<trees->nnodes; i++)
+    //    printf("perm[%d] = %d\n", i, perm[i]);
+
+    // debug
+    assert_trees(trees);
+
+    // convert trees
     int i = 0;
     for (LocalTrees::iterator it=trees->begin(); it!=trees->end(); ++it, i++) {
         LocalTree *tree = it->tree;
-
+        
         for (int j=0; j<tree->nnodes; j++) {
-            ptrees[i][j] = tree->nodes[j].parent;
-            ages[i][j] = tree->nodes[j].age;
-            blocklens[i] = it->block.length();
+            int parent = tree->nodes[j].parent;
+            if (parent != -1)
+                parent = perm[parent];
+            ptrees[i][perm[j]] = parent;
+            ages[i][perm[j]] = tree->nodes[j].age;
+            //ptrees[i][j] = tree->nodes[j].parent;
+            //ages[i][j] = tree->nodes[j].age;
+        }
+        blocklens[i] = it->block.length();
+
+        if (!it->spr.is_null()) {
+            sprs[i][0] = perm[it->spr.recomb_node];
+            sprs[i][1] = it->spr.recomb_time;
+            sprs[i][2] = perm[it->spr.coal_node];
+            sprs[i][3] = it->spr.coal_time;
+            
+            //printf("r %d %d %d\n", it->block.start, 
+            //       it->spr.recomb_time, ages[i-1][sprs[i][0]]);
+            //printf("c %d %d %d\n", it->block.start, 
+            //       it->spr.coal_time, ages[i-1][sprs[i][2]]);
+            
+            assert(it->spr.recomb_time >= ages[i-1][sprs[i][0]]);
+            assert(it->spr.coal_time >= ages[i-1][sprs[i][2]]);
+            
+        } else {
             sprs[i][0] = it->spr.recomb_node;
             sprs[i][1] = it->spr.recomb_time;
             sprs[i][2] = it->spr.coal_node;
             sprs[i][3] = it->spr.coal_time;
         }
+
     }
 }
 
