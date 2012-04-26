@@ -8,7 +8,6 @@ using namespace spidir;
 
 namespace arghmm {
 
-
 void calc_transition_probs(LocalTree *tree, ArgModel *model,
                            const States &states, LineageCounts *lineages,
                            double **transprob)
@@ -22,9 +21,9 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
 
     const int nstates = states.size();
 
+    // TODO: double check useage of treelen and which cases need basal branch
     // get tree information
     LocalNode *nodes = tree->nodes;
-    const double treelen = get_treelen(tree, times, ntimes);
     const int *nbranches = lineages->nbranches;
     const int *nrecombs = lineages->nrecombs;
     const int *ncoals = lineages->ncoals;
@@ -34,6 +33,8 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
     int root = tree->root;
     const int root_age_index = nodes[root].age;
     const double root_age = times[root_age_index];
+    const double treelen = get_treelen(tree, times, ntimes) - 
+        time_steps[root_age_index];
     
     // C_j = C_{j-1} + s'_{j-1} k_{j-1} / (2N)
 

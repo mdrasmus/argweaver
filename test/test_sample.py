@@ -212,7 +212,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_recomb(self):
 
-        k = 5
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -326,25 +326,27 @@ class Sample (unittest.TestCase):
 
             util.tic("sample recomb")
             for j in range(2):
-                #path = arghmm.sample_posterior(model, length, verbose=False)
-                #thread = list(arghmm.iter_thread_from_path(model, path))
-                #recombs = list(arghmm.sample_recombinations_thread(
-                #    model, thread))
-                #rx.append(new_recombs)
-                #ry.append(len(recombs))
+                path = arghmm.sample_posterior(model, length, verbose=False)
+                thread = list(arghmm.iter_thread_from_path(model, path))
+                recombs = list(arghmm.sample_recombinations_thread(
+                    model, thread))
+                rx.append(new_recombs)
+                ry.append(len(recombs))
                 #if ry[-1] - rx[-1] > 40:
                 #    print thread[0:length:length//20]
 
-                arg2 = arghmm.sample_thread(model, length)
-                recombs = ilen(x for x in arg2 if x.event == "recomb")
-                rx.append(new_recombs)
-                ry.append(recombs - nrecombs2)
+                #arg2 = arghmm.sample_thread(model, length)
+                #recombs = ilen(x for x in arg2 if x.event == "recomb")
+                #rx.append(new_recombs)
+                #ry.append(recombs - nrecombs2)
 
             util.toc()
 
         p = plot(dither(rx, .2), dither(ry, .2),
                  xlab="actual new recombs", ylab="sampled new recombs")
         p.plot([0, max(rx)], [0, max(rx)], style="lines")
+
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
         
         pause()
 

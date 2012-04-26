@@ -341,6 +341,18 @@ def get_treelen_branch(tree, times, node, time, treelen=None):
     return treelen2 + root_time
 
 
+def get_basal_length(tree, times, node, time, treelen=None):
+    if node == tree.root.name:
+        rooti = times.index(time)
+        root_time = times[rooti+1] - times[rooti]
+    else:
+        rooti = times.index(tree.root.age)
+        root_time = times[rooti+1] - times[rooti]
+    
+    return root_time
+    
+
+
 
 #=============================================================================
 # helper functions
@@ -483,7 +495,12 @@ def sample_recombinations_thread(model, thread, use_times=True):
                 # sample the next recomb pos
                 last_treelen2 = get_treelen_branch(
                     last_tree, model.times, last_node, last_time)
-                rate = max(1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
+
+                b = get_basal_length(last_tree, model.times, last_node, last_time)
+                offset = -b + model.time_steps[time_lookup[last_tree.root.age]]
+                
+                rate = max(1.0 - exp(-model.rho * (last_treelen2 - last_treelen
+                                                   + offset)
                                      - selftrans), model.rho)
                 next_recomb = pos + int(random.expovariate(rate))
                 
