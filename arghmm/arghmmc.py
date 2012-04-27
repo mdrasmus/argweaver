@@ -4,7 +4,7 @@
 
 
 # rasmus compbio libs
-from rasmus import treelib
+from rasmus import treelib, util
 from compbio import arglib
 
 # import arghmm C lib
@@ -153,8 +153,7 @@ if arghmmclib:
 
 
 #=============================================================================
-# helper functions for C interface
-
+# HMM transition and emission matrices
 
 
 def calc_transition_probs_c(tree, states, nlineages, times,
@@ -268,6 +267,260 @@ def calc_transition_probs_switch_c(tree, last_tree, recomb_name,
         return transmat2
 
 
+
+def delete_trans_emit_matrices(matrices):
+    """Delete matrices"""
+    for block, nstates, transmat, transmat_switch, emit in matrices:
+        delete_emissions(emit, block[1] - block[0])
+        delete_transition_probs(transmat, nstates)
+        
+
+
+#=============================================================================
+# sampling functions
+
+
+def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
+
+    if verbose:
+        util.tic("sample thread")
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        model.arg, model.times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    seqlen = sum(blocklens)
+
+    seqs = [model.seqs[node] for node in all_nodes[0]
+            if model.arg[node].is_leaf()]
+    seqs.append(model.seqs[model.new_name])
+    
+    trees = arghmm_sample_thread(
+        ptrees, ages, sprs, blocklens,
+        len(ptrees), len(ptrees[0]), 
+        model.times, len(model.times),
+        model.popsizes, model.rho, model.mu,
+        (c_char_p * len(seqs))(*seqs), len(seqs),
+        seqlen, None)
+
+    nnodes = get_local_trees_nnodes(trees)
+    ntrees = get_local_trees_ntrees(trees)
+    
+    ptrees = []
+    ages = []
+    sprs = []
+    blocklens = [0] * ntrees
+    for i in range(ntrees):
+        ptrees.append([0] * nnodes)
+        ages.append([0] * nnodes)
+        sprs.append([0, 0, 0, 0])
+
+    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
+    delete_local_trees(trees)
+
+    for i in range(ntrees):
+        ptrees[i] = ptrees[i][:nnodes]
+        ages[i] = ages[i][:nnodes]
+        sprs[i] = sprs[i][:4]
+    
+    
+    blocks = []
+    start = 0
+    for blocklen in blocklens:
+        end = start + blocklen
+        blocks.append((start, end))
+        start = end
+
+    names = all_nodes[0][:len(seqs)-1]
+    names.append(model.new_name)
+    assert len(names) == ((nnodes + 1) / 2)
+
+    util.tic("convert arg")
+    arg = treeset2arg(ptrees, ages, sprs, blocks, names, model.times)
+    util.toc()
+    
+    #delete_local_trees(trees)
+
+    if verbose:
+        util.toc()
+
+    return arg
+
+
+
+def sample_posterior(model, n, probs_forward=None,
+                     verbose=False, matrices=None):
+
+    if verbose:
+        util.tic("sample thread")
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        model.arg, model.times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    seqlen = sum(blocklens)
+
+    seqs = [model.seqs[node] for node in all_nodes[0]
+            if model.arg[node].is_leaf()]
+    seqs.append(model.seqs[model.new_name])
+    path = arghmm_sample_posterior(
+        ptrees, ages, sprs, blocklens,
+        len(ptrees), len(ptrees[0]), 
+        model.times, len(model.times),
+        model.popsizes, model.rho, model.mu,
+        (c_char_p * len(seqs))(*seqs), len(seqs),
+        seqlen, None)
+    
+    path2 = []
+    for k, (start, end) in enumerate(blocks):
+        states = model.states[start]
+        lookup = util.list2lookup(states)
+        nodes = all_nodes[k]
+        
+        for i in range(start, end):
+            s = (nodes[path[i][0]], path[i][1])
+            path2.append(lookup[s])
+
+    delete_path(path)
+
+    if verbose:
+        util.toc()
+
+    return path2
+
+
+
+def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+               refine=0, times=None, verbose=False):
+    """
+    Sample ARG for sequences
+    """
+    if times is None:
+        times = get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    popsizes = [popsize] * len(times)
+
+    seqs2 = seqs.values()
+    
+    trees = arghmm_sample_arg_refine(
+        times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]), refine)
+
+
+    if verbose:
+        util.tic("convert arg")
+
+    nnodes = get_local_trees_nnodes(trees)
+    ntrees = get_local_trees_ntrees(trees)
+    
+    ptrees = []
+    ages = []
+    sprs = []
+    blocklens = [0] * ntrees
+    for i in range(ntrees):
+        ptrees.append([0] * nnodes)
+        ages.append([0] * nnodes)
+        sprs.append([0, 0, 0, 0])
+
+    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
+    delete_local_trees(trees)
+
+    for i in range(ntrees):
+        ptrees[i] = ptrees[i][:nnodes]
+        ages[i] = ages[i][:nnodes]
+        sprs[i] = sprs[i][:4]
+    
+    
+    blocks = []
+    start = 0
+    for blocklen in blocklens:
+        end = start + blocklen
+        blocks.append((start, end))
+        start = end
+
+    names = seqs.keys()
+    assert len(names) == ((nnodes + 1) / 2)
+
+    arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
+    if verbose:
+        util.toc()
+    
+    return arg
+
+
+def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+                 refine=1, times=None, verbose=False):
+    """
+    Sample ARG for sequences
+    """
+    if times is None:
+        times = get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    popsizes = [popsize] * len(times)
+
+    if verbose:
+        util.tic("convert arg")
+    seqs2 = seqs.values()
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        arg, times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    seqlen = sum(blocklens)
+
+    seqs2 = [seqs[node] for node in all_nodes[0]
+            if arg[node].is_leaf()]
+    if verbose:
+        util.toc()
+    
+    trees = arghmm_resample_arg(
+        ptrees, ages, sprs, blocklens,
+        len(ptrees), len(ptrees[0]), 
+        times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs2))(*seqs2), len(seqs2),
+        seqlen, refine)
+
+    if verbose:
+        util.tic("convert arg 2")
+    
+    nnodes = get_local_trees_nnodes(trees)
+    ntrees = get_local_trees_ntrees(trees)
+    
+    ptrees = []
+    ages = []
+    sprs = []
+    blocklens = [0] * ntrees
+    for i in range(ntrees):
+        ptrees.append([0] * nnodes)
+        ages.append([0] * nnodes)
+        sprs.append([0, 0, 0, 0])
+
+    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
+    delete_local_trees(trees)
+
+    for i in range(ntrees):
+        ptrees[i] = ptrees[i][:nnodes]
+        ages[i] = ages[i][:nnodes]
+        sprs[i] = sprs[i][:4]
+    
+    
+    blocks = []
+    start = 0
+    for blocklen in blocklens:
+        end = start + blocklen
+        blocks.append((start, end))
+        start = end
+
+    names = seqs.keys()
+    assert len(names) == ((nnodes + 1) / 2)
+
+    arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
+    if verbose:
+        util.toc()
+    
+    return arg
+
+
+
+#=============================================================================
+# tree functions
 
 
 def make_ptree(tree, skip_single=True, nodes=None):

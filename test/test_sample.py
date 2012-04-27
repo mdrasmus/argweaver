@@ -33,6 +33,9 @@ class Sample (unittest.TestCase):
 
 
     def test_sample_thread(self):
+        """
+        Sample a thread from the posterior of the ArgHmm
+        """
 
         k = 10
         n = 1e4
@@ -93,22 +96,24 @@ class Sample (unittest.TestCase):
 
 
     def test_sample_thread2(self):
+        """
+        Sample many threads from the ArgHmm
+        """
 
-        k = 10
+        k = 5
         n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
+        rho = 1.5e-8 * 40
+        mu = 2.5e-8 * 40
         length = 10000
-
+        times = arghmm.get_time_points(ntimes=20)
 
         x = []
         y = []
 
-        for i in range(1):
+        for i in range(20):
             arg = arglib.sample_arg(k, n, rho, start=0, end=length)
             muts = arglib.sample_arg_mutations(arg, mu)
             seqs = arglib.make_alignment(arg, muts)
-            times = arghmm.get_time_points(ntimes=20)
             arghmm.discretize_arg(arg, times)
 
             new_name = "n%d" % (k-1)
@@ -122,16 +127,11 @@ class Sample (unittest.TestCase):
             model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1),
                                   times=times, rho=rho, mu=mu)
 
-            #matrices = list(arghmm.iter_trans_emit_matrices(model, length))
-            #fw = probs_forward = arghmm.forward_algorithm(
-            #    model, length, matrices=matrices, verbose=True)
-            for i in xrange(20):
+            for i in xrange(1):
                 path = arghmm.sample_posterior(model, length, verbose=True)
                 thread2 = list(arghmm.iter_thread_from_path(model, path))
                 x.extend(cget(thread, 1)[::100])
                 y.extend(cget(thread2, 1)[::100])
-
-            #arghmm.delete_trans_emit_matrices(matrices)
 
         x = map(safelog, x)
         y = map(safelog, y)
@@ -141,76 +141,10 @@ class Sample (unittest.TestCase):
         pause()
 
 
-
-    def test_sample_local_trees(self):
-        """
-        Write local trees
-        """
-
-        k = 5
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 10000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        times = arghmm.get_time_points(ntimes=20)
-        arghmm.discretize_arg(arg, times)
-
-        # save
-        arglib.write_arg("test/data/sample_recomb.arg", arg)
-        fasta.write_fasta("test/data/sample_recomb.fa", seqs)
-        #arg = arglib.read_arg("test/data/sample_recomb.arg")
-        #seqs = fasta.read_fasta("test/data/sample_recomb.fa")
-        
-
-        # get new chrom
-        new_name = "n%d" % (k-1)
-        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))
-        
-        # remove chrom
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg = arglib.smcify_arg(arg)
-        
-
-        # setup model
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
-                              rho=rho, mu=mu)
-        print "states", len(model.states[0])
-        print "muts", len(muts)
-        print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
-        
-        # sample a chrom thread
-        util.tic("sample thread")
-        path = arghmm.sample_posterior(model, length, verbose=True)
-        util.toc()
-
-        thread2 = list(arghmm.iter_thread_from_path(model, path))
-
-        out = open("test/data/sample_recomb.trees", "w")
-        for pos, (node_name, coal_time) in enumerate(thread2):
-            tree = arg.get_marginal_tree(pos-.5)
-            arglib.remove_single_lineages(tree)
-            node = tree[node_name]
-            node2 = add_node(tree, node, coal_time, -1, "coal")
-            if not node2.parents:
-                tree.root = node2
-            leaf = tree.new_node(name=new_name, event="gene", age=0)
-            leaf.parents.append(node2)
-            node2.children.append(leaf)
-            
-            tree = tree.get_tree()
-            out.write(str(pos)+"\t"+str(pos+1)+"\t")
-            tree.write(out, oneline=True)
-            out.write("\n")
-        out.close()
-
-
     def test_sample_recomb(self):
+        """
+        Sample recombinations for a true thread
+        """
 
         k = 2
         n = 1e4
@@ -280,7 +214,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_recomb2(self):
         """
-        Test the sampling of thread and recombinations
+        Sample both a thread and its recombinations
         """
 
         k = 2
@@ -352,6 +286,9 @@ class Sample (unittest.TestCase):
 
 
     def test_add_thread(self):
+        """
+        Add a thread to an ARG
+        """
 
         k = 5
         n = 1e4
@@ -371,10 +308,6 @@ class Sample (unittest.TestCase):
         # save
         arglib.write_arg("test/data/add_thread.arg", arg)
         fasta.write_fasta("test/data/add_thread.fa", seqs)
-        #arg = arglib.read_arg("test/data/sample_recomb.arg")
-        #seqs = fasta.read_fasta("test/data/sample_recomb.fa")
-
-        # TODO: I could recode the thread using clade points...
         
         # get new chrom
         new_name = "n%d" % (k-1)
@@ -417,10 +350,8 @@ class Sample (unittest.TestCase):
         if len(r) > 0:
             p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
 
-
-        arg3 = arglib.read_arg("test/data/add_thread.arg")
-        arg = arghmm.add_arg_thread2(arg, new_name, thread, recombs, arg3=arg3)
-
+        
+        arg = arghmm.add_arg_thread(arg, new_name, thread, recombs)
         
         # check thread
         thread2 = list(arghmm.iter_chrom_thread(arg, arg[new_name],
@@ -526,7 +457,7 @@ class Sample (unittest.TestCase):
 
     def test_add_thread_sample_c(self):
         """
-        Test adding a sampled thread to an ARG
+        Test adding a sampled thread to an ARG using C code
         """
 
         k = 3
@@ -550,8 +481,7 @@ class Sample (unittest.TestCase):
         # get new chrom
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))    
-        #p = plot(cget(thread, 1), style="lines", ymin=8, ylog=10)
+                                               by_block=False))
         
         # remove chrom
         keep = ["n%d" % i for i in range(k-1)]
@@ -629,92 +559,23 @@ class Sample (unittest.TestCase):
             arg, thread2 = add_chrom(arg, new_name)
         util.toc()
         
-        arglib.write_arg("test/data/sample_arg2.arg", arg)
-
-        # check thread
-        thread3 = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                                by_block=False))
-        p.plot(cget(thread2, 1), style="lines")
-        p.plot(cget(thread3, 1), style="lines")
-
-        q = plot(dither(map(lambda x: log(clamp(x, 10, None)),
-                            cget(thread2, 1)), .1),
-                 dither(map(lambda x: log(clamp(x, 10, None)),
-                            cget(thread3, 1)), .1))
+        arglib.write_arg("test/data/sample_arg_out.arg", arg)
         
         pause()
 
 
     def test_sample_arg2(self):
         """
-        Fully sample an ARG from stratch
+        Fully sample an ARG from stratch using API
         """
 
-        k = 5
+        k = 30
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 1000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)        
-
-        # get new chrom
-        new_name = "n%d" % (k-1)
-        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))    
-        p = plot(cget(thread, 1), style="lines", ymin=8, ylog=10)
-
-
-        def add_chrom(arg, new_name):
-            util.tic("adding %s..." % new_name)
-
-            times = arghmm.get_time_points(ntimes=20)
-            model = arghmm.ArgHmm(arg, seqs, new_name=new_name,
-                                  times=times, rho=rho, mu=mu)
-            util.logger("states", len(model.states[0]))
-            
-            util.tic("sample thread")
-            path = arghmm.sample_posterior(
-                model, length, verbose=True)
-            util.toc()
-
-            util.tic("sample recombs")
-            thread2 = list(arghmm.iter_thread_from_path(model, path))
-            recombs = list(arghmm.sample_recombinations_thread(model, thread2))
-            util.toc()
-
-            util.tic("add thread")
-            arg = arghmm.add_arg_thread(arg, new_name, thread2, recombs)
-            util.toc()
-
-            util.toc()
-            return arg, thread2
-
-        for i in xrange(5):
-            util.tic("sample ARG")
-            arg = arghmm.make_trunk_arg(arg.start, arg.end, name="n0")
-            for j in xrange(1, k):
-                new_name = "n%d" % j
-                arg, thread2 = add_chrom(arg, new_name)
-            util.toc()
-            p.plot(cget(thread2, 1), style="lines")
-        
-        pause()
-
-
-    def test_sample_arg3(self):
-        """
-        Fully sample an ARG from stratch
-        """
-
-        k = 5
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 1000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20)
-        refine = 10
+        refine = 0
         
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         arghmm.discretize_arg_recomb(arg)
@@ -722,7 +583,7 @@ class Sample (unittest.TestCase):
         arg.set_ancestral()
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
-        seqs.write("test/data/sample_arg3.fa")
+        seqs.write("test/data/sample_arg2.fa")
 
         seqs.names.sort()
 
@@ -737,16 +598,16 @@ class Sample (unittest.TestCase):
 
     def test_sample_arg_recomb(self):
         """
-        Fully sample an ARG from stratch
+        Plot the recombinations from a fully sampled ARG
         """
 
-        k = 8
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = 10000
         times = arghmm.get_time_points(ntimes=20)
-        refine = 3
+        refine = 0
 
         rx = []
         ry = []
@@ -786,7 +647,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_arg_recomb2(self):
         """
-        Fully sample an ARG from stratch
+        Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
         k = 30
@@ -834,6 +695,9 @@ class Sample (unittest.TestCase):
 
 
     def test_treeset(self):
+        """
+        Test the treeset representation of an ARG
+        """
 
         k = 5
         n = 1e4
