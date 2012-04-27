@@ -1365,10 +1365,12 @@ class Basic (unittest.TestCase):
 
         times = arghmm.get_time_points(20)
         arghmm.discretize_arg(arg, times)
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
         arg = arglib.smcify_arg(arg)
         print "recomb", arglib.get_recomb_pos(arg)
 
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % k, times=times)
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
 
         i = 1
         nstates1 = model.get_num_states(i-1)
@@ -1404,10 +1406,12 @@ class Basic (unittest.TestCase):
 
         times = arghmm.get_time_points(20)
         arghmm.discretize_arg(arg, times)
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
         arg = arglib.smcify_arg(arg)
         print "recomb", arglib.get_recomb_pos(arg)
 
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % k, times=times)
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
 
         for pos in model.recomb_pos[:-1][1:50]:
             nstates1 = model.get_num_states(pos)
