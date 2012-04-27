@@ -393,6 +393,36 @@ def make_trunk_arg(start, end, name="ind1"):
     return arg
 
 
+def remove_arg_thread(arg, *chroms):
+    """
+    Remove a thread(s) from an ARG
+    """
+    remove_chroms = set(chroms)
+    keep = [x for x in arg.leaf_names() if x not in remove_chroms]
+    arglib.subarg_by_leaf_names(arg, keep)
+    return arglib.smcify_arg(arg)
+
+    '''
+    def prune(sprs):
+        for recomb_pos, (rleaves, rtime), (cleaves, ctime) in sprs:
+            rleaves = [x for x in rleaves if x not in remove_chroms]
+            cleaves = [x for x in cleaves if x not in remove_chroms]
+            spr = (recomb_pos, (rleaves, rtime), (cleaves, ctime))
+            print spr
+            yield spr
+    
+    arg2 = arg.get_marginal_tree(-.5)
+    keep = [x for x in arg2.leaf_names() if x not in remove_chroms]
+    arglib.subarg_by_leaf_names(arg2, keep)
+    arg2.write()
+    
+    #arglib.remove_single_lineages(arg2)
+    sprs = prune(arglib.iter_arg_sprs(arg, use_leaves=True))
+    arglib.make_arg_from_sprs(arg2, sprs, ignore_self=True)
+    '''
+
+    return arg2
+
 
 def add_arg_thread(arg, new_name, thread, recombs):
     """Add a thread to an ARG"""

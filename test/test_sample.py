@@ -569,7 +569,7 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 30
+        k = 10
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -578,11 +578,9 @@ class Sample (unittest.TestCase):
         refine = 0
         
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        arghmm.discretize_arg_recomb(arg)
-        arg = arglib.smcify_arg(arg)
-        arg.set_ancestral()
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
+        arg.write("test/data/sample_arg2.arg")
         seqs.write("test/data/sample_arg2.fa")
 
         seqs.names.sort()
@@ -592,7 +590,7 @@ class Sample (unittest.TestCase):
                                  refine=refine)
         util.toc()
 
-        arg2.write("test/data/sample_arg3.arg")
+        arg2.write("test/data/sample_arg2_out.arg")
         
 
 

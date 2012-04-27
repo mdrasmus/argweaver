@@ -11,26 +11,12 @@ from compbio import coal, arglib, fasta
 
 
 
-def add_node(arg, node, time, pos, event):
-
-    node2 = arg.new_node(event=event, age=time, children=[node], pos=pos)
-    if event == "coal":
-        node2.pos = 0
-
-    parent = arg.get_local_parent(node, pos-.5)
-    if parent:
-        node.parents[node.parents.index(parent)] = node2
-        parent.children[parent.children.index(node)] = node2
-        node2.parents.append(parent)
-    else:
-        node.parents.append(node2)
-
-    return node2
-
-
 class Basic (unittest.TestCase):
 
-    def test_prune(self):
+    def test_remove_thread(self):
+        """
+        Remove a leaf from an ARG
+        """
 
         k = 3
         n = 1e4
@@ -38,82 +24,27 @@ class Basic (unittest.TestCase):
         mu = 2.5e-8
         length = 1000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        #arglib.write_arg("tmp/a.arg", arg)
-        #arg = arglib.read_arg("tmp/a.arg")
         
         times = arghmm.get_time_points(10)
         arghmm.discretize_arg(arg, times)
-
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg.set_ancestral()
-        arg.prune()
+        chrom = "n%d" % (k-1)
+        arg = arghmm.remove_arg_thread(arg, chrom)
         
         recomb = arglib.get_recomb_pos(arg)
         print "recomb", recomb
 
-        pos = recomb[0]
-        tree = arg.get_marginal_tree(pos+.5)
+        tree = arg.get_marginal_tree(-.5)
 
-        draw_tree_names(tree.get_tree(), minlen=5, maxlen=5)
-        
-        for row in sorted((x.pos, x.name, x.parents, x.data["ancestral"])
-                          for x in arg if x.event == "recomb"):
-            print row
-        
+        draw_tree_names(tree.get_tree(), minlen=5, maxlen=5)        
         print sorted([(x.pos, x.event) for x in tree])
-        nodes = [x for x in tree
-                 if x.event == "recomb" and x.pos == pos]
-        print nodes
-        assert len(nodes) == 1
-
-
-    def test_remove_cycles(self):
-
-        arg = arglib.ARG(0, 10)
-
-        a = arg.new_node(name="a", event="gene", age=0)
-        b = arg.new_node(name="b", event="gene", age=0)
-        r = arg.new_node(name="r", event="recomb", age=10, pos=1)
-        d = arg.new_node(name="d", event="recomb", age=15, pos=4)
-        c = arg.new_node(name="c", event="coal", age=20)
-        t = arg.new_node(name="t", event="coal", age=30)
-        t2 = arg.new_node(name="t2", event="coal", age=40)
-
-        a.parents = [r]
-        r.children = [a]
-
-        r.parents = [c, d]
-        c.children = [r, d]
-        d.children = [r]
-        d.parents = [c, t2]
-        c.parents = [t]
-
-        b.parents = [t]
-        t.children = [c, b]
-        
-        t.parents = [t2]
-        t2.children = [t, d]
-
-        treelib.draw_tree_names(arg.get_marginal_tree(0).get_tree(),
-                                maxlen=8, minlen=8)
-        treelib.draw_tree_names(arg.get_marginal_tree(2).get_tree(),
-                                maxlen=8, minlen=8)
-
-        arg.set_ancestral()
-        arglib.remove_self_cycles(arg)
-
-        print
-        print
-        treelib.draw_tree_names(arg.get_marginal_tree(0).get_tree(),
-                                maxlen=8, minlen=8)
-        treelib.draw_tree_names(arg.get_marginal_tree(2).get_tree(),
-                                maxlen=8, minlen=8)
 
         
 
 
     def test_recomb(self):
+        """
+        Investigate the fact that some recombinations are not visible
+        """
 
         k = 3
         n = 1e4
@@ -134,7 +65,7 @@ class Basic (unittest.TestCase):
         i = 0
         while True:
             tree = arg.get_marginal_tree(i-.5)
-            recomb = arghmm.find_tree_next_recomb(tree, i+1)
+            recomb = arghmm.find_tree_next_recomb(tree, i+1, tree=True)
             if recomb:
                 recombs2.append(recomb.pos)
                 i = recomb.pos
@@ -150,6 +81,9 @@ class Basic (unittest.TestCase):
 
 
     def test_nlineages(self):
+        """
+        Test lineage counting
+        """
         k = 4
         n = 1e4
         rho = 1.5e-8 * 1
@@ -175,6 +109,9 @@ class Basic (unittest.TestCase):
 
 
     def test_states(self):
+        """
+        Test state enumeration
+        """
         k = 2
         n = 1e4
         rho = 1.5e-8 * 100
@@ -191,7 +128,6 @@ class Basic (unittest.TestCase):
 
             treelib.draw_tree_names(tree.get_tree(), scale=4e-4,
                                     minlen=6, maxlen=6)
-            assert (tree.root.name, 10) in states
             print states
 
 
@@ -221,6 +157,9 @@ class Basic (unittest.TestCase):
 
 
     def test_thread(self):
+        """
+        Test thread retrieval
+        """
         
         k = 10
         n = 1e4
@@ -241,6 +180,9 @@ class Basic (unittest.TestCase):
 
 
     def test_prior(self):
+        """
+        Calculate state priors
+        """
 
         k = 10
         n = 1e4
@@ -253,8 +195,10 @@ class Basic (unittest.TestCase):
 
         times = arghmm.get_time_points()
         arghmm.discretize_arg(arg, times)
+        new_name = "n%d" % (k-1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
 
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % k)
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
 
         prior = [model.prob_prior(0, j)
                  for j in xrange(model.get_num_states(0))]
@@ -263,7 +207,12 @@ class Basic (unittest.TestCase):
         fequal(sum(map(exp, prior)), 1.0, rel=.01)
 
 
-    def test_transprobs(self):
+    def test_trans_single(self):
+        """
+        Calculate transition probabilities
+
+        Only calculate a single matrix
+        """
 
         k = 4
         n = 1e4
@@ -278,9 +227,9 @@ class Basic (unittest.TestCase):
         arghmm.discretize_arg(arg, times)
         print "recomb", arglib.get_recomb_pos(arg)
 
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)        
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
+        new_name = "n%d" % (k-1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
 
         pos = 10
         tree = arg.get_marginal_tree(pos)
@@ -293,45 +242,14 @@ class Basic (unittest.TestCase):
         for row in mat:
             print sum(map(exp, row))
 
-
-
-    def test_recomb_coal(self):
-
-        k = 10
-        n = 1e4
-        rho = 1.5e-8 * 100
-        mu = 2.5e-8
-        length = 1000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        arglib.write_arg("tmp/a.arg", arg)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-        
-        #arg = arglib.read_arg("tmp/a.arg")
-        #arg.set_ancestral()
-        #find_recomb_coal(tree, last_tree, recomb_name=None, pos=None)
-        
-        times = arghmm.get_time_points(10)
-        arghmm.discretize_arg(arg, times)
-
-        # get recombs
-        recombs = list(x.pos for x in arghmm.iter_visible_recombs(arg))
-        print "recomb", recombs
-
-        pos = recombs[0] + 1
-        tree = arg.get_marginal_tree(pos-.5)
-        last_tree = arg.get_marginal_tree(pos-1-.5)
-
-        treelib.draw_tree_names(last_tree.get_tree(), minlen=5, maxlen=5)
-        treelib.draw_tree_names(tree.get_tree(), minlen=5, maxlen=5)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
-
-
-
         
 
-    def test_transprobs_switch(self):
+    def test_trans_switch_single(self):
+        """
+        Calculate transitions probabilities for switching between blocks
+
+        Only calculate a single matrix
+        """
 
         k = 10
         n = 1e4
@@ -350,12 +268,10 @@ class Basic (unittest.TestCase):
         times = arghmm.get_time_points(10)
         arghmm.discretize_arg(arg, times)
 
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg.set_ancestral()
-        arg.prune()
+        new_name = "n%d" % (k-1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
         
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
 
         # get recombs
         recombs = list(x.pos for x in arghmm.iter_visible_recombs(arg))
@@ -386,6 +302,9 @@ class Basic (unittest.TestCase):
 
 
     def test_transprobs_all(self):
+        """
+        Calculate all transition probabilities
+        """
 
         k = 10
         n = 1e4
@@ -398,13 +317,10 @@ class Basic (unittest.TestCase):
         
         times = arghmm.get_time_points(10)
         arghmm.discretize_arg(arg, times)
-
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg.set_ancestral()
-        arg.prune()
+        new_name = "n%d" % (k-1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
         
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
 
         # display recombs
         print "recomb", list(x.pos for x in arghmm.iter_visible_recombs(arg))
@@ -449,6 +365,9 @@ class Basic (unittest.TestCase):
 
         
     def test_trans(self):
+        """
+        Calculate transition probabilities
+        """
 
         k = 10
         n = 1e4
@@ -461,10 +380,11 @@ class Basic (unittest.TestCase):
 
         times = arghmm.get_time_points(20)
         arghmm.discretize_arg(arg, times)
-        arg = arglib.smcify_arg(arg)
-        print "recomb", arglib.get_recomb_pos(arg)
+        new_name = "n%d" % (k - 1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
 
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % k, times=times)
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
+        print "recomb", model.recomb_pos[1:-1]
 
         i = 1
         nstates1 = model.get_num_states(i-1)
@@ -490,8 +410,9 @@ class Basic (unittest.TestCase):
             
 
     def test_trans_switch(self):
-
-        # test transition switch matrix
+        """
+        Calculate transitions probabilities for switching between blocks
+        """
 
         k = 10
         n = 1e4
@@ -504,10 +425,11 @@ class Basic (unittest.TestCase):
 
         times = arghmm.get_time_points(20)
         arghmm.discretize_arg(arg, times)
-        arg = arglib.smcify_arg(arg)
-        print "recomb", arglib.get_recomb_pos(arg)
+        new_name = "n%d" % (k - 1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
 
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % k, times=times)
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
+        print "recomb", model.recomb_pos[1:-1]
 
         i = 1
         nstates1 = model.get_num_states(i-1)
@@ -522,12 +444,158 @@ class Basic (unittest.TestCase):
 
 
     def test_emit(self):
+        """
+        Calculate emission probabilities
+        """
         
         k = 10
         n = 1e4
         rho = 0.0
         mu = 2.5e-8 * 100
         length = 10000
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+        
+        times = arghmm.get_time_points(10)
+        arghmm.discretize_arg(arg, times)
+        
+        new_name = "n%d" % (k-1)
+        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name]))
+        arg = arghmm.remove_arg_thread(arg, new_name)
+        
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
+        
+        nstates = model.get_num_states(1)
+        probs = [0.0 for j in xrange(nstates)]
+        for i in xrange(1, length):
+            if i % 100 == 0:
+                print i
+            for j in xrange(nstates):
+                probs[j] += model.prob_emission(i, j)
+        print
+
+        # is the maximum likelihood emission matching truth
+        data = sorted(zip(probs, model.states[0]), reverse=True)
+        pc(data[:20])
+        
+        state = (thread[0][0], times.index(thread[0][1]))
+        
+        print data[0][1], state
+        assert data[0][1] == state
+
+
+
+    def test_trans_c(self):
+
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 1000
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        times = arghmm.get_time_points(20)
+        arghmm.discretize_arg(arg, times)
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+        arg = arglib.smcify_arg(arg)
+        print "recomb", arglib.get_recomb_pos(arg)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
+
+        i = 1
+        nstates1 = model.get_num_states(i-1)
+        for i in xrange(0, 1):
+            print i, nstates1
+            nstates2 = model.get_num_states(i)
+            for a in xrange(nstates1):
+                trans = [model.prob_transition(i-1, a, i, b)
+                         for b in xrange(nstates2)]
+                fequal(sum(map(exp, trans)), 1.0, rel=.01)
+            trans = model.transmat
+            trans2 = arghmm.calc_transition_probs_c(
+                model.local_tree, model.states[i], model.nlineages,
+                model.times, model.time_steps, model.popsizes, model.rho)
+
+            for a in xrange(nstates1):
+                for b in xrange(nstates1):
+                    fequal(trans[a][b], trans2[a][b])
+                    
+            nstates1 = nstates2
+
+
+    def test_trans_switch_c(self):
+
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 5000
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+
+        times = arghmm.get_time_points(20)
+        arghmm.discretize_arg(arg, times)
+        keep = ["n%d" % i for i in range(k-1)]
+        arglib.subarg_by_leaf_names(arg, keep)
+        arg = arglib.smcify_arg(arg)
+        print "recomb", arglib.get_recomb_pos(arg)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
+
+        for pos in model.recomb_pos[:-1][1:50]:
+            nstates1 = model.get_num_states(pos)
+            print pos, nstates1
+            nstates2 = model.get_num_states(pos+1)
+
+            last_tree = model.arg.get_marginal_tree(pos-.5)
+            tree = model.arg.get_marginal_tree(pos+1-.5)
+
+            nlineages = arghmm.get_nlineages_recomb_coal(last_tree, model.times)
+            recomb = arghmm.find_tree_next_recomb(arg, pos)
+
+            states1 = model.states[pos]
+            states2 = model.states[pos+1]
+
+            trans = arghmm.calc_transition_probs_switch(
+                tree, last_tree, recomb.name,
+                states1, states2,
+                nlineages, model.times,
+                model.time_steps, model.popsizes, model.rho)
+
+            for a in xrange(nstates1):
+                fequal(sum(map(exp, trans[a])), 1.0, rel=.01)
+
+            trans2 = arghmm.calc_transition_probs_switch_c(
+                tree, last_tree, recomb.name,
+                states1, states2,
+                nlineages, model.times,
+                model.time_steps, model.popsizes, model.rho, raw=False)
+
+            for a in xrange(nstates1):
+                for b in xrange(nstates2):
+                    #if trans[a][b] == 0.0:
+                    #    print a, states1[a], states2[b], \
+                    #          trans[a].index(0.0), trans2[a].index(0.0), \
+                    #          trans[a][b] == trans2[a][b]
+                    
+                    if trans[a][b] in (0.0, -util.INF) or \
+                       trans2[a][b] in (0.0, -util.INF):
+                        assert trans[a][b] == trans2[a][b], (
+                            trans[a][b], trans2[a][b])
+                    fequal(trans[a][b], trans2[a][b])
+
+    def test_emit_c(self):
+        
+        k = 10
+        n = 1e4
+        rho = 0.0
+        mu = 2.5e-8 * 100
+        length = 100
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -544,28 +612,32 @@ class Basic (unittest.TestCase):
         model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
         
         nstates = model.get_num_states(1)
-        probs = [0.0 for j in xrange(nstates)]
+        emit = arghmm.iter_trans_emit_matrices(model, length).next()[4]
+        
         for i in xrange(1, length):
             for j in xrange(nstates):
-                probs[j] += model.prob_emission(i, j)
-        
-        data = sorted(zip(probs, model.states[0]), reverse=True)
-        pc(data[:20])
-        
-        state = (thread[0][0], times.index(thread[0][1]))
-        
-        print data[0][1], state
-        assert data[0][1] == state
+                try:
+                    fequal(emit[i][j], model.prob_emission(i, j))
+                except:
+                    print i, j, emit[i][j], model.prob_emission(i, j)
+                    print model.states[i][j]
+                    raise
 
+
+    #========================
+    # HMM algorithms
 
 
     def test_viterbi(self):
+        """
+        Run viterbi algorithm on HMM
+        """
 
         k = 10
         n = 1e4
-        rho = 1.5e-8 
-        mu = 2.5e-8 * 10
-        length = 100000
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 10000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -584,9 +656,8 @@ class Basic (unittest.TestCase):
         
 
         # remove chrom
-        keep = set(arg.leaf_names()) - set([new_name])
-        arglib.subarg_by_leaf_names(arg, keep)
-
+        arg = arghmm.remove_arg_thread(arg, new_name)
+        
         model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
                               rho=rho, mu=mu)
         print "states", len(model.states[0])
@@ -599,97 +670,15 @@ class Basic (unittest.TestCase):
         pause()
 
 
-
-    def test_viterbi2(self):
-
-        k = 2
-        n = 1e4
-        rho = 1.5e-8
-        mu = 2.5e-8 * 10
-        length = 10000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-        print "muts", len(muts)
-        print "recomb", len(arglib.get_recomb_pos(arg))
-
-        times = arghmm.get_time_points()
-        arghmm.discretize_arg(arg, times)
-
-        thread = list(arghmm.iter_chrom_thread(arg, arg["n1"], by_block=False))
-        tree = arg.get_marginal_tree(0)
-        print tree.root.age
-        treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
-        p = plot(cget(thread, 1), style="lines", ymin=0)
-
-
-        # remove chrom
-        keep = ["n0"]
-        arglib.subarg_by_leaf_names(arg, keep)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n1", times=times,
-                              rho=rho, mu=mu)
-        print "states", len(model.states[0])
-
-        path = hmm.viterbi(model, length, verbose=True)
-        thread2 = [model.states[i][j] for i, j in enumerate(path)]
-        thread2 = [(node, model.times[t]) for node, t in thread2]
-        
-        p.plot(cget(thread2, 1), style="lines")
-
-        pause()
-
-
-
-    def test_viterbi3(self):
-
-        k = 3
-        n = 1e4
-        rho = 1.5e-8 * 3
-        mu = 2.5e-8 * 100
-        length = 10000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        print "muts", len(muts)
-
-        times = arghmm.get_time_points(10)
-        arghmm.discretize_arg(arg, times)
-
-        thread = list(arghmm.iter_chrom_thread(arg, arg["n2"], by_block=False))
-        tree = arg.get_marginal_tree(0)
-        print tree.root.age
-        treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
-        p = plot(cget(thread, 1), style="lines", ymin=0)
-
-        #alignlib.print_align(seqs)
-
-        # remove chrom
-        keep = ["n0", "n1"]
-        arglib.subarg_by_leaf_names(arg, keep)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n2", times=times,
-                              rho=rho, mu=mu)
-        
-        print model.states[0]
-
-        path = hmm.viterbi(model, length, verbose=True)
-        thread2 = [model.states[i][j] for i, j in enumerate(path)]
-        thread2 = [(node, model.times[t]) for node, t in thread2]
-        
-        p.plot(cget(thread2, 1), style="lines")
-
-        pause()
-
-
+    '''
     def test_viterbi_node(self):
 
-        k = 20
+
+        k = 10
         n = 1e4
-        rho = 1.5e-8 
-        mu = 2.5e-8
-        length = 20000
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 1000
         arg = arglib.sample_arg(k, n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -700,6 +689,8 @@ class Basic (unittest.TestCase):
         tree = arg.get_marginal_tree(0)
         treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
 
+        # TODO: need to recode correct thread for comparison
+
         # plot true thread chrom
         new_name = "n%d" % (k-1)
         thread = list((node, times.index(age))
@@ -707,11 +698,8 @@ class Basic (unittest.TestCase):
             arg, arg[new_name], by_block=False))
 
         # remove chrom
-        keep = set(arg.leaf_names()) - set([new_name])
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg.set_ancestral()
-        arg.prune()
-
+        arg = arghmm.remove_arg_thread(arg, new_name)
+        
         model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
                               rho=rho, mu=mu)
         print "states", len(model.states[0])
@@ -736,11 +724,14 @@ class Basic (unittest.TestCase):
                 print a, b
 
         pause()
-
+    '''
 
 
     def test_backward(self):
-
+        """
+        Run backward algorithm
+        """
+        
         k = 3
         n = 1e4
         rho = 1.5e-8 * 100
@@ -758,13 +749,10 @@ class Basic (unittest.TestCase):
         treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
 
         # remove chrom
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
+        new_name = "n%d" % (k-1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
 
-        arg.set_ancestral()
-        arg.prune()
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
                               rho=rho, mu=mu)
         print "states", len(model.states[0])
         print "recomb", model.recomb_pos
@@ -1350,144 +1338,6 @@ class Basic (unittest.TestCase):
 
         
         arghmm.forward_algorithm2(model, length, verbose=True)
-
-
-    def test_trans_c(self):
-
-        k = 10
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 1000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        times = arghmm.get_time_points(20)
-        arghmm.discretize_arg(arg, times)
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg = arglib.smcify_arg(arg)
-        print "recomb", arglib.get_recomb_pos(arg)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
-
-        i = 1
-        nstates1 = model.get_num_states(i-1)
-        for i in xrange(0, 1):
-            print i, nstates1
-            nstates2 = model.get_num_states(i)
-            for a in xrange(nstates1):
-                trans = [model.prob_transition(i-1, a, i, b)
-                         for b in xrange(nstates2)]
-                fequal(sum(map(exp, trans)), 1.0, rel=.01)
-            trans = model.transmat
-            trans2 = arghmm.calc_transition_probs_c(
-                model.local_tree, model.states[i], model.nlineages,
-                model.times, model.time_steps, model.popsizes, model.rho)
-
-            for a in xrange(nstates1):
-                for b in xrange(nstates1):
-                    fequal(trans[a][b], trans2[a][b])
-                    
-            nstates1 = nstates2
-
-
-    def test_trans_switch_c(self):
-
-        k = 10
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 5000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        times = arghmm.get_time_points(20)
-        arghmm.discretize_arg(arg, times)
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg = arglib.smcify_arg(arg)
-        print "recomb", arglib.get_recomb_pos(arg)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
-
-        for pos in model.recomb_pos[:-1][1:50]:
-            nstates1 = model.get_num_states(pos)
-            print pos, nstates1
-            nstates2 = model.get_num_states(pos+1)
-
-            last_tree = model.arg.get_marginal_tree(pos-.5)
-            tree = model.arg.get_marginal_tree(pos+1-.5)
-
-            nlineages = arghmm.get_nlineages_recomb_coal(last_tree, model.times)
-            recomb = arghmm.find_tree_next_recomb(arg, pos)
-
-            states1 = model.states[pos]
-            states2 = model.states[pos+1]
-
-            trans = arghmm.calc_transition_probs_switch(
-                tree, last_tree, recomb.name,
-                states1, states2,
-                nlineages, model.times,
-                model.time_steps, model.popsizes, model.rho)
-
-            for a in xrange(nstates1):
-                fequal(sum(map(exp, trans[a])), 1.0, rel=.01)
-
-            trans2 = arghmm.calc_transition_probs_switch_c(
-                tree, last_tree, recomb.name,
-                states1, states2,
-                nlineages, model.times,
-                model.time_steps, model.popsizes, model.rho, raw=False)
-
-            for a in xrange(nstates1):
-                for b in xrange(nstates2):
-                    #if trans[a][b] == 0.0:
-                    #    print a, states1[a], states2[b], \
-                    #          trans[a].index(0.0), trans2[a].index(0.0), \
-                    #          trans[a][b] == trans2[a][b]
-                    
-                    if trans[a][b] in (0.0, -util.INF) or \
-                       trans2[a][b] in (0.0, -util.INF):
-                        assert trans[a][b] == trans2[a][b], (
-                            trans[a][b], trans2[a][b])
-                    fequal(trans[a][b], trans2[a][b])
-
-    def test_emit_c(self):
-        
-        k = 10
-        n = 1e4
-        rho = 0.0
-        mu = 2.5e-8 * 100
-        length = 100
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-        
-        times = arghmm.get_time_points(10)
-        arghmm.discretize_arg(arg, times)
-        
-        new_name = "n%d" % (k-1)
-        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name]))
-        
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        
-        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
-        
-        nstates = model.get_num_states(1)
-        emit = arghmm.iter_trans_emit_matrices(model, length).next()[4]
-        
-        for i in xrange(1, length):
-            for j in xrange(nstates):
-                try:
-                    fequal(emit[i][j], model.prob_emission(i, j))
-                except:
-                    print i, j, emit[i][j], model.prob_emission(i, j)
-                    print model.states[i][j]
-                    raise
 
         
 
