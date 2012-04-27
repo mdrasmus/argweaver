@@ -490,8 +490,10 @@ void sample_recombinations(
         int end = it->block.end;
         ArgHmmMatrices matrices = matrix_list->matrices[blocki];
         LocalTree *tree = it->tree;
-        double treelen = get_treelen(tree, model->times, model->ntimes);
-        double treelen2;
+        double treelen_b = get_treelen(tree, model->times, model->ntimes);
+        double treelen = treelen_b - get_basal_branch(
+            tree, model->times, model->ntimes, -1, -1);
+        double treelen2_b, treelen2;
         lineages.count(tree);
         get_coal_states(tree, model->ntimes, states);
         int statei = thread_path[start];
@@ -506,10 +508,14 @@ void sample_recombinations(
                 if (i > next_recomb) {
                     // sample the next recomb pos
                     int last_state = thread_path[i-1];
-                    treelen2 = get_treelen_branch(
+                    treelen2_b = get_treelen_branch(
                         tree, model->times, model->ntimes,
                         states[last_state].node,
-                        states[last_state].time, treelen);
+                        states[last_state].time, treelen_b);
+                    treelen2 = treelen2_b - get_basal_branch(
+                        tree, model->times, model->ntimes, 
+                        states[last_state].node, states[last_state].time);
+
                     double self_trans = matrices.transmat[last_state][last_state];
                     double rate = max(
                         1.0 - exp(-model->rho * (treelen2 - treelen)
@@ -530,9 +536,12 @@ void sample_recombinations(
             statei = thread_path[i];
             State state = states[statei];
             State last_state = states[thread_path[i-1]];
-            treelen2 = get_treelen_branch(tree, model->times, model->ntimes,
-                                          last_state.node,
-                                          last_state.time, treelen);
+            treelen2_b = get_treelen_branch(tree, model->times, model->ntimes,
+                                            last_state.node,
+                                            last_state.time, treelen_b);
+            treelen2 = treelen2_b - get_basal_branch(
+                tree, model->times, model->ntimes, 
+                last_state.node, last_state.time);
             
 
             // there must be a recombination
@@ -568,7 +577,7 @@ void sample_recombinations(
                 double p = 
                     (lineages.nbranches[k] + 1) * model->time_steps[k] /
                     (lineages.ncoals[j] * (lineages.nrecombs[k] + 1.0) * 
-                     treelen2) * 
+                     treelen2_b) * 
                     (1.0 - exp(-model->time_steps[j] * lineages.nbranches[j] /
                                (2.0 * model->popsizes[j-1]))) *
                     (1.0 - exp(-model->rho * treelen2)) *

@@ -196,6 +196,9 @@ class Basic (unittest.TestCase):
 
 
     def test_pars_seq(self):
+        """
+        Test parsimony ancestral sequence inference
+        """
 
         k = 10
         n = 1e4
@@ -212,7 +215,8 @@ class Basic (unittest.TestCase):
         print "pos =", pos
         treelib.draw_tree_names(tree.get_tree(), scale=4e-4, minlen=5)
 
-        ancestral = arghmm.parsimony_ancestral_seq(tree, seqs, pos)
+        arglib.remove_single_lineages(tree)
+        ancestral = arghmm.emit.parsimony_ancestral_seq(tree, seqs, pos)
         util.print_dict(ancestral)
 
 

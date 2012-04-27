@@ -136,6 +136,21 @@ double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
 }
 
 
+double get_basal_branch(const LocalTree *tree, double *times, int ntimes,
+                        int node, int time)
+{
+    double root_time;
+
+    if (node == tree->root) {
+        root_time = times[time+1] - times[time];
+    } else {
+        int rooti = tree->nodes[tree->root].age;
+        root_time = times[rooti+1] - times[rooti];
+    }
+    
+    return root_time;
+}
+
 
 void apply_spr(LocalTree *tree, Spr *spr)
 {

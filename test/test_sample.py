@@ -740,13 +740,13 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch
         """
 
-        k = 2
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 50000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20)
-        refine = 0
+        refine = 3
 
         rx = []
         ry = []
@@ -789,7 +789,7 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch
         """
 
-        k = 2
+        k = 30
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -818,7 +818,7 @@ class Sample (unittest.TestCase):
         for i in range(50):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-                                       refine=3)
+                                       refine=1)
             util.toc()
             nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
             y.append(nrecombs2)

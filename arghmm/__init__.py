@@ -2,19 +2,21 @@
 # Ancestral Recombination Graph Hidden Markov Model (ArgHmm)
 #
 
+# python libs
 from math import exp, log
 import random
 from itertools import chain, izip
 import heapq
 
+# rasmus combio libs
 from rasmus import hmm, util, stats, treelib
 from rasmus.stats import logadd
 from compbio import arglib, fasta, phylo
 
+# arghmm libs
+from arghmmc import *
+from . import emit
 
-# import arghmm C lib
-from arghmm.ctypes_export import *
-arghmmc = load_library(["..", "lib"], "libarghmm.so")
 
 #=============================================================================
 # constants
@@ -34,147 +36,6 @@ if PROGRAM_VERSION_RELEASE != 0:
 else:
     PROGRAM_VERSION_TEXT = "%d.%d" % (PROGRAM_VERSION_MAJOR,
                                       PROGRAM_VERSION_MINOR)
-
-
-
-
-#=============================================================================
-# export c functions
-
-ex = Exporter(globals())
-export = ex.export
-
-
-if arghmmc:
-    # replace python function with c
-    
-    export(arghmmc, "forward_alg", c_int,
-           [c_int, "n", c_int, "nstates",
-            c_double_p_p, "trans", c_double_p_p, "emit",
-            c_out(c_double_matrix), "fw"])
-
-    export(arghmmc, "backward_alg", c_int,
-           [c_int, "n", c_int, "nstates",
-            c_double_p_p, "trans", c_double_p_p, "emit",
-            c_out(c_double_matrix), "bw"])
-
-    export(arghmmc, "sample_hmm_posterior", c_int,
-           [c_int, "n", c_int, "nstates",
-            c_double_p_p, "trans", c_double_p_p, "emit", 
-            c_out(c_double_matrix), "fw", c_out(c_int_list), "path"])
-
-
-    export(arghmmc, "new_transition_probs", c_double_p_p,
-           [c_int, "nnodes", c_int_list, "ptree",
-            c_int_list, "ages_index", c_double, "treelen",
-            POINTER(c_int * 2), "states", c_int, "nstates",
-            c_int, "ntimes", c_double_list, "times",
-            c_double_list, "time_steps",
-            c_int_list, "nbranches", c_int_list, "nrecombs",
-            c_int_list, "ncoals", 
-            c_double_list, "popsizes", c_double, "rho"])
-
-    export(arghmmc, "new_transition_probs_switch", c_double_p_p,
-           [c_int_list, "ptree", c_int_list, "last_ptree", c_int, "nnodes",
-            c_int, "recomb_name", c_int, "recomb_time",
-            c_int, "coal_name", c_int, "coal_time",
-            c_int_list, "ages_index", c_int_list, "last_ages_index",
-            c_double, "treelen", c_double, "last_treelen",
-            POINTER(c_int * 2), "states1", c_int, "nstates1",
-            POINTER(c_int * 2), "states2", c_int, "nstates2",
-            c_int, "ntimes", c_double_list, "times",
-            c_double_list, "time_steps",
-            c_int_list, "nbranches", c_int_list, "nrecombs",
-            c_int_list, "ncoals", 
-            c_double_list, "popsizes", c_double, "rho"])
-
-    export(arghmmc, "delete_transition_probs", c_int,
-           [c_double_p_p, "transition_probs", c_int, "nstates"])
-
-    export(arghmmc, "new_emissions", c_double_p_p,
-           [POINTER(c_int * 2), "states",
-            c_int, "nstates", 
-            c_int_list, "ptree", c_int, "nnodes", c_int_list, "ages",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_double_list, "times", c_int, "ntimes",
-            c_double, "mu"])
-
-    export(arghmmc, "delete_emissions", c_int,
-           [c_double_p_p, "emit", c_int, "seqlen"])
-
-
-    export(arghmmc, "arghmm_forward_alg", c_double_p_p,
-           [c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", 
-            c_double_list, "times", c_int, "ntimes",
-            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_double_p_p, "fw"])
-
-    export(arghmmc, "delete_double_matrix", c_int,
-           [c_double_p_p, "mat", c_int, "nrows"])
-
-    export(arghmmc, "arghmm_sample_posterior", POINTER(c_int *2),
-           [c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", 
-            c_double_list, "times", c_int, "ntimes",
-            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            POINTER(POINTER(c_int *2)), "path"])
-
-    export(arghmmc, "arghmm_sample_thread", c_void_p,
-           [c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", 
-            c_double_list, "times", c_int, "ntimes",
-            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
-
-    export(arghmmc, "arghmm_sample_arg_seq", c_void_p,
-           [c_double_list, "times", c_int, "ntimes",
-            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
-
-    export(arghmmc, "arghmm_sample_arg_refine", c_void_p,
-           [c_double_list, "times", c_int, "ntimes",
-            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_int, "niters"])
-
-    export(arghmmc, "arghmm_resample_arg", c_void_p,
-           [c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", 
-            c_double_list, "times", c_int, "ntimes",
-            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_int, "niters"])
-
-
-    export(arghmmc, "get_local_trees_ntrees", c_int,
-           [c_void_p, "trees"])
-    export(arghmmc, "get_local_trees_nnodes", c_int,
-           [c_void_p, "trees"])
-    export(arghmmc, "get_local_trees_ptrees", c_int,
-           [c_void_p, "trees", c_out(c_int_matrix), "ptrees",
-            c_out(c_int_matrix), "ages",
-            c_out(c_int_matrix), "sprs", c_out(c_int_list), "blocklens"])
-    export(arghmmc, "delete_local_trees", c_int,
-           [c_void_p, "trees"])
-
-    export(arghmmc, "delete_path", c_int,
-           [POINTER(c_int * 2), "path"])
-
-
-    export(arghmmc, "get_state_spaces", POINTER(POINTER(c_int * 2)),
-           [c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", c_int, "ntimes"])
-
-    export(arghmmc, "delete_state_spaces", c_int,
-           [POINTER(POINTER(c_int * 2)), "all_states", c_int, "ntrees"])
 
 
 #=============================================================================
@@ -320,6 +181,7 @@ def get_treelen(tree, times):
 
 
 def get_treelen_branch(tree, times, node, time, treelen=None):
+    """Calculate tree length with an extra branch"""
 
     if treelen is None:
         treelen = sum(x.get_dist() for x in tree)
@@ -342,6 +204,12 @@ def get_treelen_branch(tree, times, node, time, treelen=None):
 
 
 def get_basal_length(tree, times, node, time, treelen=None):
+    """
+    Get basal branch length
+    
+    NOTE: 'node' can be None
+    """
+    
     if node == tree.root.name:
         rooti = times.index(time)
         root_time = times[rooti+1] - times[rooti]
@@ -356,47 +224,6 @@ def get_basal_length(tree, times, node, time, treelen=None):
 
 #=============================================================================
 # helper functions
-
-
-def parsimony_ancestral_seq(tree, seqs, pos):
-    """Calculates ancestral sequence for a local tree using parsimony"""
-
-    ancestral = {}
-    sets = {}
-
-    # do unweight parsimony
-    for node in tree.postorder():
-        if node.is_leaf():
-            sets[node] = set([seqs[node.name][pos]])
-        else:
-            lset = sets[node.children[0]]
-            rset = sets[node.children[1]]
-            intersect = lset & rset
-            if len(intersect) > 0:
-                sets[node] = intersect
-            else:
-                sets[node] = lset | rset
-
-    # traceback
-    for node in tree.preorder():
-        s = sets[node]
-        if len(s) == 1 or not node.parents:
-            # NOTE: this technique is used to make assignment deterministic
-            ancestral[node.name] = ("A" if "A" in s else
-                                    "C" if "C" in s else
-                                    "G" if "G" in s else
-                                    "T")
-        else:
-            pchar = ancestral[node.parents[0].name]
-            if pchar in s:
-                ancestral[node.name] = pchar
-            else:
-                ancestral[node.name] = ("A" if "A" in s else
-                                        "C" if "C" in s else
-                                        "G" if "G" in s else
-                                        "T")
-
-    return ancestral
 
 
 #=============================================================================
@@ -655,7 +482,7 @@ def iter_thread_from_path(model, path):
 
 
 def add_arg_thread(arg, new_name, thread, recombs, arg3=None):
-
+    """Add a thread to an ARG"""
 
     def is_local_coal(arg, node, pos, local):
         return (len(node.children) == 2 and
@@ -958,6 +785,7 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
         times = get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
     popsizes = [popsize] * len(times)
 
+    util.tic("convert arg")
     seqs2 = seqs.values()
 
     (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
@@ -967,6 +795,7 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
 
     seqs2 = [seqs[node] for node in all_nodes[0]
             if arg[node].is_leaf()]
+    util.toc()
     
     trees = arghmm_resample_arg(
         ptrees, ages, sprs, blocklens,
@@ -1007,7 +836,7 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     names = seqs.keys()
     assert len(names) == ((nnodes + 1) / 2)
 
-    util.tic("convert arg")
+    util.tic("convert arg 2")
     arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
     util.toc()
     
@@ -1971,7 +1800,8 @@ class ArgHmm (hmm.HMM):
         # current local tree
         self.local_block = [-1, self.recomb_pos[1]]
         self.local_tree = None
-        self.local_site = None
+        #self.local_site = None
+        self.emit_col = None
         self.last_tree = None
         self.last_pos = None
         self.transmat = None
@@ -2040,8 +1870,10 @@ class ArgHmm (hmm.HMM):
 
         # update local site
         if force or pos != self.last_pos:
-            self.local_site = parsimony_ancestral_seq(
-                self.local_tree, self.seqs, pos)
+            #self.local_site = emit.parsimony_ancestral_seq(
+            #    self.local_tree, self.seqs, pos)
+            self.emit_col = emit.calc_emission(self.local_tree, self, pos,
+                                               self.new_name)
             
 
         self.last_pos = pos
@@ -2071,121 +1903,7 @@ class ArgHmm (hmm.HMM):
     def prob_emission(self, pos, state):
 
         self.check_local_tree(pos)
-        node_name, timei = self.states[pos][state]
-        node = self.local_tree[node_name]
-        time = self.times[timei]
-        mu = self.mu
-
-        mintime = self.time_steps[0]
-
-        # v = new chromosome
-        # x = current branch
-        # p = parent of current branch
-
-        #if state == 0:
-        #    ptree, nodes, node_lookup = make_ptree(self.local_tree.get_tree())
-        #    print pos, "".join(self.local_site[x.name] for x in nodes), "'"
-
-        if node.parents:
-            parent = node.parents[0]
-            parent_age = parent.age
-
-            #print "parent.parents", parent.parents
-
-            if not parent.parents:
-                # unwrap top branch
-                c = parent.children
-                sib = (c[1] if node == c[0] else c[0])
-                
-                v = self.seqs[self.new_name][pos]
-                x = self.local_site[node.name]
-                p = self.local_site[sib.name]
-
-                # modify (x,p) length to (x,p) + (sib,p)
-                parent_age = 2 * parent_age - sib.age
-
-            else:
-                v = self.seqs[self.new_name][pos]
-                x = self.local_site[node.name]
-                p = self.local_site[parent.name]
-
-        else:
-            #print "parent", None
-            parent = None
-            parent_age = None
-
-            # adjust time by unwrapping branch
-            time = 2 * time - node.age
-
-            v = self.seqs[self.new_name][pos]
-            x = self.local_site[node.name]
-            p = x
-
-        time = max(time, mintime)
-
-        #print " ", pos, state, v, x, p, "'"
-
-        if v == x == p:
-            # no mutation
-            return - self.mu * time
-
-        elif v != p == x:
-            # mutation on v
-            return log(.33 - .33 * exp(-mu * time))
-
-        elif v == p != x:
-            # mutation on x
-            t1 = max(parent_age - node.age, mintime)
-            t2 = max(time - node.age, mintime)
-
-            return log((1 - exp(-mu *t2)) / (1 - exp(-mu * t1))
-                       * exp(-mu * (time + t2 - t1)))
-
-        elif v == x != p:
-            # mutation on (y,p)
-            t1 = max(parent_age - node.age, mintime)
-            t2 = max(parent_age - time, mintime)
-
-            return log((1 - exp(-mu * t2)) / (1 - exp(-mu * t1))
-                       * exp(-mu * (time + t2 - t1)))
-
-        else:
-            # two mutations (v,x)
-            # mutation on x
-            if parent:
-                t1 = max(parent_age - node.age, mintime)
-                t2a = max(parent_age - time, mintime)
-            else:
-                t1 = max(self.times[-1] - node.age, mintime)
-                t2a = max(self.times[-1] - time, mintime)
-            t2b = max(time - node.age, mintime)
-            t2 = max(t2a, t2b)
-            t3 = time
-
-            return log((1 - exp(-mu *t2)) * (1 - exp(-mu *t3))
-                       / (1 - exp(-mu * t1))
-                       * exp(-mu * (time + t2 + t3 - t1)))
-
-
-    def emit(self, pos, state):
-
-        self.check_local_tree(pos)
-        node_name, timei = self.states[pos][state]
-        time = self.times[timei]
-        base = self.local_site[node_name]
-
-        # sample whether to mutation from an exponential distrib
-        if random.expovariate(self.mu) < time:
-            while True:
-                x = "ACGT"[random.randint(0, 3)]
-                if x != base:
-                    return x
-        else:
-            return base
-        
-            
-            
-
+        return self.emit_col[state]
 
 
 def arghmm_sim(arg, seqs, name=None, times=None,
