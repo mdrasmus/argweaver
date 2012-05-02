@@ -273,6 +273,16 @@ public:
         return (nnodes + 1) / 2;
     }
 
+
+    inline double get_dist(int i) const
+    {
+        LocalNode *node = &nodes[i];
+        if (node->parent == -1)
+            return 0.0;
+        else
+            return nodes[node->parent].age = node->age;
+    }
+
     
     // convenience method for accessing nodes
     inline LocalNode &operator[](int name) 

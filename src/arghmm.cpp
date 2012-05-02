@@ -874,6 +874,12 @@ LocalTrees *arghmm_resample_arg(
     LocalTrees *trees = new LocalTrees(ptrees, ages, sprs, blocklens, 
                                        ntrees, nnodes);
 
+    // sequentially sample until all chromosomes are present
+    // then gibbs
+    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++) {
+        sample_arg_thread(&model, &sequences, trees, new_chrom);
+    }
+
     for (int i=0; i<niters; i++)
         resample_arg(&model, &sequences, trees);
     
