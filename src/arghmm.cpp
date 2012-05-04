@@ -229,7 +229,7 @@ void arghmm_forward_alg_block(
 }
 
 
-
+// TODO: finish
 void arghmm_forward_alg_block3(
     int nleaves, int n, const States &states, int ntimes,
     double **trans, double **emit, double **fw)

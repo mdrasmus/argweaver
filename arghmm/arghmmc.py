@@ -2,6 +2,8 @@
 # C interface for ArgHmm
 #
 
+# python imports
+import time
 
 # rasmus compbio libs
 from rasmus import treelib, util
@@ -160,6 +162,16 @@ if arghmmclib:
     export(arghmmclib, "delete_state_spaces", c_int,
            [POINTER(POINTER(c_int * 2)), "all_states", c_int, "ntrees"])
 
+
+# use a random seed
+arghmmclib.srand(int(time.time()*1000))
+
+
+
+def set_random_seed(num):
+    """Set the C random number generator seed"""
+    arghmmclib.srand(num)
+    
 
 #=============================================================================
 # HMM transition and emission matrices

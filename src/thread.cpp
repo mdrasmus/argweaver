@@ -420,7 +420,7 @@ void remove_arg_thread(LocalTrees *trees, int remove_leaf)
     
     // remove extra branch
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        int pos = it->block.start;
+        //int pos = it->block.start;
         LocalTree *tree = it->tree;
         LocalNode *nodes = tree->nodes;
         
@@ -585,8 +585,8 @@ void remove_arg_thread(LocalTrees *trees, int remove_leaf)
 
     // remove extra trees
     for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
-        int pos = it->block.start;
         
+        // look one tree ahead
         LocalTrees::iterator it2 = it;
         ++it2;
         if (it2 == trees->end()) {
@@ -594,13 +594,12 @@ void remove_arg_thread(LocalTrees *trees, int remove_leaf)
             continue;
         }
 
+        // get spr from next tree
         Spr *spr2 = &it2->spr;
         if (!spr2->is_null()) {
             ++it;
             continue;
         }
-
-        //printf("null SPR %d\n", pos);
 
         // compute transitive mapping
         int *M1 = it->mapping;
