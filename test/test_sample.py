@@ -601,12 +601,12 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 5
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 20000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
         refine = 0
 
@@ -618,8 +618,6 @@ class Sample (unittest.TestCase):
         for i in range(20):
             #arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
             arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
-            arghmm.discretize_arg_recomb(arg)
-            arg = arglib.smcify_arg(arg)
             arg.set_ancestral()
             muts = arglib.sample_arg_mutations(arg, mu)
             seqs = arglib.make_alignment(arg, muts)
@@ -652,7 +650,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 5
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -661,8 +659,6 @@ class Sample (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
         arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
-        arghmm.discretize_arg_recomb(arg)
-        arg = arglib.smcify_arg(arg)
         arg.set_ancestral()
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -712,9 +708,7 @@ class Sample (unittest.TestCase):
         refine = 10
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
-        arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
-        arghmm.discretize_arg_recomb(arg)
-        arg = arglib.smcify_arg(arg)
+        arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
         arg.set_ancestral()
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -770,7 +764,6 @@ class Sample (unittest.TestCase):
         util.tic("plot")
         for i in range(20):
             arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
-            arghmm.discretize_arg_recomb(arg)
             arg.set_ancestral()
             muts = arglib.sample_arg_mutations(arg, mu)
             seqs = arglib.make_alignment(arg, muts)
@@ -811,7 +804,6 @@ class Sample (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
         arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
-        arghmm.discretize_arg_recomb(arg)
         arg.set_ancestral()
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -869,10 +861,10 @@ class Sample (unittest.TestCase):
         util.tic("plot")
         for i in range(20):
             arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
-            arghmm.discretize_arg(arg, times=times)
             arg.set_ancestral()
             muts = arglib.sample_arg_mutations(arg, mu)
             seqs = arglib.make_alignment(arg, muts)
+            arghmm.discretize_arg(arg, times=times)
             
             lk = arghmm.calc_likelihood(arg, seqs, mu=mu, times=times)
 
@@ -911,10 +903,10 @@ class Sample (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
         arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
-        arghmm.discretize_arg(arg, times)
         arg.set_ancestral()
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
+        arghmm.discretize_arg(arg, times)
             
         lk = arghmm.calc_likelihood(arg, seqs, mu=mu, times=times)
         print "real # lk", lk
@@ -969,10 +961,10 @@ class Sample (unittest.TestCase):
         util.tic("plot")
         for i in range(20):
             arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
-            arghmm.discretize_arg(arg, times=times)
             arg.set_ancestral()
             muts = arglib.sample_arg_mutations(arg, mu)
             seqs = arglib.make_alignment(arg, muts)
+            arghmm.discretize_arg(arg, times=times)
             
             lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
 
@@ -1012,11 +1004,12 @@ class Sample (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
         arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
-        arghmm.discretize_arg(arg, times)
         arg.set_ancestral()
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
-            
+        arghmm.discretize_arg(arg, times)
+        
+        
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
         print "real joint", lk
 

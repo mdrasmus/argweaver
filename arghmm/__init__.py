@@ -127,10 +127,10 @@ def discretize_arg(arg, times, ignore_top=True):
     
     for node in arg:
         i, j = util.binsearch(times, node.age)
-        if j is None: j = len(times) - 1
-        node.age = times[j]
-        #if i is None: i = 0
-        #node.age = times[i]
+        #if j is None: j = len(times) - 1
+        #node.age = times[j]
+        if i is None: i = 0
+        node.age = times[i]
 
 
     recombs = [node for node in arg if node.event == "recomb"]

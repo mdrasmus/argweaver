@@ -81,6 +81,21 @@ void sample_hmm_posterior(int n, int nstates, double **trans, double **emit,
 }
 
 
+int sample_hmm_posterior_step(int nstates1, double **trans, double *col1,
+                              int state2)
+{
+    double A[nstates1];
+    
+    for (int j=0; j<nstates1; j++)
+        A[j] = col1[j] + trans[j][state2];
+    double total = logsum(A, nstates1);
+    for (int j=0; j<nstates1; j++)
+        A[j] = exp(A[j] - total);
+    return sample(A, nstates1);
+}
+
+
+
 
 void sample_hmm_posterior2(int n, int nstates, double **trans, double **emit, 
                           double **fw, int *path)

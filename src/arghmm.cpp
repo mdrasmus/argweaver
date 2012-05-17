@@ -453,17 +453,9 @@ void stochastic_traceback(ArgHmmMatrixList *matrix_list,
         // use switch matrix for last col of next block
         if (pos > 0) {
             int i = pos - 1;
-            double A[mat.nstates1];
-            int k = path[i+1];
-            for (int j=0; j<mat.nstates1; j++)
-                A[j] = fw[i][j] + mat.transmat_switch[j][k];
-            double total = logsum(A, mat.nstates1);
-            for (int j=0; j<mat.nstates1; j++)
-                A[j] = exp(A[j] - total);
-            path[i] = sample(A, mat.nstates1);
-            
-            //printf("trace %d, %d %d, %e\n", pos, path[i], k,
-            //       mat.transmat_switch[path[i]][k]);
+            path[i] = sample_hmm_posterior_step(mat.nstates1, 
+                                                mat.transmat_switch, 
+                                                fw[i], path[i+1]);
         }
     }
 }
@@ -521,10 +513,9 @@ void sample_recombinations(
                         1.0 - exp(-model->rho * (treelen2 - treelen)
                               - self_trans), model->rho);
 
+                    // NOTE: the min prevents large floats from overflowing
+                    // when cast to int
                     next_recomb = int(min(float(end), i + expovariate(rate)));
-
-                    //printf("next %d %e %d\n", i, 
-                    //       expovariate(rate), next_recomb);
                 }
 
                 if (i < next_recomb)
@@ -631,14 +622,9 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     sample_recombinations(trees, model, &matrix_list,
                           thread_path, recomb_pos, recombs);
 
-    //printf("sample    : %e s\n", time.time());
-    //time.start();
-
     // add thread to ARG
     add_arg_thread(trees, model->ntimes, thread_path, new_chrom, 
                    recomb_pos, recombs);
-
-    //printf("add       : %e s\n", time.time());
 
     // cleanup
     matrix_list.clear();
