@@ -8,7 +8,7 @@ using namespace spidir;
 
 namespace arghmm {
 
-void calc_transition_probs(LocalTree *tree, ArgModel *model,
+void calc_transition_probs2(LocalTree *tree, ArgModel *model,
                            const States &states, LineageCounts *lineages,
                            double **transprob)
 {
@@ -18,11 +18,8 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
     const double *time_steps = model->time_steps;
     const double *popsizes = model->popsizes;
     const double rho = model->rho;
-
     const int nstates = states.size();
-
-    // TODO: double check useage of treelen and which cases need basal branch
-    // get tree information
+    
     LocalNode *nodes = tree->nodes;
     const int *nbranches = lineages->nbranches;
     const int *nrecombs = lineages->nrecombs;
@@ -70,14 +67,19 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
         const int c = nodes[node1].age;
         
         double treelen2 = treelen + times[a];
+        double treelen2_b;
         if (a > root_age_index) {
+            // add wrapped branch
             treelen2 += times[a] - root_age;
-            treelen2 += time_steps[a]; // add basal branch
+
+            // add basal branch
+            treelen2_b = treelen2 + time_steps[a];
         } else {
-            treelen2 += time_steps[root_age_index]; // add basal branch
+            // add basal branch
+            treelen2_b = treelen2 + time_steps[root_age_index];
         }
 
-        double const F = (1.0 - exp(-rho * treelen2)) / treelen2;
+        double const F = (1.0 - exp(-rho * treelen2)) / treelen2_b;
         
         for (int j=0; j<nstates; j++) {
             const int node2 = states[j].node;
@@ -104,9 +106,10 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
 }
 
 
-void calc_transition_probs_compressed(
-    LocalTree *tree, ArgModel *model, LineageCounts *lineages,
-    double **transprob)
+// This notation matches my math notes
+void calc_transition_probs(LocalTree *tree, ArgModel *model,
+                           const States &states, LineageCounts *lineages,
+                           double **transprob)
 {
     // get model parameters
     const int ntimes = model->ntimes;
@@ -114,10 +117,9 @@ void calc_transition_probs_compressed(
     const double *time_steps = model->time_steps;
     const double *popsizes = model->popsizes;
     const double rho = model->rho;
+    const int nstates = states.size();
     
-    // get tree information
     LocalNode *nodes = tree->nodes;
-    const double treelen = get_treelen(tree, times, ntimes);
     const int *nbranches = lineages->nbranches;
     const int *nrecombs = lineages->nrecombs;
     const int *ncoals = lineages->ncoals;
@@ -127,50 +129,178 @@ void calc_transition_probs_compressed(
     int root = tree->root;
     const int root_age_index = nodes[root].age;
     const double root_age = times[root_age_index];
+    const double treelen = get_treelen(tree, times, ntimes, false);
     
-    // C_j = C_{j-1} + s'_{j-1} k_{j-1} / (2N)
-
-    // B_{c,a} =& \sum_{k=0}^{c} \exp(- A_{k,a})
-    //         =& B_{c-1,a} + \exp(- A_{c,a}).
-
-    // S_{a,b} &= exp(C_b) * B_{min(a,b),b}
+    
     double C[ntimes];
-    double B[ntimes];
     double eC[ntimes];
+    double B[ntimes];
     double D[ntimes];
+    double E[ntimes];
+    double treelen2s[ntimes];
     
+    treelen2s[0] = treelen;
+    double treelen_b = treelen + time_steps[root_age_index];
     C[0] = 0.0;
     eC[0] = 1.0;
     B[0] = nbranches[0] * time_steps[0] / (nrecombs[0] + 1.0);
-    D[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
-                          / (2.0 * popsizes[0]))) / ncoals[0];
+    D[0] = (1.0 - exp(-rho * treelen)) / treelen_b;
+    E[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
+                      / (2.0 * popsizes[0]))) / ncoals[0];
 
     for (int b=1; b<ntimes; b++) {
         const int l = b - 1;
         C[b] = C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
         eC[b] = exp(C[b]);
+
         B[b] = B[b-1] + nbranches[b] * time_steps[b] / 
             (nrecombs[b] + 1.0) * eC[b];
-        D[b] = (1.0 - exp(-time_steps[b] * nbranches[b]
-                          / (2.0 * popsizes[b]))) / ncoals[b];
+
+        double treelen2 = treelen + times[b];
+        double treelen2_b;
+        if (b > root_age_index) {
+            // add wrapped branch
+            treelen2 += times[b] - root_age;
+
+            // add basal branch
+            treelen2_b = treelen2 + time_steps[b];
+        } else {
+            // add basal branch
+            treelen2_b = treelen2 + time_steps[root_age_index];
+        }
+        treelen2s[b] = treelen2;
+        
+        // due to normalization we do not need exp(-rho * treelen)
+        D[b] = (1.0 - exp(-rho * treelen2)) / treelen2_b;
+        E[b] = (1.0 - exp(-time_steps[b] * nbranches[b] / 
+                          (2.0 * popsizes[b]))) / eC[b] / ncoals[b];
     }
 
     
-    for (int a=0; a<ntimes; a++) {
-        double treelen2 = treelen + times[a];
-        if (a > root_age) {
-            treelen2 += times[a] - root_age;
-            treelen2 += time_steps[a]; // add basal branch
-        } else {
-            // TODO: is this double counted?
-            treelen2 += time_steps[root_age_index]; // add basal branch
+    for (int i=0; i<nstates; i++) {
+        const int node1 = states[i].node;
+        const int a = states[i].time;
+        const int c = nodes[node1].age;
+        
+        for (int j=0; j<nstates; j++) {
+            const int node2 = states[j].node;
+            const int b = states[j].time;
+            
+            if (node1 != node2)
+                transprob[i][j] = D[a] * E[b] * B[min(a,b)];
+            else {
+                transprob[i][j] = D[a] * E[b] * (2 * B[min(a,b)] - B[min(c,b)]);
+                if (a == b)
+                    transprob[i][j] += exp(-rho * treelen2s[a]);
+            }
         }
+
+        // normalize and convert to log scale
+        double sum = 0.0;
+        for (int j=0; j<nstates; j++)
+            sum += transprob[i][j];
+        for (int j=0; j<nstates; j++)
+            transprob[i][j] = log(transprob[i][j] / sum);
+    }
+}
+
+
+
+// This notation matches my math notes
+void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
+    const States &states, LineageCounts *lineages,
+    double **transprob)
+{
+    // get model parameters
+    const int ntimes = model->ntimes;
+    const double *times = model->times;
+    const double *time_steps = model->time_steps;
+    const double *popsizes = model->popsizes;
+    const double rho = model->rho;
+    const int nstates = states.size();
+    
+    LocalNode *nodes = tree->nodes;
+    const int *nbranches = lineages->nbranches;
+    const int *nrecombs = lineages->nrecombs;
+    const int *ncoals = lineages->ncoals;
+
+
+    // find root node
+    int root = tree->root;
+    const int root_age_index = nodes[root].age;
+    const double root_age = times[root_age_index];
+    const double treelen = get_treelen(tree, times, ntimes, false);
+    
+    
+    double C[ntimes];
+    double eC[ntimes];
+    double B[ntimes];
+    double D[ntimes];
+    double E[ntimes];
+    double treelen2s[ntimes];
+    
+    treelen2s[0] = treelen;
+    double treelen_b = treelen + time_steps[root_age_index];
+    C[0] = 0.0;
+    eC[0] = 1.0;
+    B[0] = nbranches[0] * time_steps[0] / (nrecombs[0] + 1.0);
+    D[0] = (1.0 - exp(-rho * treelen)) / treelen_b;
+    E[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
+                      / (2.0 * popsizes[0]))) / ncoals[0];
+
+    for (int b=1; b<ntimes; b++) {
+        const int l = b - 1;
+        C[b] = C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
+        eC[b] = exp(C[b]);
+
+        B[b] = B[b-1] + nbranches[b] * time_steps[b] / 
+            (nrecombs[b] + 1.0) * eC[b];
+
+        double treelen2 = treelen + times[b];
+        double treelen2_b;
+        if (b > root_age_index) {
+            // add wrapped branch
+            treelen2 += times[b] - root_age;
+
+            // add basal branch
+            treelen2_b = treelen2 + time_steps[b];
+        } else {
+            // add basal branch
+            treelen2_b = treelen2 + time_steps[root_age_index];
+        }
+        treelen2s[b] = treelen2;
         
-        double const F = (1.0 - exp(-rho * treelen2)) /
-            (exp(-rho * treelen) * treelen2);
+        // due to normalization we do not need exp(-rho * treelen)
+        D[b] = (1.0 - exp(-rho * treelen2)) / treelen2_b;
+        E[b] = (1.0 - exp(-time_steps[b] * nbranches[b] / 
+                          (2.0 * popsizes[b]))) / eC[b] / ncoals[b];
+    }
+
+    
+    for (int i=0; i<nstates; i++) {
+        const int node1 = states[i].node;
+        const int a = states[i].time;
+        const int c = nodes[node1].age;
         
-        for (int b=0; b<ntimes; b++)
-            transprob[a][b] = log(F * D[b] * B[min(a,b)] / eC[b]);
+        for (int j=0; j<nstates; j++) {
+            const int node2 = states[j].node;
+            const int b = states[j].time;
+            
+            if (node1 != node2)
+                transprob[i][j] = D[a] * E[b] * B[min(a,b)];
+            else {
+                transprob[i][j] = D[a] * E[b] * (2 * B[min(a,b)] - B[min(c,b)]);
+                if (a == b)
+                    transprob[i][j] += exp(-rho * treelen2s[a]);
+            }
+        }
+
+        // normalize and convert to log scale
+        double sum = 0.0;
+        for (int j=0; j<nstates; j++)
+            sum += transprob[i][j];
+        for (int j=0; j<nstates; j++)
+            transprob[i][j] = log(transprob[i][j] / sum);
     }
 }
 

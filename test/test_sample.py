@@ -606,7 +606,7 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 20000
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
         refine = 0
 
@@ -652,7 +652,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 8
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -682,7 +682,7 @@ class Sample (unittest.TestCase):
         for i in range(50):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-                                       refine=1)
+                                       refine=5)
             util.toc()
             nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
             y.append(nrecombs2)
@@ -690,8 +690,9 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
+        makedirs("data/sample_arg_recomb2/")
+        write_list("data/sample_arg_recomb2/recombs.txt", [nrecombs] + y)
         p.plot([0, len(y)], [nrecombs, nrecombs], style="lines")
-        
         
         pause()
 
@@ -830,7 +831,7 @@ class Sample (unittest.TestCase):
         for i in range(50):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-                                       refine=1)
+                                       refine=3)
             util.toc()
             arglen2 = arglib.arglen(arg2)
             y.append(arglen2)
@@ -838,6 +839,8 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
+        makedirs("data/sample_arg_treelen2/")
+        write_list("data/sample_arg_treelen2/treelen.txt", [arglen] + y)
         p.plot([0, len(y)], [arglen, arglen], style="lines")
         
         
@@ -857,7 +860,7 @@ class Sample (unittest.TestCase):
         mu = 2.5e-8 * 20
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
-        refine = 0
+        refine = 4
 
         print "times", times
 
@@ -899,7 +902,6 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-
         k = 8
         n = 1e4
         rho = 1.5e-8 * 20
@@ -923,8 +925,9 @@ class Sample (unittest.TestCase):
         arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times)
         util.toc()
         
-        arglen2 = arglib.arglen(arg2)
-        y.append(arglen2)
+        lk2 = arghmm.calc_likelihood(arg2, seqs, mu=mu, times=times)
+        y.append(lk2)
+
 
         for i in range(50):
             util.tic("resample ARG %d" % i)
@@ -937,11 +940,112 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
+        makedirs("data/sample_arg_lk2/")
+        write_list("data/sample_arg_lk2/lk.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
         
         
         pause()
 
+
+    def test_sample_arg_joint(self):
+        """
+        Plot the ARG joint prob from a fully sampled ARG
+        """
+
+        k = 3
+        n = 1e4
+        rho = 1.5e-8 * 20
+        rho2 = rho
+        mu = 2.5e-8 * 20
+        length = 20000
+        times = arghmm.get_time_points(ntimes=20, maxtime=160000)
+        refine = 4
+
+        print "times", times
+
+        rx = []
+        ry = []
+        util.tic("plot")
+        for i in range(20):
+            arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+            arghmm.discretize_arg(arg, times=times)
+            arg.set_ancestral()
+            muts = arglib.sample_arg_mutations(arg, mu)
+            seqs = arglib.make_alignment(arg, muts)
+            
+            lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
+
+            for j in range(3):
+                util.tic("sample ARG %d, %d" % (i, j))
+                arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
+                                         refine=refine)
+                util.toc()
+
+                lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
+                                             times=times)
+                rx.append(lk)
+                ry.append(lk2)
+        util.toc()
+
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
+
+        p = plot(rx, ry,
+                 xlab="true ARG joint probability",
+                 ylab="inferred ARG joint probability")
+        p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
+        
+        pause()
+
+
+
+    def test_sample_arg_joint2(self):
+        """
+        Plot the recombinations from a fully sampled ARG over many Gibb iters
+        """
+        k = 2
+        n = 1e4
+        rho = 1.5e-8 * 20
+        rho2 = rho
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20, maxtime=160000)
+
+        arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+        arghmm.discretize_arg(arg, times)
+        arg.set_ancestral()
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+            
+        lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
+        print "real joint", lk
+
+        y = []
+        
+        util.tic("sample ARG")
+        arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times)
+        util.toc()
+        
+        lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho, times=times)
+        y.append(lk2)
+
+        for i in range(200):
+            util.tic("resample ARG %d" % i)
+            arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
+                                       refine=1)
+            util.toc()
+            lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho, times=times)
+            y.append(lk2)
+            print lk2
+
+        
+        p = plot(y)
+        makedirs("data/sample_arg_joint2/")
+        write_list("data/sample_arg_joint2/joint.txt", [lk] + y)
+        p.plot([0, len(y)], [lk, lk], style="lines")
+        
+        
+        pause()
 
 
     def test_treeset(self):

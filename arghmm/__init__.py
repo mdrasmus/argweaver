@@ -129,6 +129,9 @@ def discretize_arg(arg, times, ignore_top=True):
         i, j = util.binsearch(times, node.age)
         if j is None: j = len(times) - 1
         node.age = times[j]
+        #if i is None: i = 0
+        #node.age = times[i]
+
 
     recombs = [node for node in arg if node.event == "recomb"]
     recombs.sort(key=lambda x: x.pos)
@@ -790,8 +793,8 @@ def calc_transition_probs(tree, states, nlineages, times,
 
     ntimes = len(time_steps)
     minlen = time_steps[0]
-    treelen = get_treelen(tree, times)
-    #treelen = max(sum(x.get_dist() for x in tree), minlen)
+    #treelen = get_treelen(tree, times)
+    treelen = sum(x.get_dist() for x in tree)
     nbranches, nrecombs, ncoals = nlineages
     
     # A_{k,j} =& s'_{j-2} k_{j-1} / (2N) + \sum_{m=k}^{j-2} s'_m k_m / (2N) \\
@@ -831,18 +834,20 @@ def calc_transition_probs(tree, states, nlineages, times,
         c = time_lookup[tree[node1].age]
 
         blen = times[a]
-        treelen2 = treelen + blen
+        treelen2 = treelen + blen        
         if node1 == tree.root.name:
             treelen2 += blen - tree.root.age
-            treelen2 += time_steps[a]
+            treelen2_b = treelen2 + time_steps[a]
+            #treelen2 += time_steps[a]
         else:
-            treelen2 += time_steps[time_lookup[tree.root.age]]
+            treelen2_b = treelen2 + time_steps[time_lookup[tree.root.age]]
+            #treelen2 += time_steps[time_lookup[tree.root.age]]
         
         for j, (node2, b) in enumerate(states):
             f = ((1.0 - exp(-rho * treelen2)) *
                  (1.0 - exp(-time_steps[b] * nbranches[b]
                             / (2.0 * popsizes[b]))) /
-                 (exp(-rho * treelen) * treelen2 * ncoals[b]))
+                 (exp(-rho * treelen) * treelen2_b * ncoals[b]))
             
             if node1 != node2:
                 transprob[i][j] = f * S[a][b]

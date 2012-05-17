@@ -52,13 +52,13 @@ ARGHMM_SRC = \
     src/emit.cpp \
     src/hmm.cpp \
     src/itree.cpp \
-    src/likelihood.cpp \
     src/local_tree.cpp \
     src/logging.cpp \
     src/ptree.cpp \
     src/seq.cpp \
     src/states.cpp \
     src/thread.cpp \
+    src/total_prob.cpp \
     src/trans.cpp
 
 

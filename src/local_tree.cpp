@@ -91,7 +91,8 @@ void count_lineages(LocalTree *tree, int ntimes,
 
 
 // Calculate tree length according to ArgHmm rules
-double get_treelen(const LocalTree *tree, const double *times, int ntimes)
+double get_treelen(const LocalTree *tree, const double *times, int ntimes,
+                   bool use_basal)
 {
     double treelen = 0.0;
     const LocalNode *nodes = tree->nodes;
@@ -101,7 +102,8 @@ double get_treelen(const LocalTree *tree, const double *times, int ntimes)
         int age = nodes[i].age;
         if (parent == -1) {
             // add basal stub
-            treelen += times[age+1] - times[age];
+            if (use_basal)
+                treelen += times[age+1] - times[age];
         } else {
             treelen += times[nodes[parent].age] - times[age];
         }
