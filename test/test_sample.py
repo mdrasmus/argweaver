@@ -601,7 +601,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 4
+        k = 10
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -650,7 +650,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 8
+        k = 7
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -748,7 +748,7 @@ class Sample (unittest.TestCase):
         Plot the ARG length from a fully sampled ARG
         """
 
-        k = 16
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -807,6 +807,7 @@ class Sample (unittest.TestCase):
         arg.set_ancestral()
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
+        #arghmm.discretize_arg(arg, times=times)
             
         arglen = arglib.arglen(arg)
         print "real # arglen %e" % arglen
@@ -831,8 +832,8 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
-        makedirs("data/sample_arg_treelen2/")
-        write_list("data/sample_arg_treelen2/treelen.txt", [arglen] + y)
+        makedirs("data/sample_arg_arglen2/")
+        write_list("data/sample_arg_arglen2/arglen.txt", [arglen] + y)
         p.plot([0, len(y)], [arglen, arglen], style="lines")
         
         

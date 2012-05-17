@@ -56,11 +56,11 @@ inline float expovariate(float lambda)
 // computes log(a + b) given log(a) and log(b)
 inline double logadd(double lna, double lnb)
 {
-    double diff = lna - lnb;
     if (lna == 1.0)
         return lnb;
     if (lnb == 1.0)
         return lna;
+    double diff = lna - lnb;
     if (diff < 500.0)
         return log(exp(diff) + 1.0) + lnb;
     else
@@ -68,9 +68,25 @@ inline double logadd(double lna, double lnb)
 }
 
 
+// subtracting numbers in log-space
+// NOTE: must have lna > lnb
+inline double logsub(double lna, double lnb)
+{
+    double diff = lna - lnb;
+    if (diff < 500) {
+        diff = exp(diff) - 1.0;
+        if (diff == 0.0)
+            return -INFINITY;
+        else
+            return log(diff) + lnb;
+    } else
+        return lna;
+}
+
+
 inline double logsum(double *vals, int nvals)
 {
-    const double SUM_LOG_THRESHOLD = -10;
+    const double SUM_LOG_THRESHOLD = -15;
     double maxval = vals[0];
     int maxi = 0;
 

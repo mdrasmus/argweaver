@@ -222,7 +222,168 @@ def get_basal_length(tree, times, node, time, treelen=None):
         root_time = times[rooti+1] - times[rooti]
     
     return root_time
+
+
+
+def sample_dsmc_sprs(k, n, rho, start=0.0, end=0.0, times=None, init_tree=None,
+                     names=None, make_names=True):
+    """
+    Sample ARG using Discrete Sequentially Markovian Coalescent (SMC)
+
+    k   -- chromosomes
+    n   -- effective population size (haploid)
+    rho -- recombination rate (recombinations / site / generation)
+    start -- staring chromosome coordinate
+    end   -- ending chromsome coordinate
+    t   -- initial time (default: 0)
+    names -- names to use for leaves (default: None)
+    make_names -- make names using strings (default: True)
+    """
+
+    assert times is not None
+
+    # yield initial tree first
+    if init_tree is None:
+        init_tree = sample_arg(k, n, rho=0.0, start=start, end=end,
+                               names=names, make_names=make_names)
+        discretize_arg(init_tree, times, ignore_top=True)
+    yield init_tree
+
+    # sample SPRs
+    pos = start
+    tree = init_tree.copy()
+    while True:
+        # sample next recomb point
+        treelen = sum(x.get_dist() for x in tree)
+        pos += random.expovariate(treelen * rho)
+        if pos > end:
+            break
+
+        # choose branch for recombination
+        p = random.uniform(0.0, treelen)
+        total = 0.0
+        nodes = (x for x in tree if x.parents) # root can't have a recomb
+        for node in nodes:
+            total += node.get_dist()
+            if total > p:
+                break
+        else:
+            raise Exception("could not find recomb node")
+        recomb_node = node
+
+        # choose age for recombination
+        recomb_time = random.uniform(
+            recomb_node.age, recomb_node.parents[0].age)
+
+        # choose coal node and time
+        all_nodes = [x for x in tree if not x.is_leaf()]
+        all_nodes.sort(key=lambda x: x.age)
+        lineages = set(x for x in tree.leaves() if x != recomb_node)
+
+        coal_time = 0.0
+        i = 0
+        #print
+        while i < len(all_nodes):
+            #print coal_time, recomb_node, lineages
+            #treelib.draw_tree_names(tree.get_tree(), scale=1e-3, minlen=5)
+            next_node = all_nodes[i]
+            
+            if next_node.age > recomb_time:
+                if coal_time < recomb_time:
+                    coal_time = recomb_time
+                next_time = coal_time + random.expovariate(
+                    len(lineages) / float(n))
+                
+                if next_time < next_node.age:
+                    coal_time = next_time
+                    
+                    # choose coal branch
+                    coal_node = random.sample(lineages, 1)[0]
+                    assert coal_node.age < coal_time < coal_node.parents[0].age
+                    break
+
+            # coal is older than next node
+            coal_time = next_node.age
+            i += 1
+
+            # adjust current lineages
+            for child in next_node.children:
+                if child in lineages:
+                    lineages.remove(child)
+                else:
+                    assert child == recomb_node, (next_node, child, recomb_node)
+            if next_node != recomb_node:
+                lineages.add(next_node)
+        else:
+            # coal above tree
+            coal_node = all_nodes[-1]
+            coal_time = coal_node.age + random.expovariate(1.0 / float(n))
+        
+        # yield SPR
+        rleaves = list(tree.leaf_names(recomb_node))
+        cleaves = list(tree.leaf_names(coal_node))
+        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
+
+
+        # apply SPR to local tree
+        broken = recomb_node.parents[0]
+        recoal = tree.new_node(age=coal_time,
+                               children=[recomb_node, coal_node])
+
+        # add recoal node to tree
+        recomb_node.parents[0] = recoal
+        broken.children.remove(recomb_node)
+        if coal_node.parents:
+            recoal.parents.append(coal_node.parents[0])
+            util.replace(coal_node.parents[0].children, coal_node, recoal)
+            coal_node.parents[0] = recoal
+        else:
+            coal_node.parents.append(recoal)
+            
+
+        # remove broken node
+        broken_child = broken.children[0]
+        if broken.parents:
+            broken_child.parents[0] = broken.parents[0]
+            util.replace(broken.parents[0].children, broken, broken_child)
+        else:
+            broken_child.parents.remove(broken)
+
+        del tree.nodes[broken.name]
+        tree.set_root()
+
+
+def sample_arg_dsmc(k, n, rho, start=0.0, end=0.0, times=None,
+                    init_tree=None,
+                    names=None, make_names=True):
+    """
+    Returns an ARG sampled from the Discrete Sequentially Markovian Coalescent (SMC)
     
+    k   -- chromosomes
+    n   -- effective population size (haploid)
+    rho -- recombination rate (recombinations / site / generation)
+    start -- staring chromosome coordinate
+    end   -- ending chromsome coordinate
+    
+    names -- names to use for leaves (default: None)
+    make_names -- make names using strings (default: True)
+    """
+
+    if times is None:
+        maxtime = 160000
+        delta = .01
+        ntimes = 20
+        times = get_time_points(ntimes, maxtime, delta)
+    
+    it = arglib.sample_dsmc_sprs(
+        k, n, rho, start=start, end=end, times=times, init_tree=init_tree,
+        names=names, make_names=make_names)
+    tree = it.next()
+    arg = arglib.make_arg_from_sprs(tree, it)
+    discretize_arg(arg, times, ignore_top=True)
+    
+    return arg
+
 
 
 #=============================================================================

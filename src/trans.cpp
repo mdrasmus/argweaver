@@ -109,48 +109,6 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
 
 
 
-// A compressed representation of the transition matrix
-class TransMatrixCompress
-{
-public:
-    TransMatrixCompress(int ntimes, bool alloc=true) :
-        ntimes(ntimes)
-    {
-        if (alloc)
-            allocate(ntimes);
-    }
-
-    ~TransMatrixCompress()
-    {
-        if (own_data) {
-            delete [] B;
-            delete [] D;
-            delete [] E;
-            delete [] norecombs;
-        }
-    }
-
-    void allocate(int ntimes)
-    {
-        ntimes = ntimes;
-        own_data = true;
-        B = new double [ntimes];
-        D = new double [ntimes];
-        E = new double [ntimes];
-        norecombs = new double [ntimes];        
-    }
-
-    int ntimes;
-    bool own_data;
-    double *B;
-    double *D;
-    double *E;
-    double *norecombs;
-};
-
-
-
-
 // This notation matches my math notes
 void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
     LineageCounts *lineages, TransMatrixCompress *matrix)
