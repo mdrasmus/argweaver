@@ -111,9 +111,10 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
 
 // This notation matches my math notes
 void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
-    LineageCounts *lineages, TransMatrixCompress *matrix)
+    const States &states, LineageCounts *lineages, TransMatrixCompress *matrix)
 {
     // get model parameters
+    const int nstates = states.size();
     const int ntimes = model->ntimes;
     const double *times = model->times;
     const double *time_steps = model->time_steps;
@@ -125,11 +126,11 @@ void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
     const int *ncoals = lineages->ncoals;
 
     // get matrix fields
-    double C[ntimes];
     double *B = matrix->B;
     double *D = matrix->D;
     double *E = matrix->E;
     double *norecombs = matrix->norecombs;
+    double *sums = matrix->sums;
 
     // find root node
     int root = tree->root;
@@ -140,7 +141,7 @@ void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
     
     // base cases (time=0)
     double treelen_b = treelen + time_steps[root_age_index];
-    C[0] = 0.0;
+    double C = 0.0;
     B[0] = nbranches[0] * time_steps[0] / (nrecombs[0] + 1.0);
     D[0] = (1.0 - exp(-rho * treelen)) / treelen_b;
     E[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
@@ -165,16 +166,92 @@ void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
 
         // due to normalization we do not need exp(-rho * treelen)
         const int l = b - 1;
-        C[b] = C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
-        double eC = exp(C[b]);
-        B[b] = B[b-1] + nbranches[b] * time_steps[b] / 
-            (nrecombs[b] + 1.0) * eC;
+        C = C + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
+        double eC = exp(C);
+        B[b] = B[b-1] + nbranches[b] * time_steps[b] / (nrecombs[b] + 1.0)*eC;
         D[b] = (1.0 - exp(-rho * treelen2)) / treelen2_b;
         E[b] = (1.0 - exp(-time_steps[b] * nbranches[b] / 
                           (2.0 * popsizes[b]))) / eC / ncoals[b];
         norecombs[b] = exp(-rho * treelen2);
     }
+
+
+    // get max time
+    int maxtime = 0;
+    for (int k=0; k<nstates; k++)
+        if (maxtime < states[k].time)
+            maxtime = states[k].time;
+
+    // get branch ages
+    double ages1[tree->nnodes];
+    double ages2[tree->nnodes];
+    for (int i=0; i<tree->nnodes; i++) {
+        ages1[i] = tree->nodes[i].age;
+        ages2[i] = (tree->root == i) ? 
+            maxtime : tree->nodes[tree->nodes[i].parent].age;
+    }
+
+    // get normalization factors for each row of the transition matrix
+    for (int j=0; j<nstates; j++) {
+        const int node1 = states[j].node;
+        const int a = states[j].time;
+        const int c = tree->nodes[node1].age;
+        double sum = 0.0;
+        
+        for (int b=0; b<ntimes-1; b++)
+            sum += E[b] * B[min(a,b)] * lineages->ncoals[b];
+
+        for (int b=ages1[node1]; b<=ages2[node1]; b++)
+            sum += E[b] * (B[min(a,b)] - B[c]);
+
+        sum *= D[a];
+        sum += norecombs[a];
+        
+        // normalize and convert to log scale
+        sums[j] = sum;
+    }
 }
+
+
+// This notation matches my math notes
+void calc_transition_probs(LocalTree *tree, ArgModel *model,
+                           const States &states, LineageCounts *lineages,
+                           TransMatrixCompress *matrix, double **transprob)
+{
+    // get tree and model information
+    const int nstates = states.size();
+    const LocalNode *nodes = tree->nodes;
+
+    // get matrix fields
+    const double *B = matrix->B;
+    const double *D = matrix->D;
+    const double *E = matrix->E;
+
+    // calculate full state transition matrix
+    for (int i=0; i<nstates; i++) {
+        const int node1 = states[i].node;
+        const int a = states[i].time;
+        const int c = nodes[node1].age;
+        
+        for (int j=0; j<nstates; j++) {
+            const int node2 = states[j].node;
+            const int b = states[j].time;
+            
+            if (node1 != node2)
+                transprob[i][j] = D[a] * E[b] * B[min(a,b)];
+            else {
+                transprob[i][j] = D[a] * E[b] * (2 * B[min(a,b)] - B[min(c,b)]);
+                if (a == b)
+                    transprob[i][j] += matrix->norecombs[a];
+            }
+        }
+
+        // normalize and convert to log scale
+        for (int j=0; j<nstates; j++)
+            transprob[i][j] = log(transprob[i][j] / matrix->sums[i]);
+    }
+}
+
 
 
 
@@ -244,8 +321,7 @@ void get_deterministic_transitions(
                 // coal occurs under us
                 node2 = nodes[node2].parent;
             }
-
-            // DEBUG
+            
             assert(nodes[node2].age <= time1);
             int p = nodes[node2].parent;
             if (p != -1)

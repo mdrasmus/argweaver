@@ -14,8 +14,9 @@ namespace arghmm {
 class TransMatrixCompress
 {
 public:
-    TransMatrixCompress(int ntimes, bool alloc=true) :
+    TransMatrixCompress(int ntimes, int nstates, bool alloc=true) :
         ntimes(ntimes),
+        nstates(nstates),
         own_data(false)
     {
         if (alloc)
@@ -29,6 +30,7 @@ public:
             delete [] D;
             delete [] E;
             delete [] norecombs;
+            delete [] sums;
         }
     }
 
@@ -39,15 +41,39 @@ public:
         B = new double [ntimes];
         D = new double [ntimes];
         E = new double [ntimes];
-        norecombs = new double [ntimes];        
+        norecombs = new double [ntimes];
+        sums = new double [nstates];
     }
 
+
+    inline double get_transition_prob(LocalTree *tree, const States &states, 
+                                      int i, int j)
+    {
+        const int node1 = states[i].node;
+        const int a = states[i].time;
+        const int c = tree->nodes[node1].age;
+        const int node2 = states[j].node;
+        const int b = states[j].time;
+            
+        if (node1 != node2)
+            return D[a] * E[b] * B[min(a,b)] / sums[i];
+        else {
+            double p = D[a] * E[b] * (2 * B[min(a,b)] - B[min(c,b)]);
+            if (a == b)
+                p += norecombs[a];
+            return p / sums[i];
+        }
+    }
+
+
     int ntimes;
+    int nstates;
     bool own_data;
     double *B;
     double *D;
     double *E;
     double *norecombs;
+    double *sums;
 };
 
 
@@ -56,7 +82,10 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
                            double **transprob);
 
 void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
-    LineageCounts *lineages, TransMatrixCompress *matrix);
+    const States &states, LineageCounts *lineages, TransMatrixCompress *matrix);
+void calc_transition_probs(LocalTree *tree, ArgModel *model,
+                           const States &states, LineageCounts *lineages,
+                           TransMatrixCompress *matrix, double **transprob);
 
 void get_deterministic_transitions(
     LocalTree *tree, LocalTree *last_tree, const Spr &spr, int *mapping,

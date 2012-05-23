@@ -32,6 +32,115 @@ def add_node(arg, node, time, pos, event):
 class Sample (unittest.TestCase):
 
 
+    def test_sim_dsmc(self):
+        """
+        Simulate from DSMC
+        """
+
+        k = 5
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 1000
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length)
+        #arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+        makedirs("test/data")
+        arglib.write_arg("test/data/sim_dsmc.arg", arg)
+
+
+    def test_sim_dsmc_cmp_recomb(self):
+        """
+        Simulate from DSMC and compare to SMC
+        """
+
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 10000
+
+        r1 = []; r2 = []
+        for i in range(1, 100):
+            print i
+            arg = arglib.sample_arg_smc(k, 2*n, i/100. * rho,
+                                         start=0, end=length)
+            arg2 = arghmm.sample_arg_dsmc(k, 2*n, i/100. * rho,
+                                         start=0, end=length)
+            r1.append(ilen(j for j in arg if j.event == "recomb"))
+            r2.append(ilen(j for j in arg2 if j.event == "recomb"))
+
+        p = plot(r1, r2, xlab="# recomb SMC", ylab="# recomb DSMC")
+        p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
+        
+        pause()
+        
+
+
+    def test_sim_dsmc_cmp_arglen(self):
+        """
+        Simulate from DSMC and compare to SMC
+        """
+
+        k = 5
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 20000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+
+        l1 = []; l2 = []
+        for i in range(1, 100):
+            print i
+            tic('smc')
+            arg = arglib.sample_arg_smc(k, i/100. * 2*n, rho, 
+                                        start=0, end=length)
+            toc()
+            tic('dsmc')
+            arg2 = arghmm.sample_arg_dsmc(k, i/100. * 2*n, rho,
+                                          start=0, end=length, times=times)
+            toc()
+            l1.append(arglib.arglen(arg))
+            l2.append(arglib.arglen(arg2))
+            
+        p2 = plot(l1, l2, xlab="length SMC", ylab="length DSMC")
+        p2.plot([min(l1), max(l1)], [min(l1), max(l1)], style="lines")
+        
+        pause()
+
+
+    def test_sim_dsmc_seq(self):
+        """
+        Simulate from DSMC and compare to SMC
+        """
+
+        k = 5
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, times=times,
+                                      start=0, end=length)
+        arg.set_ancestral()
+
+        lk = []
+        for i in range(1, 100):
+            print i
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+            seqs = arglib.make_alignment(arg, muts)
+            lk.append(arghmm.calc_likelihood(arg, seqs, mu=mu, times=times))
+
+        lk.sort()
+        plot(lk)
+        #p = plot(r1, r2, xlab="# recomb SMC", ylab="# recomb DSMC")
+        #p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
+        write_list("test/data/lk.txt", lk)
+        
+        pause()
+        
+        
+
     def test_sample_thread(self):
         """
         Sample a thread from the posterior of the ArgHmm
@@ -146,20 +255,23 @@ class Sample (unittest.TestCase):
         Sample recombinations for a true thread
         """
 
-        k = 8
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = 10000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+
 
         rx = []
         ry = []
 
         for i in range(40):
             #arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
-            arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+            #arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
             seqs = dict((l, "A"*length) for l in arg.leaf_names())
-            times = arghmm.get_time_points(ntimes=20, maxtime=160000)
             arghmm.discretize_arg(arg, times)
             
             # count initial recomb count
@@ -184,7 +296,7 @@ class Sample (unittest.TestCase):
 
             # setup model
             model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
-                                  rho=rho, mu=mu)
+                                  popsize=n, rho=rho, mu=mu)
             thread = []
             for leaves, age, block in thread_clades:
                 node = arghmm.arg_lca(arg, leaves, None, block[0]).name
@@ -748,13 +860,13 @@ class Sample (unittest.TestCase):
         Plot the ARG length from a fully sampled ARG
         """
 
-        k = 8
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
         length = 10000
-        times = arghmm.get_time_points(ntimes=20, maxtime=160000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0
 
         print "times", times
@@ -762,7 +874,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(20):
+        for i in range(100):
             arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
             arg.set_ancestral()
             muts = arglib.sample_arg_mutations(arg, mu)
@@ -846,14 +958,14 @@ class Sample (unittest.TestCase):
         Plot the ARG likelihood from a fully sampled ARG
         """
 
-        k = 5
+        k = 2
         n = 1e4
-        rho = 1.5e-8 * 20
+        rho = 1.5e-8 
         rho2 = rho
         mu = 2.5e-8 * 20
         length = 10000
-        times = arghmm.get_time_points(ntimes=20, maxtime=160000)
-        refine = 4
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        refine = 0
 
         print "times", times
 
@@ -862,8 +974,11 @@ class Sample (unittest.TestCase):
         util.tic("plot")
         for i in range(20):
             arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+            #arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+            #                             times=times)
             arg.set_ancestral()
             muts = arglib.sample_arg_mutations(arg, mu)
+            #muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arglib.make_alignment(arg, muts)
             arghmm.discretize_arg(arg, times=times)
             
@@ -895,7 +1010,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 8
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -903,11 +1018,14 @@ class Sample (unittest.TestCase):
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
-        arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+        #arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
         arg.set_ancestral()
-        muts = arglib.sample_arg_mutations(arg, mu)
+        #muts = arglib.sample_arg_mutations(arg, mu)
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
-        arghmm.discretize_arg(arg, times)
+        #arghmm.discretize_arg(arg, times)
             
         lk = arghmm.calc_likelihood(arg, seqs, mu=mu, times=times)
         print "real # lk", lk
@@ -922,7 +1040,7 @@ class Sample (unittest.TestCase):
         y.append(lk2)
 
 
-        for i in range(50):
+        for i in range(200):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
                                        refine=1)
@@ -951,9 +1069,9 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 20000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
-        refine = 4
+        refine = 3
 
         print "times", times
 
@@ -961,11 +1079,14 @@ class Sample (unittest.TestCase):
         ry = []
         util.tic("plot")
         for i in range(20):
-            arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            #arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
             arg.set_ancestral()
-            muts = arglib.sample_arg_mutations(arg, mu)
+            #muts = arglib.sample_arg_mutations(arg, mu)
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arglib.make_alignment(arg, muts)
-            arghmm.discretize_arg(arg, times=times)
+            #arghmm.discretize_arg(arg, times=times)
             
             lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
 
@@ -996,7 +1117,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 2
+        k = 6
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1004,11 +1125,13 @@ class Sample (unittest.TestCase):
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
-        arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+        #arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length)
         arg.set_ancestral()
-        muts = arglib.sample_arg_mutations(arg, mu)
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+        #muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
-        arghmm.discretize_arg(arg, times)
+        #arghmm.discretize_arg(arg, times)
         
         
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)

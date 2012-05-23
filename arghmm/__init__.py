@@ -176,23 +176,20 @@ def discretize_arg_recomb(arg):
             seen.add(node.pos)
             
 
-def get_treelen(tree, times):
+def get_treelen(tree, times, use_basal=True):
     """Calculate tree length"""
     treelen = sum(x.get_dist() for x in tree)
-    rooti = times.index(tree.root.age)
-    root_time = times[rooti+1] - times[rooti]
-    return treelen + root_time
-
-
-def get_treelen_branch(tree, times, node, time, treelen=None):
-    """Calculate tree length with an extra branch"""
-
-    if treelen is None:
-        treelen = sum(x.get_dist() for x in tree)
-    else:
+    if use_basal:
         rooti = times.index(tree.root.age)
         root_time = times[rooti+1] - times[rooti]
-        treelen -= root_time
+        treelen += root_time
+    return treelen
+
+
+def get_treelen_branch(tree, times, node, time, use_basal=True):
+    """Calculate tree length with an extra branch"""
+
+    treelen = sum(x.get_dist() for x in tree)
 
     blen = time
     treelen2 = treelen + blen
@@ -203,11 +200,14 @@ def get_treelen_branch(tree, times, node, time, treelen=None):
     else:
         rooti = times.index(tree.root.age)
         root_time = times[rooti+1] - times[rooti]
-    
-    return treelen2 + root_time
+
+    if use_basal:
+        treelen2 += root_time
+        
+    return treelen2
 
 
-def get_basal_length(tree, times, node, time, treelen=None):
+def get_basal_length(tree, times, node=None, time=None):
     """
     Get basal branch length
     
@@ -225,13 +225,14 @@ def get_basal_length(tree, times, node, time, treelen=None):
 
 
 
-def sample_dsmc_sprs(k, n, rho, start=0.0, end=0.0, times=None, init_tree=None,
+def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None, 
+                     init_tree=None,
                      names=None, make_names=True):
     """
     Sample ARG using Discrete Sequentially Markovian Coalescent (SMC)
 
     k   -- chromosomes
-    n   -- effective population size (haploid)
+    popsize  -- effective population size (haploid)
     rho -- recombination rate (recombinations / site / generation)
     start -- staring chromosome coordinate
     end   -- ending chromsome coordinate
@@ -241,13 +242,22 @@ def sample_dsmc_sprs(k, n, rho, start=0.0, end=0.0, times=None, init_tree=None,
     """
 
     assert times is not None
+    ntimes = len(times) - 1
+    time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]
+    if hasattr(popsize, "__len__"):
+        popsizes = popsize
+    else:
+        popsizes = [popsize] * len(time_steps)
+
 
     # yield initial tree first
     if init_tree is None:
-        init_tree = sample_arg(k, n, rho=0.0, start=start, end=end,
-                               names=names, make_names=make_names)
+        init_tree = arglib.sample_arg(k, popsizes[0],
+                                      rho=0.0, start=start, end=end,
+                                      names=names, make_names=make_names)
         discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
+
 
     # sample SPRs
     pos = start
@@ -255,73 +265,66 @@ def sample_dsmc_sprs(k, n, rho, start=0.0, end=0.0, times=None, init_tree=None,
     while True:
         # sample next recomb point
         treelen = sum(x.get_dist() for x in tree)
-        pos += random.expovariate(treelen * rho)
+        blocklen = 0
+        while blocklen == 0:
+            blocklen = int(random.expovariate(max(treelen * rho, rho)))
+        pos += blocklen
         if pos > end:
             break
 
+        root_age_index = times.index(tree.root.age)
+
+        # choose time interval for recombination
+        states = set(iter_coal_states(tree, times))
+        nbranches, nrecombs, ncoals = get_nlineages_recomb_coal(tree, times)
+        probs = [nbranches[k] * time_steps[k]
+                 for k in range(root_age_index+1)]        
+        recomb_time_index = stats.sample(probs)
+        recomb_time = times[recomb_time_index]
+
         # choose branch for recombination
-        p = random.uniform(0.0, treelen)
-        total = 0.0
-        nodes = (x for x in tree if x.parents) # root can't have a recomb
-        for node in nodes:
-            total += node.get_dist()
-            if total > p:
+        branches = [x for x in states if x[1] == recomb_time_index and
+                    x[0] != tree.root.name]
+        recomb_node = tree[random.sample(branches, 1)[0][0]]
+        
+
+        # choose coal time
+        j = recomb_time_index
+        while j < ntimes - 1:
+            kj = nbranches[j]
+            if (recomb_node.name, j) in states:
+                kj -= 1
+            coal_prob = 1.0 - exp(- time_steps[j] * kj / float(popsizes[j]))
+            if random.random() < coal_prob:
                 break
-        else:
-            raise Exception("could not find recomb node")
-        recomb_node = node
+            j += 1
+        coal_time_index = j
+        coal_time = times[j]
 
-        # choose age for recombination
-        recomb_time = random.uniform(
-            recomb_node.age, recomb_node.parents[0].age)
-
-        # choose coal node and time
-        all_nodes = [x for x in tree if not x.is_leaf()]
-        all_nodes.sort(key=lambda x: x.age)
-        lineages = set(x for x in tree.leaves() if x != recomb_node)
-
-        coal_time = 0.0
-        i = 0
-        #print
-        while i < len(all_nodes):
-            #print coal_time, recomb_node, lineages
-            #treelib.draw_tree_names(tree.get_tree(), scale=1e-3, minlen=5)
-            next_node = all_nodes[i]
-            
-            if next_node.age > recomb_time:
-                if coal_time < recomb_time:
-                    coal_time = recomb_time
-                next_time = coal_time + random.expovariate(
-                    len(lineages) / float(n))
-                
-                if next_time < next_node.age:
-                    coal_time = next_time
-                    
-                    # choose coal branch
-                    coal_node = random.sample(lineages, 1)[0]
-                    assert coal_node.age < coal_time < coal_node.parents[0].age
-                    break
-
-            # coal is older than next node
-            coal_time = next_node.age
-            i += 1
-
-            # adjust current lineages
-            for child in next_node.children:
-                if child in lineages:
-                    lineages.remove(child)
-                else:
-                    assert child == recomb_node, (next_node, child, recomb_node)
-            if next_node != recomb_node:
-                lineages.add(next_node)
-        else:
-            # coal above tree
-            coal_node = all_nodes[-1]
-            coal_time = coal_node.age + random.expovariate(1.0 / float(n))
+        # choose coal node
+        # since coal points collapse, exclude parent node, but allow sibling
+        exclude = []
+        def walk(node):
+            exclude.append(node.name)
+            if node.age == coal_time:
+                for child in node.children:
+                    walk(child)
+        walk(recomb_node)
+        exclude2 = (recomb_node.parents[0].name,
+                    times.index(recomb_node.parents[0].age))
+        branches = [x for x in states if x[1] == coal_time_index and
+                    x[0] not in exclude and x != exclude2]
+        coal_node = tree[random.sample(branches, 1)[0][0]]
         
         # yield SPR
         rleaves = list(tree.leaf_names(recomb_node))
         cleaves = list(tree.leaf_names(coal_node))
+
+        #print
+        #treelib.draw_tree(tree.get_tree(), maxlen=5)
+        #print rleaves, recomb_time
+        #print cleaves, coal_time
+        
         yield pos, (rleaves, recomb_time), (cleaves, coal_time)
 
 
@@ -353,14 +356,14 @@ def sample_dsmc_sprs(k, n, rho, start=0.0, end=0.0, times=None, init_tree=None,
         tree.set_root()
 
 
-def sample_arg_dsmc(k, n, rho, start=0.0, end=0.0, times=None,
+def sample_arg_dsmc(k, popsize, rho, start=0.0, end=0.0, times=None, 
                     init_tree=None,
                     names=None, make_names=True):
     """
     Returns an ARG sampled from the Discrete Sequentially Markovian Coalescent (SMC)
     
     k   -- chromosomes
-    n   -- effective population size (haploid)
+    popsize -- effective population size (haploid)
     rho -- recombination rate (recombinations / site / generation)
     start -- staring chromosome coordinate
     end   -- ending chromsome coordinate
@@ -375,14 +378,38 @@ def sample_arg_dsmc(k, n, rho, start=0.0, end=0.0, times=None,
         ntimes = 20
         times = get_time_points(ntimes, maxtime, delta)
     
-    it = arglib.sample_dsmc_sprs(
-        k, n, rho, start=start, end=end, times=times, init_tree=init_tree,
-        names=names, make_names=make_names)
+    it = sample_dsmc_sprs(
+        k, popsize, rho, start=start, end=end, times=times, 
+        init_tree=init_tree, names=names, make_names=make_names)
     tree = it.next()
     arg = arglib.make_arg_from_sprs(tree, it)
-    discretize_arg(arg, times, ignore_top=True)
+    #discretize_arg(arg, times, ignore_top=True)
     
     return arg
+
+
+def sample_arg_mutations(arg, mu, times):
+    """
+    mu -- mutation rate (mutations/site/gen)
+    """
+
+    mutations = []
+    minlen = times[1]
+
+    for (start, end), tree in arglib.iter_tree_tracks(arg):
+        arglib.remove_single_lineages(tree)
+        for node in tree:
+            if not node.parents:
+                continue
+            blen = max(node.get_dist(), minlen)
+            rate = blen * mu
+            i = start
+            while i < end:
+                i += int(min(random.expovariate(rate), 2*end))
+                if i < end:
+                    t = random.uniform(node.age, node.age + blen)
+                    mutations.append((node, node.parents[0], i, t))
+    return mutations
 
 
 
@@ -999,10 +1026,8 @@ def calc_transition_probs(tree, states, nlineages, times,
         if node1 == tree.root.name:
             treelen2 += blen - tree.root.age
             treelen2_b = treelen2 + time_steps[a]
-            #treelen2 += time_steps[a]
         else:
             treelen2_b = treelen2 + time_steps[time_lookup[tree.root.age]]
-            #treelen2 += time_steps[time_lookup[tree.root.age]]
         
         for j, (node2, b) in enumerate(states):
             f = ((1.0 - exp(-rho * treelen2)) *

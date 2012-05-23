@@ -393,18 +393,16 @@ public:
 
     // iterator for the local trees
     typedef list<LocalTreeSpr>::iterator iterator;
+    typedef list<LocalTreeSpr>::reverse_iterator reverse_iterator;
+
 
     // Returns iterator for first local tree
-    iterator begin()
-    {
-        return trees.begin();
-    }
+    iterator begin() { return trees.begin(); }
+    reverse_iterator rbegin() { return trees.rbegin(); }
 
     // Returns the ending iterator
-    iterator end()
-    {
-        return trees.end();
-    }
+    iterator end() { return trees.end(); }
+    reverse_iterator rend() { return trees.rend(); }
 
     // Returns number of leaves
     inline int get_num_leaves() const

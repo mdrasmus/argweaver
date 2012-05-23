@@ -24,7 +24,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
     minlen = model.time_steps[0]
     
     tree = model.arg.get_marginal_tree(-.5)
-    treelen = arghmm.get_treelen(tree, model.times)
+    treelen = None #arghmm.get_treelen(tree, model.times)
     new_node = model.new_name
     transmat = None
     nstates = 0
@@ -40,7 +40,8 @@ def sample_recombinations_thread(model, thread, use_times=True):
         while r < len(arg_recomb) and arg_recomb[r] < pos:
             r += 1
             tree = model.arg.get_marginal_tree(pos-.5)
-            treelen = arghmm.get_treelen(tree, model.times)
+            treelen = arghmm.get_treelen(tree, model.times, use_basal=False)
+            treelen_b = treelen + arghmm.get_basal_length(tree, model.times)
             nlineages = arghmm.get_nlineages_recomb_coal(tree, model.times)
             nbranches, nrecombs, ncoals = nlineages
 
@@ -65,21 +66,19 @@ def sample_recombinations_thread(model, thread, use_times=True):
         last_node, last_time = last_state
         last_timei = time_lookup[last_time]
         last_tree = tree
-        last_treelen = treelen
         
         if state == last_state:
             if pos > next_recomb:
                 # sample the next recomb pos
+                last_treelen = arghmm.get_treelen(last_tree, model.times,
+                    use_basal=False)
                 last_treelen2 = arghmm.get_treelen_branch(
-                    last_tree, model.times, last_node, last_time)
-
-                b = arghmm.get_basal_length(
-                    last_tree, model.times, last_node, last_time)
-                offset = -b + model.time_steps[time_lookup[last_tree.root.age]]
+                    last_tree, model.times, last_node, last_time,
+                    use_basal=False)
                 
-                rate = max(1.0 - exp(-model.rho * (last_treelen2 - last_treelen
-                                                   + offset)
+                rate = max(1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
                                      - selftrans), model.rho)
+                
                 next_recomb = pos + int(random.expovariate(rate))
                 
             if pos < next_recomb:
@@ -88,7 +87,12 @@ def sample_recombinations_thread(model, thread, use_times=True):
 
         next_recomb = -1
         last_treelen2 = arghmm.get_treelen_branch(
+            last_tree, model.times, last_node, last_time,
+            use_basal=False)
+        last_treelen2_b = last_treelen2 + arghmm.get_basal_length(
             last_tree, model.times, last_node, last_time)
+        #last_treelen2 = arghmm.get_treelen_branch(
+        #    last_tree, model.times, last_node, last_time)
         statei = model.states[pos].index((node, timei))
         selftrans = transmat[statei][statei]
 
@@ -112,11 +116,11 @@ def sample_recombinations_thread(model, thread, use_times=True):
         for recomb in recombs:
             k = recomb[1]
             probs.append((nbranches[k] + 1) * model.time_steps[k] /
-                         (ncoals[j] * (nrecombs[k] + 1.0) * last_treelen2) *
+                         (ncoals[j] * (nrecombs[k] + 1.0) * last_treelen2_b) *
                          (1.0 - exp(-model.time_steps[j] * nbranches[j] /
-                                    (2.0 * model.popsizes[j-1]))) *
+                                    (2.0 * model.popsizes[j]))) *
                          (1.0 - exp(-model.rho * last_treelen2)) *
-                         exp(-C[k] + C[k]))
+                         exp(-C[j] + C[k]))
         recomb_node, recomb_time = recombs[stats.sample(probs)]
         
         if use_times:
