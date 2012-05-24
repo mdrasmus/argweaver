@@ -39,19 +39,21 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
     double B[ntimes];
     double D[ntimes];
     double E[ntimes];
+    double G[ntimes];
     double norecombs[ntimes];
     
     // calculate base case (time=0)
     double treelen_b = treelen + time_steps[root_age_index];
     C[0] = 0.0;
-    B[0] = nbranches[0] * time_steps[0] / (nrecombs[0] + 1.0);
-    D[0] = (1.0 - exp(-rho * treelen)) / treelen_b;
+    B[0] = (nbranches[0] + 1.0) * time_steps[0] / (nrecombs[0] + 1.0);
+    D[0] = (1.0 - exp(-max(rho * treelen, rho))) / treelen_b;
     E[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
                       / (2.0 * popsizes[0]))) / ncoals[0];
-    norecombs[0] = exp(-rho * treelen);
+    G[0] = time_steps[0] / (nrecombs[0] + 1.0);
+    norecombs[0] = exp(-max(rho * treelen, rho));
 
     // calculate all other time points (time>0)
-    for (int b=1; b<ntimes; b++) {
+    for (int b=1; b<ntimes-1; b++) {
         // get tree length
         double treelen2 = treelen + times[b];
         double treelen2_b;
@@ -71,13 +73,15 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
         C[b] = C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
         double eC = exp(C[b]);
 
-        B[b] = B[b-1] + nbranches[b] * time_steps[b] / 
+        B[b] = B[b-1] + (nbranches[b] + 1.0) * time_steps[b] / 
             (nrecombs[b] + 1.0) * eC;
-        D[b] = (1.0 - exp(-rho * treelen2)) / treelen2_b;
+        D[b] = (1.0 - exp(-max(rho * treelen2, rho))) / treelen2_b;
         E[b] = (1.0 - exp(-time_steps[b] * nbranches[b] / 
                           (2.0 * popsizes[b]))) / eC / ncoals[b];
-        norecombs[b] = exp(-rho * treelen2);
+        G[b] = eC * time_steps[b] / (nrecombs[b] + 1.0);
+        norecombs[b] = exp(-max(rho * treelen2, rho));
     }
+    E[ntimes-2] = 1.0 / exp(C[ntimes-2]) / ncoals[ntimes-2];
 
     // calculate full state transition matrix
     for (int i=0; i<nstates; i++) {
@@ -88,11 +92,15 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
         for (int j=0; j<nstates; j++) {
             const int node2 = states[j].node;
             const int b = states[j].time;
+            const double I = float(a <= b);
             
             if (node1 != node2)
-                transprob[i][j] = D[a] * E[b] * B[min(a,b)];
+                transprob[i][j] = D[a] * E[b] * (B[min(a,b)] - I * G[a]);
             else {
-                transprob[i][j] = D[a] * E[b] * (2 * B[min(a,b)] - B[min(c,b)]);
+                double Bc = (c > 0 ? B[c-1] : 0.0);
+
+                transprob[i][j] = D[a] * E[b] * 
+                    (2 * B[min(a,b)] - 2 * I * G[a] - Bc);
                 if (a == b)
                     transprob[i][j] += norecombs[a];
             }
@@ -143,10 +151,10 @@ void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
     double treelen_b = treelen + time_steps[root_age_index];
     double C = 0.0;
     B[0] = nbranches[0] * time_steps[0] / (nrecombs[0] + 1.0);
-    D[0] = (1.0 - exp(-rho * treelen)) / treelen_b;
+    D[0] = (1.0 - exp(-max(rho * treelen, rho))) / treelen_b;
     E[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
                       / (2.0 * popsizes[0]))) / ncoals[0];
-    norecombs[0] = exp(-rho * treelen);
+    norecombs[0] = exp(-max(rho * treelen, rho));
     
     // calculate all other time points (time>0)
     for (int b=1; b<ntimes; b++) {

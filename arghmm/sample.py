@@ -71,7 +71,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
             if pos > next_recomb:
                 # sample the next recomb pos
                 last_treelen = arghmm.get_treelen(last_tree, model.times,
-                    use_basal=False)
+                    use_basal=False)                
                 last_treelen2 = arghmm.get_treelen_branch(
                     last_tree, model.times, last_node, last_time,
                     use_basal=False)
@@ -79,7 +79,14 @@ def sample_recombinations_thread(model, thread, use_times=True):
                 rate = max(1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
                                      - selftrans), model.rho)
                 
+                #vec = arghmm.calc_no_recomb_cond_self(
+                #    last_tree, model.states[pos], nlineages, model.times,
+                #    model.time_steps, model.popsizes, model.rho)
+                #rate2 = 1.0 - vec[statei]
+                #print rate, rate2
+                
                 next_recomb = pos + int(random.expovariate(rate))
+                #next_recomb = pos + int(random.expovariate(rate2))
                 
             if pos < next_recomb:
                 continue

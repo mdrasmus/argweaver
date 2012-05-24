@@ -407,7 +407,102 @@ class Basic (unittest.TestCase):
             norecomb = -model.rho * (treelen2 - treelen)
             
             print trans[a], norecomb, norecomb <= trans[a]
+
+
+    def test_trans2(self):
+        """
+        Calculate transition probabilities for k=2
+
+        Only calculate a single matrix
+        """
+
+        k = 2
+        n = 1e4
+        rho = 1.5e-8 
+        mu = 2.5e-8
+        length = 1000
+        arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+        
+        times = arghmm.get_time_points(10)
+        arghmm.discretize_arg(arg, times)
+        print "recomb", arglib.get_recomb_pos(arg)
+
+        new_name = "n%d" % (k-1)
+        arg = arghmm.make_trunk_arg(0, length, "n0")
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name,
+                              popsize=n, rho=rho, mu=mu,
+                              times=times)
+
+        pos = 10
+        tree = arg.get_marginal_tree(pos)
+        model.check_local_tree(pos, force=True)
+        mat = arghmm.calc_transition_probs(
+            tree, model.states[pos], model.nlineages,
+            model.times, model.time_steps, model.popsizes, rho)
+
+        states = model.states[pos]
+        nstates = len(states)
+
+        def coal(j):
+            return 1.0 - exp(-model.time_steps[j]/(2.0 * n))
+
+        def recoal2(k, j):
+            p = coal(j)
+            for m in range(k, j):
+                p *= 1.0 - coal(m)
+            return p
+
+        def recoal(k, j):
+            if j == nstates-1:
+                return exp(- sum(model.time_steps[m] / (2.0 * n)
+                              for m in range(k, j)))
+            else:
+                return ((1.0 - exp(-model.time_steps[j]/(2.0 * n))) * 
+                        exp(- sum(model.time_steps[m] / (2.0 * n)
+                                  for m in range(k, j))))
+
+        def isrecomb(i):
+            return 1.0 - exp(-max(rho * 2.0 * model.times[i], rho))
+
+        def recomb(i, k):
+            treelen = 2*model.times[i] + model.time_steps[i]
+            if k < i:
+                return 2.0 * model.time_steps[k] / treelen
+            else:
+                return model.time_steps[k] / treelen
+
+        def trans(i, j):
+            a = states[i][1]
+            b = states[j][1]
+            p = isrecomb(a) * sum(recoal(k, b) * recomb(a, k)
+                                  for k in range(0, min(a, b)+1))
+            if i == j:
+                p += 1.0 - isrecomb(a)
+            return p
+        
+        
+        for i in range(len(states)):
+            for j in range(len(states)):                
+                print i, j, mat[i][j], log(trans(i, j))
+                fequal(mat[i][j], log(trans(i, j)))
             
+
+            # recombs add up to 1
+            fequal(sum(recomb(i, k) for k in range(i+1)), 1.0)
+
+            # recoal add up to 1
+            fequal(sum(recoal(i, j) for j in range(i, nstates)), 1.0)
+
+            # recomb * recoal add up to 1
+            fequal(sum(sum(recoal(k, j) * recomb(i, k)
+                           for k in range(0, min(i, j)+1))
+                       for j in range(0, nstates)), 1.0)
+
+            fequal(sum(trans(i, j) for j in range(len(states))), 1.0)
+
+
 
     def test_trans_switch(self):
         """
@@ -504,7 +599,8 @@ class Basic (unittest.TestCase):
         arg = arglib.smcify_arg(arg)
         print "recomb", arglib.get_recomb_pos(arg)
 
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+                              mu=mu, rho=rho, popsize=n)
 
         i = 1
         nstates1 = model.get_num_states(i-1)
@@ -522,7 +618,11 @@ class Basic (unittest.TestCase):
 
             for a in xrange(nstates1):
                 for b in xrange(nstates1):
-                    fequal(trans[a][b], trans2[a][b])
+                    try:
+                        fequal(trans[a][b], trans2[a][b])
+                    except:
+                        print a, b, trans[a][b], trans2[a][b]
+                        raise
                     
             nstates1 = nstates2
 

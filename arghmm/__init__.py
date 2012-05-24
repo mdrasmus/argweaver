@@ -87,6 +87,8 @@ def get_nlineages_recomb_coal(tree, times):
     """
     Count the number of lineages at each time point that can coal and recomb
     """
+
+    # TODO: is nrecombs including basal point?  It shouldn't
     
     nbranches = [0 for i in times]
     nrecombs = [0 for i in times]
@@ -278,7 +280,8 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         states = set(iter_coal_states(tree, times))
         nbranches, nrecombs, ncoals = get_nlineages_recomb_coal(tree, times)
         probs = [nbranches[k] * time_steps[k]
-                 for k in range(root_age_index+1)]        
+                 for k in range(root_age_index+1)]
+        #assert sum(probs) == get_treelen(tree, times)
         recomb_time_index = stats.sample(probs)
         recomb_time = times[recomb_time_index]
 
@@ -286,21 +289,24 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         branches = [x for x in states if x[1] == recomb_time_index and
                     x[0] != tree.root.name]
         recomb_node = tree[random.sample(branches, 1)[0][0]]
-        
+
+        #treelib.draw_tree_names(tree.get_tree(), minlen=5, maxlen=5)
 
         # choose coal time
         j = recomb_time_index
         while j < ntimes - 1:
             kj = nbranches[j]
-            if (recomb_node.name, j) in states:
+            if ((recomb_node.name, j) in states and
+                recomb_node.parents[0].age > times[j]):
                 kj -= 1
+            assert kj > 0, (j, root_age_index, states)
             coal_prob = 1.0 - exp(- time_steps[j] * kj / float(popsizes[j]))
             if random.random() < coal_prob:
                 break
             j += 1
         coal_time_index = j
         coal_time = times[j]
-
+        
         # choose coal node
         # since coal points collapse, exclude parent node, but allow sibling
         exclude = []
@@ -326,7 +332,7 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         #print cleaves, coal_time
         
         yield pos, (rleaves, recomb_time), (cleaves, coal_time)
-
+        
 
         # apply SPR to local tree
         broken = recomb_node.parents[0]
@@ -355,6 +361,8 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         del tree.nodes[broken.name]
         tree.set_root()
 
+        #print root_age_index == times.index(tree.root.age)
+
 
 def sample_arg_dsmc(k, popsize, rho, start=0.0, end=0.0, times=None, 
                     init_tree=None,
@@ -363,7 +371,7 @@ def sample_arg_dsmc(k, popsize, rho, start=0.0, end=0.0, times=None,
     Returns an ARG sampled from the Discrete Sequentially Markovian Coalescent (SMC)
     
     k   -- chromosomes
-    popsize -- effective population size (haploid)
+    popsize -- effective population size
     rho -- recombination rate (recombinations / site / generation)
     start -- staring chromosome coordinate
     end   -- ending chromsome coordinate
@@ -979,6 +987,164 @@ def calc_A_matrix(time_steps, nbranches, popsizes):
 def calc_transition_probs(tree, states, nlineages, times,
                           time_steps, popsizes, rho):
 
+    nstates = len(states)
+    ntimes = len(time_steps)
+    minlen = time_steps[0]
+    treelen = sum(x.get_dist() for x in tree)
+    nbranches, nrecombs, ncoals = nlineages
+
+    # calculate base case (time=0)
+    root_age_index = times.index(tree.root.age)
+    treelen_b = treelen + time_steps[root_age_index];
+    C = [0.0]
+    B = [(nbranches[0] + 1) * time_steps[0] / (nrecombs[0] + 1.0)]
+    D = [(1.0 - exp(-max(rho * treelen, rho))) / treelen_b]
+    E = [(1.0 - exp(-time_steps[0] * nbranches[0]
+                    / (2.0 * popsizes[0]))) / ncoals[0]]
+    G = [time_steps[0] / (nrecombs[0] + 1.0)]
+    norecombs = [exp(-max(rho * treelen, rho))]
+
+    # calculate all other time points (time>0)
+    for b in range(1, ntimes-1):
+        # get tree length
+        treelen2 = treelen + times[b]
+        if b > root_age_index:
+            # add wrapped branch
+            treelen2 += times[b] - tree.root.age
+
+            # add basal branch
+            treelen2_b = treelen2 + time_steps[b]
+        else:
+            # add basal branch
+            treelen2_b = treelen2 + time_steps[root_age_index]
+
+        # due to normalization we do not need exp(-rho * treelen)
+        l = b - 1;
+        C.append(C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]))
+        eC = exp(C[b])
+
+        B.append(B[b-1] + (nbranches[b] + 1.0) * time_steps[b] / 
+                 (nrecombs[b] + 1.0) * eC)
+        D.append((1.0 - exp(-max(rho * treelen2, rho))) / treelen2_b)
+        E.append((1.0 - exp(-time_steps[b] * nbranches[b] / 
+                            (2.0 * popsizes[b]))) / eC / ncoals[b])
+        G.append(eC * time_steps[b] / (nrecombs[b] + 1.0))
+        norecombs.append(exp(-max(rho * treelen2, rho)))
+    E[ntimes-2] = exp(-C[ntimes-2]) / ncoals[ntimes-2]
+    
+
+    # calculate full state transition matrix
+    transprob = util.make_matrix(nstates, nstates, 0.0)
+    for i in range(nstates):
+        node1, a = states[i]
+        c = times.index(tree[node1].age)
+        
+        for j in range(nstates):
+            node2, b = states[j]
+            I = float(a <= b)
+            
+            if node1 != node2:
+                transprob[i][j] = D[a] * E[b] * (B[min(a,b)] - I * G[a])
+            else:
+                #print "t", a, b, D[a], E[b], B[min(a,b)], norecombs[a], time_steps[:a]
+                Bc = B[c-1] if c > 0 else 0.0
+                transprob[i][j] = D[a] * E[b] * \
+                    (2 * B[min(a,b)] - 2 * I * G[a] - Bc)
+                if a == b:
+                    transprob[i][j] += norecombs[a]
+
+        # normalize and convert to log scale
+        s = sum(transprob[i])
+        for j in range(nstates):
+            transprob[i][j] = log(transprob[i][j] / s)
+
+    return transprob
+
+
+def calc_no_recomb_cond_self(tree, states, nlineages, times,
+                             time_steps, popsizes, rho):
+
+    nstates = len(states)
+    ntimes = len(time_steps)
+    minlen = time_steps[0]
+    treelen = sum(x.get_dist() for x in tree)
+    nbranches, nrecombs, ncoals = nlineages
+
+    # calculate base case (time=0)
+    root_age_index = times.index(tree.root.age)
+    treelen_b = treelen + time_steps[root_age_index];
+    C = [0.0]
+    B = [(nbranches[0] + 1) * time_steps[0] / (nrecombs[0] + 1.0)]
+    D = [(1.0 - exp(-max(rho * treelen, rho))) / treelen_b]
+    E = [(1.0 - exp(-time_steps[0] * nbranches[0]
+                    / (2.0 * popsizes[0]))) / ncoals[0]]
+    G = [time_steps[0] / (nrecombs[0] + 1.0)]
+    norecombs = [exp(-max(rho * treelen, rho))]
+
+    # calculate all other time points (time>0)
+    for b in range(1, ntimes-1):
+        # get tree length
+        treelen2 = treelen + times[b]
+        if b > root_age_index:
+            # add wrapped branch
+            treelen2 += times[b] - tree.root.age
+
+            # add basal branch
+            treelen2_b = treelen2 + time_steps[b]
+        else:
+            # add basal branch
+            treelen2_b = treelen2 + time_steps[root_age_index]
+
+        # due to normalization we do not need exp(-rho * treelen)
+        l = b - 1;
+        C.append(C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]))
+        eC = exp(C[b])
+
+        B.append(B[b-1] + (nbranches[b] + 1.0) * time_steps[b] / 
+                 (nrecombs[b] + 1.0) * eC)
+        D.append((1.0 - exp(-max(rho * treelen2, rho))) / treelen2_b)
+        E.append((1.0 - exp(-time_steps[b] * nbranches[b] / 
+                            (2.0 * popsizes[b]))) / eC / ncoals[b])
+        G.append(eC * time_steps[b] / (nrecombs[b] + 1.0))
+        norecombs.append(exp(-max(rho * treelen2, rho)))
+    E[ntimes-2] = exp(-C[ntimes-2]) / ncoals[ntimes-2]
+    
+
+    # calculate full state transition matrix
+    transprob = util.make_matrix(nstates, nstates, 0.0)
+    vec = []
+    for i in range(nstates):
+        node1, a = states[i]
+        c = times.index(tree[node1].age)
+        
+        for j in range(nstates):
+            node2, b = states[j]
+            I = float(a <= b)
+            
+            if node1 != node2:
+                transprob[i][j] = D[a] * E[b] * (B[min(a,b)] - I * G[a])
+            else:
+                #print "t", a, b, D[a], E[b], B[min(a,b)], norecombs[a], time_steps[:a]
+                Bc = B[c-1] if c > 0 else 0.0
+                transprob[i][j] = D[a] * E[b] * \
+                    (2 * B[min(a,b)] - 2 * I * G[a] - Bc)
+                if a == b:
+                    transprob[i][j] += norecombs[a]
+
+        # normalize and convert to log scale
+        #s = sum(transprob[i])
+        #for j in range(nstates):
+        #    transprob[i][j] = log(transprob[i][j] / s)
+
+        vec.append(norecombs[a] / transprob[i][i])
+
+    return vec
+
+
+'''
+def calc_transition_probs2(tree, states, nlineages, times,
+                          time_steps, popsizes, rho):
+
     ntimes = len(time_steps)
     minlen = time_steps[0]
     #treelen = get_treelen(tree, times)
@@ -1030,17 +1196,19 @@ def calc_transition_probs(tree, states, nlineages, times,
             treelen2_b = treelen2 + time_steps[time_lookup[tree.root.age]]
         
         for j, (node2, b) in enumerate(states):
-            f = ((1.0 - exp(-rho * treelen2)) *
-                 (1.0 - exp(-time_steps[b] * nbranches[b]
-                            / (2.0 * popsizes[b]))) /
+            f = ((1.0 - exp(-max(rho * treelen2, rho))) /
                  (exp(-rho * treelen) * treelen2_b * ncoals[b]))
+            if b < ntimes-1:
+                f *= (1.0 - exp(-time_steps[b] * nbranches[b]
+                               / (2.0 * popsizes[b])))
             
             if node1 != node2:
                 transprob[i][j] = f * S[a][b]
             else:
+                print "S", a, b, S[a][b]
                 transprob[i][j] = f * (2*S[a][b] - S[c][b])
                 if a == b:
-                    transprob[i][j] += exp(-rho * (treelen2 - treelen))
+                    transprob[i][j] += exp(-max(rho * (treelen2 - treelen), rho))
 
         # normalize row to sum to one
         tot = sum(transprob[i])
@@ -1050,7 +1218,7 @@ def calc_transition_probs(tree, states, nlineages, times,
         #    transprob[i][j] = util.safelog(transprob[i][j])
 
     return transprob
-
+'''
 
 
 def calc_transition_probs_switch(tree, last_tree, recomb_name,

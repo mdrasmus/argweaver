@@ -1,5 +1,54 @@
 
 
+def calc_transition_probs_2chroms(tree, states, nlineages, times,
+                                  time_steps, popsizes, rho):
+    """
+    Special case when n=2
+    """
+
+    def coal(j):
+        return 1.0 - exp(-time_steps[j]/(2.0 * n))
+
+    def recoal2(k, j):
+        p = coal(j)
+        for m in range(k, j):
+            p *= 1.0 - coal(m)
+        return p
+
+    def recoal(k, j):
+        if j == nstates-1:
+            return exp(- sum(time_steps[m] / (2.0 * n)
+                          for m in range(k, j)))
+        else:
+            return ((1.0 - exp(-time_steps[j]/(2.0 * n))) * 
+                    exp(- sum(time_steps[m] / (2.0 * n)
+                              for m in range(k, j))))
+
+    def isrecomb(i):
+        return 1.0 - exp(-max(rho * 2.0 * times[i], rho))
+
+    def recomb(i, k):
+        treelen = 2*times[i] + time_steps[i]
+        if k < i:
+            return 2.0 * time_steps[k] / treelen
+        else:
+            return time_steps[k] / treelen
+
+    def trans(i, j):
+        a = states[i][1]
+        b = states[j][1]
+        p = isrecomb(a) * sum(recoal(k, b) * recomb(a, k)
+                              for k in range(0, min(a, b)+1))
+        if i == j:
+            p += 1.0 - isrecomb(a)
+        return p
+
+    nstates = len(states)
+    transprobs = [[trans(i, j) for j in range(nstates)]
+                  for i in range(nstates)]
+    return transprobs
+        
+
 
 def calc_transition_probs_switch2(tree, last_tree, recomb_name,
                                  states1, states2,

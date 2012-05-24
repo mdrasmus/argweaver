@@ -178,6 +178,8 @@ public:
         
             // calculate transmat and use it for rest of block
             transmat = new_matrix<double>(nstates, nstates);
+
+            /*
             transmat_compress = new TransMatrixCompress(model->ntimes, nstates);
             calc_transition_probs_compress(tree, model, *states, &lineages, 
                                            transmat_compress);
@@ -187,14 +189,14 @@ public:
             // store matrices
             matrices.push_back(ArgHmmMatrices(nstates1, nstates2, blocklen,
             transmat_compress, transmat, transmat_switch, emit));
+            */
 
-            /*
+
             calc_transition_probs(tree, model, *states, &lineages, transmat);
 
             // store matrices
             matrices.push_back(ArgHmmMatrices(nstates1, nstates2, blocklen,
                 transmat, transmat_switch, emit));
-            */
 
             // update pointers
             last_tree = tree;
@@ -1169,7 +1171,8 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     
     // compute forward table
     //time.start();
-    arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, fw);
+    arghmm_forward_alg(trees, model, sequences, &matrix_list, fw);
+    //arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, fw);
     //printf("forward: %e s\n", time.time());
 
 
@@ -1276,8 +1279,8 @@ double **arghmm_forward_alg(
     ArgHmmMatrixList matrix_list;
     matrix_list.setup(&model, &sequences, &trees);
 
-    return arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list);
-    //return arghmm_forward_alg(&trees, &model, &sequences, fw);
+    //return arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list);
+    return arghmm_forward_alg(&trees, &model, &sequences, fw);
 }
 
 
