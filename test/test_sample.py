@@ -722,7 +722,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 3
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho

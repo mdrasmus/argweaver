@@ -29,6 +29,8 @@ void make_intstates(States states, intstate *istates)
 // Returns the possible coalescing states for a tree
 //
 // NOTE: Do not allow coalescing at top time
+// states for the same branch are clustered together and ages are given
+// in increasing order
 void get_coal_states(LocalTree *tree, int ntimes, States &states)
 {
     states.clear();

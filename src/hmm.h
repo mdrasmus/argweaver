@@ -15,7 +15,7 @@ void forward_alg(int n, int nstates,
                  double **trans, double **emit, double **fw);
 void backward_alg(int n, int nstates,
                   double **trans, double **emit, double **bw);
-void sample_hmm_posterior(int n, int nstates, double **trans, double **emit, 
+void sample_hmm_posterior(int n, int nstates, double **trans, 
                           double **fw, int *path);
 int sample_hmm_posterior_step(int nstates1, double **trans, double *col1,
                               int state2);
