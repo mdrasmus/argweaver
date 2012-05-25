@@ -690,11 +690,11 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 100
+        k = 10
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 50000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20)
         refine = 0
         

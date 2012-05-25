@@ -92,6 +92,9 @@ inline double logsub(double lna, double lnb)
 inline double logsum(double *vals, int nvals)
 {
     const double SUM_LOG_THRESHOLD = -15;
+    if (nvals == 0)
+        return 1.0;
+
     double maxval = vals[0];
     int maxi = 0;
 

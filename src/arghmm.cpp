@@ -91,7 +91,10 @@ class ArgHmmMatrixList
 {
 public:
     ArgHmmMatrixList() {}
-    ~ArgHmmMatrixList() {}
+    ~ArgHmmMatrixList() 
+    {
+        clear();
+    }
     
     void setup(ArgModel *model, Sequences *seqs, LocalTrees *trees, 
                int new_chrom=-1, bool calc_transmat=true)
@@ -145,7 +148,6 @@ public:
             double **emit = NULL;
             if (seqs) {
                 for (int i=0; i<nseqs-1; i++)
-                    //subseqs[i] = &seqs[i][pos];
                     subseqs[i] = &seqs[trees->seqids[i]][pos];
                 subseqs[nseqs-1] = &seqs[new_chrom][pos];
                 emit = new_matrix<double>(blocklen, nstates);
@@ -159,23 +161,22 @@ public:
             if (!last_states) {
                 transmat_switch = NULL;
                 nstates1 = nstates2 = nstates;
-                lineages.count(tree);
+                
             } else {
                 nstates1 = last_states->size();
-                nstates2 = states->size();
-            
+                nstates2 = nstates;
+                // NOTE: lineages are already set for last_tree
+                
                 // calculate transmat_switch
-                lineages.count(last_tree);
                 transmat_switch = new_matrix<double>(nstates1, nstates2);
-            
                 calc_transition_probs_switch(
                     tree, last_tree, it->spr, it->mapping,
                     *last_states, *states,
                     model, &lineages, transmat_switch);
-
-                // update lineages to current tree
-                lineages.count(tree);
             }
+
+            // update lineages to current tree
+            lineages.count(tree);
         
             // calculate transmat and use it for rest of block
             transmat_compress = new TransMatrixCompress(model->ntimes, nstates);
@@ -878,19 +879,20 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     time.start();
     //arghmm_forward_alg(trees, model, sequences, &matrix_list, fw);
     arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, fw);
-    printf("forward:     %e s  (%d states)\n", time.time(),
-           matrix_list.matrices[0].nstates2);
+    printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
+           matrix_list.matrices[0].nstates2,
+           (int) matrix_list.matrices.size());
 
 
     // traceback
-    //time.start();
+    time.start();
     //stochastic_traceback(&matrix_list, fw, thread_path, sequences->seqlen);
     stochastic_traceback_fast(trees, model, &matrix_list, fw, 
                               thread_path, sequences->seqlen);
-    //printf("trace:       %e s\n", time.time());
+    printf("trace:       %e s\n", time.time());
 
 
-    //time.start();
+    time.start();
 
     // sample recombination points
     vector<int> recomb_pos;
@@ -902,7 +904,7 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     add_arg_thread(trees, model->ntimes, thread_path, new_chrom, 
                    recomb_pos, recombs);
 
-    //printf("add thread: %e s\n", time.time());
+    printf("add thread: %e s\n", time.time());
 
     // cleanup
     matrix_list.clear();
