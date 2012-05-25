@@ -29,6 +29,7 @@ public:
             delete [] B;
             delete [] D;
             delete [] E;
+            delete [] G;
             delete [] norecombs;
             delete [] sums;
         }
@@ -41,6 +42,7 @@ public:
         B = new double [ntimes];
         D = new double [ntimes];
         E = new double [ntimes];
+        G = new double [ntimes];
         norecombs = new double [ntimes];
         sums = new double [nstates];
     }
@@ -54,11 +56,12 @@ public:
         const int c = tree->nodes[node1].age;
         const int node2 = states[j].node;
         const int b = states[j].time;
+        const double I = float(a <= b);
             
         if (node1 != node2)
-            return D[a] * E[b] * B[min(a,b)] / sums[i];
+            return D[a] * E[b] * (B[min(a,b)] - I * G[a]) / sums[i];
         else {
-            double p = D[a] * E[b] * (2 * B[min(a,b)] - B[min(c,b)]);
+            double p = D[a] * E[b] * (2*B[min(a,b)] - 2*I*G[a] - B[min(c,b)]);
             if (a == b)
                 p += norecombs[a];
             return p / sums[i];
@@ -72,6 +75,7 @@ public:
     double *B;
     double *D;
     double *E;
+    double *G;
     double *norecombs;
     double *sums;
 };

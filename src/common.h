@@ -8,6 +8,8 @@
 #include <assert.h>
 #include <algorithm>
 
+#include "t2exp.h"
+
 using namespace std;
 
 namespace spidir {
@@ -17,6 +19,9 @@ namespace spidir {
 #   define INFINITY 1e1000
 #endif
 
+#ifndef t2exp
+#   define t2exp exp
+#endif
 
 // indexing a matrix stored as a single array (row-major)
 // m: number of columns
@@ -104,7 +109,7 @@ inline double logsum(double *vals, int nvals)
     double expsum = 0.0;
     for (int i=0; i<nvals; i++)
         if (vals[i] - maxval > SUM_LOG_THRESHOLD)
-            expsum += exp(vals[i] - maxval);
+            expsum += t2exp(vals[i] - maxval);
   
     return maxval + log(expsum);        
 }

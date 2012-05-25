@@ -59,7 +59,8 @@ ARGHMM_SRC = \
     src/states.cpp \
     src/thread.cpp \
     src/total_prob.cpp \
-    src/trans.cpp
+    src/trans.cpp \
+    src/t2exp.cpp
 
 
 ARGHMM_OBJS = $(ARGHMM_SRC:.cpp=.o)

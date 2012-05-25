@@ -690,11 +690,11 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 10
+        k = 100
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 50000
         times = arghmm.get_time_points(ntimes=20)
         refine = 0
         
@@ -711,7 +711,9 @@ class Sample (unittest.TestCase):
                                  refine=refine)
         util.toc()
 
-        arg2.write("test/data/sample_arg2_out.arg")
+        print ilen(x for x in arg2 if x.event == "recomb")
+
+        #arg2.write("test/data/sample_arg2_out.arg")
         
 
 
@@ -720,7 +722,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 12
+        k = 3
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -778,7 +780,7 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 20000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
 
         #arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)

@@ -94,16 +94,17 @@ public:
     ~ArgHmmMatrixList() {}
     
     void setup(ArgModel *model, Sequences *seqs, LocalTrees *trees, 
-               int new_chrom=-1)
+               int new_chrom=-1, bool calc_transmat=true)
     {
         if (new_chrom == -1)
             new_chrom = trees->get_num_leaves();
-        setup(model, seqs, trees, trees->begin(), trees->end(), new_chrom);
+        setup(model, seqs, trees, trees->begin(), trees->end(), new_chrom,
+              calc_transmat);
     }
 
     void setup(ArgModel *_model, Sequences *_seqs, LocalTrees *trees,
                LocalTrees::iterator start, LocalTrees::iterator end, 
-               int new_chrom)
+               int new_chrom, bool calc_transmat=true)
     {
         model = _model;
         char **seqs = NULL;
@@ -177,26 +178,29 @@ public:
             }
         
             // calculate transmat and use it for rest of block
-            transmat = new_matrix<double>(nstates, nstates);
-
-            /*
             transmat_compress = new TransMatrixCompress(model->ntimes, nstates);
             calc_transition_probs_compress(tree, model, *states, &lineages, 
                                            transmat_compress);
-            calc_transition_probs(tree, model, *states, &lineages,
-                                  transmat_compress, transmat);
+            if (calc_transmat) {
+                transmat = new_matrix<double>(nstates, nstates);
+                calc_transition_probs(tree, model, *states, &lineages,
+                                      transmat_compress, transmat);
+            } else {
+                transmat = NULL;
+            }
 
             // store matrices
             matrices.push_back(ArgHmmMatrices(nstates1, nstates2, blocklen,
             transmat_compress, transmat, transmat_switch, emit));
-            */
-
-
+            
+            // non-compressed version
+            /*
             calc_transition_probs(tree, model, *states, &lineages, transmat);
 
             // store matrices
             matrices.push_back(ArgHmmMatrices(nstates1, nstates2, blocklen,
                 transmat, transmat_switch, emit));
+            */
 
             // update pointers
             last_tree = tree;
@@ -265,308 +269,6 @@ void arghmm_forward_alg_block(
 
 
 
-void arghmm_forward_alg_block_fast2(LocalTree *tree, ArgModel *model, 
-                                   int blocklen, const States &states, 
-                                   double **emit, double **fw)
-{
-    const int nstates = states.size();
-    const int ntimes = model->ntimes;
-    LocalNode *nodes = tree->nodes;
-    
-    TransMatrixCompress matrix(ntimes, nstates);
-    LineageCounts lineages(ntimes);
-    lineages.count(tree);
-    calc_transition_probs_compress(tree, model, states, &lineages, &matrix);
-    
-    const double *B = matrix.B;
-    const double *D = matrix.D;
-    const double *E = matrix.E;
-    const double *norecombs = matrix.norecombs;
-    
-
-    double lnorecombs[ntimes];
-    //double **tmatrix = new_matrix<double>(ntimes, ntimes);
-    //double **tmatrix2 = new_matrix<double>(ntimes, nstates);
-    double tmatrix[ntimes][ntimes];
-    double tmatrix2[ntimes][nstates];
-    for (int a=0; a<ntimes-1; a++) {
-        lnorecombs[a] = log(norecombs[a]);
-
-        for (int b=0; b<ntimes-1; b++)
-            tmatrix[a][b] = log(D[a] * E[b] * B[min(a,b)]);
-
-        for (int k=0; k<nstates; k++) {
-            const int b = states[k].time;
-            const int node2 = states[k].node;
-            const double Bc = B[nodes[node2].age];
-            tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)] - Bc));
-        }
-    }
-
-
-
-    // get max time
-    int maxtime = 0;
-    for (int k=0; k<nstates; k++)
-        if (maxtime < states[k].time)
-            maxtime = states[k].time;
-
-    // get branch ages
-    double ages1[tree->nnodes];
-    double ages2[tree->nnodes];
-    for (int i=0; i<tree->nnodes; i++) {
-        ages1[i] = nodes[i].age;
-        ages2[i] = (tree->root == i) ? maxtime : nodes[nodes[i].parent].age;
-    }
-    
-
-    // get normalization factors specific to the local tree
-    double lsums[nstates];
-    for (int j=0; j<nstates; j++) {
-        const int node1 = states[j].node;
-        const int a = states[j].time;
-        const int c = tree->nodes[node1].age;
-        double sum = 0.0;
-        
-        for (int b=0; b<ntimes-1; b++)
-            sum += E[b] * B[min(a,b)] * lineages.ncoals[b];
-
-        for (int b=ages1[node1]; b<=ages2[node1]; b++)
-            sum += E[b] * (B[min(a,b)] - B[c]);
-
-        sum *= D[a];
-        sum += norecombs[a];
-        
-        // normalize and convert to log scale
-        lsums[j] = log(sum);
-    }
-    
-    NodeStateLookup state_lookup(states, tree->nnodes);
-
-    double vec[nstates];
-    double tmatrix_fgroups[ntimes];
-    double fgroups[ntimes];
-    for (int i=1; i<blocklen; i++) {
-        double *col1 = fw[i-1];
-        double *col2 = fw[i];
-        double *emit2 = emit[i];
-        
-        // precompute the fgroup sums
-        for (int a=0; a<ntimes-1; a++)
-            fgroups[a] = 1.0;
-        for (int j=0; j<nstates; j++) {
-            int a = states[j].time;
-            fgroups[a] = logadd(fgroups[a], col1[j] - lsums[j]);
-        }
-
-        // multiply tmatrix and fgroups together
-        for (int b=0; b<ntimes-1; b++) {
-            for (int a=0; a<ntimes-1; a++)
-                vec[a] = tmatrix[a][b] + fgroups[a];
-            tmatrix_fgroups[b] = logsum(vec, ntimes-1);
-        }
-
-        // fill in one column of forward table
-        for (int k=0; k<nstates; k++) {
-            const int b = states[k].time;
-            const int node2 = states[k].node;
-            const int age1 = nodes[node2].age;
-            const int age2 = (tree->root == node2) ? 
-                maxtime : nodes[nodes[node2].parent].age;
-            
-            // same branch case (extra terms substracted, no 2*B[min(a,b)])
-            vec[0] = tmatrix_fgroups[b];
-            int m = 1;
-            for (int a=age1; a<=age2; a++) {
-                const int j = state_lookup.lookup(node2, a);
-                vec[m++] = tmatrix2[a][k] + col1[j] - lsums[j];
-            }
-            
-            // same state case (add possibility of no recomb)
-            vec[m++] = lnorecombs[b] + col1[k] - lsums[k];
-
-            
-            col2[k] = logsum(vec, m) + emit2[k];
-        }
-    }
-
-    //delete_matrix<double>(transprob, nstates);
-    //delete_matrix<double>(tmatrix, ntimes);
-    //delete_matrix<double>(tmatrix2, ntimes);
-
-    /*
-    // slow but working version
-    for (int i=1; i<blocklen; i++) {
-        double *col1 = fw[i-1];
-        double *col2 = fw[i];
-        double *emit2 = emit[i];
-
-        for (int k=0; k<nstates; k++) {
-            const int b = states[k].time;
-
-            for (int j=0; j<nstates; j++) {
-                const int a = states[j].time;
-                const int c = tree->nodes[states[j].node].age;
-
-                if (states[k].node != states[j].node) {
-                    vec[j] = col1[j] + log(D[a] * E[b] * B[min(a,b)]) - lsums[j];
-                } else {
-                    double trans = D[a] * E[b] * (2*B[min(a,b)] - B[c]);
-                    if (a == b)
-                        trans += norecombs[a];
-                    vec[j] = col1[j] + (log(trans) - lsums[j]);
-                }
-                
-            }
-            col2[k] = logsum(vec, nstates) + emit2[k];
-        }
-    }
-    */
-}
-
-
-
-void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model, 
-                                   int blocklen, const States &states, 
-                                   LineageCounts &lineages,
-                                   double **emit, double **fw)
-{
-    const int nstates = states.size();
-    const int ntimes = model->ntimes;
-    LocalNode *nodes = tree->nodes;
-    
-    TransMatrixCompress matrix(ntimes, nstates);
-    calc_transition_probs_compress(tree, model, states, &lineages, &matrix);
-    
-    const double *B = matrix.B;
-    const double *D = matrix.D;
-    const double *E = matrix.E;
-    const double *norecombs = matrix.norecombs;
-    
-
-    double lnorecombs[ntimes];
-    //double **tmatrix = new_matrix<double>(ntimes, ntimes);
-    //double **tmatrix2 = new_matrix<double>(ntimes, nstates);
-    double tmatrix[ntimes][ntimes];
-    double tmatrix2[ntimes][nstates];
-    for (int a=0; a<ntimes-1; a++) {
-        lnorecombs[a] = log(norecombs[a]);
-
-        for (int b=0; b<ntimes-1; b++)
-            tmatrix[a][b] = log(D[a] * E[b] * B[min(a,b)]);
-
-        for (int k=0; k<nstates; k++) {
-            const int b = states[k].time;
-            const int node2 = states[k].node;
-            const double Bc = B[nodes[node2].age];
-            tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)] - Bc));
-        }
-    }
-
-
-    // get max time
-    int maxtime = 0;
-    for (int k=0; k<nstates; k++)
-        if (maxtime < states[k].time)
-            maxtime = states[k].time;
-
-    // get branch ages
-    double ages1[tree->nnodes];
-    double ages2[tree->nnodes];
-    for (int i=0; i<tree->nnodes; i++) {
-        ages1[i] = nodes[i].age;
-        ages2[i] = (tree->root == i) ? maxtime : nodes[nodes[i].parent].age;
-    }
-    
-
-    // get normalization factors specific to the local tree
-    double lsums[nstates];
-    for (int j=0; j<nstates; j++) {
-        const int node1 = states[j].node;
-        const int a = states[j].time;
-        const int c = tree->nodes[node1].age;
-        double sum = 0.0;
-        
-        for (int b=0; b<ntimes-1; b++)
-            sum += E[b] * B[min(a,b)] * lineages.ncoals[b];
-
-        for (int b=ages1[node1]; b<=ages2[node1]; b++)
-            sum += E[b] * (B[min(a,b)] - B[c]);
-
-        sum *= D[a];
-        sum += norecombs[a];
-        
-        // normalize and convert to log scale
-        lsums[j] = log(sum);
-    }
-
-
-    // group states by age
-    int nstates_per_time[ntimes];
-    memset(nstates_per_time, 0, ntimes*sizeof(int));
-    for (int j=0; j<nstates; j++)
-        nstates_per_time[states[j].time]++;
-    int offset[ntimes], offset2[ntimes];
-    offset[0] = offset2[0] = 0;
-    for (int a=1; a<ntimes-1; a++)
-        offset[a] = offset2[a] = offset[a-1] + nstates_per_time[a-1];
-    int state_map[nstates];
-    for (int j=0; j<nstates; j++) {
-        int a = states[j].time;
-        state_map[j] = offset2[a];
-        offset2[a]++;
-    }
-
-
-    NodeStateLookup state_lookup(states, tree->nnodes);
-
-    double vec[nstates];
-    double tmatrix_fgroups[ntimes];
-    double fgroups[ntimes];
-    for (int i=1; i<blocklen; i++) {
-        double *col1 = fw[i-1];
-        double *col2 = fw[i];
-        double *emit2 = emit[i];
-        
-        // precompute the fgroup sums
-        for (int j=0; j<nstates; j++)
-            vec[state_map[j]] = col1[j] - lsums[j];
-        for (int a=0; a<ntimes-1; a++)
-            fgroups[a] = logsum(&vec[offset[a]], nstates_per_time[a]);
-        
-        // multiply tmatrix and fgroups together
-        for (int b=0; b<ntimes-1; b++) {
-            for (int a=0; a<ntimes-1; a++)
-                vec[a] = tmatrix[a][b] + fgroups[a];
-            tmatrix_fgroups[b] = logsum(vec, ntimes-1);
-        }
-        
-        // fill in one column of forward table
-        for (int k=0; k<nstates; k++) {
-            const int b = states[k].time;
-            const int node2 = states[k].node;
-            const int age1 = ages1[node2];
-            const int age2 = ages2[node2];
-            
-            // same branch case (extra terms substracted, no 2*B[min(a,b)])
-            vec[0] = tmatrix_fgroups[b];
-            int m = 1;
-            int j2 = state_lookup.lookup(node2, age2);
-            for (int j=state_lookup.lookup(node2, age1), a=age1; j<=j2; j++,a++)
-                vec[m++] = tmatrix2[a][k] + col1[j] - lsums[j];
-            
-            // same state case (add possibility of no recomb)
-            vec[m++] = lnorecombs[b] + col1[k] - lsums[k];
-            
-            col2[k] = logsum(vec, m) + emit2[k];
-        }
-    }
-
-    //delete_matrix<double>(tmatrix, ntimes);
-    //delete_matrix<double>(tmatrix2, ntimes);
-}
-
-
 
 void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model, 
                                    int blocklen, const States &states, 
@@ -581,6 +283,7 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
     const double *B = matrix->B;
     const double *D = matrix->D;
     const double *E = matrix->E;
+    const double *G = matrix->G;
     const double *norecombs = matrix->norecombs;
     const double *sums = matrix->sums;
 
@@ -590,14 +293,18 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
     for (int a=0; a<ntimes-1; a++) {
         lnorecombs[a] = log(norecombs[a]);
 
-        for (int b=0; b<ntimes-1; b++)
-            tmatrix[a][b] = log(D[a] * E[b] * B[min(a,b)]);
+        for (int b=0; b<ntimes-1; b++) {
+            const double I = float(a <= b);
+            tmatrix[a][b] = log(D[a] * E[b] * (B[min(a,b)] - I * G[a]));
+        }
 
         for (int k=0; k<nstates; k++) {
             const int b = states[k].time;
             const int node2 = states[k].node;
-            const double Bc = B[nodes[node2].age];
-            tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)] - Bc));
+            const int c = nodes[node2].age;
+            const double Bc = (c > 0 ? B[c-1] : 0.0);
+            const double I = float(a <= b);
+            tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)] - I * G[a] - Bc));
         }
     }
 
@@ -917,7 +624,7 @@ void sample_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
         // recompute transition probabilities if state (k) changes
         if (k != last_k) {
             for (int j=0; j<nstates; j++)
-                trans[j] = matrix->get_transition_prob(tree, states, j, k);
+                trans[j] = log(matrix->get_transition_prob(tree, states, j, k));
             last_k = k;
         }
 
@@ -994,8 +701,6 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
         get_coal_states(it->tree, model->ntimes, states);
         pos -= mat.blocklen;
         
-        //sample_hmm_posterior(mat.blocklen, mat.nstates2, mat.transmat, 
-        //                     mat.emit, &fw[pos], &path[pos]);
         sample_hmm_posterior_fast(mat.blocklen, it->tree, states,
                                   mat.transmat_compress, mat.emit, 
                                   &fw[pos], &path[pos]);
@@ -1064,7 +769,7 @@ void sample_recombinations(
                     if (matrices.transmat)
                         self_trans = matrices.transmat[last_state][last_state];
                     else
-                        self_trans = matrices.transmat_compress->get_transition_prob(tree, states, last_state, last_state);
+                        self_trans = log(matrices.transmat_compress->get_transition_prob(tree, states, last_state, last_state));
                     double rate = max(
                         1.0 - exp(-model->rho * (treelen2 - treelen)
                               - self_trans), model->rho);
@@ -1165,21 +870,24 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     // build matrices
     ArgHmmMatrixList matrix_list;
 
-    //Timer time;    
-    matrix_list.setup(model, sequences, trees, new_chrom);
-    //printf("matrix calc: %e s\n", time.time());
+    Timer time;
+    matrix_list.setup(model, sequences, trees, new_chrom, false);
+    printf("matrix calc: %e s\n", time.time());
     
     // compute forward table
-    //time.start();
-    arghmm_forward_alg(trees, model, sequences, &matrix_list, fw);
-    //arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, fw);
-    //printf("forward: %e s\n", time.time());
+    time.start();
+    //arghmm_forward_alg(trees, model, sequences, &matrix_list, fw);
+    arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, fw);
+    printf("forward:     %e s  (%d states)\n", time.time(),
+           matrix_list.matrices[0].nstates2);
 
 
     // traceback
     //time.start();
-    stochastic_traceback(&matrix_list, fw, thread_path, sequences->seqlen);
-    //printf("trace: %e s\n", time.time());
+    //stochastic_traceback(&matrix_list, fw, thread_path, sequences->seqlen);
+    stochastic_traceback_fast(trees, model, &matrix_list, fw, 
+                              thread_path, sequences->seqlen);
+    //printf("trace:       %e s\n", time.time());
 
 
     //time.start();
@@ -1279,8 +987,8 @@ double **arghmm_forward_alg(
     ArgHmmMatrixList matrix_list;
     matrix_list.setup(&model, &sequences, &trees);
 
-    //return arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list);
-    return arghmm_forward_alg(&trees, &model, &sequences, fw);
+    return arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list);
+    //return arghmm_forward_alg(&trees, &model, &sequences, fw);
 }
 
 
