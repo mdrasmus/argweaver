@@ -727,9 +727,9 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 30000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 0
+        refine = 3
 
         print "times", times
 
@@ -775,12 +775,12 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 4
+        k = 6
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 30000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
 
         #arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
@@ -804,7 +804,7 @@ class Sample (unittest.TestCase):
         nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
         y.append(nrecombs2)
 
-        for i in range(50):
+        for i in range(200):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times)
             util.toc()
