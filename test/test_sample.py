@@ -727,7 +727,7 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 30000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0
 

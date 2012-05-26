@@ -10,6 +10,7 @@
 #include "itree.h"
 #include "local_tree.h"
 #include "logging.h"
+#include "matrices.h"
 #include "model.h"
 #include "ptree.h"
 #include "seq.h"
@@ -26,357 +27,6 @@ using namespace dlcoal;
 
 namespace arghmm {
 
-
-class ArgHmmMatrices
-{
-public:
-    ArgHmmMatrices() :
-        nstates1(0),
-        nstates2(0),
-        blocklen(0),
-        transmat_compress(NULL),
-        transmat(NULL),
-        transmat_switch(NULL),
-        emit(NULL)
-    {}
-
-    ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
-                   double **transmat, double **transmat_switch, double **emit):
-        nstates1(nstates1),
-        nstates2(nstates2),
-        blocklen(blocklen),
-        transmat_compress(NULL),
-        transmat(transmat),
-        transmat_switch(transmat_switch),
-        emit(emit)
-    {}
-
-    ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
-                   TransMatrixCompress *transmat_compress,
-                   double **transmat, double **transmat_switch, double **emit):
-        nstates1(nstates1),
-        nstates2(nstates2),
-        blocklen(blocklen),
-        transmat_compress(transmat_compress),
-        transmat(transmat),
-        transmat_switch(transmat_switch),
-        emit(emit)
-    {}
-
-    ~ArgHmmMatrices() 
-    {}
-    
-    // delete all matrices
-    void clear()
-    {
-        if (transmat_compress) {
-            delete transmat_compress;
-            transmat_compress = NULL;
-        }
-        if (transmat) {
-            delete_matrix<double>(transmat, nstates2);
-            transmat = NULL;
-        }
-        if (transmat_switch) {
-            delete_matrix<double>(transmat_switch, nstates1);
-            transmat_switch = NULL;
-        }
-        if (emit) {
-            delete_matrix<double>(emit, blocklen);
-            emit = NULL;
-        }
-    }
-
-    int nstates1;
-    int nstates2;
-    int blocklen;
-    TransMatrixCompress* transmat_compress;
-    double **transmat;
-    double **transmat_switch;
-    double **emit;
-};
-
-
-// iterates through matricies for the ArgHmm
-class ArgHmmMatrixIter
-{
-public:
-    ArgHmmMatrixIter(ArgModel *model, Sequences *seqs, LocalTrees *trees, 
-                     int _new_chrom=-1, bool calc_transmat=true) :
-        model(model),
-        seqs(seqs),
-        trees(trees),
-        new_chrom(_new_chrom),
-        calc_transmat(calc_transmat),
-        lineages(model->ntimes)
-    {
-        if (new_chrom == -1)
-            new_chrom = trees->get_num_leaves();
-    }
-
-    virtual ~ArgHmmMatrixIter() {}
-
-    // initializes iterator
-    virtual void begin()
-    {
-        begin(trees->begin());
-    }
-    
-    virtual void begin(LocalTrees::iterator start)
-    {
-        tree_iter = start;
-        
-        // setup last_tree information
-        if (start == trees->begin()) {
-            // no last tree
-            last_tree = NULL;
-            last_states = NULL;
-            states = &states1;
-            
-        } else {
-            LocalTrees::iterator tree_iter2 = tree_iter;
-            --tree_iter2;
-            last_states = &states2;
-            last_tree = tree_iter2->tree;
-            states = &states1;
-            get_coal_states(last_tree, model->ntimes, *last_states);
-        }
-    }
-    
-    
-    virtual void rbegin()
-    {
-        LocalTrees::iterator it = --trees->end();
-        rbegin(it);
-    }
-    
-    virtual void rbegin(LocalTrees::iterator start)
-    {
-        begin(start);
-        last_states = &states2;
-    }
-
-
-    virtual bool next()
-    {
-        // update pointers
-        last_tree = tree_iter->tree;
-        last_states = states;
-        states = ((states == &states1) ? &states2 : &states1);
-
-        ++tree_iter;
-        return tree_iter != trees->end();
-    }
-
-
-    // moves iterator to previous block
-    virtual bool prev()
-    {
-        --tree_iter;
-        LocalTrees::iterator it = tree_iter;
-        --it;
-
-        if (it != trees->end()) {
-            last_tree = it->tree;
-            get_coal_states(last_tree, model->ntimes, *last_states);
-        } else {
-            last_tree = NULL;
-        }
-        
-        return tree_iter != trees->end();
-    }
-    
-
-    // returns true if there are more blocks
-    virtual bool more()
-    {
-        return tree_iter != trees->end();
-    }
-
-
-    virtual void get_matrices(ArgHmmMatrices *matrices)
-    {
-        calc_matrices(matrices);
-    }
-
-    LocalTrees::iterator get_tree_iter()
-    {
-        return tree_iter;
-    }
-
-    
-    // calculate transition and emission matrices for current block
-    void calc_matrices(ArgHmmMatrices *matrices)
-    {
-        int pos = tree_iter->block.start;
-        int blocklen = tree_iter->block.end - tree_iter->block.start;
-        LocalTree *tree = tree_iter->tree;
-        get_coal_states(tree, model->ntimes, *states);
-        int nstates = states->size();
-        matrices->blocklen = blocklen;
-                
-        // calculate emissions
-        if (seqs) {
-            char *subseqs[seqs->nseqs];
-            for (int i=0; i<seqs->nseqs-1; i++)
-                subseqs[i] = &seqs->seqs[trees->seqids[i]][pos];
-            subseqs[seqs->nseqs-1] = &seqs->seqs[new_chrom][pos];
-            matrices->emit = new_matrix<double>(blocklen, nstates);
-            calc_emissions(*states, tree, subseqs, seqs->nseqs, blocklen, 
-                           model, matrices->emit);
-        } else {
-            matrices->emit = NULL;
-        }
-        
-            
-        // use switch matrix for first column of forward table
-        // if we have a previous state space (i.e. not first block)
-        if (!last_states) {
-            matrices->transmat_switch = NULL;
-            matrices->nstates1 = matrices->nstates2 = nstates;
-                
-        } else {
-            matrices->nstates1 = last_states->size();
-            matrices->nstates2 = nstates;
-            lineages.count(last_tree);
-                
-            // calculate transmat_switch
-            matrices->transmat_switch = new_matrix<double>(
-                matrices->nstates1, matrices->nstates2);
-            calc_transition_probs_switch(
-                tree, last_tree, tree_iter->spr, tree_iter->mapping,
-                *last_states, *states,
-                model, &lineages, matrices->transmat_switch);
-        }
-
-        // update lineages to current tree
-        lineages.count(tree);
-        
-        // calculate transmat and use it for rest of block
-        matrices->transmat_compress = new TransMatrixCompress(
-            model->ntimes, nstates);
-        calc_transition_probs_compress(tree, model, *states, &lineages, 
-                                       matrices->transmat_compress);
-        if (calc_transmat) {
-            matrices->transmat = new_matrix<double>(nstates, nstates);
-            calc_transition_probs(tree, model, *states, &lineages,
-                matrices->transmat_compress, matrices->transmat);
-        } else {
-            matrices->transmat = NULL;
-        }
-        
-        // non-compressed version
-        //calc_transition_probs(tree, model, *states, &lineages, transmat);
-    }
-
-
-    
-
-protected:
-    ArgModel *model;
-    Sequences *seqs;
-    LocalTrees *trees;
-    int new_chrom;
-    bool calc_transmat;
-    
-    LocalTrees::iterator tree_iter;
-    LineageCounts lineages;
-    States states1;
-    States states2;
-    States *states;
-    States *last_states;
-    LocalTree *last_tree;
-};
-
-
-class ArgHmmMatrixList : public ArgHmmMatrixIter
-{
-public:
-    ArgHmmMatrixList(ArgModel *model, Sequences *seqs, LocalTrees *trees, 
-                     int new_chrom=-1, bool calc_transmat=true) :
-        ArgHmmMatrixIter(model, seqs, trees, 
-                         new_chrom, calc_transmat)
-    {}
-    ~ArgHmmMatrixList() 
-    {
-        clear();
-    }
-
-    // precompute all matrices
-    void setup() 
-    {
-        setup(trees->begin(), trees->end());
-    }
-
-    // precompute all matrices
-    void setup(LocalTrees::iterator start, LocalTrees::iterator end)
-    {
-        for (begin(); more(); next()) {
-            matrices.push_back(ArgHmmMatrices());
-            calc_matrices(&matrices.back());
-        }
-    }
-    
-    // free all computed matrices
-    void clear()
-    {
-        for (unsigned int i=0; i<matrices.size(); i++)
-            matrices[i].clear();
-        matrices.clear();
-    }
-
-
-    virtual void begin()
-    {
-        ArgHmmMatrixIter::begin();
-    }
-    
-    // initializes iterator
-    virtual void begin(LocalTrees::iterator start)
-    {
-        ArgHmmMatrixIter::begin(start);
-        matrix_index = 0;
-    }
-
-    virtual void rbegin()
-    {
-        ArgHmmMatrixIter::rbegin();
-        matrix_index = matrices.size() - 1;
-    }
-    
-    // initializes iterator
-    virtual void rbegin(LocalTrees::iterator start)
-    {
-        ArgHmmMatrixIter::rbegin(start);
-        matrix_index = matrices.size() - 1;
-    }
-
-
-    // moves iterator to next block
-    virtual bool next()
-    {
-        matrix_index++;
-        return ArgHmmMatrixIter::next();
-    }
-
-    // moves iterator to previous block
-    virtual bool prev()
-    {
-        matrix_index--;
-        return ArgHmmMatrixIter::prev();
-    }
-
-
-    virtual void get_matrices(ArgHmmMatrices *mat)
-    {
-        *mat = matrices[matrix_index];
-    }
-
-    vector<ArgHmmMatrices> matrices;
-
-protected:
-    int matrix_index;
-};
 
 
 //=============================================================================
@@ -508,24 +158,49 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
 }
 
 
+// run forward algorithm for one column of the table
+// use switch matrix
+void arghmm_forward_switch_fast(double *col1, double* col2, 
+                                TransMatrixSwitchCompress *matrix,
+                                double *emit)
+{
+    // initialize all entries in col2 to log(0)
+    for (int k=0; k<matrix->nstates2; k++)
+        col2[k] = 1.0;
+
+    // add deterministic transitions
+    for (int j=0; j<matrix->nstates1; j++) {
+        if (j != matrix->probsrc) {
+            int k = matrix->determ[j];
+            col2[k] = logadd(col2[k], col1[j]);
+        }
+    }
+    
+    // add probabilistic transitions
+    int j = matrix->probsrc;
+    for (int k=0; k<matrix->nstates2; k++) {
+        col2[k] = logadd(col2[k], col1[j] + matrix->probrow[k]) + emit[k];
+    }
+}
+
+
 
 // run forward algorithm with matrices precomputed
 double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
-    Sequences *sequences, ArgHmmMatrixList *matrix_list, double **fw=NULL)
+    Sequences *sequences, ArgHmmMatrixIter *matrix_list, double **fw=NULL)
 {
     LineageCounts lineages(model->ntimes);
     States states;
+    ArgHmmMatrices matrices;
 
     // allocate the forward table if necessary
     if (fw == NULL)
         fw = new double* [sequences->seqlen];    
-
-    // forward algorithm over local trees
-    int blocki = 0;
-    for (LocalTrees::iterator it=trees->begin(); 
-         it != trees->end(); ++it, blocki++) {
+    
+    for (matrix_list->begin(); matrix_list->more(); matrix_list->next()) {
+        LocalTrees::iterator it = matrix_list->get_tree_iter();
         int pos = it->block.start;
-        ArgHmmMatrices matrices = matrix_list->matrices[blocki];
+        matrix_list->get_matrices(&matrices);
 
         // allocate the forward table column if necessary
         for (int i=pos; i<pos+matrices.blocklen; i++)
@@ -587,8 +262,8 @@ double **arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
             calc_state_priors(states, &lineages, model, fw[0]);
         } else {
             // perform one column of forward algorithm with transmat_switch
-            forward_step(fw[pos-1], fw[pos], matrices.nstates1, 
-                matrices.nstates2, matrices.transmat_switch, matrices.emit[0]);
+            arghmm_forward_switch_fast(fw[pos-1], fw[pos], 
+                matrices.transmat_switch_compress, matrices.emit[0]);
         }
 
         // calculate rest of block
@@ -635,30 +310,45 @@ void sample_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
 }
 
 
+int sample_hmm_posterior_step_fast(TransMatrixSwitchCompress *matrix, 
+                                   double *col1, int state2)
+{
+    const int nstates1 = matrix->nstates1;
+    double A[nstates1];
+    
+    for (int j=0; j<nstates1; j++)
+        A[j] = col1[j] + matrix->get_transition_prob(j, state2);
+    double total = logsum(A, nstates1);
+    for (int j=0; j<nstates1; j++)
+        A[j] = exp(A[j] - total);
+    return sample(A, nstates1);
+}
 
-void stochastic_traceback(ArgHmmMatrixList *matrix_list, 
+
+
+void stochastic_traceback(ArgHmmMatrixIter *matrix_list, 
                           double **fw, int *path, int seqlen)
 {
-    const int ntrees = matrix_list->matrices.size();
+    ArgHmmMatrices mat;
 
     // choose last column first
-    int nstates = matrix_list->matrices[ntrees-1].nstates2;
+    matrix_list->rbegin();
+    matrix_list->get_matrices(&mat);
+    int nstates = mat.nstates2;
     double total = logsum(fw[seqlen - 1], nstates);
     double vec[nstates];
     for (int i=0; i<nstates; i++)
         vec[i] = exp(fw[seqlen - 1][i] - total);
     path[seqlen - 1] = sample(vec, nstates);
     
-
     // iterate backward through blocks
     int pos = seqlen;
-    for (int blocki = ntrees - 1; blocki >= 0; blocki--) {
-        ArgHmmMatrices mat = matrix_list->matrices[blocki];
+    for (; matrix_list->more(); matrix_list->prev()) {        
+        matrix_list->get_matrices(&mat);
         pos -= mat.blocklen;
         
         sample_hmm_posterior(mat.blocklen, mat.nstates2, mat.transmat, 
                              &fw[pos], &path[pos]);
-
         
         // use switch matrix for last col of next block
         if (pos > 0) {
@@ -690,8 +380,7 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
     
     // iterate backward through blocks
     int pos = seqlen;
-    for (; matrix_list->more(); matrix_list->prev())
-    {        
+    for (; matrix_list->more(); matrix_list->prev()) {
         matrix_list->get_matrices(&mat);
         LocalTree *tree = matrix_list->get_tree_iter()->tree;
         get_coal_states(tree, model->ntimes, states);
@@ -705,9 +394,12 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
         // use switch matrix for last col of next block
         if (pos > 0) {
             int i = pos - 1;
-            path[i] = sample_hmm_posterior_step(mat.nstates1, 
-                                                mat.transmat_switch, 
-                                                fw[i], path[i+1]);
+            path[i] = sample_hmm_posterior_step_fast(
+                mat.transmat_switch_compress, fw[i], path[i+1]);
+
+            //path[i] = sample_hmm_posterior_step(mat.nstates1, 
+            //                                    mat.transmat_switch, 
+            //                                    fw[i], path[i+1]);
         }
     }
 }

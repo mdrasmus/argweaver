@@ -81,6 +81,57 @@ public:
 };
 
 
+// A compressed representation of the switch transition matrix
+class TransMatrixSwitchCompress
+{
+public:
+    TransMatrixSwitchCompress(int nstates1, int nstates2, bool alloc=true) :
+        nstates1(nstates1),
+        nstates2(nstates2),
+        own_data(false)
+    {
+        if (alloc)
+            allocate(nstates1, nstates2);
+    }
+
+    ~TransMatrixSwitchCompress()
+    {
+        if (own_data) {
+            delete [] determ;
+            delete [] probrow;
+        }
+    }
+
+    void allocate(int nstates1, int nstates2)
+    {
+        nstates1 = nstates1;
+        nstates2 = nstates2;
+        own_data = true;
+        determ = new int [nstates1];
+        probrow = new double [nstates2];
+    }
+    
+    inline double get_transition_prob(int i, int j)
+    {
+        if (i == probsrc) {
+            return probrow[j];
+        } else {
+            if (determ[i] == j)
+                return 0.0;
+            else
+                return -INFINITY;
+        }
+    }
+
+    int nstates1;
+    int nstates2;
+    int probsrc;
+    bool own_data;
+    int *determ;
+    double *probrow;
+};
+
+
 void calc_transition_probs(LocalTree *tree, ArgModel *model,
                            const States &states, LineageCounts *lineages,
                            double **transprob);
@@ -100,6 +151,15 @@ void calc_transition_probs_switch(
     LocalTree *tree, LocalTree *last_tree, const Spr &spr, int *mapping,
     const States &states1, const States &states2,
     ArgModel *model, LineageCounts *lineages, double **transprob);
+
+void calc_transition_probs_switch_compress(
+    LocalTree *tree, LocalTree *last_tree, const Spr &spr, int *mapping,
+    const States &states1, const States &states2,
+    ArgModel *model, LineageCounts *lineages, 
+    TransMatrixSwitchCompress *transmat_switch_compress);
+void calc_transition_switch_probs(TransMatrixSwitchCompress *matrix, 
+                                  double **transprob);
+
 
 void calc_state_priors(const States &states, LineageCounts *lineages, 
                        ArgModel *model, double *priors);
