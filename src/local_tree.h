@@ -198,6 +198,7 @@ public:
     }
 
     
+    // Sets the root of the tree by finding node without a parent
     void set_root()
     {
         for (int j=0; j<nnodes; j++) {
@@ -209,6 +210,7 @@ public:
     }
 
 
+    // Sets a new capacity for the allocated data structures
     void set_capacity(int _capacity)
     {
         if (_capacity == capacity)
@@ -226,7 +228,8 @@ public:
     }
 
 
-
+    // Ensures that we have a certain capacity.  If capacity is not >=
+    // than _capacity, increase capacity
     void ensure_capacity(int _capacity)
     {
         if (capacity < _capacity)
@@ -274,6 +277,7 @@ public:
     }
 
 
+    // Get the branch length above a node i
     inline double get_dist(int i) const
     {
         LocalNode *node = &nodes[i];
@@ -284,26 +288,40 @@ public:
     }
 
     
-    // convenience method for accessing nodes
+    // Convenience method for accessing nodes
     inline LocalNode &operator[](int name) 
     {
         return nodes[name];
     }
 
 
-    int nnodes;
-    int capacity;
-    int root;
-    LocalNode *nodes;
+    // Copt tree structure from another tree
+    void copy(LocalTree *other)
+    {
+        // copy tree info
+        nnodes = other->nnodes;        
+        ensure_capacity(other->capacity);
+        root = other->root;
+        
+        // copy node info
+        for (int i=0; i<nnodes; i++)
+            nodes[i].copy(other->nodes[i]);
+    }
+
+
+    int nnodes;        // number of nodes in tree
+    int capacity;      // capacity of nodes array
+    int root;          // id of root node
+    LocalNode *nodes;  // nodes array
 };
 
 
 
 
-// A tree local within a set of local trees
+// A tree within a set of local trees
 //
 // Specifically this structure describes the block over which the
-// local exists and it the SPR operation to the left of the local
+// local exists and the SPR operation to the left of the local
 // tree.
 class LocalTreeSpr
 {
@@ -364,10 +382,10 @@ public:
     }
         
 
-    Block block;
-    LocalTree *tree;
-    Spr spr;
-    int *mapping;
+    Block block;      // sequence block for the local tree
+    LocalTree *tree;  // local tree
+    Spr spr;          // SPR operation to the left of local tree
+    int *mapping;     // mapping between previous tree and this tree
 };
 
 
@@ -444,14 +462,15 @@ public:
     }
 
 
-    int start_coord;
-    int end_coord;
-    int nnodes;
-    list<LocalTreeSpr> trees;
-    vector<int> seqids;
+    int start_coord;           // start coordinate of whole tree list
+    int end_coord;             // end coordinate of whole tree list
+    int nnodes;                // number of nodes in each tree
+    list<LocalTreeSpr> trees;  // linked list of local trees
+    vector<int> seqids;        // mapping from tree leaves to sequence ids
 };
 
 
+// count the lineages in a tree
 void count_lineages(LocalTree *tree, int ntimes,
                     int *nbranches, int *nrecombs, int *ncoals);
 
@@ -479,10 +498,10 @@ public:
         count_lineages(tree, ntimes, nbranches, nrecombs, ncoals);
     }
 
-    int ntimes;
-    int *nbranches;
-    int *nrecombs;
-    int *ncoals;
+    int ntimes;      // number of time points
+    int *nbranches;  // number of branches per time slice
+    int *nrecombs;   // number of recombination points per time slice
+    int *ncoals;     // number of coalescing points per time slice
 };
 
 

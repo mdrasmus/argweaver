@@ -22,7 +22,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
                     vector<int> &recomb_pos, vector<NodePoint> &recombs);
 
 // remove a thread from an ARG
-void remove_arg_thread(LocalTrees *trees, int remove_leaf);
+void remove_arg_thread(LocalTrees *trees, int remove_seqid);
 
 } // namespace arghmm
 

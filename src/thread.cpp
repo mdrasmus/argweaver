@@ -135,8 +135,58 @@ void add_tree_branch(LocalTree *tree, int node, int time)
     // fix up tree data
     tree->nnodes = nnodes2;
     tree->set_root();
-
     //assert(assert_tree(tree));
+}
+
+
+void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
+{
+    LocalNode *nodes = tree->nodes;
+    int nnodes = tree->nnodes;
+    int last_leaf = tree->get_num_leaves() - 1;
+
+    // remove coal node
+    int remove_coal = nodes[remove_leaf].parent;
+    int *c = nodes[remove_coal].child;
+    int coal_child = (c[0] == remove_leaf ? c[1] : c[0]);
+    int coal_parent = nodes[remove_coal].parent;
+    nodes[coal_child].parent = coal_parent;
+    if (coal_parent != -1) {
+        c = nodes[coal_parent].child;
+        if (c[0] == remove_coal)
+            c[0] = coal_child;
+        else
+            c[1] = coal_child;
+    }
+        
+    // displace nodes
+    for (int i=0; i<nnodes; i++)
+        displace[i] = i;
+    displace[remove_leaf] = -1;
+    displace[remove_coal] = -1;
+        
+    // move last leaf into remove_leaf spot
+    if (last_leaf != remove_leaf) {
+        displace[last_leaf] = remove_leaf;
+        displace_node(tree, last_leaf, remove_leaf);
+    }
+
+    // move nodes in nnodes-2 and nnodes-1 into holes
+    int hole = last_leaf;
+    if (remove_coal != nnodes-2) {
+        displace[nnodes-2] = hole;
+        displace_node(tree, nnodes-2, hole);
+        hole = remove_coal;
+    }
+    if (remove_coal != nnodes-1) {
+        displace[nnodes-1] = hole;
+        displace_node(tree, nnodes-1, hole);
+    }
+    
+    // set tree data
+    tree->nnodes -= 2;
+    tree->set_root();
+    //assert_tree(tree);
 }
 
 
@@ -227,6 +277,61 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
 }
 
 
+// Removes trees with null SPRs from the local trees
+void remove_null_sprs(LocalTrees *trees)
+{
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
+        
+        // look one tree ahead
+        LocalTrees::iterator it2 = it;
+        ++it2;
+        if (it2 == trees->end()) {
+            ++it;
+            continue;
+        }
+
+        // get spr from next tree, skip it if it is not null
+        Spr *spr2 = &it2->spr;
+        if (!spr2->is_null()) {
+            ++it;
+            continue;
+        }
+        int nnodes = it2->tree->nnodes;
+        
+        if (it->mapping == NULL) {
+            // it2 will become first tree and therefore does not need a mapping
+            delete [] it2->mapping;
+            it2->mapping = NULL;
+        } else {
+            // compute transitive mapping
+            int *M1 = it->mapping;
+            int *M2 = it2->mapping;
+            int mapping[nnodes];
+            for (int i=0; i<nnodes; i++) {
+                if (M1[i] != -1)
+                    mapping[i] = M2[M1[i]];
+                else
+                    mapping[i] = -1;
+            }
+            
+            // set mapping
+            for (int i=0; i<nnodes; i++)
+                M2[i] = mapping[i];
+        
+            // copy over non-null spr
+            *spr2 = it->spr;
+            assert(!spr2->is_null());
+        }
+
+
+        // delete this tree
+        it2->block.start = it->block.start;
+        it->clear();
+        it = trees->trees.erase(it);
+    }
+}
+
+
 // add a thread to an ARG
 void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
                     vector<int> &recomb_pos, vector<NodePoint> &recombs)
@@ -236,6 +341,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
     int nnodes = trees->nnodes;
     int nnodes2 = nnodes + 2;
     
+    // node names
     int newleaf = nleaves;
     int displaced = nnodes;
     int newcoal = nnodes + 1;
@@ -247,6 +353,8 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
 
     // update trees info
     trees->seqids.push_back(seqid);
+    trees->nnodes = nnodes2;
+    
 
     // loop through blocks
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
@@ -267,11 +375,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             add_spr_branch(tree, last_tree, state, last_state,
                            &it->spr, mapping,
                            newleaf, displaced, newcoal);
-            // assert SPR
-            if (!assert_spr(last_tree, tree, spr, mapping)) {
-                printf("!!! %d spr fail\n", start);
-                assert(false);
-            }
+            assert(assert_spr(last_tree, tree, spr, mapping));
         }
 
         // assert new branch is where it should be
@@ -283,12 +387,14 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
               recomb_pos[irecomb] < end; irecomb++) {
             int pos = recomb_pos[irecomb];
             LocalNode *nodes = tree->nodes;
+            state = states[thread_path[pos]];
+            last_state = states[thread_path[pos-1]];
 
             // assert that thread time is still on track
-            assert(tree->nodes[newcoal].age == states[thread_path[pos-1]].time);
+            assert(tree->nodes[newcoal].age == last_state.time);
 
             // determine real name of recomb node
-            // it may be different due to displacement
+            // it may be different due to adding a new branch
             Spr spr2;
             spr2.recomb_node = recombs[irecomb].node;
             spr2.recomb_time = recombs[irecomb].time;
@@ -297,37 +403,34 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             assert(spr2.recomb_time <= tree->nodes[newcoal].age);
 
             // determine coal node and time
-            int istate = thread_path[pos];
+            //int istate = thread_path[pos];
             if (spr2.recomb_node == -1) {
                 // recomb on new branch, coal given thread
                 spr2.recomb_node = newleaf;
-                spr2.coal_node = states[istate].node;
+                spr2.coal_node = state.node;
 
                 // fix coal node due to displacement
                 if (spr2.coal_node == newleaf)
                     spr2.coal_node = displaced;
 
-                // rename due to newcoal
-                if (states[istate].node == states[thread_path[pos-1]].node &&
-                    states[istate].time > states[thread_path[pos-1]].time)
+                // rename coal node due to newcoal underneath
+                if (state.node == last_state.node &&
+                    state.time > last_state.time)
                     spr2.coal_node = newcoal;
 
             } else {
                 // recomb in ARG, coal on new branch
-                // fix recomb node due to displacement
-                assert(spr2.recomb_node != newleaf);
-                if (spr2.recomb_node == newleaf)
-                    spr2.recomb_node = displaced;
-
-                if (states[istate].time > states[thread_path[pos-1]].time)
+                if (state.time > last_state.time)
                     spr2.coal_node = nodes[newleaf].parent;
                 else
                     spr2.coal_node = newleaf;
             }
-            spr2.coal_time = states[istate].time;
+            spr2.coal_time = state.time;
 
             
-            // determine mapping
+            // determine mapping:
+            // all nodes keep their name expect the broken node, which is the
+            // parent of recomb
             int *mapping2 = new int [tree->capacity];
             for (int j=0; j<nnodes2; j++)
                 mapping2[j] = j;
@@ -336,23 +439,19 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             
             // make new local tree and apply SPR operation
             LocalTree *new_tree = new LocalTree(nnodes2, tree->capacity);
-            LocalNode *new_nodes = new_tree->nodes;
-            for (int j=0; j<nnodes2; j++) {
-                new_nodes[j].parent = nodes[j].parent;
-                new_nodes[j].child[0] = nodes[j].child[0];
-                new_nodes[j].child[1] = nodes[j].child[1];
-                new_nodes[j].age = nodes[j].age;
-            }
+            new_tree->copy(tree);
             apply_spr(new_tree, &spr2);
 
             // calculate block end
             int block_end;
             if (irecomb < recombs.size() - 1)
+                // use next recomb in this block to determine block end
                 block_end = min(recomb_pos[irecomb+1], end);
             else
+                // no more recombs in this block
                 block_end = end;
            
-            // insert new tree into local trees list
+            // insert new tree and spr into local trees list
             it->block.end = pos;
             ++it;
             it = trees->trees.insert(it, 
@@ -361,27 +460,23 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
 
             // assert tree and SPR
             assert(assert_tree(new_tree));
-            assert(new_tree->nodes[newcoal].age == 
-                   states[thread_path[pos]].time);
+            assert(new_tree->nodes[newcoal].age == state.time);
             if (!assert_spr(tree, new_tree, &spr2, mapping2)) {
                 printf("!!! %d spr fail\n", pos);
                 assert(false);
             }
 
-            // remember the previous tree
+            // remember the previous tree for next iteration of loop
             tree = new_tree;
             nodes = tree->nodes;
         }
 
+        // remember the previous tree for next iteration of loop
         last_tree = tree;
         last_state = states[thread_path[end-1]];
         if (last_state.node == newleaf)
             last_state.node = displaced;
     }
-
-    
-    // update number of nodes
-    trees->nnodes = nnodes2;
 
     assert_trees(trees);
 }
@@ -391,21 +486,22 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
 // Removes a thread from an ARG
 // NOTE: if remove_leaf is not last_leaf, nleaves - 1, 
 // last_leaf is renamed to remove_leaf
-void remove_arg_thread(LocalTrees *trees, int remove_leaf)
+void remove_arg_thread(LocalTrees *trees, int remove_seqid)
 {
     int nnodes = trees->nnodes;
     int nleaves = trees->get_num_leaves();
     int displace[nnodes];
     int last_leaf = nleaves - 1;
-    LocalTree *last_tree = NULL;
 
-    
+    // find leaf to remove from seqid
+    int remove_leaf = -1;
     for (unsigned int i=0; i<trees->seqids.size(); i++) {
-        if (trees->seqids[i] == remove_leaf) {
+        if (trees->seqids[i] == remove_seqid) {
             remove_leaf = i;
             break;
         }
     }
+    assert(remove_leaf != -1);
     
     // special case for trunk genealogy
     if (nnodes == 3) {
@@ -420,63 +516,19 @@ void remove_arg_thread(LocalTrees *trees, int remove_leaf)
     
     // remove extra branch
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        //int pos = it->block.start;
         LocalTree *tree = it->tree;
         LocalNode *nodes = tree->nodes;
         
-        // remove coal node
+        // get information about removal
         int remove_coal = nodes[remove_leaf].parent;
         int coal_time = nodes[remove_coal].age;
         int *c = nodes[remove_coal].child;
         int coal_child = (c[0] == remove_leaf ? c[1] : c[0]);
-        int coal_parent = nodes[remove_coal].parent;
-        nodes[coal_child].parent = coal_parent;
-        if (coal_parent != -1) {
-            c = nodes[coal_parent].child;
-            if (c[0] == remove_coal)
-                c[0] = coal_child;
-            else
-                c[1] = coal_child;
-        }
-        //printf("> %d %d %d %d, %d %p\n", remove_leaf, remove_coal, 
-        //       coal_child, coal_parent, last_leaf, tree->nodes);
-
-        // displace nodes
-        for (int i=0; i<nnodes; i++)
-            displace[i] = i;
-        displace[remove_leaf] = -1;
-        displace[remove_coal] = -1;
         
-        // move last leaf into remove_leaf spot
-        if (last_leaf != remove_leaf) {
-            displace[last_leaf] = remove_leaf;
-            displace_node(tree, last_leaf, remove_leaf);
-        }
-
-        // move nodes in nnodes-2 and nnodes-1 into holes
-        int hole = last_leaf;
-        if (remove_coal != nnodes-2) {
-            displace[nnodes-2] = hole;
-            displace_node(tree, nnodes-2, hole);
-            hole = remove_coal;
-        }
+        // remove branch from tree        
+        remove_tree_branch(tree, remove_leaf, displace);        
         
-        if (remove_coal != nnodes-1) {
-            displace[nnodes-1] = hole;
-            displace_node(tree, nnodes-1, hole);
-        }
-
-
-        // set tree data
-        tree->nnodes -= 2;
-        tree->set_root();
-        assert_tree(tree);
-
         
-        // get new name of coal_child
-        coal_child = displace[coal_child];
-
-
         // fix this mapping due to displacement
         int *mapping = it->mapping;
         if (mapping) {
@@ -486,7 +538,6 @@ void remove_arg_thread(LocalTrees *trees, int remove_leaf)
                 else
                     mapping[i] = -1;
         }
-        
         
         // get next tree
         LocalTrees::iterator it2 = it;
@@ -506,17 +557,12 @@ void remove_arg_thread(LocalTrees *trees, int remove_leaf)
         
         // fix SPR
         Spr *spr = &it2->spr;
-        //printf("remove %d (%d %d, %d %d) (%d, %d)\n", pos,
-        //       spr->recomb_node, spr->recomb_time, 
-        //       spr->coal_node, spr->coal_time,
-        //       remove_leaf, remove_coal);
-        //for (int i=0; i<nnodes; i++)
-        //    printf(" displace[%i] = %d\n", i, displace[i]);
-
+        
+        // get new name of coal_child
+        coal_child = displace[coal_child];
 
         // if recomb is on branch removed, prune it
         if (spr->recomb_node == remove_leaf) {
-            //printf("delete recomb: %d\n", pos);
             spr->set_null();
             continue;
         }
@@ -526,14 +572,11 @@ void remove_arg_thread(LocalTrees *trees, int remove_leaf)
             spr->recomb_node = coal_child;
         } else {
             // rename recomb_node due to displacement
-            //printf("displace recomb %d -> %d\n", 
-            //       spr->recomb_node, displace[spr->recomb_node]);
             spr->recomb_node = displace[spr->recomb_node];
         }
         
         // if recomb is on root branch, prune it
         if (spr->recomb_node == coal_child && nodes[coal_child].parent == -1) {
-            //printf("delete recomb 2: %d\n", pos);
             spr->set_null();
             continue;
         }
@@ -541,100 +584,33 @@ void remove_arg_thread(LocalTrees *trees, int remove_leaf)
         // rename spr coal_node
         if (spr->coal_node == remove_leaf) {
             // mediated coal
-            //printf("mediated coal: %d\n", pos);
             spr->coal_node = coal_child;
             spr->coal_time = coal_time;
 
         } else if (spr->coal_node == remove_coal) {
             // move coal down a branch
-            //printf("move down coal: %d\n", pos);
             spr->coal_node = coal_child;
         } else {
             // rename recomb_node due to displacement
-            //printf("displace coal: %d\n", pos);
             spr->coal_node = displace[spr->coal_node];
         }
 
 
         // check for bubbles
         if (spr->recomb_node == spr->coal_node) {
-            //printf("delete bubble: %d\n", pos);
             spr->set_null();
             continue;
         }
-
-
-        // assert spr
-        if (last_tree) {
-            spr = &it->spr;
-            mapping = it->mapping;
-            if (!spr->is_null())
-                assert(assert_spr(last_tree, tree, spr, mapping));
-        }
-
-        last_tree = tree;
     }
+    
 
     // update trees info
     trees->seqids[remove_leaf] = trees->seqids[last_leaf];
     trees->seqids.resize(nleaves - 1);
     trees->nnodes -= 2;
-    nnodes = trees->nnodes;
-    //printf("ntrees = %d\n", int(trees->trees.size()));
     
-
     // remove extra trees
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
-        
-        // look one tree ahead
-        LocalTrees::iterator it2 = it;
-        ++it2;
-        if (it2 == trees->end()) {
-            ++it;
-            continue;
-        }
-
-        // get spr from next tree
-        Spr *spr2 = &it2->spr;
-        if (!spr2->is_null()) {
-            ++it;
-            continue;
-        }
-
-        // compute transitive mapping
-        int *M1 = it->mapping;
-        int *M2 = it2->mapping;
-        int mapping[nnodes];
-
-        if (M1 == NULL) {
-            // first tree
-            delete [] it2->mapping;
-            it2->mapping = NULL;
-        } else {            
-            for (int i=0; i<nnodes; i++) {
-                //printf("M1[%d] = %d, M2[%d] = %d\n", i, M1[i], i, M2[i]);
-                if (M1[i] != -1)
-                    mapping[i] = M2[M1[i]];
-                else
-                    mapping[i] = -1;
-            }
-            
-            // set mapping
-            for (int i=0; i<nnodes; i++)
-                M2[i] = mapping[i];
-        
-            // copy over non-null spr
-            Spr *spr = &it->spr;
-            *spr2 = *spr;
-            assert(!spr2->is_null());
-        }
-
-
-        // delete this tree
-        it2->block.start = it->block.start;
-        it->clear();
-        it = trees->trees.erase(it);
-    }
+    remove_null_sprs(trees);
     
     assert_trees(trees);
 }

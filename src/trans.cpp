@@ -336,8 +336,6 @@ void get_deterministic_transitions(
                 (disrupt && mapping[spr.coal_node] == node2 && 
                  spr.coal_time <= time1))
             {
-                // XXX: need to walk up for one more case
-                // need to change < time1 to <== time for disrupt case
                 // coal occurs under us
                 node2 = nodes[node2].parent;
             }
