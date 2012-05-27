@@ -461,10 +461,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             // assert tree and SPR
             assert(assert_tree(new_tree));
             assert(new_tree->nodes[newcoal].age == state.time);
-            if (!assert_spr(tree, new_tree, &spr2, mapping2)) {
-                printf("!!! %d spr fail\n", pos);
-                assert(false);
-            }
+            assert(assert_spr(tree, new_tree, &spr2, mapping2));
 
             // remember the previous tree for next iteration of loop
             tree = new_tree;
