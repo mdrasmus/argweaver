@@ -396,10 +396,6 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
             int i = pos - 1;
             path[i] = sample_hmm_posterior_step_fast(
                 mat.transmat_switch_compress, fw[i], path[i+1]);
-
-            //path[i] = sample_hmm_posterior_step(mat.nstates1, 
-            //                                    mat.transmat_switch, 
-            //                                    fw[i], path[i+1]);
         }
     }
 }

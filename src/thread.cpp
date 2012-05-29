@@ -277,57 +277,65 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
 }
 
 
+bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it)
+{
+    // look one tree ahead
+    LocalTrees::iterator it2 = it;
+    ++it2;
+    if (it2 == trees->end())
+        return false;
+
+    // get spr from next tree, skip it if it is not null
+    Spr *spr2 = &it2->spr;
+    if (!spr2->is_null())
+        return false;
+
+    int nnodes = it2->tree->nnodes;
+        
+    if (it->mapping == NULL) {
+        // it2 will become first tree and therefore does not need a mapping
+        delete [] it2->mapping;
+        it2->mapping = NULL;
+    } else {
+        // compute transitive mapping
+        int *M1 = it->mapping;
+        int *M2 = it2->mapping;
+        int mapping[nnodes];
+        for (int i=0; i<nnodes; i++) {
+            if (M1[i] != -1)
+                mapping[i] = M2[M1[i]];
+            else
+                mapping[i] = -1;
+        }
+        
+        // set mapping
+        for (int i=0; i<nnodes; i++)
+            M2[i] = mapping[i];
+        
+            // copy over non-null spr
+        *spr2 = it->spr;
+        assert(!spr2->is_null());
+    }
+
+
+    // delete this tree
+    it2->block.start = it->block.start;
+    it->clear();
+    trees->trees.erase(it);
+    
+    return true;
+}
+
+
+
 // Removes trees with null SPRs from the local trees
 void remove_null_sprs(LocalTrees *trees)
 {
     for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
-        
-        // look one tree ahead
         LocalTrees::iterator it2 = it;
         ++it2;
-        if (it2 == trees->end()) {
-            ++it;
-            continue;
-        }
-
-        // get spr from next tree, skip it if it is not null
-        Spr *spr2 = &it2->spr;
-        if (!spr2->is_null()) {
-            ++it;
-            continue;
-        }
-        int nnodes = it2->tree->nnodes;
-        
-        if (it->mapping == NULL) {
-            // it2 will become first tree and therefore does not need a mapping
-            delete [] it2->mapping;
-            it2->mapping = NULL;
-        } else {
-            // compute transitive mapping
-            int *M1 = it->mapping;
-            int *M2 = it2->mapping;
-            int mapping[nnodes];
-            for (int i=0; i<nnodes; i++) {
-                if (M1[i] != -1)
-                    mapping[i] = M2[M1[i]];
-                else
-                    mapping[i] = -1;
-            }
-            
-            // set mapping
-            for (int i=0; i<nnodes; i++)
-                M2[i] = mapping[i];
-        
-            // copy over non-null spr
-            *spr2 = it->spr;
-            assert(!spr2->is_null());
-        }
-
-
-        // delete this tree
-        it2->block.start = it->block.start;
-        it->clear();
-        it = trees->trees.erase(it);
+        remove_null_spr(trees, it);
+        it = it2;
     }
 }
 

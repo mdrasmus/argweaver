@@ -1189,7 +1189,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over sequential iters
         """
-        k = 6
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1207,6 +1207,10 @@ class Sample (unittest.TestCase):
 
         y = []
         for i in range(200):
+            keys = seqs.keys()
+            random.shuffle(keys)
+            seqs = seqs.get(keys)
+            
             util.tic("sample ARG %d" % i)
             arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
             util.toc()
