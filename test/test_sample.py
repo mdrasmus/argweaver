@@ -12,22 +12,23 @@ from compbio import coal, arglib, fasta
 
 
 
-def add_node(arg, node, time, pos, event):
+def strip_tree(tree):
+    arglib.remove_single_lineages(tree)
+    return tree
 
-    node2 = arg.new_node(event=event, age=time, children=[node], pos=pos)
-    if event == "coal":
-        node2.pos = 0
+def hash_tree(tree):
+    return phylo.hash_tree(tree)
 
-    parent = arg.get_local_parent(node, pos-.5)
-    if parent:
-        node.parents[node.parents.index(parent)] = node2
-        parent.children[parent.children.index(node)] = node2
-        node2.parents.append(parent)
-    else:
-        node.parents.append(node2)
+def get_tree(arg, pos):
+    return strip_tree(arg.get_marginal_tree(pos)).get_tree()
 
-    return node2
+def get_branch_correct(arg1, arg2, pos):
+    tree1 = get_tree(arg1, pos)
+    tree2 = get_tree(arg2, pos)
+    return 1.0 - phylo.robinson_foulds_error(tree1, tree2)
 
+
+#=============================================================================
 
 class Sample (unittest.TestCase):
 
@@ -690,13 +691,13 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 10
+        k = 100
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 50000
         times = arghmm.get_time_points(ntimes=20)
-        refine = 1
+        refine = 0
         
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
@@ -708,12 +709,12 @@ class Sample (unittest.TestCase):
 
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                                 refine=refine)
+                                 refine=refine, verbose=True)
         util.toc()
 
         print ilen(x for x in arg2 if x.event == "recomb")
 
-        #arg2.write("test/data/sample_arg2_out.arg")
+        arg2.write("test/data/sample_arg2_out.arg")
         
 
 
@@ -722,12 +723,12 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 4
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 20000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 3
 
@@ -1225,6 +1226,84 @@ class Sample (unittest.TestCase):
         p.plot([0, len(y)], [lk, lk], style="lines")
         
         
+        pause()
+
+
+    def test_branch_correct_plot(self):
+        
+        k = 12
+        n = 1e4
+        rho = 1.5e-8 * 20
+        rho2 = rho
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+
+        arg1 = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg1, mu, times=times)
+        seqs = arglib.make_alignment(arg1, muts)
+
+        # make core
+        util.tic("sample core ARG")
+        core_seqs = seqs.get(seqs.keys()[:5])
+        core_arg = arghmm.sample_arg(core_seqs, rho=rho, mu=mu, times=times,
+                                     refine=0)
+        util.toc()
+                
+        util.tic("sample ARG")
+        arg2 = arghmm.resample_arg(core_arg, seqs, rho=rho, mu=mu, times=times)
+        util.toc()
+
+        
+        coords = range(0, arg1.end, 50)
+        correct = []
+        
+        for pos in coords:
+            correct.append(get_branch_correct(arg1, arg2, pos))
+        print mean(correct)
+
+        p = plot(coords, correct, style="lines")
+        pause()
+
+
+    def test_branch_correct(self):
+        
+        k = 20
+        n = 1e4
+        rho = 1.5e-8 * 20
+        rho2 = rho
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+
+        coords = range(0, length, 50)
+        x = []
+        for i in range(20):
+            arg1 = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                          times=times)
+            muts = arghmm.sample_arg_mutations(arg1, mu, times=times)
+            seqs = arglib.make_alignment(arg1, muts)
+            
+            # make core
+            util.tic("sample core ARG %d" % i)
+            core_seqs = seqs.get(seqs.keys()[:5])
+            core_arg = arghmm.sample_arg(core_seqs, rho=rho, mu=mu, times=times,
+                                         refine=5)
+            util.toc()
+
+            arg2 = core_arg
+            util.tic("sample ARG %d" % i)
+            arg2 = arghmm.resample_arg(core_arg, seqs,
+                                       rho=rho, mu=mu, times=times)
+            util.toc()
+            
+            x.append(mean([get_branch_correct(arg1, arg2, pos)
+                           for pos in coords]))
+            print x[-1]
+
+        print "avg", mean(x)
+        p = plot(sorted(x))
         pause()
 
 

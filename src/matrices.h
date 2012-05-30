@@ -226,15 +226,16 @@ public:
         get_coal_states(tree, model->ntimes, *states);
         int nstates = states->size();
         matrices->blocklen = blocklen;
+        int nleaves = trees->get_num_leaves();
         
         // calculate emissions
         if (seqs) {
             char *subseqs[seqs->nseqs];
-            for (int i=0; i<seqs->nseqs-1; i++)
+            for (int i=0; i<nleaves; i++)
                 subseqs[i] = &seqs->seqs[trees->seqids[i]][pos];
-            subseqs[seqs->nseqs-1] = &seqs->seqs[new_chrom][pos];
+            subseqs[nleaves] = &seqs->seqs[new_chrom][pos];
             matrices->emit = new_matrix<double>(blocklen, nstates);
-            calc_emissions(*states, tree, subseqs, seqs->nseqs, blocklen, 
+            calc_emissions(*states, tree, subseqs, nleaves + 1, blocklen, 
                            model, matrices->emit);
         } else {
             matrices->emit = NULL;

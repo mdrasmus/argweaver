@@ -30,7 +30,52 @@ namespace arghmm {
 
 
 //=============================================================================
-// HMM algorithms
+// Forward algorithm for thread path
+
+
+class ArgHmmForwardTable
+{
+public:
+    ArgHmmForwardTable(int seqlen) :
+        seqlen(seqlen)
+    {
+        fw = new double *[seqlen];
+    }
+
+    ~ArgHmmForwardTable()
+    {
+        deleteBlocks();
+        delete [] fw;
+    }
+
+
+    // allocate another block of the forward table
+    void newBlock(int start, int end, int nstates)
+    {
+        // allocate block
+        int blocklen = end - start;
+        double *block = new double [blocklen * nstates];
+        blocks.push_back(block);
+
+        // link block to fw table
+        for (int i=start; i<end; i++)
+            fw[i] = &block[i*nstates];
+    }
+
+    // delete all blocks
+    void deleteBlocks()
+    {
+        for (unsigned int i=0; i<blocks.size(); i++)
+            delete [] blocks[i];
+        blocks.clear();
+    }
+
+    int seqlen;
+    double **fw;
+
+protected:
+    vector<double*> blocks;
+};
 
 
 // compute one block of forward algorithm with compressed transition matrices
@@ -195,7 +240,7 @@ double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
 
     // allocate the forward table if necessary
     if (fw == NULL)
-        fw = new double* [sequences->seqlen];    
+        fw = new double* [sequences->seqlen];
     
     for (matrix_list->begin(); matrix_list->more(); matrix_list->next()) {
         LocalTrees::iterator it = matrix_list->get_tree_iter();
@@ -276,6 +321,9 @@ double **arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
     return fw;
 }
 
+
+//=============================================================================
+// Sample thread paths
 
 
 void sample_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
@@ -400,7 +448,8 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
     }
 }
 
-
+//=============================================================================
+// Sample recombinations
 
 void sample_recombinations(
     LocalTrees *trees, ArgModel *model, ArgHmmMatrixList *matrix_list,
@@ -641,12 +690,20 @@ void resample_arg_thread(ArgModel *model, Sequences *sequences,
 // resample the threading of all the chromosomes
 void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 {
+    // allocate temp variables
+    double **fw = new double* [sequences->seqlen];
+    int *thread_path = new int [sequences->seqlen];
+
     const int nleaves = trees->get_num_leaves();
     for (int chrom=0; chrom<nleaves; chrom++) {
         // remove chromosome from ARG and resample its thread
         remove_arg_thread(trees, chrom);
-        sample_arg_thread(model, sequences, trees, chrom);
+        sample_arg_thread(model, sequences, trees, chrom, fw, thread_path);
     }
+
+    // clean up    
+    delete [] fw;
+    delete [] thread_path;
 }
 
 
