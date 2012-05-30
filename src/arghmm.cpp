@@ -42,15 +42,18 @@ public:
         fw = new double *[seqlen];
     }
 
-    ~ArgHmmForwardTable()
+    virtual ~ArgHmmForwardTable()
     {
         deleteBlocks();
-        delete [] fw;
+        if (fw) {
+            delete [] fw;
+            fw = NULL;
+        }
     }
 
 
     // allocate another block of the forward table
-    void newBlock(int start, int end, int nstates)
+    virtual void newBlock(int start, int end, int nstates)
     {
         // allocate block
         int blocklen = end - start;
@@ -59,11 +62,11 @@ public:
 
         // link block to fw table
         for (int i=start; i<end; i++)
-            fw[i] = &block[i*nstates];
+            fw[i] = &block[(i-start)*nstates];
     }
 
     // delete all blocks
-    void deleteBlocks()
+    virtual void deleteBlocks()
     {
         for (unsigned int i=0; i<blocks.size(); i++)
             delete [] blocks[i];
@@ -75,6 +78,30 @@ public:
 
 protected:
     vector<double*> blocks;
+};
+
+
+// older style allocation for testing with python
+class ArgHmmForwardTableOld : public ArgHmmForwardTable
+{
+public:
+    ArgHmmForwardTableOld(int seqlen) :
+        ArgHmmForwardTable(seqlen)
+    {
+        fw = new double *[seqlen];
+    }
+
+    virtual ~ArgHmmForwardTableOld()
+    {}
+
+
+    // allocate another block of the forward table
+    virtual void newBlock(int start, int end, int nstates)
+    {
+        // allocate block
+        for (int i=start; i<end; i++)
+            fw[i] = new double [nstates];
+    }
 };
 
 
@@ -231,60 +258,15 @@ void arghmm_forward_switch_fast(double *col1, double* col2,
 
 
 // run forward algorithm with matrices precomputed
-double **arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
-    Sequences *sequences, ArgHmmMatrixIter *matrix_list, double **fw=NULL)
+void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
+    Sequences *sequences, ArgHmmMatrixIter *matrix_list, 
+    ArgHmmForwardTable *forward)
 {
     LineageCounts lineages(model->ntimes);
     States states;
     ArgHmmMatrices matrices;
 
-    // allocate the forward table if necessary
-    if (fw == NULL)
-        fw = new double* [sequences->seqlen];
-    
-    for (matrix_list->begin(); matrix_list->more(); matrix_list->next()) {
-        LocalTrees::iterator it = matrix_list->get_tree_iter();
-        int pos = it->block.start;
-        matrix_list->get_matrices(&matrices);
-
-        // allocate the forward table column if necessary
-        for (int i=pos; i<pos+matrices.blocklen; i++)
-            fw[i] = new double [matrices.nstates2];
-        
-        // use switch matrix for first column of forward table
-        // if we have a previous state space (i.e. not first block)
-        if (pos == 0) {
-            // calculate prior of first state
-            LocalTree *tree = it->tree;
-            get_coal_states(tree, model->ntimes, states);
-            lineages.count(tree);
-            calc_state_priors(states, &lineages, model, fw[0]);
-        } else {
-            // perform one column of forward algorithm with transmat_switch
-            forward_step(fw[pos-1], fw[pos], matrices.nstates1, 
-                matrices.nstates2, matrices.transmat_switch, matrices.emit[0]);
-        }
-
-        // calculate rest of block
-        forward_alg(matrices.blocklen, matrices.nstates2, 
-                    matrices.transmat, matrices.emit, &fw[pos]);
-    }
-    
-    return fw;
-}
-
-
-// run forward algorithm with matrices precomputed
-double **arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
-    Sequences *sequences, ArgHmmMatrixIter *matrix_list, double **fw=NULL)
-{
-    LineageCounts lineages(model->ntimes);
-    States states;
-    ArgHmmMatrices matrices;
-    
-    // allocate the forward table if necessary
-    if (fw == NULL)
-        fw = new double* [sequences->seqlen];
+    double **fw = forward->fw;
 
     // forward algorithm over local trees
     for (matrix_list->begin(); matrix_list->more(); matrix_list->next()) {
@@ -292,10 +274,8 @@ double **arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
         int pos = it->block.start;
         matrix_list->get_matrices(&matrices);
 
-        // allocate the forward table column if necessary
-        for (int i=pos; i<pos+matrices.blocklen; i++)
-            fw[i] = new double [matrices.nstates2];
-
+        // allocate the forward table
+        forward->newBlock(pos, pos+matrices.blocklen, matrices.nstates2);
         
         get_coal_states(it->tree, model->ntimes, states);
         lineages.count(it->tree);
@@ -317,9 +297,8 @@ double **arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
                                       matrices.transmat_compress,
                                       matrices.emit, &fw[pos]);
     }
-    
-    return fw;
 }
+
 
 
 //=============================================================================
@@ -587,18 +566,12 @@ void sample_recombinations(
 
 // sample the thread of the last chromosome
 void sample_arg_thread(ArgModel *model, Sequences *sequences, 
-                       LocalTrees *trees, int new_chrom,
-                       double **fw=NULL, int *thread_path=NULL)
+                       LocalTrees *trees, int new_chrom)
 {
-    bool tmp_given = (fw != NULL);
-    //Timer time;
-
     // allocate temp variables
-    if (fw == NULL) {
-        fw = new double* [sequences->seqlen];
-        thread_path = new int [sequences->seqlen];
-    }
-    assert(thread_path != NULL);    
+    ArgHmmForwardTable forward(sequences->seqlen);
+    double **fw = forward.fw;
+    int *thread_path = new int [sequences->seqlen];
 
     // build matrices
     Timer time;
@@ -608,8 +581,7 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     
     // compute forward table
     time.start();
-    //arghmm_forward_alg(trees, model, sequences, &matrix_list, fw);
-    arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, fw);
+    arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, &forward);
     printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
            matrix_list.matrices[0].nstates2,
            (int) matrix_list.matrices.size());
@@ -636,16 +608,9 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
                    recomb_pos, recombs);
 
     printf("add thread:  %e s\n", time.time());
-
-    // cleanup
-    for (int i=0; i<sequences->seqlen; i++)
-        delete [] fw[i];
-
+    
     // clean up
-    if (!tmp_given) {
-        delete [] fw;
-        delete [] thread_path;
-    }
+    delete [] thread_path;
 }
 
 
@@ -658,22 +623,14 @@ void sample_arg_seq(ArgModel *model, Sequences *sequences, LocalTrees *trees)
     // initialize ARG as trunk
     const int capacity = 2 * sequences->nseqs - 1;
     trees->make_trunk(0, seqlen, capacity);
-
-    // allocate temp variables
-    double **fw = new double* [seqlen];
-    int *thread_path = new int [seqlen];
-
+    
     // add more chromosomes one by one
     for (int nchroms=2; nchroms<=sequences->nseqs; nchroms++) {
         // use first nchroms sequences
         Sequences sequences2(sequences->seqs, nchroms, seqlen);
         int new_chrom = nchroms - 1;
-        sample_arg_thread(model, &sequences2, trees, new_chrom,fw,thread_path);
+        sample_arg_thread(model, &sequences2, trees, new_chrom);
     }
-
-    // clean up    
-    delete [] fw;
-    delete [] thread_path;
 }
 
 
@@ -690,20 +647,12 @@ void resample_arg_thread(ArgModel *model, Sequences *sequences,
 // resample the threading of all the chromosomes
 void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 {
-    // allocate temp variables
-    double **fw = new double* [sequences->seqlen];
-    int *thread_path = new int [sequences->seqlen];
-
     const int nleaves = trees->get_num_leaves();
     for (int chrom=0; chrom<nleaves; chrom++) {
         // remove chromosome from ARG and resample its thread
         remove_arg_thread(trees, chrom);
-        sample_arg_thread(model, sequences, trees, chrom, fw, thread_path);
+        sample_arg_thread(model, sequences, trees, chrom);
     }
-
-    // clean up    
-    delete [] fw;
-    delete [] thread_path;
 }
 
 
@@ -716,7 +665,7 @@ double **arghmm_forward_alg(
     int **ptrees, int **ages, int **sprs, int *blocklens,
     int ntrees, int nnodes, double *times, int ntimes,
     double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, double **fw=NULL)
+    char **seqs, int nseqs, int seqlen)
 {    
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
@@ -727,8 +676,14 @@ double **arghmm_forward_alg(
     ArgHmmMatrixList matrix_list(&model, &sequences, &trees);
     matrix_list.setup();
 
-    return arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list);
-    //return arghmm_forward_alg(&trees, &model, &sequences, fw);
+    ArgHmmForwardTableOld forward(sequences.seqlen);
+    arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list,
+                            &forward);
+    // steal pointer
+    double **fw = forward.fw;
+    forward.fw = NULL;
+
+    return fw;
 }
 
 
@@ -749,12 +704,12 @@ intstate *arghmm_sample_posterior(
     matrix_list.setup();
     
     // compute forward table
-    double **fw = new double* [seqlen];
-    arghmm_forward_alg(&trees, &model, &sequences, &matrix_list, fw);
+    ArgHmmForwardTable forward(seqlen);
+    arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list, &forward);
 
     // traceback
     int *ipath = new int [seqlen];
-    stochastic_traceback(&matrix_list, fw, ipath, seqlen);
+    stochastic_traceback(&matrix_list, forward.fw, ipath, seqlen);
 
     
     // convert path
@@ -776,7 +731,6 @@ intstate *arghmm_sample_posterior(
 
 
     // clean up
-    delete_matrix<double>(fw, seqlen);
     delete [] ipath;
 
     return path;
@@ -800,12 +754,12 @@ LocalTrees *arghmm_sample_thread(
     matrix_list.setup();
     
     // compute forward table
-    double **fw = new double* [seqlen];
-    arghmm_forward_alg(trees, &model, &sequences, &matrix_list, fw);
+    ArgHmmForwardTable forward(sequences.seqlen);
+    arghmm_forward_alg_fast(trees, &model, &sequences, &matrix_list, &forward);
 
     // traceback
     int *thread_path = new int [seqlen];
-    stochastic_traceback(&matrix_list, fw, thread_path, seqlen);
+    stochastic_traceback(&matrix_list, forward.fw, thread_path, seqlen);
 
     // sample recombination points
     vector<int> recomb_pos;
@@ -820,7 +774,6 @@ LocalTrees *arghmm_sample_thread(
                    recomb_pos, recombs);
 
     // clean up
-    delete_matrix<double>(fw, seqlen);
     delete [] thread_path;
 
     return trees;
