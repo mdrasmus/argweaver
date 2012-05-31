@@ -2,35 +2,11 @@
 
 import sys
 from rasmus.common import *
-
-
-def iter_align_splits(aln):
-    names = aln.keys()
-
-    for j in xrange(aln.alignlen()):
-        col = [x[j] for x in aln.itervalues()]
-        chars = util.unique(col)
-        if len(chars) > 1:
-            # column has mutations
-            # check bi-allelic
-            if len(chars) != 2:
-                print >>sys.stderr, "warning: not bi-allelic (site=%d)" % j
-
-            part1 = tuple(sorted(names[i] for i, c in enumerate(col) 
-                                 if c == chars[0]))
-            part2 = tuple(sorted(names[i] for i, c in enumerate(col) 
-                                 if c != chars[0]))
-            if len(part1) > len(part2):
-                part1, part2 = part2, part1
-            split = (part1, part2)
-
-            yield j, split
-
-
+from compbio import arglib
 
 fafile = sys.argv[1]
 aln = read_fasta(fafile)
 
-for pos, split in iter_align_splits(aln):
+for pos, split in arglib.iter_align_splits(aln, warn=True):
     print_row(pos, 0, ",".join(split[1]))
 

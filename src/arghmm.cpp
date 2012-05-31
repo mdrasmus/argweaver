@@ -30,7 +30,7 @@ namespace arghmm {
 
 
 //=============================================================================
-// Forward algorithm for thread path
+// Forward tables
 
 
 class ArgHmmForwardTable
@@ -103,6 +103,10 @@ public:
             fw[i] = new double [nstates];
     }
 };
+
+
+//=============================================================================
+// Forward algorithm for thread path
 
 
 // compute one block of forward algorithm with compressed transition matrices

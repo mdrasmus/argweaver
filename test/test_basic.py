@@ -1439,7 +1439,28 @@ class Basic (unittest.TestCase):
         
         arghmm.forward_algorithm2(model, length, verbose=True)
 
-        
+
+    def test_arg_joint(self):
+        """
+        Compute joint probability of an ARG
+        """
+
+        k = 2
+        n = 1e4
+        rho = 1.5e-8 * 20
+        rho2 = rho
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        refine = 0
+
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+        seqs = arglib.make_alignment(arg, muts)
+            
+        lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
+        print lk
 
 
 

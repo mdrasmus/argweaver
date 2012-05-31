@@ -144,7 +144,12 @@ if arghmmclib:
             c_double, "mu", c_double, "rho",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
 
-
+    export(arghmmclib, "arghmm_prior_prob", c_double,
+           [c_int_matrix, "ptrees", c_int_matrix, "ages",
+            c_int_matrix, "sprs", c_int_list, "blocklens",
+            c_int, "ntrees", c_int, "nnodes", 
+            c_double_list, "times", c_int, "ntimes", c_double_list, "popsizes",
+            c_double, "rho"])
 
     export(arghmmclib, "get_local_trees_ntrees", c_int,
            [c_void_p, "trees"])
@@ -582,19 +587,19 @@ def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8,
     blocklens = [x[1] - x[0] for x in blocks]
     seqlen = sum(blocklens)
     
-    names = []
+    #names = []
     seqs2 = []
     for node in all_nodes[0]:
         if arg[node].is_leaf():
-            names.append(node)
+            #names.append(node)
             seqs2.append(seqs[node])
 
     # add all other sequences not in arg yet
-    leaves = set(arg.leaf_names())
-    for name, seq in seqs.items():
-        if name not in leaves:
-            names.append(name)
-            seqs2.append(seq)
+    #leaves = set(arg.leaf_names())
+    #for name, seq in seqs.items():
+    #    if name not in leaves:
+    #        names.append(name)
+    #        seqs2.append(seq)
             
     
     if verbose:
@@ -624,27 +629,27 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsize=1e4,
     if verbose:
         util.tic("calc likelihood")
         util.tic("convert arg")
-    seqs2 = seqs.values()
 
     (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
         arg, times)
     blocklens = [x[1] - x[0] for x in blocks]
     seqlen = sum(blocklens)
     
-    names = []
+    #names = []
     seqs2 = []
     for node in all_nodes[0]:
         if arg[node].is_leaf():
-            names.append(node)
+            #names.append(node)
             seqs2.append(seqs[node])
-
+    
     # add all other sequences not in arg yet
-    leaves = set(arg.leaf_names())
-    for name, seq in seqs.items():
-        if name not in leaves:
-            names.append(name)
-            seqs2.append(seq)
-            
+    #leaves = set(arg.leaf_names())
+    #for name, seq in seqs.items():
+    #    if name not in leaves:
+    #        #names.append(name)
+    #        seqs2.append(seq)
+
+    #print [arg[node] for node in all_nodes[0] if arg[node].is_leaf()]
     
     if verbose:
         util.toc()
@@ -653,6 +658,36 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsize=1e4,
         ptrees, ages, sprs, blocklens, len(ptrees), len(ptrees[0]), 
         times, len(times), popsizes, mu, rho,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen)
+
+    if verbose:
+        util.toc()
+    
+    return lk
+
+
+def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsize=1e4,
+                    times=None, verbose=False):
+    """
+    Calculate arg_joint_prob
+    """
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    popsizes = [popsize] * len(times)
+
+    if verbose:
+        util.tic("calc likelihood")
+        util.tic("convert arg")
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        arg, times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    
+    if verbose:
+        util.toc()
+    
+    lk = arghmm_prior_prob(
+        ptrees, ages, sprs, blocklens, len(ptrees), len(ptrees[0]), 
+        times, len(times), popsizes, rho)
 
     if verbose:
         util.toc()
