@@ -44,7 +44,7 @@ public:
 
     virtual ~ArgHmmForwardTable()
     {
-        deleteBlocks();
+        delete_blocks();
         if (fw) {
             delete [] fw;
             fw = NULL;
@@ -53,7 +53,7 @@ public:
 
 
     // allocate another block of the forward table
-    virtual void newBlock(int start, int end, int nstates)
+    virtual void new_block(int start, int end, int nstates)
     {
         // allocate block
         int blocklen = end - start;
@@ -66,7 +66,7 @@ public:
     }
 
     // delete all blocks
-    virtual void deleteBlocks()
+    virtual void delete_blocks()
     {
         for (unsigned int i=0; i<blocks.size(); i++)
             delete [] blocks[i];
@@ -96,7 +96,7 @@ public:
 
 
     // allocate another block of the forward table
-    virtual void newBlock(int start, int end, int nstates)
+    virtual void new_block(int start, int end, int nstates)
     {
         // allocate block
         for (int i=start; i<end; i++)
@@ -279,7 +279,7 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
         matrix_list->get_matrices(&matrices);
 
         // allocate the forward table
-        forward->newBlock(pos, pos+matrices.blocklen, matrices.nstates2);
+        forward->new_block(pos, pos+matrices.blocklen, matrices.nstates2);
         
         get_coal_states(it->tree, model->ntimes, states);
         lineages.count(it->tree);
@@ -421,7 +421,6 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
                                   mat.transmat_compress, mat.emit, 
                                   &fw[pos], &path[pos]);
 
-        
         // use switch matrix for last col of next block
         if (pos > 0) {
             int i = pos - 1;
@@ -482,13 +481,20 @@ void sample_recombinations(
                         states[last_state].node, states[last_state].time);
 
                     double self_trans;
-                    if (matrices.transmat)
+                    double rate;
+                    if (matrices.transmat_compress) {
+                        TransMatrixCompress *m = matrices.transmat_compress;
+                        int a = states[last_state].time;
+                        self_trans = m->get_transition_prob(
+                            tree, states, last_state, last_state);
+                        rate = 1.0 - (m->norecombs[a] / m->sums[last_state]) /
+                                self_trans;
+                    } else {
                         self_trans = matrices.transmat[last_state][last_state];
-                    else
-                        self_trans = log(matrices.transmat_compress->get_transition_prob(tree, states, last_state, last_state));
-                    double rate = max(
-                        1.0 - exp(-model->rho * (treelen2 - treelen)
-                              - self_trans), model->rho);
+                        rate = max(1.0 - exp(-model->rho * (treelen2 - treelen)
+                                             - self_trans), model->rho);
+                    }
+                        
 
                     // NOTE: the min prevents large floats from overflowing
                     // when cast to int

@@ -9,7 +9,7 @@ namespace arghmm {
 
 
 void parsimony_ancestral_seq(LocalTree *tree, char **seqs, 
-                             int nseqs, int seqlen, int pos, char *ancestral);
+                             int nseqs, int pos, char *ancestral);
 void calc_emissions(const States &states, LocalTree *tree,
                     char **seqs, int nseqs, int seqlen, 
                     ArgModel *model, double **emit);

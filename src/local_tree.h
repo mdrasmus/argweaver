@@ -289,23 +289,23 @@ public:
 
     
     // Convenience method for accessing nodes
-    inline LocalNode &operator[](int name) 
+    inline LocalNode &operator[](int name) const
     {
         return nodes[name];
     }
 
 
     // Copt tree structure from another tree
-    void copy(LocalTree *other)
+    void copy(const LocalTree &other)
     {
         // copy tree info
-        nnodes = other->nnodes;        
-        ensure_capacity(other->capacity);
-        root = other->root;
+        nnodes = other.nnodes;        
+        ensure_capacity(other.capacity);
+        root = other.root;
         
         // copy node info
         for (int i=0; i<nnodes; i++)
-            nodes[i].copy(other->nodes[i]);
+            nodes[i].copy(other.nodes[i]);
     }
 
 

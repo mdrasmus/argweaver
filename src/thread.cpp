@@ -447,7 +447,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             
             // make new local tree and apply SPR operation
             LocalTree *new_tree = new LocalTree(nnodes2, tree->capacity);
-            new_tree->copy(tree);
+            new_tree->copy(*tree);
             apply_spr(new_tree, &spr2);
 
             // calculate block end
