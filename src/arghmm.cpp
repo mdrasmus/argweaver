@@ -309,6 +309,62 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
 // Sample thread paths
 
 
+void max_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
+                            TransMatrixCompress *matrix, double **emit, 
+                            double **fw, int *path)
+{
+    // NOTE: path[n-1] must already be sampled
+    
+    const int nstates = states.size();
+    double trans[nstates];
+    int last_k = -1;
+
+    // recurse
+    for (int i=n-2; i>=0; i--) {
+        int k = path[i+1];
+        
+        // recompute transition probabilities if state (k) changes
+        if (k != last_k) {
+            for (int j=0; j<nstates; j++)
+                trans[j] = log(matrix->get_transition_prob(tree, states, j, k));
+            last_k = k;
+        }
+
+        // find max transition
+        int maxj = 0;
+        double maxprob = fw[i][0] + trans[0];
+        for (int j=1; j<nstates; j++) {
+            double prob = fw[i][j] + trans[j];
+            if (prob > maxprob) {
+                maxj = j;
+                maxprob = prob;
+            }
+        }
+        path[i] = maxj;
+    }
+}
+
+
+int max_hmm_posterior_step_fast(TransMatrixSwitchCompress *matrix, 
+                                   double *col1, int state2)
+{
+    const int nstates1 = matrix->nstates1;
+    
+    int maxj = 0;
+    double maxprob = col1[0] + matrix->get_transition_prob(0, state2);
+    for (int j=1; j<nstates1; j++) {
+        double prob = col1[j] + matrix->get_transition_prob(j, state2);
+        if (prob > maxprob) {
+            maxj = j;
+            maxprob = prob;
+        }
+    }
+    return maxj;
+}
+
+
+
+
 void sample_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
                                TransMatrixCompress *matrix, double **emit, 
                                double **fw, int *path)
@@ -430,6 +486,49 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
     }
 }
 
+
+void max_traceback_fast(LocalTrees *trees, ArgModel *model, 
+                        ArgHmmMatrixIter *matrix_list, 
+                        double **fw, int *path, int seqlen)
+{
+    ArgHmmMatrices mat;
+    States states;
+
+    // choose last column first
+    matrix_list->rbegin();
+    matrix_list->get_matrices(&mat);
+    int nstates = mat.nstates2;
+    int maxi = 0;
+    double maxprob = fw[seqlen - 1][0];
+    for (int i=1; i<nstates; i++) {
+        if (fw[seqlen - 1][i] > maxprob) {
+            maxi = i;
+            maxprob = fw[seqlen - 1][i];
+        }
+    }
+    path[seqlen - 1] = maxi;
+    
+    // iterate backward through blocks
+    int pos = seqlen;
+    for (; matrix_list->more(); matrix_list->prev()) {
+        matrix_list->get_matrices(&mat);
+        LocalTree *tree = matrix_list->get_tree_iter()->tree;
+        get_coal_states(tree, model->ntimes, states);
+        pos -= mat.blocklen;
+        
+        max_hmm_posterior_fast(mat.blocklen, tree, states,
+                                  mat.transmat_compress, mat.emit, 
+                                  &fw[pos], &path[pos]);
+
+        // use switch matrix for last col of next block
+        if (pos > 0) {
+            int i = pos - 1;
+            path[i] = max_hmm_posterior_step_fast(
+                mat.transmat_switch_compress, fw[i], path[i+1]);
+        }
+    }
+}
+
 //=============================================================================
 // Sample recombinations
 
@@ -533,35 +632,152 @@ void sample_recombinations(
             for (int k=0; k<=end_time; k++)
                 candidates.push_back(NodePoint(new_node, k));
 
-
             // compute probability of each candidate
-            double C[model->ntimes];
-            C[0] = 0.0;
-            for (int b=1; b<model->ntimes; b++) {
-                const int l = b - 1;
-                C[b] = C[l] + model->time_steps[l] * lineages.nbranches[l] / 
-                    (2.0 * model->popsizes[l]);
-            }
-
             probs.clear();
             int j = state.time;
             for (vector<NodePoint>::iterator it=candidates.begin(); 
                  it != candidates.end(); ++it) {
                 int k = it->time;
-                double p = 
-                    (lineages.nbranches[k] + 1) * model->time_steps[k] /
-                    (lineages.ncoals[j] * (lineages.nrecombs[k] + 1.0) * 
-                     treelen2_b) * 
-                    (1.0 - exp(-model->time_steps[j] * lineages.nbranches[j] /
-                               (2.0 * model->popsizes[j-1]))) *
-                    (1.0 - exp(-model->rho * treelen2)) *
-                    exp(-C[k] + C[k]);
+                int nbranches_k = lineages.nbranches[k] + 1
+                    - int(k == last_state.time);
+                int nrecombs_k = lineages.nrecombs[k] + 1 +
+                    (k == last_state.time);
+
+                double sum = 0.0;
+                int recomb_node_age = tree->nodes[it->node].age;
+                int recomb_parent_age = 
+                    (it->node == -1) ? last_state.time :
+                    tree->nodes[tree->nodes[it->node].parent].age;
+                for (int m=k; m<j; m++) {
+                    int nbranches_m = lineages.nbranches[m] + 1
+                        - int(m == last_state.time) 
+                        - int(recomb_node_age <= m &&
+                              m < recomb_parent_age);
+                    sum += (model->time_steps[m] * nbranches_m 
+                            / (2.0 * model->popsizes[m]));
+                }
+
+                double p = (nbranches_k * model->time_steps[k] /
+                            nrecombs_k) * exp(- sum);
                 probs.push_back(p);
             }
 
             // sample recombination
             recomb_pos.push_back(i);
             recombs.push_back(candidates[sample(&probs[0], probs.size())]);
+
+            assert(recombs[recombs.size()-1].time <= min(state.time,
+                                                         last_state.time));
+        }
+    }
+}
+
+
+
+void max_recombinations(
+    LocalTrees *trees, ArgModel *model, ArgHmmMatrixList *matrix_list,
+    int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs)
+{
+    States states;
+    LineageCounts lineages(model->ntimes);
+    const int new_node = -1;
+    vector <NodePoint> candidates;
+    vector <double> probs;
+
+
+    // loop through local blocks
+    int blocki = 0;
+    for (LocalTrees::iterator it=trees->begin(); 
+         it != trees->end(); ++it, blocki++) {
+
+        // get local block information
+        int start = it->block.start + 1;  // don't allow new recomb at start
+        int end = it->block.end;
+        ArgHmmMatrices matrices = matrix_list->matrices[blocki];
+        LocalTree *tree = it->tree;
+        double treelen_b = get_treelen(tree, model->times, model->ntimes);
+        double treelen2_b, treelen2;
+        lineages.count(tree);
+        get_coal_states(tree, model->ntimes, states);
+        int statei = thread_path[start];
+        int next_recomb = -1;
+
+        
+        // loop through positions in block
+        for (int i=start; i<end; i++) {
+            // its never worth sampling a recombination if you don't have to
+            if (thread_path[i] == thread_path[i-1])
+                continue;
+            
+            // sample recombination
+            next_recomb = -1;
+            statei = thread_path[i];
+            State state = states[statei];
+            State last_state = states[thread_path[i-1]];
+            treelen2_b = get_treelen_branch(tree, model->times, model->ntimes,
+                                            last_state.node,
+                                            last_state.time, treelen_b);
+            treelen2 = treelen2_b - get_basal_branch(
+                tree, model->times, model->ntimes, 
+                last_state.node, last_state.time);
+            
+
+            // there must be a recombination
+            // either because state changed or we choose to recombine
+            // find candidates
+            candidates.clear();
+            int end_time = min(state.time, last_state.time);
+            if (state.node == last_state.node) {
+                // y = v, k in [0, min(timei, last_timei)]
+                // y = node, k in Sr(node)
+                for (int k=tree->nodes[state.node].age; k<=end_time; k++)
+                    candidates.push_back(NodePoint(state.node, k));
+            }
+            
+            for (int k=0; k<=end_time; k++)
+                candidates.push_back(NodePoint(new_node, k));
+
+            // compute probability of each candidate
+            probs.clear();
+            int j = state.time;
+            for (vector<NodePoint>::iterator it=candidates.begin(); 
+                 it != candidates.end(); ++it) {
+                int k = it->time;
+                int nbranches_k = lineages.nbranches[k] + 1
+                    - int(k == last_state.time);
+                int nrecombs_k = lineages.nrecombs[k] + 1 +
+                    (k == last_state.time);
+
+                double sum = 0.0;
+                int recomb_node_age = tree->nodes[it->node].age;
+                int recomb_parent_age = 
+                    (it->node == -1) ? last_state.time :
+                    tree->nodes[tree->nodes[it->node].parent].age;
+                for (int m=k; m<j; m++) {
+                    int nbranches_m = lineages.nbranches[m] + 1
+                        - int(m == last_state.time) 
+                        - int(recomb_node_age <= m &&
+                              m < recomb_parent_age);
+                    sum += (model->time_steps[m] * nbranches_m 
+                            / (2.0 * model->popsizes[m]));
+                }
+
+                double p = (nbranches_k * model->time_steps[k] /
+                            nrecombs_k) * exp(- sum);
+                probs.push_back(p);
+            }
+
+            // find max prob recombination
+            recomb_pos.push_back(i);
+            int argmax = 0;
+            double maxprob = probs[0];
+            for (unsigned int m=1; m<probs.size(); m++) {
+                if (probs[m] > maxprob) {
+                    argmax = m;
+                    maxprob = probs[m];
+                }
+            }
+            recombs.push_back(candidates[argmax]);
 
             assert(recombs[recombs.size()-1].time <= min(state.time,
                                                          last_state.time));
@@ -624,6 +840,58 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
 }
 
 
+
+// sample the thread of the last chromosome
+void max_arg_thread(ArgModel *model, Sequences *sequences, 
+                       LocalTrees *trees, int new_chrom)
+{
+    // allocate temp variables
+    ArgHmmForwardTable forward(sequences->seqlen);
+    double **fw = forward.fw;
+    int *thread_path = new int [sequences->seqlen];
+
+    // build matrices
+    Timer time;
+    ArgHmmMatrixList matrix_list(model, sequences, trees, new_chrom, false);
+    matrix_list.setup();
+    printf("matrix calc: %e s\n", time.time());
+    
+    // compute forward table
+    time.start();
+    arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, &forward);
+    printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
+           matrix_list.matrices[0].nstates2,
+           (int) matrix_list.matrices.size());
+
+
+    // traceback
+    time.start();
+    //stochastic_traceback(&matrix_list, fw, thread_path, sequences->seqlen);
+    max_traceback_fast(trees, model, &matrix_list, fw, 
+                       thread_path, sequences->seqlen);
+    printf("trace:       %e s\n", time.time());
+
+
+    time.start();
+
+    // sample recombination points
+    vector<int> recomb_pos;
+    vector<NodePoint> recombs;
+    max_recombinations(trees, model, &matrix_list,
+                          thread_path, recomb_pos, recombs);
+
+    // add thread to ARG
+    add_arg_thread(trees, model->ntimes, thread_path, new_chrom, 
+                   recomb_pos, recombs);
+
+    printf("add thread:  %e s\n", time.time());
+    
+    // clean up
+    delete [] thread_path;
+}
+
+
+
 // sequentially sample an ARG from scratch
 // sequences are sampled in the order given
 void sample_arg_seq(ArgModel *model, Sequences *sequences, LocalTrees *trees)
@@ -655,15 +923,82 @@ void resample_arg_thread(ArgModel *model, Sequences *sequences,
 
 
 // resample the threading of all the chromosomes
-void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees)
+void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
+                  int nremove=1)
 {
     const int nleaves = trees->get_num_leaves();
-    for (int chrom=0; chrom<nleaves; chrom++) {
-        // remove chromosome from ARG and resample its thread
-        remove_arg_thread(trees, chrom);
-        sample_arg_thread(model, sequences, trees, chrom);
+
+    if (nremove == 1) {
+        // cycle through chromosomes
+
+        for (int chrom=0; chrom<nleaves; chrom++) {
+            // remove chromosome from ARG and resample its thread
+            remove_arg_thread(trees, chrom);
+            sample_arg_thread(model, sequences, trees, chrom);
+        }
+    } else {
+        // clamp nremove
+        if (nremove <= 0)
+            return;
+        if (nremove > nleaves)
+            nremove = nleaves;
+
+        // randomly choose which chromosomes to remove
+        int chroms_avail[nleaves];
+        for (int i=0; i<nleaves; i++)
+            chroms_avail[i] = i;
+        shuffle(chroms_avail, nleaves);
+
+        // remove chromosomes from ARG
+        for (int i=0; i<nremove; i++) {
+            remove_arg_thread(trees, chroms_avail[i]);
+        }
+
+        // resample chromosomes
+        for (int i=0; i<nremove; i++)
+            sample_arg_thread(model, sequences, trees, chroms_avail[i]);
     }
 }
+
+
+// resample the threading of all the chromosomes
+void remax_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
+               int nremove=1)
+{
+    const int nleaves = trees->get_num_leaves();
+
+    if (nremove == 1) {
+        // cycle through chromosomes
+
+        for (int chrom=0; chrom<nleaves; chrom++) {
+            // remove chromosome from ARG and resample its thread
+            remove_arg_thread(trees, chrom);
+            max_arg_thread(model, sequences, trees, chrom);
+        }
+    } else {
+        // clamp nremove
+        if (nremove <= 0)
+            return;
+        if (nremove > nleaves)
+            nremove = nleaves;
+
+        // randomly choose which chromosomes to remove
+        int chroms_avail[nleaves];
+        for (int i=0; i<nleaves; i++)
+            chroms_avail[i] = i;
+        shuffle(chroms_avail, nleaves);
+
+        // remove chromosomes from ARG
+        for (int i=0; i<nremove; i++) {
+            remove_arg_thread(trees, chroms_avail[i]);
+        }
+
+        // resample chromosomes
+        for (int i=0; i<nremove; i++)
+            max_arg_thread(model, sequences, trees, chroms_avail[i]);
+    }
+}
+
 
 
 
@@ -833,7 +1168,7 @@ LocalTrees *arghmm_resample_arg(
     int ntrees, int nnodes, 
     double *times, int ntimes,
     double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, int niters)
+    char **seqs, int nseqs, int seqlen, int niters, int nremove)
 {
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
@@ -842,16 +1177,44 @@ LocalTrees *arghmm_resample_arg(
                                        ntrees, nnodes);
 
     // sequentially sample until all chromosomes are present
-    // then gibbs
     for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++) {
         sample_arg_thread(&model, &sequences, trees, new_chrom);
     }
 
+    // gibbs sample
     for (int i=0; i<niters; i++)
-        resample_arg(&model, &sequences, trees);
+        resample_arg(&model, &sequences, trees, nremove);
     
     return trees;
 }
+
+
+// remax an ARG with viterbi
+LocalTrees *arghmm_remax_arg(
+    int **ptrees, int **ages, int **sprs, int *blocklens,
+    int ntrees, int nnodes, 
+    double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int niters, int nremove)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    LocalTrees *trees = new LocalTrees(ptrees, ages, sprs, blocklens, 
+                                       ntrees, nnodes);
+
+    // sequentially sample until all chromosomes are present
+    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++) {
+        max_arg_thread(&model, &sequences, trees, new_chrom);
+    }
+
+    // gibbs sample
+    for (int i=0; i<niters; i++)
+        remax_arg(&model, &sequences, trees, nremove);
+    
+    return trees;
+}
+
 
 
 void delete_path(int *path)

@@ -57,6 +57,18 @@ inline float expovariate(float lambda)
 { return -log(frand()) / lambda; }
 
 
+// shuffle array
+template<class T>
+inline void shuffle(T *list, int size)
+{
+    for (int i=1; i<size; i++) {
+        int j = irand(i);
+        T tmp = list[i];
+        list[i] = list[j];
+        list[j] = tmp;
+    }
+}
+
 
 // computes log(a + b) given log(a) and log(b)
 inline double logadd(double lna, double lnb)

@@ -365,7 +365,7 @@ public:
         if (mapping) {
             int *tmp = new int [_capacity];
             assert(tmp);
-
+            
             std::copy(mapping, mapping + _capacity, tmp);   
             delete [] mapping;
             

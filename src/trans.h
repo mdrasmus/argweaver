@@ -99,6 +99,7 @@ public:
         if (own_data) {
             delete [] determ;
             delete [] probrow;
+            delete [] recombrow;
         }
     }
 
@@ -109,12 +110,15 @@ public:
         own_data = true;
         determ = new int [nstates1];
         probrow = new double [nstates2];
+        recombrow = new double [nstates2];
     }
     
     inline double get_transition_prob(int i, int j)
     {
         if (i == probsrc) {
             return probrow[j];
+            //} else if (i == recombsrc) {
+            //return recombrow[j];
         } else {
             if (determ[i] == j)
                 return 0.0;
@@ -126,9 +130,11 @@ public:
     int nstates1;
     int nstates2;
     int probsrc;
+    int recombsrc;
     bool own_data;
     int *determ;
     double *probrow;
+    double *recombrow;
 };
 
 

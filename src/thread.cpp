@@ -64,8 +64,9 @@ void displace_node(LocalTree *tree, int src_node, int dest_node)
     nodes[dest_node].copy(nodes[src_node]);
 
     // notify parent of displacement
-    if (nodes[dest_node].parent != -1) {
-        int *c = nodes[nodes[dest_node].parent].child;
+    int parent = nodes[dest_node].parent;
+    if (parent != -1) {
+        int *c = nodes[parent].child;
         if (c[0] == src_node)
             c[0] = dest_node;
         else
@@ -186,7 +187,7 @@ void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
     // set tree data
     tree->nnodes -= 2;
     tree->set_root();
-    //assert_tree(tree);
+    assert_tree(tree);
 }
 
 
@@ -517,7 +518,7 @@ void remove_arg_thread(LocalTrees *trees, int remove_seqid)
         trees->seqids.resize(1);
         return;
     }
-    
+
     
     // remove extra branch
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
@@ -531,7 +532,8 @@ void remove_arg_thread(LocalTrees *trees, int remove_seqid)
         int coal_child = (c[0] == remove_leaf ? c[1] : c[0]);
         
         // remove branch from tree        
-        remove_tree_branch(tree, remove_leaf, displace);        
+        remove_tree_branch(tree, remove_leaf, displace);
+        //assert_tree(tree);
         
         
         // fix this mapping due to displacement
@@ -552,7 +554,8 @@ void remove_arg_thread(LocalTrees *trees, int remove_seqid)
 
         // fix next mapping due to displacement
         mapping = it2->mapping;
-        mapping[displace[last_leaf]] = mapping[last_leaf];
+        if (displace[last_leaf] != -1)
+            mapping[displace[last_leaf]] = mapping[last_leaf];
         if (displace[nnodes-2] != -1)
             mapping[displace[nnodes-2]] = mapping[nnodes-2];
         if (displace[nnodes-1] != -1)

@@ -126,7 +126,16 @@ if arghmmclib:
             c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_int, "niters"])
+            c_int, "niters", c_int, "nremove"])
+
+    export(arghmmclib, "arghmm_remax_arg", c_void_p,
+           [c_int_matrix, "ptrees", c_int_matrix, "ages",
+            c_int_matrix, "sprs", c_int_list, "blocklens",
+            c_int, "ntrees", c_int, "nnodes", 
+            c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "niters", c_int, "nremove"])
 
     export(arghmmclib, "arghmm_likelihood", c_double,
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
@@ -482,7 +491,7 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
 
 
 def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
-                 refine=1, times=None, verbose=False):
+                 refine=1, nremove=1, times=None, verbose=False):
     """
     Sample ARG for sequences
     """
@@ -524,7 +533,93 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
         times, len(times),
         popsizes, rho, mu,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2),
-        seqlen, refine)
+        seqlen, refine, nremove)
+
+    if verbose:
+        util.tic("convert arg 2")
+    
+    nnodes = get_local_trees_nnodes(trees)
+    ntrees = get_local_trees_ntrees(trees)
+    
+    ptrees = []
+    ages = []
+    sprs = []
+    blocklens = [0] * ntrees
+    for i in range(ntrees):
+        ptrees.append([0] * nnodes)
+        ages.append([0] * nnodes)
+        sprs.append([0, 0, 0, 0])
+
+    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
+    delete_local_trees(trees)
+
+    for i in range(ntrees):
+        ptrees[i] = ptrees[i][:nnodes]
+        ages[i] = ages[i][:nnodes]
+        sprs[i] = sprs[i][:4]
+    
+    
+    blocks = []
+    start = 0
+    for blocklen in blocklens:
+        end = start + blocklen
+        blocks.append((start, end))
+        start = end
+
+    assert len(names) == ((nnodes + 1) / 2)
+
+    arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
+    if verbose:
+        util.toc()
+        util.toc()
+    
+    return arg
+
+
+def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+                 refine=1, nremove=1, times=None, verbose=False):
+    """
+    Sample ARG for sequences
+    """
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    popsizes = [popsize] * len(times)
+
+    if verbose:
+        util.tic("remax arg")
+        util.tic("convert arg")
+    seqs2 = seqs.values()
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        arg, times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    seqlen = sum(blocklens)
+    
+    names = []
+    seqs2 = []
+    for node in all_nodes[0]:
+        if arg[node].is_leaf():
+            names.append(node)
+            seqs2.append(seqs[node])
+
+    # add all other sequences not in arg yet
+    leaves = set(arg.leaf_names())
+    for name, seq in seqs.items():
+        if name not in leaves:
+            names.append(name)
+            seqs2.append(seq)
+            
+    
+    if verbose:
+        util.toc()
+    
+    trees = arghmm_remax_arg(
+        ptrees, ages, sprs, blocklens,
+        len(ptrees), len(ptrees[0]), 
+        times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs2))(*seqs2), len(seqs2),
+        seqlen, refine, nremove)
 
     if verbose:
         util.tic("convert arg 2")
