@@ -1151,84 +1151,36 @@ def calc_no_recomb_cond_self(tree, states, nlineages, times,
     return vec
 
 
-'''
-def calc_transition_probs2(tree, states, nlineages, times,
-                          time_steps, popsizes, rho):
 
-    ntimes = len(time_steps)
-    minlen = time_steps[0]
-    #treelen = get_treelen(tree, times)
-    treelen = sum(x.get_dist() for x in tree)
-    nbranches, nrecombs, ncoals = nlineages
+def get_recomb_transition_switch(tree, last_tree, spr, states1, states2,
+                                 times):
     
-    # A_{k,j} =& s'_{j-2} k_{j-1} / (2N) + \sum_{m=k}^{j-2} s'_m k_m / (2N) \\
-    #         =& s'_{j-2} k_{j-1} / (2N) + A_{k,j-1}.
+    # SPR subtree moves out from underneath us
+    # therefore therefore the new chromosome coalesces with
+    # the branch above the subtree
+
+    (recomb_branch, recomb_time), (coal_branch, coal_time) = spr
+
+    # search up for parent
+    recomb = last_tree[recomb_branch]
+    parent = recomb.parents[0]
+    b = times.index(parent.age)
+
+    # find other child
+    c = parent.children
+    other = (c[0] if c[1] == recomb else c[1])
+
+    # find new state in tree
+    if other.name == coal_branch:
+        next_state = (tree[other.name].parents[0].name, b)
+    else:
+        next_state = (other.name, b)
     
-    A = util.make_matrix(ntimes, ntimes, 0.0)
-    for k in xrange(ntimes):
-        # A[k][k] = 0
-        for j in xrange(k+1, ntimes):
-            l = j - 1
-            A[k][j] = A[k][j-1] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l])
+    a = states2.index((recomb_branch, recomb_time))
+    b = states2.index(next_state)
+    return (a, b)
 
-    # B_{c,a} =& \sum_{k=0}^{c} \exp(- A_{k,a}) \\
-    #         =& B_{c-1,a} + \exp(- A_{c,a}).
-
-    B = util.make_matrix(ntimes, ntimes, 0.0)
-    for b in xrange(ntimes):
-        B[0][b] = nbranches[0] * time_steps[0] / (nrecombs[0] + 1.0) * exp(-A[0][b])
-        for c in xrange(1, min(b+1, ntimes-1)):
-            B[c][b] = (B[c-1][b] + nbranches[c] * time_steps[c] / (nrecombs[c] + 1.0)
-                       * exp(-A[c][b]))
-
-    # S_{a,b} &= B_{min(a,b),b}
-    S = util.make_matrix(ntimes, ntimes, 0.0)
-    for a in xrange(ntimes):
-        for b in xrange(ntimes):
-            S[a][b] = B[min(a, b)][b]
-
-    # f =\frac{[1 - \exp(- \rho (|T^{n-1}_{i-1}| + s_a))] 
-    #       [1 - \exp(- s'_b k_b / (2N))]}
-    #      {\exp(-\rho |T^{n-1}_{i-1}|) (|T^{n-1}_{i-1}| + s_a) k^C_b}
-    # |T^{n-1}_{i-1}| = treelen
-    
-    time_lookup = util.list2lookup(times)
-    transprob = util.make_matrix(len(states), len(states), 0.0)
-    for i, (node1, a) in enumerate(states):
-        c = time_lookup[tree[node1].age]
-
-        blen = times[a]
-        treelen2 = treelen + blen        
-        if node1 == tree.root.name:
-            treelen2 += blen - tree.root.age
-            treelen2_b = treelen2 + time_steps[a]
-        else:
-            treelen2_b = treelen2 + time_steps[time_lookup[tree.root.age]]
-        
-        for j, (node2, b) in enumerate(states):
-            f = ((1.0 - exp(-max(rho * treelen2, rho))) /
-                 (exp(-rho * treelen) * treelen2_b * ncoals[b]))
-            if b < ntimes-1:
-                f *= (1.0 - exp(-time_steps[b] * nbranches[b]
-                               / (2.0 * popsizes[b])))
-            
-            if node1 != node2:
-                transprob[i][j] = f * S[a][b]
-            else:
-                print "S", a, b, S[a][b]
-                transprob[i][j] = f * (2*S[a][b] - S[c][b])
-                if a == b:
-                    transprob[i][j] += exp(-max(rho * (treelen2 - treelen), rho))
-
-        # normalize row to sum to one
-        tot = sum(transprob[i])
-        for j in xrange(len(states)):
-            transprob[i][j] = util.safelog(transprob[i][j] / tot)
-        #for j in xrange(len(states)):
-        #    transprob[i][j] = util.safelog(transprob[i][j])
-
-    return transprob
-'''
+                
 
 
 def calc_transition_probs_switch(tree, last_tree, recomb_name,
@@ -1259,13 +1211,19 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
 
 
     for i, (node1, a) in enumerate(states1):        
-        if (node1, a) != (coal_branch, coal_time):
-            # deterministic transition
-            assert determ[i] != -1, determ
-            transprob[i][determ[i]] = 0.0
+        if (node1, a) == (recomb_branch, k):
+            # probabilistic transition case (recomb case)
+            spr = (recomb_branch, k), (coal_branch, coal_time)
+            recomb_next_states = get_recomb_transition_switch(
+                tree2, last_tree2, spr, states1, states2, times)
 
-        else:
-            # probabilistic transition case
+            # placeholders
+            transprob[i][recomb_next_states[0]] = log(.5)
+            transprob[i][recomb_next_states[1]] = log(.5)
+
+    
+        elif (node1, a) == (coal_branch, coal_time):
+            # probabilistic transition case (re-coal case)
 
             # determine if node1 is still here or not
             last_recomb = last_tree2[recomb_branch]
@@ -1327,6 +1285,12 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
                     transprob[i][j] = log(x / tot)
                 else:
                     transprob[i][j] = -1e1000
+
+        else:
+            # deterministic transition
+            assert determ[i] != -1, determ
+            transprob[i][determ[i]] = 0.0
+
 
     return transprob
 
