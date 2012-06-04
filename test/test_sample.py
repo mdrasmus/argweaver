@@ -752,7 +752,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 12
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1277,7 +1277,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 8
+        k = 25
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho

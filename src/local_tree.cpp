@@ -331,6 +331,7 @@ bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping)
     int *c = tree->nodes[recoal].child;
     int other = (c[0] == mapping[spr->recomb_node] ? c[1] : c[0]);
     if (mapping[spr->coal_node] != -1) {
+        // coal node is not broken, so it should map correctly
         assert(other == mapping[spr->coal_node]);
     } else {
         // coal node is broken

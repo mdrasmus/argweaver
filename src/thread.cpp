@@ -227,17 +227,25 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
 
         
     // parent of recomb node should be the recoal point
-    // however, if it equals newcoal, then recomb branch is 
-    // either renamed or we have mediation
+    // however, if it equals newcoal, then either (1) the recomb branch is 
+    // renamed, (2) there is mediation, or (3) new branch escapes
     int recoal = nodes[mapping[spr->recomb_node]].parent;
     if (recoal == newcoal) {
         if (mapping[last_state.node] == node2) {
-            // recomb is above coal state, we rename spr recomb node
+            // (1) recomb is above coal state, we rename spr recomb node
             spr->recomb_node = newcoal;
         } else {
-            // this is a mediated coal, rename coal node and time
-            spr->coal_node = newleaf;
-            spr->coal_time = state.time;
+            // if this is a mediated coal, then state should equal recomb
+            int state_node = (state.node != newleaf) ? 
+                state.node : displaced;
+            if (state_node == mapping[spr->recomb_node]) {
+                // (3) this is a mediated coal, rename coal node and time
+                spr->coal_node = newleaf;
+                spr->coal_time = state.time;
+            } else {
+                // (2) this is the new branch escaping
+                // no other updates are necessary
+            }
         }
     } else {
         // the other possibility is that newcoal is under recoal point
@@ -381,6 +389,9 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
         // update mapping and spr
         int *mapping = it->mapping;
         if (mapping) {
+            //printf("spr %d %d, %d %d\n", 
+            //       it->spr.recomb_node, it->spr.recomb_time,
+            //       it->spr.coal_node, it->spr.coal_time);
             add_spr_branch(tree, last_tree, state, last_state,
                            &it->spr, mapping,
                            newleaf, displaced, newcoal);

@@ -246,17 +246,19 @@ void arghmm_forward_switch_fast(double *col1, double* col2,
 
     // add deterministic transitions
     for (int j=0; j<matrix->nstates1; j++) {
-        if (j != matrix->probsrc) {
+        if (j != matrix->recombsrc && j != matrix->recoalsrc) {
             int k = matrix->determ[j];
             col2[k] = logadd(col2[k], col1[j]);
         }
     }
     
     // add probabilistic transitions
-    int j = matrix->probsrc;
-    for (int k=0; k<matrix->nstates2; k++) {
-        col2[k] = logadd(col2[k], col1[j] + matrix->probrow[k]) + emit[k];
-    }
+    int j = matrix->recombsrc;
+    for (int k=0; k<matrix->nstates2; k++)
+        col2[k] = logadd(col2[k], col1[j] + matrix->recoalrow[k]) + emit[k];
+    j = matrix->recoalsrc;
+    for (int k=0; k<matrix->nstates2; k++)
+        col2[k] = logadd(col2[k], col1[j] + matrix->recoalrow[k]) + emit[k];
 }
 
 
