@@ -456,16 +456,35 @@ void calc_transition_probs_switch(
         if (node1 == spr.recomb_node && time1 == spr.recomb_time)  {
             // probabilistic transition case (recomb case)
 
-            // [0] = stay, [1] = escape
+            // [0] = staying case (recomb is above us)
+            // [1] = escaping (recomb is below us)
             int recomb_next_states[2];
             get_recomb_transition_switch(tree, last_tree, spr, mapping,
                                          states1, states2, recomb_next_states);
             for (int j=0; j<nstates2; j++)
                 transprob[i][j] = -INFINITY;
+
+            int k = spr.recomb_time;
+            int recomb_parent_age = 
+                last_nodes[last_nodes[spr.recomb_node].parent].age;
+
+            for (int ii=0; ii<2; ii++) {
+                int j = recomb_next_states[ii];
+                int b = states2[j].time;
             
-            // placeholders
-            transprob[i][recomb_next_states[0]] = log(.5);
-            transprob[i][recomb_next_states[1]] = log(.5);
+                double sum = 0.0;
+                for (int m=k; m<j; m++) {
+                    int nbranches_m = nbranches[m] - int(m < recomb_parent_age);
+                    sum += time_steps[m] * nbranches_m / (2.0 * popsizes[m]);
+                }
+                int nbranches_b = nbranches[b] - int(b < recomb_parent_age);
+                int ncoals_b = ncoals[b] - int(j <=  recomb_parent_age)
+                    - int(j ==  recomb_parent_age);
+                double p = (1.0 - exp(-time_steps[b] * nbranches_b / 
+                                      (2.0 * popsizes[b]))) / ncoals_b * 
+                    exp(-sum);
+                transprob[i][j] = log(p);
+            }
 
         } else if (node1 == spr.coal_node && time1 == spr.coal_time)  {
             // probabilistic transition case (recoal case)
@@ -499,27 +518,22 @@ void calc_transition_probs_switch(
                       (node2 == parent && time2 == time1)))
                     // not a probabilistic transition
                     continue;
-
-                // get lineage counts
-                // remove recombination branch and add new branch
-                int kbn = nbranches[time2];
-                int kcn = ncoals[time2] + 1;
-                if (time2 < nodes[parent].age) {
-                    kbn -= 1;
-                    kcn -= 1;
-                }
-                if (time2 < time1)
-                    kbn += 1;
-
+                
                 double sum = 0.0;
                 for (int m=spr.recomb_time; m<time2; m++) {
-                    const int nlineages = nbranches[m] + 1
-                        - (m < last_parent_age ? 1 : 0);
-                    sum += time_steps[m] * nlineages / (2.0 * popsizes[m]);
+                    int nbranches_m = nbranches[m] 
+                        - int(m < last_parent_age) + int(time2 < time1);
+                    sum += time_steps[m] * nbranches_m / (2.0 * popsizes[m]);
                 }
+                int ncoals_b = ncoals[time2] 
+                    - int(time2 <= last_parent_age) 
+                    - int(time2 == last_parent_age) 
+                    + int(time2 <= time1) + int(time2 == time1);
+                int nbranches_b = nbranches[time2] + 
+                    -int(time2 < last_parent_age) + int(time2 < time1);
                 transprob[i][j] =
-                    (1.0 - exp(- time_steps[time2] * kbn /  
-                               (2.0 * popsizes[time2]))) / kcn * exp(-sum);
+                    (1.0 - exp(- time_steps[time2] * nbranches_b /  
+                               (2.0 * popsizes[time2]))) /ncoals_b*exp(-sum);
             }
 
             // normalize row to ensure they add up to one
