@@ -47,7 +47,7 @@ public:
         sums = new double [nstates];
     }
 
-
+    // convert to log?
     inline double get_transition_prob(LocalTree *tree, const States &states, 
                                       int i, int j)
     {
@@ -59,12 +59,12 @@ public:
         const double I = float(a <= b);
             
         if (node1 != node2)
-            return D[a] * E[b] * (B[min(a,b)] - I * G[a]) / sums[i];
+            return D[a] * E[b] * (B[min(a,b)] - I * G[a]);
         else {
             double p = D[a] * E[b] * (2*B[min(a,b)] - 2*I*G[a] - B[min(c,b)]);
             if (a == b)
                 p += norecombs[a];
-            return p / sums[i];
+            return p;
         }
     }
 
@@ -98,6 +98,7 @@ public:
     {
         if (own_data) {
             delete [] determ;
+            delete [] determprob;
             delete [] recoalrow;
             delete [] recombrow;
         }
@@ -109,6 +110,7 @@ public:
         nstates2 = nstates2;
         own_data = true;
         determ = new int [nstates1];
+        determprob = new double [nstates1];
         recoalrow = new double [nstates2];
         recombrow = new double [nstates2];
     }
@@ -122,6 +124,7 @@ public:
         } else {
             if (determ[i] == j)
                 return 0.0;
+                //return determprob[i];
             else
                 return -INFINITY;
         }
@@ -133,6 +136,7 @@ public:
     int recombsrc;
     bool own_data;
     int *determ;
+    double *determprob;
     double *recoalrow;
     double *recombrow;
 };

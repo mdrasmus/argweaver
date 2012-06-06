@@ -114,7 +114,7 @@ double get_treelen(const LocalTree *tree, const double *times, int ntimes,
 
 
 double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
-                          int node, int time, double treelen)
+                          int node, int time, double treelen, bool use_basal)
 {
 
     if (treelen < 0.0)
@@ -134,7 +134,10 @@ double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
         root_time = times[rooti+1] - times[rooti];
     }
     
-    return treelen2 + root_time;
+    if (use_basal)
+        return treelen2 + root_time;
+    else
+        return treelen2;
 }
 
 

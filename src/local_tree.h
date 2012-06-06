@@ -513,7 +513,8 @@ void apply_spr(LocalTree *tree, Spr *spr);
 double get_treelen(const LocalTree *tree, const double *times, int ntimes,
                     bool use_basal=true);
 double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
-                          int node, int time, double treelen=-1.0);
+                          int node, int time, double treelen=-1.0, 
+                          bool use_basal=true);
 double get_basal_branch(const LocalTree *tree, double *times, int ntimes,
                         int node, int time);
 

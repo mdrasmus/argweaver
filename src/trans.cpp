@@ -105,12 +105,17 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
             }
         }
 
+        /*
         // normalize and convert to log scale
         double sum = 0.0;
         for (int j=0; j<nstates; j++)
             sum += transprob[i][j];
         for (int j=0; j<nstates; j++)
             transprob[i][j] = log(transprob[i][j] / sum);
+        */
+
+        for (int j=0; j<nstates; j++)
+            transprob[i][j] = log(transprob[i][j]);
     }
 }
 
@@ -263,12 +268,17 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
             }
         }
 
+        /*
         // normalize and convert to log scale
         double sum = 0.0;
         for (int j=0; j<nstates; j++)
             sum += transprob[i][j];
         for (int j=0; j<nstates; j++)
             transprob[i][j] = log(transprob[i][j] / sum);
+        */
+
+        for (int j=0; j<nstates; j++)
+            transprob[i][j] = log(transprob[i][j]);
     }
 }
 
@@ -424,29 +434,73 @@ void get_recomb_transition_switch(
 
 
 
+double calc_recomb_recoal(
+    const LocalTree *last_tree, ArgModel *model, LineageCounts *lineages, 
+    const Spr &spr, State state1, State state2, int recomb_parent_age)
+{
+    const int *nbranches = lineages->nbranches;
+    const int *ncoals = lineages->ncoals;
+
+    // get times
+    const int a = state1.time;
+    const int k = spr.recomb_time;
+    const int j = spr.coal_time;
+    
+    double last_treelen = get_treelen_branch(
+        last_tree, model->times, model->ntimes,
+        state1.node, state2.time, -1, false);
+    double last_treelen_b = last_treelen + get_basal_branch(
+        last_tree, model->times, model->ntimes,
+        state1.node, state1.time);
+    
+    // recomb prob
+    int nbranches_k = lineages->nbranches[k] + int(k < a);
+    int nrecombs_k = lineages->nrecombs[k] + int(k < a) + int(k == a);
+    double recomb_prob = nbranches_k * model->time_steps[k] /
+        (nrecombs_k * last_treelen_b) * (1.0 - exp(-model->rho * last_treelen));
+
+    // coal prob
+    double sum = 0.0;
+    for (int m=k; m<j; m++) {
+        int nbranches_m = lineages->nbranches[m] 
+            - int(m < recomb_parent_age) + int(j < a);
+        sum += model->time_steps[m] * nbranches_m / (2.0 * model->popsizes[m]);
+    }
+    int nbranches_j = nbranches[j] - int(j < recomb_parent_age) + int(j < a);
+    int ncoals_j = ncoals[j] - int(j <= recomb_parent_age)
+        - int(j == recomb_parent_age) + int(j <= a) + int (j == a);
+    
+    double p = recomb_prob * exp(-sum) / ncoals_j;
+    if (j < model->ntimes - 1)
+        p *= 1.0 - exp(-model->time_steps[j] * nbranches_j / 
+                       (2.0*model->popsizes[j]));
+
+    //printf("counts %d %d %d %d %e\n", 
+    //       ncoals_j, nbranches_j, nrecombs_k, nbranches_k, p);
+
+    return p;
+}
+
+
 void calc_transition_probs_switch(
     LocalTree *tree, LocalTree *last_tree, const Spr &spr, int *mapping,
     const States &states1, const States &states2,
     ArgModel *model, LineageCounts *lineages, double **transprob)
 {
+    // TODO: updated to match compress code
+    assert(false);
+
+    /*
     // get tree information
     const LocalNode *nodes = tree->nodes;
     const LocalNode *last_nodes = last_tree->nodes;
-    const int *nbranches = lineages->nbranches;
-    const int *ncoals = lineages->ncoals;
     const int nstates1 = states1.size();
     const int nstates2 = states2.size();
     
-    // get model parameters
-    const int ntimes = model->ntimes;
-    const double *time_steps = model->time_steps;
-    const double *popsizes = model->popsizes;
-    
-
     // get deterministic transitions
     int determ[nstates1];
     get_deterministic_transitions(tree, last_tree, spr, mapping,
-                                  states1, states2, ntimes, determ);
+                                  states1, states2, model->ntimes, determ);
     
 
     for (int i=0; i<nstates1; i++) {
@@ -455,35 +509,22 @@ void calc_transition_probs_switch(
         
         if (node1 == spr.recomb_node && time1 == spr.recomb_time)  {
             // probabilistic transition case (recomb case)
+            
+            // intialize whole row as log zeros
+            for (int j=0; j<nstates2; j++)
+                transprob[i][j] = -INFINITY;
 
             // [0] = staying case (recomb is above us)
             // [1] = escaping (recomb is below us)
             int recomb_next_states[2];
             get_recomb_transition_switch(tree, last_tree, spr, mapping,
                                          states1, states2, recomb_next_states);
-            for (int j=0; j<nstates2; j++)
-                transprob[i][j] = -INFINITY;
-
-            int k = spr.recomb_time;
-            int recomb_parent_age = 
-                last_nodes[last_nodes[spr.recomb_node].parent].age;
-
+            
+            State state1(spr.recomb_node, spr.recomb_time);
             for (int ii=0; ii<2; ii++) {
                 int j = recomb_next_states[ii];
-                int b = states2[j].time;
-            
-                double sum = 0.0;
-                for (int m=k; m<j; m++) {
-                    int nbranches_m = nbranches[m] - int(m < recomb_parent_age);
-                    sum += time_steps[m] * nbranches_m / (2.0 * popsizes[m]);
-                }
-                int nbranches_b = nbranches[b] - int(b < recomb_parent_age);
-                int ncoals_b = ncoals[b] - int(j <=  recomb_parent_age)
-                    - int(j ==  recomb_parent_age);
-                double p = (1.0 - exp(-time_steps[b] * nbranches_b / 
-                                      (2.0 * popsizes[b]))) / ncoals_b * 
-                    exp(-sum);
-                transprob[i][j] = log(p);
+                transprob[i][j] = log(calc_recomb_recoal(
+                    last_tree, model, lineages, spr, state1, states2[j]));
             }
 
         } else if (node1 == spr.coal_node && time1 == spr.coal_time)  {
@@ -499,10 +540,6 @@ void calc_transition_probs_switch(
             } else {
                 node3 = mapping[node1];
             }
-
-            // find parent of recomb_branch and node1
-            int last_parent_age = last_nodes[last_parent].age;
-
             
             int parent = nodes[mapping[spr.recomb_node]].parent;
             assert(parent == nodes[node3].parent);
@@ -519,33 +556,8 @@ void calc_transition_probs_switch(
                     // not a probabilistic transition
                     continue;
                 
-                double sum = 0.0;
-                for (int m=spr.recomb_time; m<time2; m++) {
-                    int nbranches_m = nbranches[m] 
-                        - int(m < last_parent_age) + int(time2 < time1);
-                    sum += time_steps[m] * nbranches_m / (2.0 * popsizes[m]);
-                }
-                int ncoals_b = ncoals[time2] 
-                    - int(time2 <= last_parent_age) 
-                    - int(time2 == last_parent_age) 
-                    + int(time2 <= time1) + int(time2 == time1);
-                int nbranches_b = nbranches[time2] + 
-                    -int(time2 < last_parent_age) + int(time2 < time1);
-                transprob[i][j] =
-                    (1.0 - exp(- time_steps[time2] * nbranches_b /  
-                               (2.0 * popsizes[time2]))) /ncoals_b*exp(-sum);
-            }
-
-            // normalize row to ensure they add up to one
-            double sum = 0.0;
-            for (int j=0; j<nstates2; j++)
-                sum += transprob[i][j];
-            for (int j=0; j<nstates2; j++) {
-                double x = transprob[i][j];
-                if (sum > 0.0 and x > 0.0)
-                    transprob[i][j] = log(x / sum);
-                else
-                    transprob[i][j] = -INFINITY;
+                transprob[i][j] = log(calc_recomb_recoal(
+                  last_tree, model, lineages, spr, states1[i], states2[j]));
             }
             
         } else {
@@ -553,9 +565,11 @@ void calc_transition_probs_switch(
             assert (determ[i] != -1);
             for (int j=0; j<nstates2; j++)
                 transprob[i][j] = -INFINITY;
-            transprob[i][determ[i]] = 0.0;
+            transprob[i][determ[i]] = log(calc_recomb_recoal(
+              last_tree, model, lineages, spr, states1[i], states2[determ[i]]));
         }
     }
+    */
 }
 
 
@@ -566,24 +580,29 @@ void calc_transition_probs_switch_compress(
     ArgModel *model, LineageCounts *lineages, 
     TransMatrixSwitchCompress *transmat_switch_compress)
 {
-    // get tree information
-    const LocalNode *nodes = tree->nodes;
-    const LocalNode *last_nodes = last_tree->nodes;
-    const int *nbranches = lineages->nbranches;
-    const int *ncoals = lineages->ncoals;
     const int nstates1 = states1.size();
     const int nstates2 = states2.size();
-    
-    // get model parameters
-    const int ntimes = model->ntimes;
-    const double *time_steps = model->time_steps;
-    const double *popsizes = model->popsizes;
-    
+    int recomb_parent_age;        
     
     // get deterministic transitions
     get_deterministic_transitions(tree, last_tree, spr, mapping,
-         states1, states2, ntimes, transmat_switch_compress->determ);
-    
+         states1, states2, model->ntimes, transmat_switch_compress->determ);
+    for (int i=0; i<nstates1; i++) {
+        int j = transmat_switch_compress->determ[i];
+        if (j > 0) {
+            if (states1[i].node == spr.recomb_node && 
+                states1[i].time > spr.recomb_time)
+                recomb_parent_age = states1[i].time;
+            else
+                recomb_parent_age = last_tree->nodes[
+                    last_tree->nodes[spr.recomb_node].parent].age;
+
+            transmat_switch_compress->determprob[i] = log(calc_recomb_recoal(
+              last_tree, model, lineages, spr, 
+              states1[i], states2[j], recomb_parent_age));
+        }
+    }
+
     
     // find probabilitistic transition source states
     int recoalsrc = -1;
@@ -608,10 +627,22 @@ void calc_transition_probs_switch_compress(
                                  states1, states2, recomb_next_states);
     for (int j=0; j<nstates2; j++)
         transmat_switch_compress->recombrow[j] = -INFINITY;
+    
+    {
+        // stay case (recomb above)
+        int j = recomb_next_states[0];
+        recomb_parent_age = last_tree->nodes[last_tree->nodes[spr.recomb_node].parent].age;
+        transmat_switch_compress->recombrow[j] = log(calc_recomb_recoal(
+            last_tree, model, lineages, spr, states1[recombsrc], states2[j],
+            recomb_parent_age));
 
-    // placeholders
-    transmat_switch_compress->recombrow[recomb_next_states[0]] = log(.5);
-    transmat_switch_compress->recombrow[recomb_next_states[1]] = log(.5);
+        // escape case (recomb below)
+        j = recomb_next_states[1];
+        recomb_parent_age = spr.recomb_time;
+        transmat_switch_compress->recombrow[j] = log(calc_recomb_recoal(
+            last_tree, model, lineages, spr, states1[recombsrc], states2[j],
+            recomb_parent_age));
+    }
     
 
     // compute recoal case
@@ -622,67 +653,142 @@ void calc_transition_probs_switch_compress(
     
     // determine if node1 is still here or not
     int node3;
-    int last_parent = last_nodes[spr.recomb_node].parent;
+    int last_parent = last_tree->nodes[spr.recomb_node].parent;
     if (last_parent == node1) {
         // recomb breaks node1 branch, we need to use the other child
-        const int *c = last_nodes[last_parent].child;
+        const int *c = last_tree->nodes[last_parent].child;
         node3 = mapping[c[1] == spr.recomb_node ? c[0] : c[1]];
     } else {
         node3 = mapping[node1];
     }
-
-    // find parent of recomb_branch and node1
-    int last_parent_age = last_nodes[last_parent].age;
-
             
-    int parent = nodes[mapping[spr.recomb_node]].parent;
-    assert(parent == nodes[node3].parent);
+    int parent = tree->nodes[mapping[spr.recomb_node]].parent;
+    assert(parent == tree->nodes[node3].parent);
     
-    double *recoalrow = transmat_switch_compress->recoalrow;
     for (int j=0; j<nstates2; j++) {
         const int node2 = states2[j].node;
         const int time2 = states2[j].time;
-        
-        recoalrow[j] = 0.0;
+                
+        transmat_switch_compress->recoalrow[j] = -INFINITY;
         if (!((node2 == mapping[spr.recomb_node] 
                && time2 >= spr.recomb_time) ||
               (node2 == node3 && time2 == time1) ||
               (node2 == parent && time2 == time1)))
             // not a probabilistic transition
             continue;
-        
-        // get lineage counts
-        // remove recombination branch and add new branch
-        int kbn = nbranches[time2];
-        int kcn = ncoals[time2] + 1;
-        if (time2 < nodes[parent].age) {
-            kbn -= 1;
-            kcn -= 1;
-        }
-        if (time2 < time1)
-            kbn += 1;
 
-        double sum = 0.0;
-        for (int m=spr.recomb_time; m<time2; m++) {
-            const int nlineages = nbranches[m] + 1
-                - (m < last_parent_age ? 1 : 0);
-            sum += time_steps[m] * nlineages / (2.0 * popsizes[m]);
+        recomb_parent_age = time2;
+        transmat_switch_compress->recoalrow[j] = log(calc_recomb_recoal(
+            last_tree, model, lineages, spr, states1[recoalsrc], states2[j],
+            recomb_parent_age));
+        
+    }
+}
+
+
+
+
+void calc_transition_probs_switch_compress2(
+    LocalTree *tree, LocalTree *last_tree, const Spr &spr, int *mapping,
+    const States &states1, const States &states2,
+    ArgModel *model, LineageCounts *lineages, 
+    TransMatrixSwitchCompress *transmat_switch_compress)
+{
+    const int nstates1 = states1.size();
+    const int nstates2 = states2.size();
+        
+    
+    // get deterministic transitions
+    get_deterministic_transitions(tree, last_tree, spr, mapping,
+         states1, states2, model->ntimes, transmat_switch_compress->determ);
+    for (int i=0; i<nstates1; i++)
+        transmat_switch_compress->determprob[i] = 0.0;
+    /*
+        transmat_switch_compress->determprob[i] = log(calc_recomb_recoal(
+              last_tree, model, lineages, spr, 
+              states1[i], states2[transmat_switch_compress->determ[i]]));
+    */
+
+    
+    // find probabilitistic transition source states
+    int recoalsrc = -1;
+    int recombsrc = -1;
+    for (int i=0; i<nstates1; i++) {
+        if (states1[i].node == spr.coal_node && 
+            states1[i].time == spr.coal_time) {
+            recoalsrc = i;
+        }else if (states1[i].node == spr.recomb_node && 
+                  states1[i].time == spr.recomb_time) {
+            recombsrc = i;
         }
-        recoalrow[j] = (1.0 - exp(- time_steps[time2] * kbn /  
-                                (2.0 * popsizes[time2]))) / kcn * exp(-sum);
+    }
+    assert(recoalsrc != -1);
+    assert(recombsrc != -1);
+
+    
+    // compute recomb case
+    // [0] = stay, [1] = escape
+    int recomb_next_states[2];
+    get_recomb_transition_switch(tree, last_tree, spr, mapping,
+                                 states1, states2, recomb_next_states);
+    for (int j=0; j<nstates2; j++)
+        transmat_switch_compress->recombrow[j] = -INFINITY;
+    
+    for (int ii=0; ii<2; ii++) {
+        int j = recomb_next_states[ii];
+        transmat_switch_compress->recombrow[j] = log(.5);
+        /*
+        transmat_switch_compress->recombrow[j] = log(calc_recomb_recoal(
+            last_tree, model, lineages, spr, states1[recombsrc], states2[j]));
+        */
+    }
+    
+
+    // compute recoal case
+    transmat_switch_compress->recoalsrc = recoalsrc;
+    transmat_switch_compress->recombsrc = recombsrc;
+    int node1 = states1[recoalsrc].node;
+    int time1 = states1[recoalsrc].time;
+    
+    // determine if node1 is still here or not
+    int node3;
+    int last_parent = last_tree->nodes[spr.recomb_node].parent;
+    if (last_parent == node1) {
+        // recomb breaks node1 branch, we need to use the other child
+        const int *c = last_tree->nodes[last_parent].child;
+        node3 = mapping[c[1] == spr.recomb_node ? c[0] : c[1]];
+    } else {
+        node3 = mapping[node1];
+    }
+            
+    int parent = tree->nodes[mapping[spr.recomb_node]].parent;
+    assert(parent == tree->nodes[node3].parent);
+    
+    for (int j=0; j<nstates2; j++) {
+        const int node2 = states2[j].node;
+        const int time2 = states2[j].time;
+                
+        transmat_switch_compress->recoalrow[j] = 0.0; //-INFINITY;
+        if (!((node2 == mapping[spr.recomb_node] 
+               && time2 >= spr.recomb_time) ||
+              (node2 == node3 && time2 == time1) ||
+              (node2 == parent && time2 == time1)))
+            // not a probabilistic transition
+            continue;
+
+        transmat_switch_compress->recoalrow[j] = 1.0;
+        /*
+        transmat_switch_compress->recoalrow[j] = log(calc_recomb_recoal(
+            last_tree, model, lineages, spr, states1[recoalsrc], states2[j]));
+        */
     }
 
-    // normalize row to ensure they add up to one
     double sum = 0.0;
     for (int j=0; j<nstates2; j++)
-        sum += recoalrow[j];
-    for (int j=0; j<nstates2; j++) {
-        double x = recoalrow[j];
-        if (sum > 0.0 and x > 0.0)
-            recoalrow[j] = log(x / sum);
-        else
-            recoalrow[j] = -INFINITY;
-    }
+        sum += transmat_switch_compress->recoalrow[j];
+    for (int j=0; j<nstates2; j++)
+        transmat_switch_compress->recoalrow[j] = log(transmat_switch_compress->recoalrow[j] / sum);
+    
 }
 
 
@@ -692,7 +798,7 @@ void calc_transition_switch_probs(TransMatrixSwitchCompress *matrix,
 {
     for (int i=0; i<matrix->nstates1; i++) {
         for (int j=0; j<matrix->nstates2; j++) {
-            transprob[i][j] = matrix->get_transition_prob(i, j);
+            transprob[i][j] = log(matrix->get_transition_prob(i, j));
         }
     }
 }

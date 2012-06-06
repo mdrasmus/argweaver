@@ -809,11 +809,11 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 12
+        k = 5
         n = 1e4
-        rho = 1.5e-8 * 40
+        rho = 1.5e-8 * 20
         rho2 = rho
-        mu = 2.5e-8 * 40
+        mu = 2.5e-8 * 20
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         write = False
@@ -1224,8 +1224,8 @@ class Sample (unittest.TestCase):
         mu = 2.5e-8 * 40
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        nremove = 3; refine = 5
-        #nremove = 1; refine = 1
+        #nremove = 3; refine = 5
+        nremove = 1; refine = 1
         write = False
         
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
@@ -1233,8 +1233,8 @@ class Sample (unittest.TestCase):
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
         if write:
-            arglib.write_arg("test/data/max_arg_joint/%d.arg" % i, arg)
-            seqs.write("test/data/max_arg_joint/%d.fa" % i)
+            arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
+            seqs.write("test/data/sample_arg_joint/%d.fa" % i)
         
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times,
                                     popsize=n)
@@ -1275,7 +1275,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 20
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 40
         rho2 = rho
@@ -1291,8 +1291,8 @@ class Sample (unittest.TestCase):
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
         if write:
-            arglib.write_arg("test/data/max_arg_joint/%d.arg" % i, arg)
-            seqs.write("test/data/max_arg_joint/%d.fa" % i)
+            arglib.write_arg("test/data/sample_arg_joint3/%d.arg" % i, arg)
+            seqs.write("test/data/sample_arg_joint3/%d.fa" % i)
         
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times,
                                     popsize=n)
@@ -1330,8 +1330,8 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
-        makedirs("data/sample_arg_joint2/")
-        write_list("data/sample_arg_joint2/joint.txt", [lk] + y)
+        makedirs("data/sample_arg_joint3/")
+        write_list("data/sample_arg_joint3/joint.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
         
         
@@ -1343,7 +1343,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 25
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho

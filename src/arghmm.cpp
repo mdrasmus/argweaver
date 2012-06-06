@@ -126,7 +126,6 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
     const double *E = matrix->E;
     const double *G = matrix->G;
     const double *norecombs = matrix->norecombs;
-    const double *sums = matrix->sums;
 
     // compute ntimes*ntimes and ntime*nstates temp matrices
     double lnorecombs[ntimes];
@@ -149,12 +148,6 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
             tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)] - I * G[a] - Bc));
         }
     }
-
-    // get normalization factors specific to the local tree
-    double lsums[nstates];
-    for (int j=0; j<nstates; j++)
-        lsums[j] = log(sums[j]);
-
 
     // get max time
     int maxtime = 0;
@@ -200,7 +193,7 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
         
         // precompute the fgroup sums
         for (int j=0; j<nstates; j++)
-            vec[state_map[j]] = col1[j] - lsums[j];
+            vec[state_map[j]] = col1[j];
         for (int a=0; a<ntimes-1; a++)
             fgroups[a] = logsum(&vec[offset[a]], nstates_per_time[a]);
         
@@ -223,10 +216,10 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
             int m = 1;
             int j2 = state_lookup.lookup(node2, age2);
             for (int j=state_lookup.lookup(node2, age1), a=age1; j<=j2; j++,a++)
-                vec[m++] = tmatrix2[a][k] + col1[j] - lsums[j];
+                vec[m++] = tmatrix2[a][k] + col1[j];
             
             // same state case (add possibility of no recomb)
-            vec[m++] = lnorecombs[b] + col1[k] - lsums[k];
+            vec[m++] = lnorecombs[b] + col1[k];
             
             col2[k] = logsum(vec, m) + emit2[k];
         }
@@ -588,9 +581,11 @@ void sample_recombinations(
                         int a = states[last_state].time;
                         self_trans = m->get_transition_prob(
                             tree, states, last_state, last_state);
-                        rate = 1.0 - (m->norecombs[a] / m->sums[last_state]) /
-                                self_trans;
+                        rate = 1.0 - (m->norecombs[a] / self_trans);
+                        //rate = 0.0;
                     } else {
+                        // TODO: need to compute row sum
+                        assert(false);
                         self_trans = matrices.transmat[last_state][last_state];
                         rate = max(1.0 - exp(-model->rho * (treelen2 - treelen)
                                              - self_trans), model->rho);
@@ -836,7 +831,7 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
                    recomb_pos, recombs);
 
     printf("add thread:  %e s\n", time.time());
-    
+
     // clean up
     delete [] thread_path;
 }
