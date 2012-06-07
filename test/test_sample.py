@@ -752,12 +752,12 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 5
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 30000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1
         refine = 0
@@ -809,7 +809,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 5
+        k = 3
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -818,7 +818,7 @@ class Sample (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         write = False
         #nremove = 2; refine = 5
-        nremove=1; refine = 1
+        nremove = 1; refine = 1
 
         makedirs("test/data/sample_arg_recomb2/")
 
@@ -1142,7 +1142,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 5
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1217,7 +1217,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 5
+        k = 3
         n = 1e4
         rho = 1.5e-8 * 40
         rho2 = rho
@@ -1275,7 +1275,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 12
+        k = 20
         n = 1e4
         rho = 1.5e-8 * 40
         rho2 = rho
@@ -1308,7 +1308,7 @@ class Sample (unittest.TestCase):
         y.append(lk2)
         util.toc()
 
-        for i in range(40):
+        for i in range(5):
             util.tic("remax ARG %d" % i)
             arg2 = arghmm.remax_arg(arg2, seqs, rho=rho, mu=mu, times=times,
                                 popsize=n, refine=1)
@@ -1343,7 +1343,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 12
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1383,7 +1383,7 @@ class Sample (unittest.TestCase):
         y.append(lk2)
         print lk2
 
-        for i in range(40):
+        for i in range(20):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.remax_arg(arg2, seqs, rho=rho, mu=mu, times=times,
                                     popsize=n, refine=refine, nremove=nremove)

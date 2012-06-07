@@ -235,23 +235,25 @@ void arghmm_forward_switch_fast(double *col1, double* col2,
 {
     // initialize all entries in col2 to log(0)
     for (int k=0; k<matrix->nstates2; k++)
-        col2[k] = 1.0;
+        col2[k] = -INFINITY;
 
     // add deterministic transitions
     for (int j=0; j<matrix->nstates1; j++) {
         if (j != matrix->recombsrc && j != matrix->recoalsrc) {
             int k = matrix->determ[j];
-            col2[k] = logadd(col2[k], col1[j]);
+            col2[k] = logadd(col2[k], col1[j] + matrix->determprob[j]);
         }
     }
     
-    // add probabilistic transitions
-    int j = matrix->recombsrc;
-    for (int k=0; k<matrix->nstates2; k++)
-        col2[k] = logadd(col2[k], col1[j] + matrix->recoalrow[k]) + emit[k];
-    j = matrix->recoalsrc;
-    for (int k=0; k<matrix->nstates2; k++)
-        col2[k] = logadd(col2[k], col1[j] + matrix->recoalrow[k]) + emit[k];
+    for (int k=0; k<matrix->nstates2; k++) {
+        if (matrix->recombrow[k] > -INFINITY)
+            col2[k] = logadd(col2[k], col1[matrix->recombsrc] + 
+                             matrix->recombrow[k]);
+        if (matrix->recoalrow[k] > -INFINITY)
+            col2[k] = logadd(col2[k], col1[matrix->recoalsrc] + 
+                             matrix->recoalrow[k]);
+        col2[k] += emit[k];
+    }
 }
 
 
@@ -635,19 +637,22 @@ void sample_recombinations(
             for (vector<NodePoint>::iterator it=candidates.begin(); 
                  it != candidates.end(); ++it) {
                 int k = it->time;
-                int nbranches_k = lineages.nbranches[k] + 1
-                    - int(k == last_state.time);
-                int nrecombs_k = lineages.nrecombs[k] + 1 +
-                    (k == last_state.time);
+                int nbranches_k = lineages.nbranches[k]
+                    + int(k < last_state.time);
+                int nrecombs_k = lineages.nrecombs[k]
+                    + int(k <= last_state.time)
+                    + int(k == last_state.time);
 
                 double sum = 0.0;
                 int recomb_node_age = tree->nodes[it->node].age;
-                int recomb_parent_age = 
-                    (it->node == -1) ? last_state.time :
+                int recomb_parent_age = (it->node == -1 || 
+                                         (it->node == last_state.node &&
+                                          it->time < last_state.time)) ? 
+                     last_state.time :
                     tree->nodes[tree->nodes[it->node].parent].age;
                 for (int m=k; m<j; m++) {
-                    int nbranches_m = lineages.nbranches[m] + 1
-                        - int(m == last_state.time) 
+                    int nbranches_m = lineages.nbranches[m] 
+                        + int(m < last_state.time) 
                         - int(recomb_node_age <= m &&
                               m < recomb_parent_age);
                     sum += (model->time_steps[m] * nbranches_m 
@@ -740,19 +745,22 @@ void max_recombinations(
             for (vector<NodePoint>::iterator it=candidates.begin(); 
                  it != candidates.end(); ++it) {
                 int k = it->time;
-                int nbranches_k = lineages.nbranches[k] + 1
-                    - int(k == last_state.time);
-                int nrecombs_k = lineages.nrecombs[k] + 1 +
-                    (k == last_state.time);
+                int nbranches_k = lineages.nbranches[k]
+                    + int(k < last_state.time);
+                int nrecombs_k = lineages.nrecombs[k]
+                    + int(k <= last_state.time)
+                    + int(k == last_state.time);
 
                 double sum = 0.0;
                 int recomb_node_age = tree->nodes[it->node].age;
-                int recomb_parent_age = 
-                    (it->node == -1) ? last_state.time :
+                int recomb_parent_age = (it->node == -1 || 
+                                         (it->node == last_state.node &&
+                                          it->time < last_state.time)) ? 
+                     last_state.time :
                     tree->nodes[tree->nodes[it->node].parent].age;
                 for (int m=k; m<j; m++) {
-                    int nbranches_m = lineages.nbranches[m] + 1
-                        - int(m == last_state.time) 
+                    int nbranches_m = lineages.nbranches[m] 
+                        + int(m < last_state.time) 
                         - int(recomb_node_age <= m &&
                               m < recomb_parent_age);
                     sum += (model->time_steps[m] * nbranches_m 

@@ -123,8 +123,7 @@ public:
             return recombrow[j];
         } else {
             if (determ[i] == j)
-                return 0.0;
-                //return determprob[i];
+                return determprob[i];
             else
                 return -INFINITY;
         }
