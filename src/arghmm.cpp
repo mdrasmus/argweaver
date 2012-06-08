@@ -156,8 +156,8 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
             maxtime = states[k].time;
 
     // get branch ages
-    double ages1[tree->nnodes];
-    double ages2[tree->nnodes];
+    int ages1[tree->nnodes];
+    int ages2[tree->nnodes];
     for (int i=0; i<tree->nnodes; i++) {
         ages1[i] = nodes[i].age;
         ages2[i] = (tree->root == i) ? maxtime : nodes[nodes[i].parent].age;
