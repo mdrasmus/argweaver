@@ -644,7 +644,6 @@ void sample_recombinations(
                     + int(k == last_state.time);
 
                 double sum = 0.0;
-                int recomb_node_age = tree->nodes[it->node].age;
                 int recomb_parent_age = (it->node == -1 || 
                                          (it->node == last_state.node &&
                                           it->time < last_state.time)) ? 
@@ -653,8 +652,7 @@ void sample_recombinations(
                 for (int m=k; m<j; m++) {
                     int nbranches_m = lineages.nbranches[m] 
                         + int(m < last_state.time) 
-                        - int(recomb_node_age <= m &&
-                              m < recomb_parent_age);
+                        - int(m < recomb_parent_age);
                     sum += (model->time_steps[m] * nbranches_m 
                             / (2.0 * model->popsizes[m]));
                 }
@@ -945,8 +943,8 @@ void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         // clamp nremove
         if (nremove <= 0)
             return;
-        if (nremove > nleaves)
-            nremove = nleaves;
+        if (nremove > nleaves - 1)
+            nremove = nleaves - 1;
 
         // randomly choose which chromosomes to remove
         int chroms_avail[nleaves];
@@ -1152,7 +1150,7 @@ LocalTrees *arghmm_sample_arg_seq(
 LocalTrees *arghmm_sample_arg_refine(
     double *times, int ntimes,
     double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, int niters)
+    char **seqs, int nseqs, int seqlen, int niters, int nremove)
 {
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
@@ -1161,7 +1159,7 @@ LocalTrees *arghmm_sample_arg_refine(
 
     sample_arg_seq(&model, &sequences, trees);
     for (int i=0; i<niters; i++)
-        resample_arg(&model, &sequences, trees);
+        resample_arg(&model, &sequences, trees, nremove);
     
     return trees;
 }

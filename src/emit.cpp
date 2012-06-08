@@ -86,6 +86,129 @@ void parsimony_ancestral_seq(LocalTree *tree, char **seqs,
 }
 
 
+void calc_emissions2(const States &states, LocalTree *tree,
+                    char **seqs, int nseqs, int seqlen, 
+                    ArgModel *model, double **emit)
+{
+    const double *times = model->times;
+    const double mintime = times[1];
+    const double maxtime = times[model->ntimes - 1];
+    const double mu = model->mu;
+    const int nnodes = tree->nnodes;
+    LocalNode *nodes = tree->nodes;
+    
+    double parent_age;
+    int parent;
+    int newnode = nseqs - 1;
+    
+    // compute ages
+    double ages[nnodes];
+    for (int i=0; i<nnodes; i++)
+        ages[i] = times[nodes[i].age];
+
+    // parsimony ancestral sequences
+    char ancestral[nnodes];
+
+
+    // base variables
+    // v = new chromosome
+    // x = current branch
+    // p = parent of current branch
+    char v, x, p;
+
+    // iterate through positions
+    for (int i=0; i<seqlen; i++) {
+        v = seqs[newnode][i];
+
+        parsimony_ancestral_seq(tree, seqs, nseqs, i, ancestral);
+        
+        // iterate through states
+        for (unsigned int j=0; j<states.size(); j++) {
+            int node = states[j].node;
+            int timei = states[j].time;
+            double time = times[timei];
+            double node_age = ages[node];
+
+            x = ancestral[node];
+
+            // get bases and ages
+            if (nodes[node].parent != -1) {
+                parent = nodes[node].parent;
+                parent_age = ages[parent];
+
+                if (nodes[parent].parent == -1) {
+                    // unwrap top branch
+                    int *c = nodes[parent].child;
+                    int sib = (node == c[0] ? c[1] : c[0]);
+                    p = ancestral[sib];
+
+                    // modify (x,p) length to (x,p) + (sib,p)
+                    parent_age = 2 * parent_age - ages[sib];
+
+                } else {
+                    p = ancestral[parent];
+                }
+            } else {
+                // adjust time by unwrapping branch e(v)
+                parent = -1;
+                parent_age = -1;
+                time = 2 * time - node_age;
+                p = x;
+            }
+
+            const double third = 0.3333333333333333;
+            
+            double lnl = 0.0;
+            if (nnodes <= 2) {
+                if (v == x)
+                    lnl += -mu * time;
+                else
+                    lnl += log(third - third * exp(-mu * time));
+            } else {
+                int root1, root2;
+                int *c = nodes[tree->root].child;
+                root1 = c[0];
+                root2 = c[1];
+
+                // probability of new branch
+                if (v == x)
+                    lnl += -mu * time;
+                else
+                    lnl += log(third - third * exp(-mu * time));
+            
+                // probability of rest of tree
+                for (int k=0; k<nnodes; k++) {
+                    if (k == tree->root || k == root1) {
+                        // skip root and left child
+                        continue;
+                    } else if (k == root2) {
+                        double time2 = max(2.0 * times[nodes[tree->root].age] - 
+                                           times[nodes[root1].age] -
+                                           times[nodes[root2].age],
+                                           mintime);
+                        if (ancestral[root1] == ancestral[root2])
+                            lnl += -mu * time2;
+                        else
+                            lnl += log(third - third * exp(-mu * time2));
+                    } else {                        
+                        double time2 = max(times[nodes[nodes[k].parent].age]
+                                           - times[nodes[k].age],
+                                           mintime);
+                        if (ancestral[k] == ancestral[nodes[k].parent])
+                            lnl += -mu * time;
+                        else
+                            lnl += log(third - third * exp(-mu * time));
+
+                    }
+                }                
+            }
+                
+            emit[i][j] = lnl;
+        }
+    }
+}
+
+
 
 void calc_emissions(const States &states, LocalTree *tree,
                     char **seqs, int nseqs, int seqlen, 
@@ -170,23 +293,23 @@ void calc_emissions(const States &states, LocalTree *tree,
 
             } else if (v != p && p == x) {
                 // mutation on v
-                emit[i][j] = log(.33 - .33 * exp(-mu * time));
+                emit[i][j] = log(.333333 - .333333 * exp(-mu * time));
 
             } else if (v == p && p != x) {
                 // mutation on x
                 t1 = max(parent_age - node_age, mintime);
                 t2 = max(time - node_age, mintime);
 
-                emit[i][j] = log((1 - exp(-mu *t2)) / (1 - exp(-mu * t1))
-                                 * exp(-mu * (time + t2 - t1)));
+                emit[i][j] = log((1 - exp(-mu *t2)) / (1 - exp(-mu * t1)))
+                    -mu * (time + t2 - t1);
 
             } else if (v == x && x != p) {
                 // mutation on (y,p)
                 t1 = max(parent_age - node_age, mintime);
                 t2 = max(parent_age - time, mintime);
 
-                emit[i][j] = log((1 - exp(-mu * t2)) / (1 - exp(-mu * t1))
-                                 * exp(-mu * (time + t2 - t1)));
+                emit[i][j] = log((1 - exp(-mu * t2)) / (1 - exp(-mu * t1)))
+                    -mu * (time + t2 - t1);
 
             } else {
                 // two mutations (v,x)
@@ -203,8 +326,8 @@ void calc_emissions(const States &states, LocalTree *tree,
                 t3 = time;
 
                 emit[i][j] = log((1 - exp(-mu *t2)) * (1 - exp(-mu *t3))
-                                 / (1 - exp(-mu * t1))
-                                 * exp(-mu * (time + t2 + t3 - t1)));
+                                 / (1 - exp(-mu * t1)))
+                    -mu * (time + t2 + t3 - t1);
             }
         }
     }

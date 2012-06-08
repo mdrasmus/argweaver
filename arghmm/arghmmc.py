@@ -117,7 +117,7 @@ if arghmmclib:
            [c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_int, "niters"])
+            c_int, "niters", c_int, "nremove"])
 
     export(arghmmclib, "arghmm_resample_arg", c_void_p,
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
@@ -429,7 +429,7 @@ def sample_posterior(model, n, probs_forward=None,
 
 
 def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
-               refine=0, times=None, verbose=False):
+               refine=0, nremove=1, times=None, verbose=False):
     """
     Sample ARG for sequences
     """
@@ -445,7 +445,8 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     trees = arghmm_sample_arg_refine(
         times, len(times),
         popsizes, rho, mu,
-        (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]), refine)
+        (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]), refine,
+        nremove)
 
 
     if verbose:

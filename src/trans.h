@@ -31,7 +31,7 @@ public:
             delete [] E;
             delete [] G;
             delete [] norecombs;
-            delete [] sums;
+            //delete [] sums;
         }
     }
 
@@ -44,7 +44,7 @@ public:
         E = new double [ntimes];
         G = new double [ntimes];
         norecombs = new double [ntimes];
-        sums = new double [nstates];
+        //sums = new double [nstates];
     }
 
     // convert to log?
@@ -77,7 +77,7 @@ public:
     double *E;
     double *G;
     double *norecombs;
-    double *sums;
+    //double *sums;
 };
 
 

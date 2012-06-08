@@ -109,7 +109,7 @@ def calc_emission(tree, model, pos, new_name):
 
         elif v != p == x:
             # mutation on v
-            emit.append(log(.33 - .33 * exp(-mu * time)))
+            emit.append(log(.3333 - .3333 * exp(-mu * time)))
 
         elif v == p != x:
             # mutation on x

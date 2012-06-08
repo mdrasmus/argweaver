@@ -276,17 +276,6 @@ public:
         return (nnodes + 1) / 2;
     }
 
-
-    // Get the branch length above a node i
-    inline double get_dist(int i) const
-    {
-        LocalNode *node = &nodes[i];
-        if (node->parent == -1)
-            return 0.0;
-        else
-            return nodes[node->parent].age = node->age;
-    }
-
     
     // Convenience method for accessing nodes
     inline LocalNode &operator[](int name) const
