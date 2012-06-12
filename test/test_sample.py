@@ -1557,7 +1557,7 @@ class Sample (unittest.TestCase):
         print lk2
 
         for i in range(20):
-            util.tic("resample ARG %d" % i)
+            util.tic("remax ARG %d" % i)
             arg2 = arghmm.remax_arg(arg2, seqs, rho=rho, mu=mu, times=times,
                                     popsize=n, refine=refine, nremove=nremove)
             util.toc()

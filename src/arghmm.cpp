@@ -793,15 +793,6 @@ void remax_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 // C interface
 extern "C" {
 
-LocalTrees *arghmm_new_trees(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes)
-{
-    // setup model, local trees, sequences
-    return  new LocalTrees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
-}
-
-
 
 double **arghmm_forward_alg(
     int **ptrees, int **ages, int **sprs, int *blocklens,
@@ -978,49 +969,16 @@ LocalTrees *arghmm_resample_arg(
 }
 
 
-/*
-// resample an ARG with gibbs
-LocalTrees *arghmm_resample_arg(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes, 
-    double *times, int ntimes,
-    double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, int niters, int nremove)
-{
-    // setup model, local trees, sequences
-    ArgModel model(ntimes, times, popsizes, rho, mu);
-    Sequences sequences(seqs, nseqs, seqlen);
-    LocalTrees *trees = new LocalTrees(ptrees, ages, sprs, blocklens, 
-                                       ntrees, nnodes);
-
-    // sequentially sample until all chromosomes are present
-    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++) {
-        sample_arg_thread(&model, &sequences, trees, new_chrom);
-    }
-
-    // gibbs sample
-    for (int i=0; i<niters; i++)
-        resample_arg(&model, &sequences, trees, nremove);
-    
-    return trees;
-}
-*/
-
-
 // remax an ARG with viterbi
 LocalTrees *arghmm_remax_arg(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes, 
-    double *times, int ntimes,
+    LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
     char **seqs, int nseqs, int seqlen, int niters, int nremove)
 {
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
     Sequences sequences(seqs, nseqs, seqlen);
-    LocalTrees *trees = new LocalTrees(ptrees, ages, sprs, blocklens, 
-                                       ntrees, nnodes);
-
+    
     // sequentially sample until all chromosomes are present
     for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++) {
         max_arg_thread(&model, &sequences, trees, new_chrom);
@@ -1032,6 +990,7 @@ LocalTrees *arghmm_remax_arg(
     
     return trees;
 }
+
 
 
 

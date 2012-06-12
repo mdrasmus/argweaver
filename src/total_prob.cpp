@@ -180,6 +180,41 @@ double calc_arg_joint_prob(ArgModel *model, Sequences *sequences,
 
 extern "C" {
 
+double arghmm_likelihood(LocalTrees *trees,
+                         double *times, int ntimes,
+                         double mu, 
+                         char **seqs, int nseqs, int seqlen)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, NULL, 0.0, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    return calc_arg_likelihood(&model, &sequences, trees);
+}
+
+
+double arghmm_prior_prob(LocalTrees *trees,
+                         double *times, int ntimes, double *popsizes,
+                         double rho)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, 0.0);
+    return calc_arg_prior(&model, trees);
+}
+
+
+double arghmm_joint_prob(LocalTrees *trees,
+                         double *times, int ntimes, double *popsizes,
+                         double mu, double rho,
+                         char **seqs, int nseqs, int seqlen)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    return calc_arg_joint_prob(&model, &sequences, trees);
+}
+
+/*
+
 double arghmm_likelihood(
     int **ptrees, int **ages, int **sprs, int *blocklens,
     int ntrees, int nnodes, 
@@ -225,6 +260,7 @@ double arghmm_joint_prob(
     return calc_arg_joint_prob(&model, &sequences, &trees);
 }
 
+*/
 
 
 } // extern "C"

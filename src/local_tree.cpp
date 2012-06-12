@@ -381,6 +381,15 @@ bool assert_trees(LocalTrees *trees)
 extern "C" {
 
 
+LocalTrees *arghmm_new_trees(
+    int **ptrees, int **ages, int **sprs, int *blocklens,
+    int ntrees, int nnodes)
+{
+    // setup model, local trees, sequences
+    return  new LocalTrees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+}
+
+
 int get_local_trees_ntrees(LocalTrees *trees)
 {
     return trees->trees.size();
@@ -404,9 +413,6 @@ void get_local_trees_ptrees(LocalTrees *trees, int **ptrees, int **ages,
     for (int i=nleaves; i<trees->nnodes; i++) 
         perm[i] = i;
 
-    //for (int i=0; i<trees->nnodes; i++)
-    //    printf("perm[%d] = %d\n", i, perm[i]);
-
     // debug
     assert_trees(trees);
 
@@ -421,8 +427,6 @@ void get_local_trees_ptrees(LocalTrees *trees, int **ptrees, int **ages,
                 parent = perm[parent];
             ptrees[i][perm[j]] = parent;
             ages[i][perm[j]] = tree->nodes[j].age;
-            //ptrees[i][j] = tree->nodes[j].parent;
-            //ages[i][j] = tree->nodes[j].age;
         }
         blocklens[i] = it->block.length();
 
@@ -431,11 +435,6 @@ void get_local_trees_ptrees(LocalTrees *trees, int **ptrees, int **ages,
             sprs[i][1] = it->spr.recomb_time;
             sprs[i][2] = perm[it->spr.coal_node];
             sprs[i][3] = it->spr.coal_time;
-            
-            //printf("r %d %d %d\n", it->block.start, 
-            //       it->spr.recomb_time, ages[i-1][sprs[i][0]]);
-            //printf("c %d %d %d\n", it->block.start, 
-            //       it->spr.coal_time, ages[i-1][sprs[i][2]]);
             
             assert(it->spr.recomb_time >= ages[i-1][sprs[i][0]]);
             assert(it->spr.coal_time >= ages[i-1][sprs[i][2]]);
