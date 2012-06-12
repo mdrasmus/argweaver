@@ -120,10 +120,9 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
                 if (a == b)
                     transprob[i][j] += matrix->norecombs[a];
             }
-        }
-        
-        for (int j=0; j<nstates; j++)
+            
             transprob[i][j] = log(transprob[i][j]);
+        }
     }
 }
 
@@ -135,6 +134,7 @@ void calc_transition_probs(LocalTree *tree, ArgModel *model,
                            double **transprob)
 {
     TransMatrixCompress matrix(model->ntimes, states.size());
+    calc_transition_probs_compress(tree, model, states, lineages, &matrix);
     calc_transition_probs(tree, model, states, lineages, &matrix, transprob);
 }
 
@@ -377,16 +377,19 @@ void calc_transition_probs_switch_compress(
     int recoalsrc = -1;
     int recombsrc = -1;
     for (int i=0; i<nstates1; i++) {
-        if (states1[i].node == spr.coal_node && 
+        if (states1[i].node == spr.recomb_node && 
+            states1[i].time == spr.recomb_time) {
+            recombsrc = i;
+        } else if (states1[i].node == spr.coal_node && 
             states1[i].time == spr.coal_time) {
             recoalsrc = i;
-        }else if (states1[i].node == spr.recomb_node && 
-                  states1[i].time == spr.recomb_time) {
-            recombsrc = i;
         }
     }
     assert(recoalsrc != -1);
     assert(recombsrc != -1);
+    transmat_switch_compress->recoalsrc = recoalsrc;
+    transmat_switch_compress->recombsrc = recombsrc;
+
 
     
     // compute recomb case
@@ -416,8 +419,6 @@ void calc_transition_probs_switch_compress(
     
 
     // compute recoal case
-    transmat_switch_compress->recoalsrc = recoalsrc;
-    transmat_switch_compress->recombsrc = recombsrc;
     int node1 = states1[recoalsrc].node;
     int time1 = states1[recoalsrc].time;
     
@@ -464,7 +465,7 @@ void calc_transition_switch_probs(TransMatrixSwitchCompress *matrix,
 {
     for (int i=0; i<matrix->nstates1; i++) {
         for (int j=0; j<matrix->nstates2; j++) {
-            transprob[i][j] = log(matrix->get_transition_prob(i, j));
+            transprob[i][j] = matrix->get_transition_prob(i, j);
         }
     }
 }

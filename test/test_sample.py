@@ -335,7 +335,7 @@ class Sample (unittest.TestCase):
         Sample both a thread and its recombinations
         """
 
-        k = 6
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -752,7 +752,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 5
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -760,7 +760,7 @@ class Sample (unittest.TestCase):
         length = 20000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1
-        refine = 5
+        refine = 0
 
         print "times", times
 
@@ -1193,7 +1193,7 @@ class Sample (unittest.TestCase):
         rho2 = rho
         mu = 2.5e-8 * 20
         length = 10000
-        times = arghmm.get_time_points(ntimes=40, maxtime=200000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 5; nremove = 1
         write = False
         if write:
@@ -1478,7 +1478,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 5
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1557,7 +1557,7 @@ class Sample (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1; refine = 1
         #nremove = 1; refine = 1
-        write = False
+        write = True
         if write:
             make_clean_dir("test/data/max_arg_joint2")
         

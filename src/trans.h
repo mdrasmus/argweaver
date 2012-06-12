@@ -59,12 +59,12 @@ public:
         const double I = float(a <= b);
             
         if (node1 != node2)
-            return D[a] * E[b] * (B[min(a,b)] - I * G[a]);
+            return log(D[a] * E[b] * (B[min(a,b)] - I * G[a]));
         else {
             double p = D[a] * E[b] * (2*B[min(a,b)] - 2*I*G[a] - B[min(c,b)]);
             if (a == b)
                 p += norecombs[a];
-            return p;
+            return log(p);
         }
     }
 

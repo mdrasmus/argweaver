@@ -1644,17 +1644,17 @@ def iter_trans_emit_matrices(model, n):
                 
                 assert states1 == model.states[start-1]
             
-            transmat_switch = calc_transition_probs_switch(
-                tree, last_tree, recomb.name,
-                model.states[start-1], model.states[start],
-                last_nlineages, model.times,
-                model.time_steps, model.popsizes, model.rho)
-
-            #transmat_switch = calc_transition_probs_switch_c(
+            #transmat_switch = calc_transition_probs_switch(
             #    tree, last_tree, recomb.name,
             #    model.states[start-1], model.states[start],
             #    last_nlineages, model.times,
-            #    model.time_steps, model.popsizes, model.rho, raw=False)
+            #    model.time_steps, model.popsizes, model.rho)
+
+            transmat_switch = calc_transition_probs_switch_c(
+                tree, last_tree, recomb.name,
+                model.states[start-1], model.states[start],
+                last_nlineages, model.times,
+                model.time_steps, model.popsizes, model.rho, raw=False)
             
         else:
             transmat_switch = None

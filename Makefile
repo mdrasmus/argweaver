@@ -57,6 +57,7 @@ ARGHMM_SRC = \
     src/ptree.cpp \
     src/seq.cpp \
     src/states.cpp \
+    src/recomb.cpp \
     src/thread.cpp \
     src/total_prob.cpp \
     src/trans.cpp \

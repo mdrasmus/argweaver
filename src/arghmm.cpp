@@ -13,6 +13,7 @@
 #include "matrices.h"
 #include "model.h"
 #include "ptree.h"
+#include "recomb.h"
 #include "seq.h"
 #include "states.h"
 #include "thread.h"
@@ -91,9 +92,7 @@ public:
         fw = new double *[seqlen];
     }
 
-    virtual ~ArgHmmForwardTableOld()
-    {}
-
+    virtual ~ArgHmmForwardTableOld() {}
 
     // allocate another block of the forward table
     virtual void new_block(int start, int end, int nstates)
@@ -110,15 +109,15 @@ public:
 
 
 // compute one block of forward algorithm with compressed transition matrices
-void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model, 
-                                   int blocklen, const States &states, 
-                                   LineageCounts &lineages,
-                                   TransMatrixCompress *matrix,
-                                   double **emit, double **fw)
+void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
+                              int blocklen, const States &states, 
+                              const LineageCounts &lineages,
+                              const TransMatrixCompress *matrix,
+                              const double* const *emit, double **fw)
 {
     const int nstates = states.size();
     const int ntimes = model->ntimes;
-    LocalNode *nodes = tree->nodes;
+    const LocalNode *nodes = tree->nodes;
 
     // get aliases for various precomputed terms
     const double *B = matrix->B;
@@ -135,7 +134,7 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
         lnorecombs[a] = log(norecombs[a]);
 
         for (int b=0; b<ntimes-1; b++) {
-            const double I = float(a <= b);
+            const double I = double(a <= b);
             tmatrix[a][b] = log(D[a] * E[b] * (B[min(a,b)] - I * G[a]));
         }
 
@@ -175,7 +174,7 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
         offset[a] = offset2[a] = offset[a-1] + nstates_per_time[a-1];
     int state_map[nstates];
     for (int j=0; j<nstates; j++) {
-        int a = states[j].time;
+        const int a = states[j].time;
         state_map[j] = offset2[a];
         offset2[a]++;
     }
@@ -187,9 +186,9 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
     double tmatrix_fgroups[ntimes];
     double fgroups[ntimes];
     for (int i=1; i<blocklen; i++) {
-        double *col1 = fw[i-1];
+        const double *col1 = fw[i-1];
         double *col2 = fw[i];
-        double *emit2 = emit[i];
+        const double *emit2 = emit[i];
         
         // precompute the fgroup sums
         for (int j=0; j<nstates; j++)
@@ -229,10 +228,10 @@ void arghmm_forward_alg_block_fast(LocalTree *tree, ArgModel *model,
 
 // run forward algorithm for one column of the table
 // use switch matrix
-void arghmm_forward_switch_fast(double *col1, double* col2, 
-                                TransMatrixSwitchCompress *matrix,
-                                double *emit)
-{
+void arghmm_forward_switch(const double *col1, double* col2, 
+                           const TransMatrixSwitchCompress *matrix,
+                           const double *emit)
+{        
     // initialize all entries in col2 to log(0)
     for (int k=0; k<matrix->nstates2; k++)
         col2[k] = -INFINITY;
@@ -288,15 +287,61 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
             calc_state_priors(states, &lineages, model, fw[0]);
         } else {
             // perform one column of forward algorithm with transmat_switch
-            arghmm_forward_switch_fast(fw[pos-1], fw[pos], 
+            arghmm_forward_switch(fw[pos-1], fw[pos], 
                 matrices.transmat_switch_compress, matrices.emit[0]);
         }
 
         // calculate rest of block
-        arghmm_forward_alg_block_fast(it->tree, model, matrices.blocklen, 
-                                      states, lineages, 
-                                      matrices.transmat_compress,
-                                      matrices.emit, &fw[pos]);
+        arghmm_forward_alg_block(it->tree, model, matrices.blocklen, 
+                                 states, lineages, 
+                                 matrices.transmat_compress,
+                                 matrices.emit, &fw[pos]);
+    }
+}
+
+
+
+// run forward algorithm with matrices precomputed
+void arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
+    Sequences *sequences, ArgHmmMatrixIter *matrix_list, 
+    ArgHmmForwardTable *forward)
+{
+    LineageCounts lineages(model->ntimes);
+    States states;
+    ArgHmmMatrices matrices;
+
+    double **fw = forward->fw;
+
+    // forward algorithm over local trees
+    for (matrix_list->begin(); matrix_list->more(); matrix_list->next()) {
+        LocalTrees::iterator it = matrix_list->get_tree_iter();
+        int pos = it->block.start;
+        matrix_list->get_matrices(&matrices);
+
+        assert(matrices.transmat != NULL &&
+               matrices.transmat_switch != NULL);
+
+        // allocate the forward table
+        forward->new_block(pos, pos+matrices.blocklen, matrices.nstates2);
+        
+        get_coal_states(it->tree, model->ntimes, states);
+        lineages.count(it->tree);
+        
+        // use switch matrix for first column of forward table
+        // if we have a previous state space (i.e. not first block)
+        if (pos == 0) {
+            // calculate prior of first state
+            calc_state_priors(states, &lineages, model, fw[0]);
+        } else {
+            // perform one column of forward algorithm with transmat_switch
+            forward_step(fw[pos-1], fw[pos], matrices.nstates1,
+                         matrices.nstates2,
+                         matrices.transmat_switch, matrices.emit[0]);
+        }
+
+        // calculate rest of block
+        forward_alg(matrices.blocklen, states.size(), matrices.transmat,
+                    matrices.emit, &fw[pos]);
     }
 }
 
@@ -306,9 +351,9 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
 // Sample thread paths
 
 
-void max_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
-                            TransMatrixCompress *matrix, double **emit, 
-                            double **fw, int *path)
+void max_hmm_posterior(int n, LocalTree *tree, const States &states,
+                       TransMatrixCompress *matrix, double **emit, 
+                       double **fw, int *path)
 {
     // NOTE: path[n-1] must already be sampled
     
@@ -323,7 +368,7 @@ void max_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
         // recompute transition probabilities if state (k) changes
         if (k != last_k) {
             for (int j=0; j<nstates; j++)
-                trans[j] = log(matrix->get_transition_prob(tree, states, j, k));
+                trans[j] = matrix->get_transition_prob(tree, states, j, k);
             last_k = k;
         }
 
@@ -342,8 +387,8 @@ void max_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
 }
 
 
-int max_hmm_posterior_step_fast(TransMatrixSwitchCompress *matrix, 
-                                   double *col1, int state2)
+int max_hmm_posterior_step(TransMatrixSwitchCompress *matrix, 
+                           double *col1, int state2)
 {
     const int nstates1 = matrix->nstates1;
     
@@ -362,9 +407,9 @@ int max_hmm_posterior_step_fast(TransMatrixSwitchCompress *matrix,
 
 
 
-void sample_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
-                               TransMatrixCompress *matrix, double **emit, 
-                               double **fw, int *path)
+void sample_hmm_posterior(int n, LocalTree *tree, const States &states,
+                          TransMatrixCompress *matrix, double **emit, 
+                          double **fw, int *path)
 {
     // NOTE: path[n-1] must already be sampled
     
@@ -380,7 +425,7 @@ void sample_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
         // recompute transition probabilities if state (k) changes
         if (k != last_k) {
             for (int j=0; j<nstates; j++)
-                trans[j] = log(matrix->get_transition_prob(tree, states, j, k));
+                trans[j] = matrix->get_transition_prob(tree, states, j, k);
             last_k = k;
         }
 
@@ -394,8 +439,8 @@ void sample_hmm_posterior_fast(int n, LocalTree *tree, const States &states,
 }
 
 
-int sample_hmm_posterior_step_fast(TransMatrixSwitchCompress *matrix, 
-                                   double *col1, int state2)
+int sample_hmm_posterior_step(TransMatrixSwitchCompress *matrix, 
+                              double *col1, int state2)
 {
     const int nstates1 = matrix->nstates1;
     double A[nstates1];
@@ -470,14 +515,14 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
         get_coal_states(tree, model->ntimes, states);
         pos -= mat.blocklen;
         
-        sample_hmm_posterior_fast(mat.blocklen, tree, states,
+        sample_hmm_posterior(mat.blocklen, tree, states,
                                   mat.transmat_compress, mat.emit, 
                                   &fw[pos], &path[pos]);
 
         // use switch matrix for last col of next block
         if (pos > 0) {
             int i = pos - 1;
-            path[i] = sample_hmm_posterior_step_fast(
+            path[i] = sample_hmm_posterior_step(
                 mat.transmat_switch_compress, fw[i], path[i+1]);
         }
     }
@@ -513,280 +558,19 @@ void max_traceback_fast(LocalTrees *trees, ArgModel *model,
         get_coal_states(tree, model->ntimes, states);
         pos -= mat.blocklen;
         
-        max_hmm_posterior_fast(mat.blocklen, tree, states,
-                                  mat.transmat_compress, mat.emit, 
-                                  &fw[pos], &path[pos]);
+        max_hmm_posterior(mat.blocklen, tree, states,
+                          mat.transmat_compress, mat.emit, 
+                          &fw[pos], &path[pos]);
 
         // use switch matrix for last col of next block
         if (pos > 0) {
             int i = pos - 1;
-            path[i] = max_hmm_posterior_step_fast(
+            path[i] = max_hmm_posterior_step(
                 mat.transmat_switch_compress, fw[i], path[i+1]);
         }
     }
 }
 
-//=============================================================================
-// Sample recombinations
-
-void sample_recombinations(
-    LocalTrees *trees, ArgModel *model, ArgHmmMatrixList *matrix_list,
-    int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs)
-{
-    States states;
-    LineageCounts lineages(model->ntimes);
-    const int new_node = -1;
-    vector <NodePoint> candidates;
-    vector <double> probs;
-
-
-    // loop through local blocks
-    int blocki = 0;
-    for (LocalTrees::iterator it=trees->begin(); 
-         it != trees->end(); ++it, blocki++) {
-
-        // get local block information
-        int start = it->block.start + 1;  // don't allow new recomb at start
-        int end = it->block.end;
-        ArgHmmMatrices matrices = matrix_list->matrices[blocki];
-        LocalTree *tree = it->tree;
-        double treelen_b = get_treelen(tree, model->times, model->ntimes);
-        double treelen = treelen_b - get_basal_branch(
-            tree, model->times, model->ntimes, -1, -1);
-        double treelen2_b, treelen2;
-        lineages.count(tree);
-        get_coal_states(tree, model->ntimes, states);
-        int statei = thread_path[start];
-        int next_recomb = -1;
-
-        
-        // loop through positions in block
-        for (int i=start; i<end; i++) {
-            
-            if (thread_path[i] == thread_path[i-1]) {
-                // no change in state, recombination is optional
-                if (i > next_recomb) {
-                    // sample the next recomb pos
-                    int last_state = thread_path[i-1];
-                    treelen2_b = get_treelen_branch(
-                        tree, model->times, model->ntimes,
-                        states[last_state].node,
-                        states[last_state].time, treelen_b);
-                    treelen2 = treelen2_b - get_basal_branch(
-                        tree, model->times, model->ntimes, 
-                        states[last_state].node, states[last_state].time);
-
-                    double self_trans;
-                    double rate;
-                    if (matrices.transmat_compress) {
-                        TransMatrixCompress *m = matrices.transmat_compress;
-                        int a = states[last_state].time;
-                        self_trans = m->get_transition_prob(
-                            tree, states, last_state, last_state);
-                        rate = 1.0 - (m->norecombs[a] / self_trans);
-                        //rate = 0.0;
-                    } else {
-                        // TODO: need to compute row sum
-                        assert(false);
-                        self_trans = matrices.transmat[last_state][last_state];
-                        rate = max(1.0 - exp(-model->rho * (treelen2 - treelen)
-                                             - self_trans), model->rho);
-                    }
-                        
-
-                    // NOTE: the min prevents large floats from overflowing
-                    // when cast to int
-                    next_recomb = int(min(float(end), i + expovariate(rate)));
-                }
-
-                if (i < next_recomb)
-                    continue;
-            }
-
-            // sample recombination
-            next_recomb = -1;
-            statei = thread_path[i];
-            State state = states[statei];
-            State last_state = states[thread_path[i-1]];
-            treelen2_b = get_treelen_branch(tree, model->times, model->ntimes,
-                                            last_state.node,
-                                            last_state.time, treelen_b);
-            treelen2 = treelen2_b - get_basal_branch(
-                tree, model->times, model->ntimes, 
-                last_state.node, last_state.time);
-            
-
-            // there must be a recombination
-            // either because state changed or we choose to recombine
-            // find candidates
-            candidates.clear();
-            int end_time = min(state.time, last_state.time);
-            if (state.node == last_state.node) {
-                // y = v, k in [0, min(timei, last_timei)]
-                // y = node, k in Sr(node)
-                for (int k=tree->nodes[state.node].age; k<=end_time; k++)
-                    candidates.push_back(NodePoint(state.node, k));
-            }
-            
-            for (int k=0; k<=end_time; k++)
-                candidates.push_back(NodePoint(new_node, k));
-
-            // compute probability of each candidate
-            probs.clear();
-            int j = state.time;
-            for (vector<NodePoint>::iterator it=candidates.begin(); 
-                 it != candidates.end(); ++it) {
-                int k = it->time;
-                int nbranches_k = lineages.nbranches[k]
-                    + int(k < last_state.time);
-                int nrecombs_k = lineages.nrecombs[k]
-                    + int(k <= last_state.time)
-                    + int(k == last_state.time);
-
-                double sum = 0.0;
-                int recomb_parent_age = (it->node == -1 || 
-                                         (it->node == last_state.node &&
-                                          it->time < last_state.time)) ? 
-                     last_state.time :
-                    tree->nodes[tree->nodes[it->node].parent].age;
-                for (int m=k; m<j; m++) {
-                    int nbranches_m = lineages.nbranches[m] 
-                        + int(m < last_state.time) 
-                        - int(m < recomb_parent_age);
-                    sum += (model->time_steps[m] * nbranches_m 
-                            / (2.0 * model->popsizes[m]));
-                }
-
-                double p = (nbranches_k * model->time_steps[k] /
-                            nrecombs_k) * exp(- sum);
-                probs.push_back(p);
-            }
-
-            // sample recombination
-            recomb_pos.push_back(i);
-            recombs.push_back(candidates[sample(&probs[0], probs.size())]);
-
-            assert(recombs[recombs.size()-1].time <= min(state.time,
-                                                         last_state.time));
-        }
-    }
-}
-
-
-
-void max_recombinations(
-    LocalTrees *trees, ArgModel *model, ArgHmmMatrixList *matrix_list,
-    int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs)
-{
-    States states;
-    LineageCounts lineages(model->ntimes);
-    const int new_node = -1;
-    vector <NodePoint> candidates;
-    vector <double> probs;
-
-
-    // loop through local blocks
-    int blocki = 0;
-    for (LocalTrees::iterator it=trees->begin(); 
-         it != trees->end(); ++it, blocki++) {
-
-        // get local block information
-        int start = it->block.start + 1;  // don't allow new recomb at start
-        int end = it->block.end;
-        ArgHmmMatrices matrices = matrix_list->matrices[blocki];
-        LocalTree *tree = it->tree;
-        double treelen_b = get_treelen(tree, model->times, model->ntimes);
-        double treelen2_b, treelen2;
-        lineages.count(tree);
-        get_coal_states(tree, model->ntimes, states);
-        int statei = thread_path[start];
-        int next_recomb = -1;
-
-        
-        // loop through positions in block
-        for (int i=start; i<end; i++) {
-            // its never worth sampling a recombination if you don't have to
-            if (thread_path[i] == thread_path[i-1])
-                continue;
-            
-            // sample recombination
-            next_recomb = -1;
-            statei = thread_path[i];
-            State state = states[statei];
-            State last_state = states[thread_path[i-1]];
-            treelen2_b = get_treelen_branch(tree, model->times, model->ntimes,
-                                            last_state.node,
-                                            last_state.time, treelen_b);
-            treelen2 = treelen2_b - get_basal_branch(
-                tree, model->times, model->ntimes, 
-                last_state.node, last_state.time);
-            
-
-            // there must be a recombination
-            // either because state changed or we choose to recombine
-            // find candidates
-            candidates.clear();
-            int end_time = min(state.time, last_state.time);
-            if (state.node == last_state.node) {
-                // y = v, k in [0, min(timei, last_timei)]
-                // y = node, k in Sr(node)
-                for (int k=tree->nodes[state.node].age; k<=end_time; k++)
-                    candidates.push_back(NodePoint(state.node, k));
-            }
-            
-            for (int k=0; k<=end_time; k++)
-                candidates.push_back(NodePoint(new_node, k));
-
-            // compute probability of each candidate
-            probs.clear();
-            int j = state.time;
-            for (vector<NodePoint>::iterator it=candidates.begin(); 
-                 it != candidates.end(); ++it) {
-                int k = it->time;
-                int nbranches_k = lineages.nbranches[k]
-                    + int(k < last_state.time);
-                int nrecombs_k = lineages.nrecombs[k]
-                    + int(k <= last_state.time)
-                    + int(k == last_state.time);
-
-                double sum = 0.0;
-                int recomb_node_age = tree->nodes[it->node].age;
-                int recomb_parent_age = (it->node == -1 || 
-                                         (it->node == last_state.node &&
-                                          it->time < last_state.time)) ? 
-                     last_state.time :
-                    tree->nodes[tree->nodes[it->node].parent].age;
-                for (int m=k; m<j; m++) {
-                    int nbranches_m = lineages.nbranches[m] 
-                        + int(m < last_state.time) 
-                        - int(recomb_node_age <= m &&
-                              m < recomb_parent_age);
-                    sum += (model->time_steps[m] * nbranches_m 
-                            / (2.0 * model->popsizes[m]));
-                }
-
-                double p = (nbranches_k * model->time_steps[k] /
-                            nrecombs_k) * exp(- sum);
-                probs.push_back(p);
-            }
-
-            // find max prob recombination
-            recomb_pos.push_back(i);
-            int argmax = 0;
-            double maxprob = probs[0];
-            for (unsigned int m=1; m<probs.size(); m++) {
-                if (probs[m] > maxprob) {
-                    argmax = m;
-                    maxprob = probs[m];
-                }
-            }
-            recombs.push_back(candidates[argmax]);
-
-            assert(recombs[recombs.size()-1].time <= min(state.time,
-                                                         last_state.time));
-        }
-    }
-}
 
 
 //=============================================================================
@@ -1027,6 +811,7 @@ double **arghmm_forward_alg(
     ArgHmmForwardTableOld forward(sequences.seqlen);
     arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list,
                             &forward);
+
     // steal pointer
     double **fw = forward.fw;
     forward.fw = NULL;

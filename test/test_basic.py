@@ -1264,14 +1264,14 @@ class Basic (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+        length = 5000
+        arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
 
         print arglib.get_recomb_pos(arg)
         print "muts", len(muts)
-        print "recomb", len(arglib.get_recomb_pos(arg))
+        print "recomb", arglib.get_recomb_pos(arg)
 
         times = arghmm.get_time_points(ntimes=20)
         arghmm.discretize_arg(arg, times)

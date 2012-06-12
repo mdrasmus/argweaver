@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+from rasmus.common import *
+from compbio import fasta, arglib
+
+
+if "bin" not in sys.path:
+    sys.path.append("bin")
+
+
+mutfile, treefile = sys.argv[1:]
+
+
+#=============================================================================
+
+muts = list(arglib.read_mutations(mutfile))
+
+
+mut_pos = [m[0] for m in muts]
+chroms = [m[2] for m in muts]
+leaves = None
+
+i = 0
+
+# use real marginal trees to estimate mutation ages in order to vis
+# best possible accuracy
+for block, tree in arglib.read_tree_tracks(treefile):
+    if leaves is None:
+        leaves = sorted(tree.leaf_names())
+    times = treelib.get_tree_timestamps(tree)
+
+    while i < len(mut_pos) and mut_pos[i] < block[1]:
+        if len(chroms[i]) == 0:
+            # mutation went extinct
+            est_age = 0
+        else:
+            node = arglib.split_to_tree_branch(tree, chroms[i])
+            if node:
+                est_age_min = times[node]
+                est_age_max = times[node.parent] if node.parent else times[node]
+                est_age = (est_age_min + est_age_max) / 2.0
+            else:
+                est_age = 0
+
+        print "\t".join([str(mut_pos[i]), str(est_age), 
+                         ",".join(chroms[i])])
+        i += 1
+
