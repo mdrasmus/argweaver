@@ -80,6 +80,11 @@ if arghmmclib:
            [c_double_p_p, "emit", c_int, "seqlen"])
 
 
+    export(arghmmclib, "arghmm_new_trees", c_void_p,
+           [c_int_matrix, "ptrees", c_int_matrix, "ages",
+            c_int_matrix, "sprs", c_int_list, "blocklens",
+            c_int, "ntrees", c_int, "nnodes"])
+
     export(arghmmclib, "arghmm_forward_alg", c_double_p_p,
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
             c_int_matrix, "sprs", c_int_list, "blocklens",
@@ -108,6 +113,14 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
 
+    export(arghmmclib, "arghmm_max_thread", c_void_p,
+           [c_int_matrix, "ptrees", c_int_matrix, "ages",
+            c_int_matrix, "sprs", c_int_list, "blocklens",
+            c_int, "ntrees", c_int, "nnodes", 
+            c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
+
     export(arghmmclib, "arghmm_sample_arg_seq", c_void_p,
            [c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -120,6 +133,13 @@ if arghmmclib:
             c_int, "niters", c_int, "nremove"])
 
     export(arghmmclib, "arghmm_resample_arg", c_void_p,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "niters", c_int, "nremove"])
+
+    '''
+    export(arghmmclib, "arghmm_resample_arg", c_void_p,
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
             c_int_matrix, "sprs", c_int_list, "blocklens",
             c_int, "ntrees", c_int, "nnodes", 
@@ -127,6 +147,7 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "niters", c_int, "nremove"])
+    '''
 
     export(arghmmclib, "arghmm_remax_arg", c_void_p,
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
@@ -343,44 +364,43 @@ def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
         (c_char_p * len(seqs))(*seqs), len(seqs),
         seqlen, None)
 
-    nnodes = get_local_trees_nnodes(trees)
-    ntrees = get_local_trees_ntrees(trees)
+    names = all_nodes[0][:len(seqs)-1]
+    names.append(model.new_name)
+    arg = ctrees2arg(trees, names, model.times, verbose=verbose)
     
-    ptrees = []
-    ages = []
-    sprs = []
-    blocklens = [0] * ntrees
-    for i in range(ntrees):
-        ptrees.append([0] * nnodes)
-        ages.append([0] * nnodes)
-        sprs.append([0, 0, 0, 0])
+    if verbose:        
+        util.toc()
 
-    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
-    delete_local_trees(trees)
+    return arg
 
-    for i in range(ntrees):
-        ptrees[i] = ptrees[i][:nnodes]
-        ages[i] = ages[i][:nnodes]
-        sprs[i] = sprs[i][:4]
+
+
+def max_thread(model, n, probs_forward=None, verbose=False, matrices=None):
+
+    if verbose:
+        util.tic("sample thread")
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        model.arg, model.times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    seqlen = sum(blocklens)
+
+    seqs = [model.seqs[node] for node in all_nodes[0]
+            if model.arg[node].is_leaf()]
+    seqs.append(model.seqs[model.new_name])
     
-    
-    blocks = []
-    start = 0
-    for blocklen in blocklens:
-        end = start + blocklen
-        blocks.append((start, end))
-        start = end
+    trees = arghmm_max_thread(
+        ptrees, ages, sprs, blocklens,
+        len(ptrees), len(ptrees[0]), 
+        model.times, len(model.times),
+        model.popsizes, model.rho, model.mu,
+        (c_char_p * len(seqs))(*seqs), len(seqs),
+        seqlen, None)
 
     names = all_nodes[0][:len(seqs)-1]
     names.append(model.new_name)
-    assert len(names) == ((nnodes + 1) / 2)
-
-    util.tic("convert arg")
-    arg = treeset2arg(ptrees, ages, sprs, blocks, names, model.times)
-    util.toc()
+    arg = ctrees2arg(trees, names, model.times, verbose=verbose)
     
-    #delete_local_trees(trees)
-
     if verbose:
         util.toc()
 
@@ -441,52 +461,17 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     if verbose:
         util.tic("sample arg")
 
-    seqs2 = seqs.values()
+    names, seqs2 = zip(* seqs.items())
     
     trees = arghmm_sample_arg_refine(
         times, len(times),
         popsizes, rho, mu,
         (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]), refine,
         nremove)
-
-
+    
+    arg = ctrees2arg(trees, names, times, verbose=verbose)
+    
     if verbose:
-        util.tic("convert arg")
-
-    nnodes = get_local_trees_nnodes(trees)
-    ntrees = get_local_trees_ntrees(trees)
-    
-    ptrees = []
-    ages = []
-    sprs = []
-    blocklens = [0] * ntrees
-    for i in range(ntrees):
-        ptrees.append([0] * nnodes)
-        ages.append([0] * nnodes)
-        sprs.append([0, 0, 0, 0])
-
-    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
-    delete_local_trees(trees)
-
-    for i in range(ntrees):
-        ptrees[i] = ptrees[i][:nnodes]
-        ages[i] = ages[i][:nnodes]
-        sprs[i] = sprs[i][:4]
-    
-    
-    blocks = []
-    start = 0
-    for blocklen in blocklens:
-        end = start + blocklen
-        blocks.append((start, end))
-        start = end
-
-    names = seqs.keys()
-    assert len(names) == ((nnodes + 1) / 2)
-
-    arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
-    if verbose:
-        util.toc()
         util.toc()
     
     return arg
@@ -504,10 +489,22 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     if verbose:
         util.tic("resample arg")
         util.tic("convert arg")
-    seqs2 = seqs.values()
 
-    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
-        arg, times)
+    trees, names = arg2ctrees(arg, times)
+
+    # get sequences in same order
+    seqs2 = [seqs[name] for name in names]
+
+    # add all other sequences not in arg yet
+    leaves = set(arg.leaf_names())
+    for name, seq in seqs.items():
+        if name not in leaves:
+            names.append(name)
+            seqs2.append(seq)
+
+
+    '''
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(arg, times)
     blocklens = [x[1] - x[0] for x in blocks]
     seqlen = sum(blocklens)
     
@@ -524,11 +521,20 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
         if name not in leaves:
             names.append(name)
             seqs2.append(seq)
-            
+    '''        
     
     if verbose:
         util.toc()
-    
+
+    seqlen = len(seqs[names[0]])
+    trees = arghmm_resample_arg(
+        trees, times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs2))(*seqs2), len(seqs2),
+        seqlen, refine, nremove)
+
+
+    '''
     trees = arghmm_resample_arg(
         ptrees, ages, sprs, blocklens,
         len(ptrees), len(ptrees[0]), 
@@ -536,7 +542,11 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
         popsizes, rho, mu,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2),
         seqlen, refine, nremove)
+    '''
 
+    arg = ctrees2arg(trees, names, times, verbose=verbose)
+
+    '''
     if verbose:
         util.tic("convert arg 2")
     
@@ -573,6 +583,9 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
     if verbose:
         util.toc()
+    '''
+
+    if verbose:
         util.toc()
     
     return arg
@@ -623,6 +636,9 @@ def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2),
         seqlen, refine, nremove)
 
+    arg = ctrees2arg(trees, names, times, verbose=verbose)
+
+    '''
     if verbose:
         util.tic("convert arg 2")
     
@@ -659,6 +675,9 @@ def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
     if verbose:
         util.toc()
+    '''
+
+    if verbose:
         util.toc()
     
     return arg
@@ -684,20 +703,10 @@ def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8,
     blocklens = [x[1] - x[0] for x in blocks]
     seqlen = sum(blocklens)
     
-    #names = []
     seqs2 = []
     for node in all_nodes[0]:
         if arg[node].is_leaf():
-            #names.append(node)
-            seqs2.append(seqs[node])
-
-    # add all other sequences not in arg yet
-    #leaves = set(arg.leaf_names())
-    #for name, seq in seqs.items():
-    #    if name not in leaves:
-    #        names.append(name)
-    #        seqs2.append(seq)
-            
+            seqs2.append(seqs[node])            
     
     if verbose:
         util.toc()
@@ -732,22 +741,11 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsize=1e4,
     blocklens = [x[1] - x[0] for x in blocks]
     seqlen = sum(blocklens)
     
-    #names = []
     seqs2 = []
     for node in all_nodes[0]:
         if arg[node].is_leaf():
-            #names.append(node)
             seqs2.append(seqs[node])
-    
-    # add all other sequences not in arg yet
-    #leaves = set(arg.leaf_names())
-    #for name, seq in seqs.items():
-    #    if name not in leaves:
-    #        #names.append(name)
-    #        seqs2.append(seq)
 
-    #print [arg[node] for node in all_nodes[0] if arg[node].is_leaf()]
-    
     if verbose:
         util.toc()
     
@@ -851,6 +849,78 @@ def make_ptree(tree, skip_single=True, nodes=None):
 # passing ARG through C interface
 
 
+def arg2ctrees(arg, times):
+
+    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
+        arg, times)
+    blocklens = [x[1] - x[0] for x in blocks]
+    seqlen = sum(blocklens)
+    
+    names = []
+    for node in all_nodes[0]:
+        if arg[node].is_leaf():
+            names.append(node)
+            
+    trees = arghmm_new_trees(
+        ptrees, ages, sprs, blocklens,
+        len(ptrees), len(ptrees[0]))
+
+    return trees, names
+
+
+def ctrees2arg(trees, names, times, verbose=False, delete_trees=True):
+    """
+    Convert a C data structure for the ARG into a python ARG
+    """
+
+    if verbose:
+        util.tic("convert arg")
+
+    # get local trees info
+    nnodes = get_local_trees_nnodes(trees)
+    ntrees = get_local_trees_ntrees(trees)
+
+    # allocate data structures for treeset
+    ptrees = []
+    ages = []
+    sprs = []
+    blocklens = [0] * ntrees
+    for i in range(ntrees):
+        ptrees.append([0] * nnodes)
+        ages.append([0] * nnodes)
+        sprs.append([0, 0, 0, 0])
+
+    # populate data structures
+    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)    
+
+    # fully convert to python
+    for i in range(ntrees):
+        ptrees[i] = ptrees[i][:nnodes]
+        ages[i] = ages[i][:nnodes]
+        sprs[i] = sprs[i][:4]
+    
+    # convert treeset to arg data structure
+    blocks = []
+    start = 0
+    for blocklen in blocklens:
+        end = start + blocklen
+        blocks.append((start, end))
+        start = end
+
+    assert len(names) == ((nnodes + 1) / 2)
+    
+    arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
+
+    if delete_trees:
+        delete_local_trees(trees)
+
+    if verbose:
+        util.toc()
+
+    return arg
+
+
+
 def iter_arg_sprs(arg, start=None, end=None):
     """
     Iterates through the SPRs of an ARG
@@ -901,8 +971,6 @@ def get_treeset(arg, times, start=None, end=None):
     for block, tree, last_tree, spr in iter_arg_sprs(arg, start, end):
 
         tree2 = tree.get_tree()
-        #phylo.hash_order_tree(tree2)
-        #print block[0], tree2.get_one_line_newick()
         
         if last_tree is None:
             # get frist ptree
@@ -932,8 +1000,6 @@ def get_treeset(arg, times, start=None, end=None):
             coal_name = last_nodelookup[last_tree2[cname]]
             ispr = [recomb_name, times_lookup[rtime],
                     coal_name, times_lookup[ctime]]
-
-            #print last_tree2[rname].leaf_names()
 
         # append integer-based data
         ptrees.append(ptree)

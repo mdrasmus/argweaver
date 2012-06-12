@@ -630,7 +630,7 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
 
 // sample the thread of the last chromosome
 void max_arg_thread(ArgModel *model, Sequences *sequences, 
-                       LocalTrees *trees, int new_chrom)
+                    LocalTrees *trees, int new_chrom)
 {
     // allocate temp variables
     ArgHmmForwardTable forward(sequences->seqlen);
@@ -793,6 +793,16 @@ void remax_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 // C interface
 extern "C" {
 
+LocalTrees *arghmm_new_trees(
+    int **ptrees, int **ages, int **sprs, int *blocklens,
+    int ntrees, int nnodes)
+{
+    // setup model, local trees, sequences
+    return  new LocalTrees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+}
+
+
+
 double **arghmm_forward_alg(
     int **ptrees, int **ages, int **sprs, int *blocklens,
     int ntrees, int nnodes, double *times, int ntimes,
@@ -881,33 +891,28 @@ LocalTrees *arghmm_sample_thread(
     LocalTrees *trees = new LocalTrees(ptrees, ages, sprs, blocklens, 
                                        ntrees, nnodes);
     Sequences sequences(seqs, nseqs, seqlen);
+    int new_chrom = nseqs -  1;
     
-    // build matrices
-    ArgHmmMatrixList matrix_list(&model, &sequences, trees);
-    matrix_list.setup();
+    sample_arg_thread(&model, &sequences, trees, new_chrom);
+
+    return trees;
+}
+
+
+LocalTrees *arghmm_max_thread(
+    int **ptrees, int **ages, int **sprs, int *blocklens,
+    int ntrees, int nnodes, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    LocalTrees *trees = new LocalTrees(ptrees, ages, sprs, blocklens, 
+                                       ntrees, nnodes);
+    Sequences sequences(seqs, nseqs, seqlen);
+    int new_chrom = nseqs -  1;
     
-    // compute forward table
-    ArgHmmForwardTable forward(sequences.seqlen);
-    arghmm_forward_alg_fast(trees, &model, &sequences, &matrix_list, &forward);
-
-    // traceback
-    int *thread_path = new int [seqlen];
-    stochastic_traceback(&matrix_list, forward.fw, thread_path, seqlen);
-
-    // sample recombination points
-    vector<int> recomb_pos;
-    vector<NodePoint> recombs;
-    sample_recombinations(trees, &model, &matrix_list,
-                          thread_path, recomb_pos, recombs);
-
-    // add thread to ARG
-    //assert_trees_thread(trees, thread_path, ntimes);
-    int new_chrom = trees->get_num_leaves();
-    add_arg_thread(trees, model.ntimes, thread_path, new_chrom, 
-                   recomb_pos, recombs);
-
-    // clean up
-    delete [] thread_path;
+    max_arg_thread(&model, &sequences, trees, new_chrom);
 
     return trees;
 }
@@ -952,6 +957,30 @@ LocalTrees *arghmm_sample_arg_refine(
 
 // resample an ARG with gibbs
 LocalTrees *arghmm_resample_arg(
+    LocalTrees *trees, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int niters, int nremove)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    
+    // sequentially sample until all chromosomes are present
+    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++) {
+        sample_arg_thread(&model, &sequences, trees, new_chrom);
+    }
+
+    // gibbs sample
+    for (int i=0; i<niters; i++)
+        resample_arg(&model, &sequences, trees, nremove);
+    
+    return trees;
+}
+
+
+/*
+// resample an ARG with gibbs
+LocalTrees *arghmm_resample_arg(
     int **ptrees, int **ages, int **sprs, int *blocklens,
     int ntrees, int nnodes, 
     double *times, int ntimes,
@@ -975,6 +1004,7 @@ LocalTrees *arghmm_resample_arg(
     
     return trees;
 }
+*/
 
 
 // remax an ARG with viterbi

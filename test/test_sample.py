@@ -715,44 +715,12 @@ class Sample (unittest.TestCase):
         #arg2.write("test/data/sample_arg2_out.arg")
 
 
-    def test_sample_arg3(self):
-        """
-        Fully sample an ARG from stratch using API
-        """
-
-        k = 10
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 10000
-        times = arghmm.get_time_points(ntimes=20)
-        refine = 0
-        
-        arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-        #arg.write("test/data/sample_arg2.arg")
-        #seqs.write("test/data/sample_arg2.fa")
-
-        seqs.names.sort()
-
-        util.tic("sample ARG")
-        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                                 refine=refine, verbose=True)
-        util.toc()
-
-        print ilen(x for x in arg2 if x.event == "recomb")
-
-        #arg2.write("test/data/sample_arg2_out.arg")
-        
-
-
     def test_sample_arg_recomb(self):
         """
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 2
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1351,7 +1319,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 12
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1359,7 +1327,7 @@ class Sample (unittest.TestCase):
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         #nremove = 3; refine = 5
-        nremove = 1; refine = 5
+        nremove = 1; refine = 1
         write = False
         
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
