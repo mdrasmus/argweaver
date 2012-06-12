@@ -872,34 +872,28 @@ intstate *arghmm_sample_posterior(
 
 
 LocalTrees *arghmm_sample_thread(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes, double *times, int ntimes,
+    LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
     char **seqs, int nseqs, int seqlen)
 {
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
-    LocalTrees *trees = new LocalTrees(ptrees, ages, sprs, blocklens, 
-                                       ntrees, nnodes);
     Sequences sequences(seqs, nseqs, seqlen);
     int new_chrom = nseqs -  1;
     
     sample_arg_thread(&model, &sequences, trees, new_chrom);
-
+    
     return trees;
 }
 
 
 LocalTrees *arghmm_max_thread(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes, double *times, int ntimes,
+    LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
     char **seqs, int nseqs, int seqlen)
 {
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
-    LocalTrees *trees = new LocalTrees(ptrees, ages, sprs, blocklens, 
-                                       ntrees, nnodes);
     Sequences sequences(seqs, nseqs, seqlen);
     int new_chrom = nseqs -  1;
     
@@ -908,6 +902,8 @@ LocalTrees *arghmm_max_thread(
     return trees;
 }
 
+//----------------------
+// sample ARGs
 
 
 // sequentially sample an ARG

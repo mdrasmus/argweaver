@@ -79,7 +79,7 @@ void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
         G[b] = eC * time_steps[b] * 
             ((nbranches[b] + 1.0) / (nrecombs[b] + 1.0) -
              nbranches[b] / (nrecombs[b] + 1.0 + int(b < root_age_index)));
-        norecombs[b] = exp(-rho * treelen2);
+        norecombs[b] = exp(-max(rho * treelen2, rho));
     }
     E[ntimes-2] = exp(-C) / ncoals[ntimes-2];
 }

@@ -967,81 +967,84 @@ def find_recomb_coal(tree, last_tree, recomb_name=None, pos=None):
 # probabilities
 
 
-def calc_C(time_steps, nbranches, popsizes):
-    ntimes = len(time_steps)
-    C = [0.0]
-    for k in xrange(1, ntimes):
-        l = k - 1
-        C.append(C[-1] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]))
-    return C
+def prob_recomb(tree, state, nlineages, times, time_steps, rho, recomb_time):
 
-
-def calc_A_matrix(time_steps, nbranches, popsizes):
-
-    ntimes = len(time_steps)
+    nbranches, nrecombs, ncoals = nlineages
+    node, a = state
+    treelen_b = get_treelen_branch(tree, times, node, times[a], use_basal=True)
+    treelen = get_treelen_branch(tree, times, node, times[a], use_basal=False)
+    k = recomb_time
+    w = max(a, times.index(tree.root.age))
     
-    # A_{k,j} =& s'_{j-2} k_{j-2} / (2N) + \sum_{m=k}^{j-3} s'_m k_m / (2N) \\
-    #         =& s'_{j-2} k_{j-2} / (2N) + A_{k,j-1}.
+    nbranches_k = nbranches[k] + int(k < a)
+    nrecombs_k = nrecombs[k] + int(k <= a) + int(k == a < w)
     
-    A = util.make_matrix(ntimes, ntimes, 0.0)
-    for k in xrange(ntimes):
-        # A[k][k] = 0
-        for j in xrange(k+1, ntimes):
-            l = j - 1
-            A[k][j] = A[k][j-1] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l])
-    return A
+    return (nbranches_k * time_steps[k] / float(nrecombs_k * treelen_b)
+            * (1.0 - exp(- rho * max(treelen, 1.0))))
 
 
+def prob_recoal(tree, state, nlineages, times, time_steps, popsizes,
+                recomb_node, recomb_time, coal_time):
 
+    nbranches, nrecombs, ncoals = nlineages
+    node, a = state
+    k = recomb_time
+    b = coal_time
+    
+    if recomb_node == -1 or not tree[recomb_node].parents:
+        recomb_parent_age = a
+    else:
+        recomb_parent_age = times.index(tree[recomb_node].parents[0].age)
+        if recomb_node == node:
+            recomb_parent_age = a
+    assert recomb_parent_age == a, (recomb_parent_age, a)
+    
+    s = 0.0
+    for m in range(k, b):
+        nbranches_m = nbranches[m] + int(m < a) - int(m < recomb_parent_age)
+        s += time_steps[m] * nbranches_m / (2.0 * popsizes[m])
+    p = exp(- s)
+
+    if b < len(time_steps) - 2:
+        nbranches_b = nbranches[b] + int(b < a) - int(b < recomb_parent_age)
+        ncoals_b = ncoals[b]
+        p *= ((1.0 - exp(-time_steps[b] * nbranches_b / (2.0 * popsizes[b]))) /
+              ncoals_b)
+        
+
+    return p
+
+
+def iter_transition_recombs(tree, state1, state2, times):
+
+    node1, a = state1
+    node2, b = state2
+    end_time = min(a, b)
+    
+    if node1 == node2:
+        # y = v, k in [0, min(timei, last_timei)]
+        # y = node, k in Sr(node)        
+        for k in range(times.index(tree[node1].age), end_time+1):
+            yield node1, k
+        
+    for k in range(0, end_time+1):
+        yield -1, k
+    
 
 def calc_transition_probs(tree, states, nlineages, times,
                           time_steps, popsizes, rho):
+    """
+    Calculate transition probabilities very literally for testing
+    """
+    
+    tree = tree.copy()
+    arglib.remove_single_lineages(tree)
 
     nstates = len(states)
     ntimes = len(time_steps)
     minlen = time_steps[0]
     treelen = sum(x.get_dist() for x in tree)
-    nbranches, nrecombs, ncoals = nlineages
-
-    # calculate base case (time=0)
-    root_age_index = times.index(tree.root.age)
-    treelen_b = treelen + time_steps[root_age_index];
-    C = [0.0]
-    B = [(nbranches[0] + 1) * time_steps[0] / (nrecombs[0] + 1.0)]
-    D = [(1.0 - exp(-max(rho * treelen, rho))) / treelen_b]
-    E = [(1.0 - exp(-time_steps[0] * nbranches[0]
-                    / (2.0 * popsizes[0]))) / ncoals[0]]
-    G = [time_steps[0] / (nrecombs[0] + 1.0)]
-    norecombs = [exp(-max(rho * treelen, rho))]
-
-    # calculate all other time points (time>0)
-    for b in range(1, ntimes-1):
-        # get tree length
-        treelen2 = treelen + times[b]
-        if b > root_age_index:
-            # add wrapped branch
-            treelen2 += times[b] - tree.root.age
-
-            # add basal branch
-            treelen2_b = treelen2 + time_steps[b]
-        else:
-            # add basal branch
-            treelen2_b = treelen2 + time_steps[root_age_index]
-
-        # due to normalization we do not need exp(-rho * treelen)
-        l = b - 1;
-        C.append(C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]))
-        eC = exp(C[b])
-
-        B.append(B[b-1] + (nbranches[b] + 1.0) * time_steps[b] / 
-                 (nrecombs[b] + 1.0) * eC)
-        D.append((1.0 - exp(-max(rho * treelen2, rho))) / treelen2_b)
-        E.append((1.0 - exp(-time_steps[b] * nbranches[b] / 
-                            (2.0 * popsizes[b]))) / eC / ncoals[b])
-        G.append(eC * time_steps[b] / (nrecombs[b] + 1.0))
-        norecombs.append(exp(-max(rho * treelen2, rho)))
-    E[ntimes-2] = exp(-C[ntimes-2]) / ncoals[ntimes-2]
-    
+    nbranches, nrecombs, ncoals = nlineages    
 
     # calculate full state transition matrix
     transprob = util.make_matrix(nstates, nstates, 0.0)
@@ -1051,104 +1054,26 @@ def calc_transition_probs(tree, states, nlineages, times,
         
         for j in range(nstates):
             node2, b = states[j]
-            I = float(a <= b)
-            
-            if node1 != node2:
-                transprob[i][j] = D[a] * E[b] * (B[min(a,b)] - I * G[a])
-            else:
-                #print "t", a, b, D[a], E[b], B[min(a,b)], norecombs[a], time_steps[:a]
-                Bc = B[c-1] if c > 0 else 0.0
-                transprob[i][j] = D[a] * E[b] * \
-                    (2 * B[min(a,b)] - 2 * I * G[a] - Bc)
-                if a == b:
-                    transprob[i][j] += norecombs[a]
+            coal_time = b
 
-        # normalize and convert to log scale
-        s = sum(transprob[i])
-        for j in range(nstates):
-            transprob[i][j] = log(transprob[i][j] / s)
+            p = 0.0
+            for recomb_node, recomb_time in iter_transition_recombs(
+                tree, states[i], states[j], times):
+                p += (prob_recomb(tree, states[i], nlineages, times,
+                                  time_steps, rho, recomb_time) *
+                      prob_recoal(tree, states[i], nlineages, times,
+                                  time_steps, popsizes,
+                                  recomb_node, recomb_time, coal_time))
+
+            # probability of no recomb
+            if i == j:
+                treelen = get_treelen_branch(tree, times, node1, times[a],
+                                             use_basal=False)
+                p += exp(-rho * max(treelen, 1.0))
+
+            transprob[i][j] = log(p)
 
     return transprob
-
-
-def calc_no_recomb_cond_self(tree, states, nlineages, times,
-                             time_steps, popsizes, rho):
-
-    nstates = len(states)
-    ntimes = len(time_steps)
-    minlen = time_steps[0]
-    treelen = sum(x.get_dist() for x in tree)
-    nbranches, nrecombs, ncoals = nlineages
-
-    # calculate base case (time=0)
-    root_age_index = times.index(tree.root.age)
-    treelen_b = treelen + time_steps[root_age_index];
-    C = [0.0]
-    B = [(nbranches[0] + 1) * time_steps[0] / (nrecombs[0] + 1.0)]
-    D = [(1.0 - exp(-max(rho * treelen, rho))) / treelen_b]
-    E = [(1.0 - exp(-time_steps[0] * nbranches[0]
-                    / (2.0 * popsizes[0]))) / ncoals[0]]
-    G = [time_steps[0] / (nrecombs[0] + 1.0)]
-    norecombs = [exp(-max(rho * treelen, rho))]
-
-    # calculate all other time points (time>0)
-    for b in range(1, ntimes-1):
-        # get tree length
-        treelen2 = treelen + times[b]
-        if b > root_age_index:
-            # add wrapped branch
-            treelen2 += times[b] - tree.root.age
-
-            # add basal branch
-            treelen2_b = treelen2 + time_steps[b]
-        else:
-            # add basal branch
-            treelen2_b = treelen2 + time_steps[root_age_index]
-
-        # due to normalization we do not need exp(-rho * treelen)
-        l = b - 1;
-        C.append(C[l] + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]))
-        eC = exp(C[b])
-
-        B.append(B[b-1] + (nbranches[b] + 1.0) * time_steps[b] / 
-                 (nrecombs[b] + 1.0) * eC)
-        D.append((1.0 - exp(-max(rho * treelen2, rho))) / treelen2_b)
-        E.append((1.0 - exp(-time_steps[b] * nbranches[b] / 
-                            (2.0 * popsizes[b]))) / eC / ncoals[b])
-        G.append(eC * time_steps[b] / (nrecombs[b] + 1.0))
-        norecombs.append(exp(-max(rho * treelen2, rho)))
-    E[ntimes-2] = exp(-C[ntimes-2]) / ncoals[ntimes-2]
-    
-
-    # calculate full state transition matrix
-    transprob = util.make_matrix(nstates, nstates, 0.0)
-    vec = []
-    for i in range(nstates):
-        node1, a = states[i]
-        c = times.index(tree[node1].age)
-        
-        for j in range(nstates):
-            node2, b = states[j]
-            I = float(a <= b)
-            
-            if node1 != node2:
-                transprob[i][j] = D[a] * E[b] * (B[min(a,b)] - I * G[a])
-            else:
-                #print "t", a, b, D[a], E[b], B[min(a,b)], norecombs[a], time_steps[:a]
-                Bc = B[c-1] if c > 0 else 0.0
-                transprob[i][j] = D[a] * E[b] * \
-                    (2 * B[min(a,b)] - 2 * I * G[a] - Bc)
-                if a == b:
-                    transprob[i][j] += norecombs[a]
-
-        # normalize and convert to log scale
-        #s = sum(transprob[i])
-        #for j in range(nstates):
-        #    transprob[i][j] = log(transprob[i][j] / s)
-
-        vec.append(norecombs[a] / transprob[i][i])
-
-    return vec
 
 
 

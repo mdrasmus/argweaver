@@ -79,12 +79,6 @@ def sample_recombinations_thread(model, thread, use_times=True):
                 rate = max(1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
                                      - selftrans), model.rho)
                 
-                #vec = arghmm.calc_no_recomb_cond_self(
-                #    last_tree, model.states[pos], nlineages, model.times,
-                #    model.time_steps, model.popsizes, model.rho)
-                #rate2 = 1.0 - vec[statei]
-                #print rate, rate2
-                
                 next_recomb = pos + int(random.expovariate(rate))
                 #next_recomb = pos + int(random.expovariate(rate2))
                 

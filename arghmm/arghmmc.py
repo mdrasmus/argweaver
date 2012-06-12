@@ -98,6 +98,8 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             POINTER(POINTER(c_int *2)), "path"])
+
+    '''
     export(arghmmclib, "arghmm_sample_thread", c_void_p,
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
             c_int_matrix, "sprs", c_int_list, "blocklens",
@@ -105,11 +107,14 @@ if arghmmclib:
             c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
+    '''
+    
+    export(arghmmclib, "arghmm_sample_thread", c_void_p,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
     export(arghmmclib, "arghmm_max_thread", c_void_p,
-           [c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", 
-            c_double_list, "times", c_int, "ntimes",
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
 
@@ -315,7 +320,7 @@ def delete_trans_emit_matrices(matrices):
 #=============================================================================
 # sampling ARG threads
 
-
+'''
 def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
 
     if verbose:
@@ -346,34 +351,66 @@ def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
         util.toc()
 
     return arg
+'''
 
 
 
-def max_thread(model, n, probs_forward=None, verbose=False, matrices=None):
+def sample_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4, times=None,
+                  verbose=False):
+
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    popsizes = [popsize] * len(times)
 
     if verbose:
         util.tic("sample thread")
 
-    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
-        model.arg, model.times)
-    blocklens = [x[1] - x[0] for x in blocks]
-    seqlen = sum(blocklens)
+    trees, names = arg2ctrees(arg, times)
 
-    seqs = [model.seqs[node] for node in all_nodes[0]
-            if model.arg[node].is_leaf()]
-    seqs.append(model.seqs[model.new_name])
+    seqs2 = [seqs[name] for name in names]
+
+    new_name = [x for x in seqs.keys() if x not in names][0]
+    names.append(new_name)
+    seqs2.append(seqs[new_name])
+    seqlen = len(seqs2[0])
+    
+    trees = arghmm_sample_thread(
+        trees, times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen, None)
+    arg = ctrees2arg(trees, names, times, verbose=verbose)
+    
+    if verbose:
+        util.toc()
+
+    return arg
+
+
+def max_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4, times=None,
+               verbose=False):
+
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    popsizes = [popsize] * len(times)
+
+    if verbose:
+        util.tic("sample thread")
+
+    trees, names = arg2ctrees(arg, times)
+
+    seqs2 = [seqs[name] for name in names]
+
+    new_name = [x for x in seqs.keys() if x not in names][0]
+    names.append(new_name)
+    seqs2.append(seqs[new_name])
+    seqlen = len(seqs2[0])
     
     trees = arghmm_max_thread(
-        ptrees, ages, sprs, blocklens,
-        len(ptrees), len(ptrees[0]), 
-        model.times, len(model.times),
-        model.popsizes, model.rho, model.mu,
-        (c_char_p * len(seqs))(*seqs), len(seqs),
+        trees, times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs2))(*seqs2), len(seqs2),
         seqlen, None)
-
-    names = all_nodes[0][:len(seqs)-1]
-    names.append(model.new_name)
-    arg = ctrees2arg(trees, names, model.times, verbose=verbose)
+    arg = ctrees2arg(trees, names, times, verbose=verbose)
     
     if verbose:
         util.toc()

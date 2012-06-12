@@ -251,6 +251,65 @@ class Sample (unittest.TestCase):
         pause()
 
 
+    def test_max_thread(self):
+        """
+        Maximize a thread from the posterior of the ArgHmm
+        """
+
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 10000
+        arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+        
+        times = arghmm.get_time_points(ntimes=20)
+        arghmm.discretize_arg(arg, times)
+
+        # save
+        #arglib.write_arg("test/data/sample.arg", arg)
+        #fasta.write_fasta("test/data/sample.fa", seqs)
+
+        new_name = "n%d" % (k-1)
+        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
+                                               by_block=False))    
+        p = plot(cget(thread, 1), style="lines", ymin=10,
+                 ylog=10)
+
+        # remove chrom
+        arg = arghmm.remove_arg_thread(arg, new_name)
+        #arglib.write_arg("test/data/sample-prune.arg", arg)
+
+        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+                              rho=rho, mu=mu)
+        print "states", len(model.states[0])
+        print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
+
+        p.plot(model.recomb_pos, [10000] * len(model.recomb_pos),
+               style="points")
+
+        fw = arghmm.forward_algorithm(model, length, verbose=True)
+        probs = arghmm.get_posterior_probs(model, length, verbose=True,
+                                           probs_forward=fw)
+        
+        high = list(arghmm.iter_posterior_times(model, probs, .95))
+        low = list(arghmm.iter_posterior_times(model, probs, .05))
+        p.plot(high, style="lines")
+        p.plot(low, style="lines")
+
+
+        arg2 = arghmm.max_thread(arg, seqs, rho=rho, mu=mu,
+                                 popsize=n, times=times)
+        thread2 = list(arghmm.iter_chrom_thread(arg2, arg2[new_name],
+                                               by_block=False))
+        p.plot(cget(thread2, 1), style="lines")
+        #util.write_list("test/data/sample.thread", path)
+
+        pause()
+
+
     def test_sample_recomb(self):
         """
         Sample recombinations for a true thread
@@ -388,10 +447,11 @@ class Sample (unittest.TestCase):
                     model, thread))
                 rx.append(new_recombs)
                 ry.append(len(recombs))
+                
                 #if ry[-1] - rx[-1] > 40:
                 #    print thread[0:length:length//20]
-
-                #arg2 = arghmm.sample_thread(model, length)
+                #arg2 = arghmm.sample_thread(arg, seqs, rho=rho, mu=mu,
+                #                            popsize=n, times=times)
                 #recombs = ilen(x for x in arg2 if x.event == "recomb")
                 #rx.append(new_recombs)
                 #ry.append(recombs - nrecombs2)
@@ -619,7 +679,8 @@ class Sample (unittest.TestCase):
         
         # sample a chrom thread
         util.tic("sample thread")        
-        arg = arghmm.sample_thread(model, length)
+        arg = arghmm.sample_thread(arg, seqs, rho=rho, mu=mu,
+                                   popsize=n, times=times)
         util.toc()
 
 
