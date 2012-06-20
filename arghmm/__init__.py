@@ -281,7 +281,7 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         while blocklen == 0:
             blocklen = int(random.expovariate(max(treelen * rho, rho)))
         pos += blocklen
-        if pos > end:
+        if pos >= end - 1:
             break
 
         root_age_index = times.index(tree.root.age)
@@ -340,9 +340,8 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         #treelib.draw_tree(tree.get_tree(), maxlen=5)
         #print rleaves, recomb_time
         #print cleaves, coal_time
-        
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
-        
+
+        yield pos, (rleaves, recomb_time), (cleaves, coal_time)        
 
         # apply SPR to local tree
         broken = recomb_node.parents[0]
@@ -608,27 +607,9 @@ def remove_arg_thread(arg, *chroms):
     """
     remove_chroms = set(chroms)
     keep = [x for x in arg.leaf_names() if x not in remove_chroms]
+    arg = arg.copy()
     arglib.subarg_by_leaf_names(arg, keep)
     return arglib.smcify_arg(arg)
-
-    '''
-    def prune(sprs):
-        for recomb_pos, (rleaves, rtime), (cleaves, ctime) in sprs:
-            rleaves = [x for x in rleaves if x not in remove_chroms]
-            cleaves = [x for x in cleaves if x not in remove_chroms]
-            spr = (recomb_pos, (rleaves, rtime), (cleaves, ctime))
-            print spr
-            yield spr
-    
-    arg2 = arg.get_marginal_tree(-.5)
-    keep = [x for x in arg2.leaf_names() if x not in remove_chroms]
-    arglib.subarg_by_leaf_names(arg2, keep)
-    arg2.write()
-    
-    #arglib.remove_single_lineages(arg2)
-    sprs = prune(arglib.iter_arg_sprs(arg, use_leaves=True))
-    arglib.make_arg_from_sprs(arg2, sprs, ignore_self=True)
-    '''
 
     return arg2
 

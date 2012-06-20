@@ -357,15 +357,12 @@ bool assert_trees(LocalTrees *trees)
 
     // loop through blocks
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        //printf("check %d,%d\n", it->block.start, it->block.end);
         LocalTree *tree = it->tree;
         Spr *spr = &it->spr;
         int *mapping = it->mapping;
 
-        if (last_tree) {
-            assert(it->block.start == last_block.end);
+        if (last_tree)
             assert(assert_spr(last_tree, tree, spr, mapping));
-        }
         last_tree = tree;
         last_block = it->block;
     }

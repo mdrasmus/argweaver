@@ -20,6 +20,10 @@ public:
     State(int node=0, int time=0) :
         node(node), time(time) {}
 
+    inline bool operator==(const State &other) const {
+        return (node == other.node) && (time == other.time);
+    }
+
     int node;
     int time;
 };

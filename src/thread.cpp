@@ -14,8 +14,9 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
     States *last_states = &states2;
 
     // loop through blocks
+    int start = 0;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        int start = it->block.start;
+        //int start = it->block.start;
         get_coal_states(it->tree, ntimes, *states);
 
         // check spr
@@ -44,6 +45,8 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
             states = &states2;
         else
             states = &states1;
+
+        start += it->block.length();
     }
 
     return true;
@@ -328,6 +331,7 @@ bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it)
 
 
     // delete this tree
+    it2->blocklen += it->blocklen;
     it2->block.start = it->block.start;
     it->clear();
     trees->trees.erase(it);
@@ -374,6 +378,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
     
 
     // loop through blocks
+    //int start = 0;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
         LocalTree *tree = it->tree;
         Spr *spr = &(it->spr);

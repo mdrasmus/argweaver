@@ -13,6 +13,7 @@ from rasmus import util, stats
 import arghmm
 
 
+# TODO: update this method
 def sample_recombinations_thread(model, thread, use_times=True):
     """Samples new recombination for a thread"""
     

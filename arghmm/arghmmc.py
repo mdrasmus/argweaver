@@ -320,40 +320,6 @@ def delete_trans_emit_matrices(matrices):
 #=============================================================================
 # sampling ARG threads
 
-'''
-def sample_thread(model, n, probs_forward=None, verbose=False, matrices=None):
-
-    if verbose:
-        util.tic("sample thread")
-
-    (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
-        model.arg, model.times)
-    blocklens = [x[1] - x[0] for x in blocks]
-    seqlen = sum(blocklens)
-
-    seqs = [model.seqs[node] for node in all_nodes[0]
-            if model.arg[node].is_leaf()]
-    seqs.append(model.seqs[model.new_name])
-    
-    trees = arghmm_sample_thread(
-        ptrees, ages, sprs, blocklens,
-        len(ptrees), len(ptrees[0]), 
-        model.times, len(model.times),
-        model.popsizes, model.rho, model.mu,
-        (c_char_p * len(seqs))(*seqs), len(seqs),
-        seqlen, None)
-
-    names = all_nodes[0][:len(seqs)-1]
-    names.append(model.new_name)
-    arg = ctrees2arg(trees, names, model.times, verbose=verbose)
-    
-    if verbose:        
-        util.toc()
-
-    return arg
-'''
-
-
 
 def sample_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4, times=None,
                   verbose=False):
@@ -966,7 +932,7 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
     #assert against local ptree and leading edge of ARG.
 
     arglib.make_arg_from_sprs(arg, sprs2)
-    arglib.assert_arg(arg)
+    #arglib.assert_arg(arg)
     return arg
     
 

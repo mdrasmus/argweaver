@@ -317,6 +317,7 @@ class LocalTreeSpr
 public:
     LocalTreeSpr(int start, int end, LocalTree *tree, int *ispr,
                  int *mapping=NULL) :
+        blocklen(end - start),
         block(start, end),
         tree(tree),
         spr(ispr[0], ispr[1], ispr[2], ispr[3]),
@@ -325,6 +326,7 @@ public:
 
     LocalTreeSpr(int start, int end, LocalTree *tree, Spr spr, 
                  int *mapping=NULL) :
+        blocklen(end - start),
         block(start, end),
         tree(tree),
         spr(spr),
@@ -371,6 +373,7 @@ public:
     }
         
 
+    int blocklen;     // length of sequence block
     Block block;      // sequence block for the local tree
     LocalTree *tree;  // local tree
     Spr spr;          // SPR operation to the left of local tree
@@ -406,10 +409,12 @@ public:
     // Returns iterator for first local tree
     iterator begin() { return trees.begin(); }
     reverse_iterator rbegin() { return trees.rbegin(); }
+    LocalTreeSpr &front() { return trees.front(); }
 
     // Returns the ending iterator
     iterator end() { return trees.end(); }
     reverse_iterator rend() { return trees.rend(); }
+    LocalTreeSpr &back() { return trees.back(); }
 
     // Returns number of leaves
     inline int get_num_leaves() const
