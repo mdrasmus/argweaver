@@ -33,9 +33,10 @@ double calc_arg_likelihood(ArgModel *model, Sequences *sequences,
     for (int j=0; j<nseqs; j++)
         seqs[j] = sequences->seqs[trees->seqids[j]];
 
+    int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        const int start = it->block.start;
-        const int end = it->block.end;
+        int start = end;
+        end = start + it->blocklen;
         LocalTree *tree = it->tree;
         const LocalNode *nodes = tree->nodes;
         const int blocklen = end - start;
@@ -100,11 +101,12 @@ double calc_arg_prior(ArgModel *model, LocalTrees *trees)
     double lnl = 0.0;
     LineageCounts lineages(model->ntimes);
 
+    int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
-        const int end = it->block.end;
+        end += it->blocklen;
         LocalTree *tree = it->tree;
         LocalNode *nodes = tree->nodes;
-        int blocklen = it->block.length();
+        int blocklen = it->blocklen;
         double treelen = get_treelen(tree, model->times, model->ntimes, false);
         int root_age = nodes[tree->root].age;
 

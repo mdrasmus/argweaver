@@ -271,8 +271,8 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
     // forward algorithm over local trees
     for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
         LocalTrees::iterator it = matrix_iter->get_tree_iter();
-        int pos = it->block.start;
         matrix_iter->get_matrices(&matrices);
+        int pos = matrix_iter->get_position();
 
         // allocate the forward table
         forward->new_block(pos, pos+matrices.blocklen, matrices.nstates2);
@@ -316,7 +316,7 @@ void arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
     // forward algorithm over local trees
     for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
         LocalTrees::iterator it = matrix_iter->get_tree_iter();
-        int pos = it->block.start;
+        int pos = matrix_iter->get_position();
         matrix_iter->get_matrices(&matrices);
 
         assert(matrices.transmat != NULL &&
@@ -1044,9 +1044,10 @@ intstate *arghmm_sample_posterior(
         path = new intstate [seqlen];
 
     States states;
+    int end = trees.start_coord;
     for (LocalTrees::iterator it=trees.begin(); it != trees.end(); ++it) {
-        int start = it->block.start;
-        int end = it->block.end;
+        int start = end;
+        int end = start + it->blocklen;
         get_coal_states(it->tree, ntimes, states);
 
         for (int i=start; i<end; i++) {

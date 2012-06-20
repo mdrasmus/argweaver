@@ -353,7 +353,6 @@ bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping)
 bool assert_trees(LocalTrees *trees)
 {
     LocalTree *last_tree = NULL;
-    Block last_block;
 
     // loop through blocks
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
@@ -364,7 +363,6 @@ bool assert_trees(LocalTrees *trees)
         if (last_tree)
             assert(assert_spr(last_tree, tree, spr, mapping));
         last_tree = tree;
-        last_block = it->block;
     }
     
     return true;
@@ -425,7 +423,7 @@ void get_local_trees_ptrees(LocalTrees *trees, int **ptrees, int **ages,
             ptrees[i][perm[j]] = parent;
             ages[i][perm[j]] = tree->nodes[j].age;
         }
-        blocklens[i] = it->block.length();
+        blocklens[i] = it->blocklen;
 
         if (!it->spr.is_null()) {
             sprs[i][0] = perm[it->spr.recomb_node];

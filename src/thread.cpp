@@ -14,9 +14,8 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
     States *last_states = &states2;
 
     // loop through blocks
-    int start = 0;
+    int start = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        //int start = it->block.start;
         get_coal_states(it->tree, ntimes, *states);
 
         // check spr
@@ -46,7 +45,7 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
         else
             states = &states1;
 
-        start += it->block.length();
+        start += it->blocklen; //.length();
     }
 
     return true;
@@ -332,7 +331,6 @@ bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it)
 
     // delete this tree
     it2->blocklen += it->blocklen;
-    it2->block.start = it->block.start;
     it->clear();
     trees->trees.erase(it);
     
@@ -378,12 +376,13 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
     
 
     // loop through blocks
-    //int start = 0;
+    int start = trees->start_coord; 
+    int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
         LocalTree *tree = it->tree;
         Spr *spr = &(it->spr);
-        const int start = it->block.start;
-        const int end = it->block.end;
+        start = end;
+        end += it->blocklen;
         get_coal_states(tree, ntimes, states);
         
         // add new branch to local tree
@@ -477,11 +476,11 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
                 block_end = end;
            
             // insert new tree and spr into local trees list
-            it->block.end = pos;
+            it->blocklen = pos - start;
             ++it;
             it = trees->trees.insert(it, 
                 LocalTreeSpr(pos, block_end, new_tree, spr2, mapping2));
-
+            
 
             // assert tree and SPR
             assert(assert_tree(new_tree));
@@ -491,6 +490,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             // remember the previous tree for next iteration of loop
             tree = new_tree;
             nodes = tree->nodes;
+            start = pos;
         }
 
         // remember the previous tree for next iteration of loop

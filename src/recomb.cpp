@@ -59,12 +59,13 @@ void sample_recombinations(
 
     // loop through local blocks
     int blocki = 0;
+    int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); 
          it != trees->end(); ++it, blocki++) {
 
         // get local block information
-        int start = it->block.start + 1;  // don't allow new recomb at start
-        int end = it->block.end;
+        int start = end + 1;  // don't allow new recomb at start
+        end = start - 1 + it->blocklen;
         ArgHmmMatrices matrices = matrix_list->matrices[blocki];
         LocalTree *tree = it->tree;
         lineages.count(tree);
@@ -173,12 +174,13 @@ void max_recombinations(
 
     // loop through local blocks
     int blocki = 0;
+    int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); 
          it != trees->end(); ++it, blocki++) {
 
         // get local block information
-        int start = it->block.start + 1;  // don't allow new recomb at start
-        int end = it->block.end;
+        int start = end + 1;  // don't allow new recomb at start
+        end = start - 1 + it->blocklen;
         ArgHmmMatrices matrices = matrix_list->matrices[blocki];
         LocalTree *tree = it->tree;
         lineages.count(tree);

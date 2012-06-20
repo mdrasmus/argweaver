@@ -1113,7 +1113,7 @@ class Sample (unittest.TestCase):
         Plot the ARG likelihood from a fully sampled ARG
         """
 
-        k = 8
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1230,14 +1230,14 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 8
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20 #20
         rho2 = rho
         mu = 2.5e-8 * 20
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 8; nremove = 1
+        refine = 0; nremove = 1
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")

@@ -318,7 +318,6 @@ public:
     LocalTreeSpr(int start, int end, LocalTree *tree, int *ispr,
                  int *mapping=NULL) :
         blocklen(end - start),
-        block(start, end),
         tree(tree),
         spr(ispr[0], ispr[1], ispr[2], ispr[3]),
         mapping(mapping)
@@ -327,7 +326,6 @@ public:
     LocalTreeSpr(int start, int end, LocalTree *tree, Spr spr, 
                  int *mapping=NULL) :
         blocklen(end - start),
-        block(start, end),
         tree(tree),
         spr(spr),
         mapping(mapping)
@@ -374,7 +372,6 @@ public:
         
 
     int blocklen;     // length of sequence block
-    Block block;      // sequence block for the local tree
     LocalTree *tree;  // local tree
     Spr spr;          // SPR operation to the left of local tree
     int *mapping;     // mapping between previous tree and this tree

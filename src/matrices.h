@@ -120,7 +120,8 @@ public:
         trees(trees),
         new_chrom(_new_chrom),
         calc_full(calc_full),
-        lineages(model->ntimes)
+        pos(trees->start_coord),
+        lineages(model->ntimes)        
     {
         if (new_chrom == -1)
             new_chrom = trees->get_num_leaves();
@@ -134,7 +135,7 @@ public:
         begin(trees->begin());
     }
     
-    virtual void begin(LocalTrees::iterator start)
+    virtual void begin(LocalTrees::iterator start, int start_coord=0)
     {
         tree_iter = start;
         
@@ -144,6 +145,7 @@ public:
             last_tree = NULL;
             last_states = NULL;
             states = &states1;
+            pos = trees->start_coord;
             
         } else {
             LocalTrees::iterator tree_iter2 = tree_iter;
@@ -151,6 +153,7 @@ public:
             last_states = &states2;
             last_tree = tree_iter2->tree;
             states = &states1;
+            pos = start_coord;
             get_coal_states(last_tree, model->ntimes, *last_states);
         }
     }
@@ -175,6 +178,7 @@ public:
         last_tree = tree_iter->tree;
         last_states = states;
         states = ((states == &states1) ? &states2 : &states1);
+        pos += tree_iter->blocklen;
 
         ++tree_iter;
         return tree_iter != trees->end();
@@ -191,8 +195,10 @@ public:
         if (it != trees->end()) {
             last_tree = it->tree;
             get_coal_states(last_tree, model->ntimes, *last_states);
+            pos -= it->blocklen;
         } else {
             last_tree = NULL;
+            pos = trees->start_coord;
         }
         
         return tree_iter != trees->end();
@@ -216,12 +222,16 @@ public:
         return tree_iter;
     }
 
+    int get_position()
+    {
+        return pos;
+    }
+
     
     // calculate transition and emission matrices for current block
     void calc_matrices(ArgHmmMatrices *matrices)
     {
-        int pos = tree_iter->block.start;
-        int blocklen = tree_iter->block.end - tree_iter->block.start;
+        int blocklen = tree_iter->blocklen;
         LocalTree *tree = tree_iter->tree;
         get_coal_states(tree, model->ntimes, *states);
         int nstates = states->size();
@@ -306,6 +316,7 @@ protected:
     int new_chrom;
     bool calc_full;
     
+    int pos;
     LocalTrees::iterator tree_iter;
     LineageCounts lineages;
     States states1;
@@ -356,6 +367,7 @@ public:
     virtual void begin()
     {
         ArgHmmMatrixIter::begin();
+        matrix_index = 0;
     }
     
     // initializes iterator
