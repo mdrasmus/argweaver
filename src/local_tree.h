@@ -315,21 +315,20 @@ public:
 class LocalTreeSpr
 {
 public:
-    LocalTreeSpr(int start, int end, LocalTree *tree, int *ispr,
-                 int *mapping=NULL) :
-        blocklen(end - start),
+     LocalTreeSpr(LocalTree *tree, int *ispr, int blocklen, int *mapping=NULL) :
         tree(tree),
         spr(ispr[0], ispr[1], ispr[2], ispr[3]),
-        mapping(mapping)
+        mapping(mapping),
+        blocklen(blocklen)
     {}
 
-    LocalTreeSpr(int start, int end, LocalTree *tree, Spr spr, 
-                 int *mapping=NULL) :
-        blocklen(end - start),
+     LocalTreeSpr(LocalTree *tree, Spr spr, int blocklen, int *mapping=NULL) :
         tree(tree),
         spr(spr),
-        mapping(mapping)
+        mapping(mapping),
+        blocklen(blocklen)
     {}
+
     
     void clear() {
         if (tree) {
@@ -362,19 +361,17 @@ public:
         }
     }
 
-
-
     void ensure_capacity(int _capacity)
     {
         if (tree->capacity < _capacity)
             set_capacity(_capacity);
-    }
-        
+    }   
 
-    int blocklen;     // length of sequence block
+    
     LocalTree *tree;  // local tree
     Spr spr;          // SPR operation to the left of local tree
-    int *mapping;     // mapping between previous tree and this tree
+    int *mapping;     // node mapping between previous tree and this tree
+    int blocklen;     // length of sequence block
 };
 
 
@@ -387,10 +384,10 @@ public:
 class LocalTrees 
 {
 public:
-    LocalTrees() :
-        start_coord(0),
-        end_coord(0),
-        nnodes(0) {}
+    LocalTrees(int start_coord=0, int end_coord=0, int nnodes=0) :
+        start_coord(start_coord),
+        end_coord(end_coord),
+        nnodes(nnodes) {}
     LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
                int ntrees, int nnodes, int capacity=-1, int start=0);
     ~LocalTrees() 
@@ -419,6 +416,11 @@ public:
         return (nnodes + 1) / 2;
     }
 
+    inline int length() const
+    {
+        return end_coord - start_coord;
+    }
+
     // deallocate local trees
     void clear()
     {
@@ -440,7 +442,7 @@ public:
         int ages[] = {0};
         LocalTree *tree = new LocalTree(ptree, 1, ages, capacity);
         trees.push_back(
-            LocalTreeSpr(start, end, tree, Spr(-1, -1, -1, -1), NULL));
+            LocalTreeSpr(tree, Spr(-1, -1, -1, -1), end - start, NULL));
         set_default_seqids();
     }
 
@@ -495,7 +497,20 @@ public:
     int *ncoals;     // number of coalescing points per time slice
 };
 
+//=============================================================================
+// trees functions
 
+void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
+                         const LocalTree *tree2, const int *seqids2, 
+                         int *mapping);
+
+bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it);
+void remove_null_sprs(LocalTrees *trees);
+
+LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
+                                  LocalTrees::iterator it, int it_start);
+LocalTrees *partition_local_trees(LocalTrees *trees, int pos);
+void append_local_trees(LocalTrees *trees, LocalTrees *trees2);
 
 //=============================================================================
 // tree functions

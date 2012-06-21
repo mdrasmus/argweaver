@@ -21,14 +21,11 @@
 #include "trans.h"
 
 
-using namespace std;
-
-using namespace spidir;
-
-
-
 
 namespace arghmm {
+
+using namespace std;
+using namespace spidir;
 
 
 class ArgHmmMatrices
@@ -132,12 +129,13 @@ public:
     // initializes iterator
     virtual void begin()
     {
-        begin(trees->begin());
+        begin(trees->begin(), trees->start_coord);
     }
     
-    virtual void begin(LocalTrees::iterator start, int start_coord=0)
+    virtual void begin(LocalTrees::iterator start, int start_coord)
     {
         tree_iter = start;
+        pos = start_coord;
         
         // setup last_tree information
         if (start == trees->begin()) {
@@ -145,15 +143,12 @@ public:
             last_tree = NULL;
             last_states = NULL;
             states = &states1;
-            pos = trees->start_coord;
-            
         } else {
             LocalTrees::iterator tree_iter2 = tree_iter;
             --tree_iter2;
             last_states = &states2;
             last_tree = tree_iter2->tree;
             states = &states1;
-            pos = start_coord;
             get_coal_states(last_tree, model->ntimes, *last_states);
         }
     }
@@ -162,12 +157,12 @@ public:
     virtual void rbegin()
     {
         LocalTrees::iterator it = --trees->end();
-        rbegin(it);
+        rbegin(it, trees->end_coord - it->blocklen);
     }
     
-    virtual void rbegin(LocalTrees::iterator start)
+    virtual void rbegin(LocalTrees::iterator start, int start_coord)
     {
-        begin(start);
+        begin(start, start_coord);
         last_states = &states2;
     }
 
@@ -257,7 +252,7 @@ public:
         if (!last_states) {
             matrices->transmat_switch = NULL;
             matrices->nstates1 = matrices->nstates2 = nstates;
-                
+            
         } else {
             matrices->nstates1 = last_states->size();
             matrices->nstates2 = nstates;
@@ -371,9 +366,9 @@ public:
     }
     
     // initializes iterator
-    virtual void begin(LocalTrees::iterator start)
+    virtual void begin(LocalTrees::iterator start, int start_coord)
     {
-        ArgHmmMatrixIter::begin(start);
+        ArgHmmMatrixIter::begin(start, start_coord);
         matrix_index = 0;
     }
 
@@ -384,9 +379,9 @@ public:
     }
     
     // initializes iterator
-    virtual void rbegin(LocalTrees::iterator start)
+    virtual void rbegin(LocalTrees::iterator start, int start_coord)
     {
-        ArgHmmMatrixIter::rbegin(start);
+        ArgHmmMatrixIter::rbegin(start, start_coord);
         matrix_index = matrices.size() - 1;
     }
 

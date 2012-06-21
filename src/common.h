@@ -10,9 +10,10 @@
 
 #include "t2exp.h"
 
-using namespace std;
 
 namespace spidir {
+
+using namespace std;
 
 // constants
 #ifndef INFINITY
@@ -29,6 +30,16 @@ namespace spidir {
 // j: column index
 #define matind(m, i, j) ((m)*(i) + (j))
 
+
+// find value in array
+template<class T>
+inline int find_array(const T* list, int size, const T value)
+{
+    for (int i=0; i<size; i++)
+        if (list[i] == value)
+            return i;
+    return -1;
+}
 
 
 //=============================================================================
@@ -196,6 +207,7 @@ inline int sample(double *weights, int nweights)
     }
     return nweights - 1;
 }
+
 
 
 } // namespace spidir

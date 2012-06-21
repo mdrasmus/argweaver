@@ -735,6 +735,41 @@ class Sample (unittest.TestCase):
         #arg2.write("test/data/sample_arg2_out.arg")
 
 
+    def test_sample_arg_region(self):
+        """
+        Fully sample an ARG from stratch using API
+        """
+
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20)
+        refine = 0
+        region = [200, length-200]
+        
+        arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+        
+        util.tic("sample ARG")
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                 refine=refine, verbose=True)
+        util.toc()
+        print ilen(x for x in arg2 if x.event == "recomb")
+
+        util.tic("sample ARG")
+        arg2 = arghmm.resample_arg_region(arg2, seqs, region[0], region[1],
+                                          rho=rho, mu=mu, times=times,
+                                          verbose=True)
+        util.toc()
+
+
+        
+
+        #arg2.write("test/data/sample_arg2_out.arg")
+
     def test_sample_arg_recomb(self):
         """
         Plot the recombinations from a fully sampled ARG

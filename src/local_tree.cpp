@@ -6,38 +6,6 @@
 namespace arghmm {
 
 
-LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
-                       int ntrees, int nnodes, int capacity, int start) :
-    start_coord(start),
-    nnodes(nnodes)
-{
-    if (capacity < nnodes)
-        capacity = nnodes;
-
-    // copy data
-    int pos = start;
-    for (int i=0; i<ntrees; i++) {
-        end_coord = pos + blocklens[i];
-        
-        // make mapping
-        int *mapping = NULL;
-        if (i > 0) {
-            mapping = new int [nnodes];
-            make_node_mapping(mapping, nnodes, ptrees[i-1], isprs[i][0]);
-        }
-
-        trees.push_back(LocalTreeSpr(pos, end_coord,
-                                     new LocalTree(ptrees[i], nnodes, ages[i],
-                                                   capacity),
-                                     isprs[i], mapping));
-
-        pos = end_coord;
-    }
-
-    set_default_seqids();
-}
-
-
 //=============================================================================
 // tree methods
 
@@ -236,6 +204,262 @@ void apply_spr(LocalTree *tree, Spr *spr)
 
 
 //=============================================================================
+// local trees methods
+
+bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it)
+{
+    // look one tree ahead
+    LocalTrees::iterator it2 = it;
+    ++it2;
+    if (it2 == trees->end())
+        return false;
+
+    // get spr from next tree, skip it if it is not null
+    Spr *spr2 = &it2->spr;
+    if (!spr2->is_null())
+        return false;
+
+    int nnodes = it2->tree->nnodes;
+        
+    if (it->mapping == NULL) {
+        // it2 will become first tree and therefore does not need a mapping
+        delete [] it2->mapping;
+        it2->mapping = NULL;
+    } else {
+        // compute transitive mapping
+        int *M1 = it->mapping;
+        int *M2 = it2->mapping;
+        int mapping[nnodes];
+        for (int i=0; i<nnodes; i++) {
+            if (M1[i] != -1)
+                mapping[i] = M2[M1[i]];
+            else
+                mapping[i] = -1;
+        }
+        
+        // set mapping
+        for (int i=0; i<nnodes; i++)
+            M2[i] = mapping[i];
+        
+        // copy over non-null spr
+        *spr2 = it->spr;
+        assert(!spr2->is_null());
+    }
+
+
+    // delete this tree
+    it2->blocklen += it->blocklen;
+    it->clear();
+    trees->trees.erase(it);
+    
+    return true;
+}
+
+
+
+// Removes trees with null SPRs from the local trees
+void remove_null_sprs(LocalTrees *trees)
+{
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
+        LocalTrees::iterator it2 = it;
+        ++it2;
+        remove_null_spr(trees, it);
+        it = it2;
+    }
+}
+
+
+LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
+                       int ntrees, int nnodes, int capacity, int start) :
+    start_coord(start),
+    nnodes(nnodes)
+{
+    if (capacity < nnodes)
+        capacity = nnodes;
+
+    // copy data
+    int pos = start;
+    for (int i=0; i<ntrees; i++) {
+        end_coord = pos + blocklens[i];
+        
+        // make mapping
+        int *mapping = NULL;
+        if (i > 0) {
+            mapping = new int [nnodes];
+            make_node_mapping(mapping, nnodes, ptrees[i-1], isprs[i][0]);
+        }
+
+        trees.push_back(LocalTreeSpr(new LocalTree(ptrees[i], nnodes, ages[i],
+                                                   capacity),
+                                     isprs[i], blocklens[i], mapping));
+
+        pos = end_coord;
+    }
+
+    set_default_seqids();
+}
+
+
+LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
+                                  LocalTrees::iterator it, int it_start)
+{
+    // create new local trees
+    LocalTrees *trees2 = new LocalTrees(pos, trees->end_coord, trees->nnodes);
+    trees2->seqids.insert(trees2->seqids.end(), trees->seqids.begin(),
+                          trees->seqids.end());
+
+    // splice trees over
+    trees2->trees.splice(trees2->begin(), trees->trees, it, trees->end());
+    
+    // copy first tree back
+    LocalTrees::iterator it2 = trees2->begin();
+    if (pos > it_start) {
+        LocalTree *tree = it2->tree;
+        LocalTree *last_tree = new LocalTree(tree->nnodes, tree->capacity);
+        last_tree->copy(*tree);
+
+        int *mapping = NULL;
+        if (it2->mapping) {
+            mapping = new int[trees->nnodes];
+            for (int i=0; i<trees->nnodes; i++)
+                mapping[i] = it2->mapping[i];
+        }
+        
+        trees->trees.push_back(
+            LocalTreeSpr(last_tree, it2->spr, pos - it_start, mapping));
+    }
+    
+    it2->mapping = NULL;
+    it2->spr.set_null();
+    it2->blocklen -= pos - it_start;
+    assert(it2->blocklen > 0);
+    
+    // modified current local trees
+    trees->end_coord = pos;
+    trees->back().blocklen = pos - it_start;
+
+    assert_trees(trees);
+    assert_trees(trees2);
+
+    return trees2;
+}
+
+
+LocalTrees *partition_local_trees(LocalTrees *trees, int pos)
+{
+    // find break point
+    int end = trees->start_coord;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        int start = end;
+        end += it->blocklen;
+        
+        if (start <= pos && pos < end) {
+            // break point found, perform partition
+            return partition_local_trees(trees, pos, it, start);
+        }
+    }
+
+    // break point was not found
+    return NULL;
+}
+
+
+void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
+                         const LocalTree *tree2, const int *seqids2, 
+                         int *mapping)
+{
+    const int nleaves1 = tree1->get_num_leaves();
+    const int nleaves2 = tree2->get_num_leaves();
+
+    for (int i=0; i<tree1->nnodes; i++)
+        mapping[i] = -1;
+
+    // reconcile leaves
+    for (int i=0; i<nleaves1; i++) {
+        int seqid = seqids1[i];
+        mapping[i] = -1;
+        for (int j=0; j<nleaves2; j++) {
+            if (seqids2[j] == seqid) {
+                mapping[i] = j;
+                break;
+            }
+        }
+    }
+
+    // postorder iterate over full tree to reconcile internal nodes
+    int order[tree1->nnodes];
+    tree1->get_postorder(order);
+    LocalNode *nodes = tree1->nodes;
+    for (int i=0; i<tree1->nnodes; i++) {
+        int j = order[i];
+        const int *child = nodes[j].child;
+        
+        if (!nodes[j].is_leaf()) {
+            if (mapping[child[0]] != -1) {
+                if (mapping[child[1]] != -1) {
+                    // both children mapping, so we map to their LCA
+                    mapping[j] = tree2->nodes[mapping[child[0]]].parent;
+                    assert(tree2->nodes[mapping[child[0]]].parent ==
+                           tree2->nodes[mapping[child[1]]].parent);
+                } else {
+                    // single child maps, copy its mapping
+                    mapping[j] = mapping[child[0]];
+                }
+            } else {
+                if (mapping[child[1]] != -1) {
+                    // single child maps, copy its mapping
+                    mapping[j] = mapping[child[1]];
+                } else {
+                    // neither child maps, so neither do we
+                    mapping[j] = -1;
+                }
+            }
+        }
+    }
+
+    /*
+    for (int i=0; i<tree1->nnodes; i++) {
+        assert(mapping[i] != -1);
+        printf("mapping[%d] = %d\n", i, mapping[i]);
+    }*/
+}
+
+
+// appends the data in 'trees2' to 'trees'
+// trees2 is then empty
+// TODO: what if their seqids are incompatiable?
+// Do I have to remap the ids of one of them to match the other?
+void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
+{
+    // ensure seqids are the same
+    for (unsigned int i=0; i<trees->seqids.size(); i++)
+        assert(trees->seqids[i] == trees2->seqids[i]);
+    assert(trees->nnodes == trees2->nnodes);
+
+    // move trees2 onto end of trees
+    LocalTrees::iterator it = trees->end();
+    --it;
+    trees->trees.splice(trees->end(), 
+                        trees2->trees, trees2->begin(), trees2->end());
+    trees->end_coord = trees2->end_coord;
+    trees2->end_coord = trees2->start_coord;
+    
+    // set the mapping the newly neighboring trees
+    LocalTrees::iterator it2 = it;
+    ++it2;
+    if (it2->mapping == NULL)
+        it2->mapping = new int [trees2->nnodes];
+    map_congruent_trees(it->tree, &trees->seqids[0],
+                        it2->tree, &trees2->seqids[0], it2->mapping);
+
+    assert(remove_null_spr(trees, it));
+
+    assert_trees(trees);
+    assert_trees(trees2);
+}
+
+
+//=============================================================================
 // assert functions
 
 // Asserts that a postorder traversal is correct
@@ -353,17 +577,30 @@ bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping)
 bool assert_trees(LocalTrees *trees)
 {
     LocalTree *last_tree = NULL;
+    int seqlen = 0;
+
+    // assert first tree has null mapping and spr
+    if (trees->begin() != trees->end()) {
+        assert(trees->begin()->spr.is_null());
+        assert(!trees->begin()->mapping);
+    }
 
     // loop through blocks
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
         LocalTree *tree = it->tree;
         Spr *spr = &it->spr;
         int *mapping = it->mapping;
+        seqlen += it->blocklen;
+        
+        assert(it->blocklen > 0);
+        assert(assert_tree(tree));
 
         if (last_tree)
             assert(assert_spr(last_tree, tree, spr, mapping));
         last_tree = tree;
     }
+
+    assert(seqlen == trees->length());
     
     return true;
 }

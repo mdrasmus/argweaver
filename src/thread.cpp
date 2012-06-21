@@ -288,68 +288,6 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
 }
 
 
-bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it)
-{
-    // look one tree ahead
-    LocalTrees::iterator it2 = it;
-    ++it2;
-    if (it2 == trees->end())
-        return false;
-
-    // get spr from next tree, skip it if it is not null
-    Spr *spr2 = &it2->spr;
-    if (!spr2->is_null())
-        return false;
-
-    int nnodes = it2->tree->nnodes;
-        
-    if (it->mapping == NULL) {
-        // it2 will become first tree and therefore does not need a mapping
-        delete [] it2->mapping;
-        it2->mapping = NULL;
-    } else {
-        // compute transitive mapping
-        int *M1 = it->mapping;
-        int *M2 = it2->mapping;
-        int mapping[nnodes];
-        for (int i=0; i<nnodes; i++) {
-            if (M1[i] != -1)
-                mapping[i] = M2[M1[i]];
-            else
-                mapping[i] = -1;
-        }
-        
-        // set mapping
-        for (int i=0; i<nnodes; i++)
-            M2[i] = mapping[i];
-        
-            // copy over non-null spr
-        *spr2 = it->spr;
-        assert(!spr2->is_null());
-    }
-
-
-    // delete this tree
-    it2->blocklen += it->blocklen;
-    it->clear();
-    trees->trees.erase(it);
-    
-    return true;
-}
-
-
-
-// Removes trees with null SPRs from the local trees
-void remove_null_sprs(LocalTrees *trees)
-{
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
-        LocalTrees::iterator it2 = it;
-        ++it2;
-        remove_null_spr(trees, it);
-        it = it2;
-    }
-}
-
 
 // add a thread to an ARG
 void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
@@ -376,12 +314,11 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
     
 
     // loop through blocks
-    int start = trees->start_coord; 
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
         LocalTree *tree = it->tree;
         Spr *spr = &(it->spr);
-        start = end;
+        int start = end;
         end += it->blocklen;
         get_coal_states(tree, ntimes, states);
         
@@ -413,7 +350,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             LocalNode *nodes = tree->nodes;
             state = states[thread_path[pos]];
             last_state = states[thread_path[pos-1]];
-
+            
             // assert that thread time is still on track
             assert(tree->nodes[newcoal].age == last_state.time);
 
@@ -479,7 +416,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             it->blocklen = pos - start;
             ++it;
             it = trees->trees.insert(it, 
-                LocalTreeSpr(pos, block_end, new_tree, spr2, mapping2));
+                LocalTreeSpr(new_tree, spr2, block_end - pos, mapping2));
             
 
             // assert tree and SPR

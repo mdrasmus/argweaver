@@ -139,8 +139,12 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "niters", c_int, "nremove"])
-
-
+    export(arghmmclib, "arghmm_resample_arg_region", c_void_p,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "region_start", c_int, "region_end"])
+    
     # ARG probability
     export(arghmmclib, "arghmm_likelihood", c_double,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
@@ -539,6 +543,53 @@ def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
         popsizes, rho, mu,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2),
         seqlen, refine, nremove)
+
+    # convert arg back to python
+    arg = ctrees2arg(trees, names, times, verbose=verbose)
+
+    if verbose:
+        util.toc()
+    
+    return arg
+
+
+def resample_arg_region(arg, seqs, region_start, region_end,
+                        ntimes=20, rho=1.5e-8, mu=2.5e-8,
+                        popsize=1e4, times=None,
+                        verbose=False):
+    """
+    Sample ARG for sequences
+    """
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    popsizes = [popsize] * len(times)
+
+    if verbose:
+        util.tic("resample arg")
+
+    # convert arg to c++
+    if verbose:
+        util.tic("convert arg")
+    trees, names = arg2ctrees(arg, times)
+    if verbose:
+        util.toc()
+
+    # get sequences in same order    
+    # and add all other sequences not in arg yet
+    seqs2 = [seqs[name] for name in names]
+    leaves = set(arg.leaf_names())
+    for name, seq in seqs.items():
+        if name not in leaves:
+            names.append(name)
+            seqs2.append(seq)
+
+    # resample arg
+    seqlen = len(seqs[names[0]])
+    trees = arghmm_resample_arg_region(
+        trees, times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen,
+        region_start, region_end)
 
     # convert arg back to python
     arg = ctrees2arg(trees, names, times, verbose=verbose)
