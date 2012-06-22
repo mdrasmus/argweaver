@@ -53,26 +53,6 @@ inline int find_vector(const ListT &list, const T value)
 }
 
 
-// similar to c realloc for c++
-template <class T>
-T *resize(T *array, size_t oldsize, size_t newsize)
-{
-    T *tmp = new T[newsize];
-    
-    // failed to get memory
-    if (!tmp)
-        return NULL;
-    
-    // equivalent to new
-    if (oldsize == 0)
-        return tmp;
-    
-    std::copy(array, array + oldsize, tmp);
-   
-    delete [] array;
-    return tmp;
-}
-
 
 //=============================================================================
 // Math
