@@ -6,7 +6,7 @@
 import time
 
 # rasmus compbio libs
-from rasmus import treelib, util
+from rasmus import treelib, util, stats
 from compbio import arglib
 
 # import arghmm C lib
@@ -598,6 +598,37 @@ def resample_arg_region(arg, seqs, region_start, region_end,
         util.toc()
     
     return arg
+
+
+def resample_arg_regions(arg, seqs, niters, width=1000,
+                         ntimes=20, rho=1.5e-8, mu=2.5e-8,
+                         popsize=1e4, times=None, 
+                         verbose=False):
+    
+    recomb_pos = list(x.pos for x in arg if x.event == "recomb")
+    
+    for it in range(niters):
+        maxr = 0
+        for i,j,a,b in stats.iter_window_index(recomb_pos, width):
+            r = j - i + 1
+            if r > maxr:
+                maxr = r
+                region = [max(recomb_pos[i]-10, 10),
+                          min(recomb_pos[j]+10, arg.end - 10)]
+
+        if verbose:
+            util.tic("sample ARG region %s" % region)
+        arg = arghmm.resample_arg_region(arg, seqs, region[0], region[1],
+                                         rho=rho, mu=mu, times=times,
+                                         verbose=True)
+        recomb_pos = list(x.pos for x in arg if x.event == "recomb")
+        if verbose:
+            util.logger("%d: # recombs %d" %(it, len(recomb_pos)))
+            util.toc()
+
+    return arg
+
+
 
 
 #=============================================================================

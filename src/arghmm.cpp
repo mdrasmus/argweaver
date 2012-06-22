@@ -7,14 +7,13 @@
 #include "common.h"
 #include "emit.h"
 #include "hmm.h"
-#include "itree.h"
 #include "local_tree.h"
 #include "logging.h"
 #include "matrices.h"
 #include "model.h"
-#include "ptree.h"
 #include "recomb.h"
-#include "seq.h"
+#include "sequences.h"
+#include "sequences.h"
 #include "states.h"
 #include "thread.h"
 #include "trans.h"
@@ -24,9 +23,6 @@
 namespace arghmm {
 
 using namespace std;
-
-using namespace spidir;
-using namespace dlcoal;
 
 
 //=============================================================================
@@ -697,7 +693,7 @@ void max_arg_thread(ArgModel *model, Sequences *sequences,
     time.start();
     //stochastic_traceback(&matrix_list, fw, thread_path, sequences->seqlen);
     max_traceback_fast(trees, model, &matrix_list, fw, 
-                       thread_path, sequences->seqlen);
+                       thread_path, sequences->length());
     printf("trace:       %e s\n", time.time());
 
 
@@ -769,13 +765,7 @@ void cond_sample_arg_thread(ArgModel *model, Sequences *sequences,
     matrix_list.rbegin();
     tree = matrix_list.get_tree_iter()->tree;
     get_coal_states(tree, model->ntimes, states);
-    thread_path[trees->end_coord-1] = -1;
-    for (unsigned int j=0; j<states.size(); j++) {
-        if (states[j] == end_state) {
-            thread_path[trees->end_coord-1] = j;
-            break;
-        }
-    }
+    thread_path[trees->end_coord-1] = find_vector(states, end_state);
     assert(thread_path[trees->end_coord-1] != -1);
 
     // traceback
@@ -814,16 +804,16 @@ void cond_sample_arg_thread(ArgModel *model, Sequences *sequences,
 // sequences are sampled in the order given
 void sample_arg_seq(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 {
-    const int seqlen = sequences->seqlen;
+    const int seqlen = sequences->length();
 
     // initialize ARG as trunk
-    const int capacity = 2 * sequences->nseqs - 1;
+    const int capacity = 2 * sequences->get_nseqs() - 1;
     trees->make_trunk(0, seqlen, capacity);
     
     // add more chromosomes one by one
-    for (int nchroms=2; nchroms<=sequences->nseqs; nchroms++) {
+    for (int nchroms=2; nchroms<=sequences->get_nseqs(); nchroms++) {
         // use first nchroms sequences
-        Sequences sequences2(sequences->seqs, nchroms, seqlen);
+        Sequences sequences2(sequences, nchroms);
         int new_chrom = nchroms - 1;
         sample_arg_thread(model, &sequences2, trees, new_chrom);
     }
@@ -911,8 +901,8 @@ void remax_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 
 
 State find_state_sub_tree(
-    LocalTree *full_tree, const vector<int> full_seqids,
-    LocalTree *partial_tree, const vector<int> partial_seqids, int new_chrom)
+    LocalTree *full_tree, const vector<int> &full_seqids,
+    LocalTree *partial_tree, const vector<int> &partial_seqids, int new_chrom)
 {
     // reconcile full tree to partial tree
     int recon[full_tree->nnodes];
@@ -936,16 +926,16 @@ State find_state_sub_tree(
 void cond_sample_arg_seq(ArgModel *model, Sequences *sequences, 
                          LocalTrees *trees, 
                          LocalTree *start_tree, LocalTree *end_tree,
-                         vector<int> full_seqids)
+                         const vector<int> &full_seqids)
 {
     // initialize ARG as trunk
-    const int capacity = 2 * sequences->nseqs - 1;
+    const int capacity = 2 * sequences->get_nseqs() - 1;
     trees->make_trunk(trees->start_coord, trees->end_coord, capacity);
     
     // add more chromosomes one by one
-    for (int nchroms=2; nchroms<=sequences->nseqs; nchroms++) {
+    for (int nchroms=2; nchroms<=sequences->get_nseqs(); nchroms++) {
         // use first nchroms sequences
-        Sequences sequences2(sequences->seqs, nchroms, sequences->seqlen);
+        Sequences sequences2(sequences, nchroms);
         int new_chrom = nchroms - 1;
 
         // determine start and end states from given trees
@@ -1016,7 +1006,7 @@ double **arghmm_forward_alg(
     ArgHmmMatrixList matrix_list(&model, &sequences, &trees);
     matrix_list.setup();
 
-    ArgHmmForwardTableOld forward(0, sequences.seqlen);
+    ArgHmmForwardTableOld forward(0, sequences.length());
     arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list,
                             &forward);
 

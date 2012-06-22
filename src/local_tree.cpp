@@ -328,15 +328,13 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
         trees->trees.push_back(
             LocalTreeSpr(last_tree, it2->spr, pos - it_start, mapping));
     }
-    
+    trees->end_coord = pos;
+
+    // modify first tree of trees2 
     it2->mapping = NULL;
     it2->spr.set_null();
     it2->blocklen -= pos - it_start;
     assert(it2->blocklen > 0);
-    
-    // modified current local trees
-    trees->end_coord = pos;
-    trees->back().blocklen = pos - it_start;
 
     assert_trees(trees);
     assert_trees(trees2);
@@ -364,6 +362,8 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos)
 }
 
 
+// Returns a mapping from nodes in tree1 to equivalent nodes in tree2
+// If no equivalent is found, node maps to -1
 void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
                          const LocalTree *tree2, const int *seqids2, 
                          int *mapping)
@@ -376,7 +376,7 @@ void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
 
     // reconcile leaves
     for (int i=0; i<nleaves1; i++) {
-        int seqid = seqids1[i];
+        const int seqid = seqids1[i];
         mapping[i] = -1;
         for (int j=0; j<nleaves2; j++) {
             if (seqids2[j] == seqid) {
@@ -391,7 +391,7 @@ void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
     tree1->get_postorder(order);
     LocalNode *nodes = tree1->nodes;
     for (int i=0; i<tree1->nnodes; i++) {
-        int j = order[i];
+        const int j = order[i];
         const int *child = nodes[j].child;
         
         if (!nodes[j].is_leaf()) {
@@ -416,12 +416,6 @@ void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
             }
         }
     }
-
-    /*
-    for (int i=0; i<tree1->nnodes; i++) {
-        assert(mapping[i] != -1);
-        printf("mapping[%d] = %d\n", i, mapping[i]);
-    }*/
 }
 
 
@@ -592,7 +586,7 @@ bool assert_trees(LocalTrees *trees)
         int *mapping = it->mapping;
         seqlen += it->blocklen;
         
-        assert(it->blocklen > 0);
+        assert(it->blocklen >= 0);
         assert(assert_tree(tree));
 
         if (last_tree)

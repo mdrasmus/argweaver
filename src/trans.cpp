@@ -4,8 +4,6 @@
 #include "common.h"
 #include "trans.h"
 
-using namespace spidir;
-
 namespace arghmm {
 
 

@@ -40,21 +40,6 @@ extern int dnatype[];
 void computeBgfreq(int nseq, char **seqs, float *bgfreq);
 
 
-// The alignment of sequences
-class Sequences
-{
-public:
-    Sequences(char **seqs, int nseqs, int seqlen) :
-        seqs(seqs), nseqs(nseqs), seqlen(seqlen)
-    {}
-    
-    char **seqs;
-    int nseqs;
-    int seqlen;
-};
-
-
-
-} // namespace spidir
+} // namespace arghmm
 
 #endif // ARGHMM_SEQ_H

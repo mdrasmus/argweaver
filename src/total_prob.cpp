@@ -7,7 +7,7 @@
 #include "common.h"
 #include "emit.h"
 #include "local_tree.h"
-#include "seq.h"
+#include "sequences.h"
 
 
 using namespace std;
@@ -20,13 +20,13 @@ double calc_arg_likelihood(ArgModel *model, Sequences *sequences,
                            LocalTrees *trees)
 {
     double lnl = 0.0;
-    int nseqs = sequences->nseqs;
+    int nseqs = sequences->get_nseqs();
     double minlen = model->times[1];
     const double log25 = -1.3862943611198906; // log(.25)
     const double *times = model->times;
 
     if (trees->nnodes < 3)
-        return lnl += log25 * sequences->seqlen;
+        return lnl += log25 * sequences->length();
 
     // get sequences for trees
     char *seqs[nseqs];

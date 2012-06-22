@@ -16,7 +16,7 @@
 #include "local_tree.h"
 #include "logging.h"
 #include "model.h"
-#include "seq.h"
+#include "sequences.h"
 #include "states.h"
 #include "trans.h"
 
@@ -25,8 +25,6 @@
 namespace arghmm {
 
 using namespace std;
-using namespace spidir;
-
 
 class ArgHmmMatrices
 {
@@ -235,7 +233,7 @@ public:
         
         // calculate emissions
         if (seqs) {
-            char *subseqs[seqs->nseqs];
+            char *subseqs[seqs->get_nseqs()];
             for (int i=0; i<nleaves; i++)
                 subseqs[i] = &seqs->seqs[trees->seqids[i]][pos];
             subseqs[nleaves] = &seqs->seqs[new_chrom][pos];

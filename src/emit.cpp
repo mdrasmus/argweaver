@@ -3,9 +3,6 @@
 #include "emit.h"
 #include "seq.h"
 
-
-using namespace spidir;
-
 namespace arghmm {
 
 

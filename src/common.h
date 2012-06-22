@@ -11,7 +11,7 @@
 #include "t2exp.h"
 
 
-namespace spidir {
+namespace arghmm {
 
 using namespace std;
 
@@ -39,6 +39,38 @@ inline int find_array(const T* list, int size, const T value)
         if (list[i] == value)
             return i;
     return -1;
+}
+
+
+template<class ListT, class T>
+inline int find_vector(const ListT &list, const T value)
+{
+    const unsigned int size = list.size();
+    for (unsigned int i=0; i<size; i++)
+        if (list[i] == value)
+            return i;
+    return -1;
+}
+
+
+// similar to c realloc for c++
+template <class T>
+T *resize(T *array, size_t oldsize, size_t newsize)
+{
+    T *tmp = new T[newsize];
+    
+    // failed to get memory
+    if (!tmp)
+        return NULL;
+    
+    // equivalent to new
+    if (oldsize == 0)
+        return tmp;
+    
+    std::copy(array, array + oldsize, tmp);
+   
+    delete [] array;
+    return tmp;
 }
 
 
@@ -210,6 +242,6 @@ inline int sample(double *weights, int nweights)
 
 
 
-} // namespace spidir
+} // namespace arghmm
 
 #endif // ARGHMM_COMMON_H

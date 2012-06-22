@@ -309,7 +309,7 @@ class Sample (unittest.TestCase):
         Sample recombinations for a true thread
         """
 
-        k = 8
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -737,7 +737,7 @@ class Sample (unittest.TestCase):
 
     def test_sample_arg_region(self):
         """
-        Fully sample an ARG from stratch using API
+        Resample a region within an ARG
         """
 
         k = 10
@@ -747,11 +747,13 @@ class Sample (unittest.TestCase):
         length = 10000
         times = arghmm.get_time_points(ntimes=20)
         refine = 0
-        region = [200, length-200]
+        region = [1000, 1000+500]
         
-        arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
+        print ilen(x for x in arg if x.event == "recomb")
         
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
@@ -759,23 +761,96 @@ class Sample (unittest.TestCase):
         util.toc()
         print ilen(x for x in arg2 if x.event == "recomb")
 
-        util.tic("sample ARG")
+        util.tic("sample ARG region")
         arg2 = arghmm.resample_arg_region(arg2, seqs, region[0], region[1],
                                           rho=rho, mu=mu, times=times,
                                           verbose=True)
         util.toc()
+        print ilen(x for x in arg2 if x.event == "recomb")
+        #arg2.write("test/data/sample_arg2_out.arg")
 
 
+    def test_sample_arg_region2(self):
+        """
+        Resample tangled regions in an ARG
+        """
+
+        k = 12
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20)
+        refine = 0
+
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+        seqs = arglib.make_alignment(arg, muts)
+        print ilen(x for x in arg if x.event == "recomb")
+        recomb_pos = list(x.pos for x in arg if x.event == "recomb")
+        
+        util.tic("sample ARG")
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                 refine=refine, verbose=True)
+        util.toc()
+        print ilen(x for x in arg2 if x.event == "recomb")
+        recomb_pos2 = list(x.pos for x in arg2 if x.event == "recomb")
+        recomb_pos3 = recomb_pos2
+
+        for i in range(40):
+            maxr = 0
+            for i,j,a,b in iter_window_index(recomb_pos3, 500):
+                r = j - i + 1
+                if r > maxr:
+                    maxr = r
+                    region = [recomb_pos3[i]-10, recomb_pos3[j]+10]
+            print i, region
+
+            util.tic("sample ARG region")
+            arg2 = arghmm.resample_arg_region(arg2, seqs, region[0], region[1],
+                                              rho=rho, mu=mu, times=times,
+                                              verbose=True)
+            util.toc()
+            print ilen(x for x in arg2 if x.event == "recomb")
+            recomb_pos3 = list(x.pos for x in arg2 if x.event == "recomb")
+
+
+        # plotting
+        p = Gnuplot()
+        p.enableOutput(False)
+        p.plot(recomb_pos, [0] * len(recomb_pos))
+        p.plot(recomb_pos2, [-10] * len(recomb_pos2))
+        p.plot(recomb_pos3, [-20] * len(recomb_pos3))
+        
+        x = []; y = []
+        for i,j,a,b in iter_window_index(recomb_pos, 1000):
+            x.append((a+b)/2.0); y.append(j - i + 1)
+        p.plot(x, y, style="lines")
+
+        x = []; y = []
+        for i,j,a,b in iter_window_index(recomb_pos2, 1000):
+            x.append((a+b)/2.0); y.append(j - i + 1)
+        p.plot(x, y, style="lines")
+
+        x = []; y = []
+        for i,j,a,b in iter_window_index(recomb_pos3, 1000):
+            x.append((a+b)/2.0); y.append(j - i + 1)
+        p.plot(x, y, style="lines")
+
+        p.enableOutput(True)
+        p.replot()
         
 
-        #arg2.write("test/data/sample_arg2_out.arg")
+        pause()
+        
 
     def test_sample_arg_recomb(self):
         """
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 6
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -790,7 +865,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(20):
+        for i in range(40):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -798,13 +873,10 @@ class Sample (unittest.TestCase):
             
             nrecombs = ilen(arghmm.iter_visible_recombs(arg))
 
-            for j in range(3):
+            for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
                 arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
-                                         refine=0)
-                #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu,
-                #                           times=times, nremove=nremove,
-                #                           refine=refine)
+                                         refine=refine)
                 util.toc()
                 
                 nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
@@ -876,18 +948,67 @@ class Sample (unittest.TestCase):
         pause()
 
 
+    def test_sample_arg_recomb_region(self):
+        """
+        Plot the ARG joint prob from a fully sampled ARG
+        """
+
+        k = 12
+        n = 1e4
+        rho = 1.5e-8 * 20
+        rho2 = rho
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        refine = 0; nremove = 1;
+
+        names = []
+        rx = []
+        ry = []
+        util.tic("plot")
+        for i in range(20):
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+            seqs = arglib.make_alignment(arg, muts)
+            r = ilen(arghmm.iter_visible_recombs(arg))
+
+            for j in range(1):
+                util.tic("sample ARG %d, %d" % (i, j))
+                arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu,
+                                         times=times, refine=refine)
+                arg2 = arghmm.resample_arg_regions(
+                    arg2, seqs, niters=20, width=1000,
+                    rho=rho, mu=mu,popsize=n, times=times, verbose=True)
+                util.toc()
+
+                r2 = ilen(arghmm.iter_visible_recombs(arg2))
+                rx.append(r)
+                ry.append(r2)
+                names.append([i, j])
+        util.toc()
+
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
+
+        p = plot(rx, ry,
+                 xlab="true ARG recombs",
+                 ylab="inferred ARG recombs")
+        p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
+        
+        pause()
+
 
     def test_sample_arg_recomb2(self):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 5
+        k = 12
         n = 1e4
-        rho = 1.5e-8 * 2
+        rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 20000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         write = False
         #nremove = 2; refine = 5
@@ -916,7 +1037,7 @@ class Sample (unittest.TestCase):
         y.append(nrecombs2)
         print nrecombs2
 
-        for i in range(30):
+        for i in range(50):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
                                        refine=refine, nremove=nremove)
@@ -941,7 +1062,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 8
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 40
         rho2 = rho
@@ -1000,7 +1121,7 @@ class Sample (unittest.TestCase):
         Plot the ARG length from a fully sampled ARG
         """
 
-        k = 8
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1014,10 +1135,10 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(200):
-            arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
-            arg.set_ancestral()
-            muts = arglib.sample_arg_mutations(arg, mu)
+        for i in range(50):
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arglib.make_alignment(arg, muts)
             
             arglen = arglib.arglen(arg)
@@ -1148,7 +1269,7 @@ class Sample (unittest.TestCase):
         Plot the ARG likelihood from a fully sampled ARG
         """
 
-        k = 12
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1211,7 +1332,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 6
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1241,7 +1362,7 @@ class Sample (unittest.TestCase):
         y.append(lk2)
 
 
-        for i in range(200):
+        for i in range(50):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
                                        refine=1)
@@ -1265,14 +1386,14 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 4
+        k = 12
         n = 1e4
-        rho = 1.5e-8 * 20 #20
+        rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 0; nremove = 1
+        refine = 10; nremove = 1
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
@@ -1283,7 +1404,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(20):
+        for i in range(50):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1299,10 +1420,6 @@ class Sample (unittest.TestCase):
                 util.tic("sample ARG %d, %d" % (i, j))
                 arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
                                          refine=refine, nremove=nremove)
-                #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu,
-                #                           times=times,
-                #                           refine=refine)
-                
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
@@ -1335,14 +1452,13 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 8
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
-        rho2 = rho
         mu = 2.5e-8 * 20
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 0; nremove = 1; core=5
+        refine = 5; nremove = 1; core=5
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
@@ -1352,7 +1468,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(20):
+        for i in range(50):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1370,17 +1486,17 @@ class Sample (unittest.TestCase):
                 names = seqs.keys()
                 random.shuffle(names)
                 
-                arg2 = arglib.subarg_by_leaf_names(arg, names[:core])
-                arg2 = arglib.smcify_arg(arg2)
+                #arg2 = arglib.subarg_by_leaf_names(arg, names[:core])
+                #arg2 = arglib.smcify_arg(arg2)
 
-                # mess up core a little
-                #arg2 = arghmm.resample_arg(arg2, seqs.get(names[:core]),
-                #                           rho=rho, mu=mu, times=times,
-                #                           refine=4)
+                # infer core
+                arg2 = arghmm.sample_arg(seqs.get(names[:core]),
+                                         rho=rho, mu=mu, times=times,
+                                         refine=refine)
                 
                 arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu,
                                            times=times,
-                                           refine=2)
+                                           refine=0)
                 
                 util.toc()
 
@@ -1409,19 +1525,72 @@ class Sample (unittest.TestCase):
         pause()
 
 
-    def test_sample_arg_joint2(self):
+    def test_sample_arg_joint_region(self):
         """
-        Plot the recombinations from a fully sampled ARG over many Gibb iters
+        Plot the ARG joint prob from a fully sampled ARG
         """
-        k = 5
+
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        #nremove = 3; refine = 5
-        nremove = 1; refine = 1
+        refine = 0; nremove = 1;
+
+        names = []
+        rx = []
+        ry = []
+        util.tic("plot")
+        for i in range(20):
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+            seqs = arglib.make_alignment(arg, muts)
+            lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
+
+            for j in range(1):
+                util.tic("sample ARG %d, %d" % (i, j))
+                arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu,
+                                         times=times, refine=refine)
+                arg2 = arghmm.resample_arg_regions(
+                    arg2, seqs, niters=40, width=500,
+                    rho=rho, mu=mu,popsize=n, times=times, verbose=True)
+                util.toc()
+
+                lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
+                                             times=times)
+                
+                rx.append(lk)
+                ry.append(lk2)
+                names.append([i, j])
+        util.toc()
+
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
+
+        p = plot(rx, ry,
+                 xlab="true ARG joint probability",
+                 ylab="inferred ARG joint probability")
+        p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
+        p.save("test/data/sample_arg_joint_region.pdf")
+        
+        pause()
+
+
+
+    def test_sample_arg_joint2(self):
+        """
+        Plot the recombinations from a fully sampled ARG over many Gibb iters
+        """
+        k = 8
+        n = 1e4
+        rho = 1.5e-8 * 20
+        rho2 = rho
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        nremove = 1; refine = 5
         write = False
         
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
@@ -1447,7 +1616,7 @@ class Sample (unittest.TestCase):
                                      popsize=n)
         y.append(lk2)
 
-        for i in range(40):
+        for i in range(50):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
                                      popsize=n, refine=refine, nremove=nremove)
@@ -1507,7 +1676,7 @@ class Sample (unittest.TestCase):
         for i in range(5):
             util.tic("remax ARG %d" % i)
             arg2 = arghmm.remax_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-                                popsize=n, refine=1)
+                                    popsize=n, refine=1)
             lk2 = arghmm.calc_joint_prob(
                 arg2, seqs, mu=mu, rho=rho, times=times, popsize=n)
             y.append(lk2)

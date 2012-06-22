@@ -1,8 +1,6 @@
 
 #include "common.h"
 
-using namespace spidir;
-
 namespace arghmm {
 
 extern "C" {
