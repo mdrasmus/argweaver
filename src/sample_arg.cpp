@@ -10,6 +10,7 @@
 #include "local_tree.h"
 #include "logging.h"
 #include "model.h"
+#include "sample_arg.h"
 #include "sample_thread.h"
 #include "sequences.h"
 
@@ -41,7 +42,7 @@ void sample_arg_seq(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 
 // resample the threading of all the chromosomes
 void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
-                  int nremove=1)
+                  int nremove)
 {
     const int nleaves = trees->get_num_leaves();
 
@@ -82,7 +83,7 @@ void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 
 // resample the threading of all the chromosomes
 void remax_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
-               int nremove=1)
+               int nremove)
 {
     const int nleaves = trees->get_num_leaves();
 
