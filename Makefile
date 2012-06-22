@@ -48,7 +48,6 @@ SCRIPTS =  bin/arghmm
 BINARIES = $(SCRIPTS)
 
 ARGHMM_SRC = \
-    src/arghmm.cpp \
     src/emit.cpp \
     src/hmm.cpp \
     src/itree.cpp \
@@ -56,6 +55,8 @@ ARGHMM_SRC = \
     src/logging.cpp \
     src/parsing.cpp \
     src/ptree.cpp \
+    src/sample_arg.cpp \
+    src/sample_thread.cpp \
     src/seq.cpp \
     src/states.cpp \
     src/recomb.cpp \
