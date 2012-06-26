@@ -20,7 +20,7 @@ namespace arghmm {
 // nbranches -- number of branches that exists between time i and i+1
 // nrecombs  -- number of possible recombination points at time i
 // ncoals    -- number of possible coalescing points at time i
-void count_lineages(LocalTree *tree, int ntimes,
+void count_lineages(const LocalTree *tree, int ntimes,
                     int *nbranches, int *nrecombs, int *ncoals)
 {
     const LocalNode *nodes = tree->nodes;
@@ -81,8 +81,9 @@ double get_treelen(const LocalTree *tree, const double *times, int ntimes,
 }
 
 
-double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
-                          int node, int time, double treelen, bool use_basal)
+double get_treelen_branch(const LocalTree *tree, const double *times, 
+                          int ntimes, int node, int time, 
+                          double treelen, bool use_basal)
 {
 
     if (treelen < 0.0)
@@ -109,7 +110,7 @@ double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
 }
 
 
-double get_basal_branch(const LocalTree *tree, double *times, int ntimes,
+double get_basal_branch(const LocalTree *tree, const double *times, int ntimes,
                         int node, int time)
 {
     double root_time;
@@ -125,7 +126,7 @@ double get_basal_branch(const LocalTree *tree, double *times, int ntimes,
 }
 
 
-void apply_spr(LocalTree *tree, Spr *spr)
+void apply_spr(LocalTree *tree, const Spr &spr)
 {
     // before SPR:
     //       bp          cp
@@ -153,11 +154,11 @@ void apply_spr(LocalTree *tree, Spr *spr)
     LocalNode *nodes = tree->nodes;
 
     // recoal is also the node we are breaking
-    int recoal = nodes[spr->recomb_node].parent;
+    int recoal = nodes[spr.recomb_node].parent;
 
     // find recomb node sibling and broke node parent
     int *c = nodes[recoal].child;
-    int other = (c[0] == spr->recomb_node ? 1 : 0);
+    int other = (c[0] == spr.recomb_node ? 1 : 0);
     int recomb_sib = c[other];
     int broke_parent =  nodes[recoal].parent;
 
@@ -174,7 +175,7 @@ void apply_spr(LocalTree *tree, Spr *spr)
     }
 
     // reuse node as recoal
-    if (spr->coal_node == recoal) {
+    if (spr.coal_node == recoal) {
         // we just broke coal_node, so use recomb_sib
         nodes[recoal].child[other] = recomb_sib;
         nodes[recoal].parent = nodes[recomb_sib].parent;
@@ -182,21 +183,21 @@ void apply_spr(LocalTree *tree, Spr *spr)
         if (broke_parent != -1)
             nodes[broke_parent].child[x] = recoal;
     } else {
-        nodes[recoal].child[other] = spr->coal_node;
-        nodes[recoal].parent = nodes[spr->coal_node].parent;
-        nodes[spr->coal_node].parent = recoal;
+        nodes[recoal].child[other] = spr.coal_node;
+        nodes[recoal].parent = nodes[spr.coal_node].parent;
+        nodes[spr.coal_node].parent = recoal;
         
         // fix coal_node parent
         int parent = nodes[recoal].parent;
         if (parent != -1) {
             c = nodes[parent].child;
-            if (c[0] == spr->coal_node) 
+            if (c[0] == spr.coal_node) 
                 c[0] = recoal;
             else
                 c[1] = recoal;
         }
     }
-    nodes[recoal].age = spr->coal_time;   
+    nodes[recoal].age = spr.coal_time;   
     
     // set tree data
     tree->set_root();
@@ -269,6 +270,7 @@ void remove_null_sprs(LocalTrees *trees)
 }
 
 
+
 LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
                        int ntrees, int nnodes, int capacity, int start) :
     start_coord(start),
@@ -286,7 +288,7 @@ LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
         int *mapping = NULL;
         if (i > 0) {
             mapping = new int [nnodes];
-            make_node_mapping(mapping, nnodes, ptrees[i-1], isprs[i][0]);
+            make_node_mapping(ptrees[i-1], nnodes, isprs[i][0], mapping);
         }
 
         trees.push_back(LocalTreeSpr(new LocalTree(ptrees[i], nnodes, ages[i],
@@ -630,6 +632,54 @@ int get_local_trees_nnodes(LocalTrees *trees)
 
 void get_local_trees_ptrees(LocalTrees *trees, int **ptrees, int **ages,
                             int **sprs, int *blocklens)
+{
+    // setup permutation
+    const int nleaves = trees->get_num_leaves();
+    int perm[trees->nnodes];
+    for (int i=0; i<nleaves; i++) 
+        perm[i] = trees->seqids[i];
+    for (int i=nleaves; i<trees->nnodes; i++) 
+        perm[i] = i;
+
+    // debug
+    assert_trees(trees);
+
+    // convert trees
+    int i = 0;
+    for (LocalTrees::iterator it=trees->begin(); it!=trees->end(); ++it, i++) {
+        LocalTree *tree = it->tree;
+        
+        for (int j=0; j<tree->nnodes; j++) {
+            int parent = tree->nodes[j].parent;
+            if (parent != -1)
+                parent = perm[parent];
+            ptrees[i][perm[j]] = parent;
+            ages[i][perm[j]] = tree->nodes[j].age;
+        }
+        blocklens[i] = it->blocklen;
+
+        if (!it->spr.is_null()) {
+            sprs[i][0] = perm[it->spr.recomb_node];
+            sprs[i][1] = it->spr.recomb_time;
+            sprs[i][2] = perm[it->spr.coal_node];
+            sprs[i][3] = it->spr.coal_time;
+            
+            assert(it->spr.recomb_time >= ages[i-1][sprs[i][0]]);
+            assert(it->spr.coal_time >= ages[i-1][sprs[i][2]]);
+            
+        } else {
+            sprs[i][0] = it->spr.recomb_node;
+            sprs[i][1] = it->spr.recomb_time;
+            sprs[i][2] = it->spr.coal_node;
+            sprs[i][3] = it->spr.coal_time;
+        }
+
+    }
+}
+
+
+void get_local_trees_ptrees2(LocalTrees *trees, int **ptrees, int **ages,
+                             int **sprs, int *blocklens)
 {
     // setup permutation
     const int nleaves = trees->get_num_leaves();

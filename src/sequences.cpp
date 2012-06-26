@@ -1,6 +1,5 @@
 
 #include "common.h"
-#include "ExtendArray.h"
 #include "logging.h"
 #include "parsing.h"
 #include "seq.h"
@@ -11,9 +10,19 @@
 namespace arghmm {
 
 
-
 Sequences *read_fasta(const char *filename)
 {
+    // store lines until they are ready to discard
+    class Discard : public vector<char*> {
+    public:
+        void clean() {
+            for (unsigned int i=0; i<size(); i++)
+                delete [] at(i);
+            clear();
+        }
+    };
+
+
     FILE *infile = NULL;
     
     if ((infile = fopen(filename, "r")) == NULL) {
@@ -24,8 +33,10 @@ Sequences *read_fasta(const char *filename)
     char *line;
     
     Sequences *seqs = new Sequences();
+    seqs->set_owned(true);
     string key;
-    ExtendArray<char> seq(0, 10000);
+    vector<char*> seq;
+    Discard discard;
     
     while ((line = fgetline(infile))) {
         chomp(line);
@@ -33,24 +44,32 @@ Sequences *read_fasta(const char *filename)
         if (line[0] == '>') {
             if (seq.size() > 0) {  
                 // add new sequence
-                seq.append('\0');
-                seqs->append(key, seq.detach());
+                seqs->append(concat_strs(&seq[0], seq.size()));
+                seq.clear();
+                discard.clean();
             }
         
             // new key found
             key = string(&line[1]);
+            delete [] line;
         } else {
-            seq.extend(line, strlen(line));
+            seq.push_back(trim(line));
+            discard.push_back(line);
         }
-        delete [] line;
     }
 
     fclose(infile);
     
     // add last sequence
     if (seq.size() > 0) {
-        seq.append('\0');
-        seqs->append(key, seq.detach());
+        seqs->append(concat_strs(&seq[0], seq.size()));
+        discard.clean();
+    }
+
+    // set sequence length
+    if (seqs->set_length() < 0) {
+        printError("sequences are not the same length '%s'", filename);
+        return NULL;
     }
     
     return seqs;

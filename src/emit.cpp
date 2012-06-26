@@ -10,11 +10,11 @@ namespace arghmm {
 // emissions
 
 
-void parsimony_ancestral_seq(LocalTree *tree, char **seqs, 
+void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs, 
                              int nseqs, int pos, char *ancestral) 
 {
     const int nnodes = tree->nnodes;
-    LocalNode *nodes = tree->nodes;
+    const LocalNode *nodes = tree->nodes;
     const int nleaves = tree->get_num_leaves();
     char sets[nnodes];
     int pchar;
@@ -207,16 +207,16 @@ void calc_emissions2(const States &states, LocalTree *tree,
 
 
 
-void calc_emissions(const States &states, LocalTree *tree,
-                    char **seqs, int nseqs, int seqlen, 
-                    ArgModel *model, double **emit)
+void calc_emissions(const States &states, const LocalTree *tree,
+                    const char *const *seqs, int nseqs, int seqlen, 
+                    const ArgModel *model, double **emit)
 {
     const double *times = model->times;
     const double mintime = times[1];
     const double maxtime = times[model->ntimes - 1];
     const double mu = model->mu;
     const int nnodes = tree->nnodes;
-    LocalNode *nodes = tree->nodes;
+    const LocalNode *nodes = tree->nodes;
     
     double t1, t2, t2a, t2b, t3;
     double parent_age;
@@ -242,6 +242,34 @@ void calc_emissions(const States &states, LocalTree *tree,
     for (int i=0; i<seqlen; i++) {
         v = seqs[newnode][i];
 
+        // check for no mutation case
+        char c = seqs[0][i];
+        bool mut = false;
+        for (int j=1; j<nseqs; j++) {
+            if (seqs[j][i] != c) {
+                mut = true;
+                break;
+            }
+        }
+
+        // handle no mutation case
+        if (!mut) {
+            for (unsigned int j=0; j<states.size(); j++) {
+                int node = states[j].node;
+                int timei = states[j].time;
+                double time = times[timei];
+                double node_age = ages[node];
+
+                if (nodes[node].parent == -1) {
+                    // adjust time by unwrapping branch e(v)
+                    time = 2 * time - node_age;
+                }
+
+                emit[i][j] = - mu * time;
+            }
+            continue;
+        }
+
         parsimony_ancestral_seq(tree, seqs, nseqs, i, ancestral);
         
         // iterate through states
@@ -260,7 +288,7 @@ void calc_emissions(const States &states, LocalTree *tree,
 
                 if (nodes[parent].parent == -1) {
                     // unwrap top branch
-                    int *c = nodes[parent].child;
+                    const int *c = nodes[parent].child;
                     int sib = (node == c[0] ? c[1] : c[0]);
                     p = ancestral[sib];
 

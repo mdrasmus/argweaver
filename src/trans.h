@@ -11,10 +11,10 @@
 namespace arghmm {
 
 // A compressed representation of the transition matrix
-class TransMatrixCompress
+class TransMatrix
 {
 public:
-    TransMatrixCompress(int ntimes, int nstates, bool alloc=true) :
+    TransMatrix(int ntimes, int nstates, bool alloc=true) :
         ntimes(ntimes),
         nstates(nstates),
         own_data(false)
@@ -23,7 +23,7 @@ public:
             allocate(ntimes);
     }
 
-    ~TransMatrixCompress()
+    ~TransMatrix()
     {
         if (own_data) {
             delete [] B;
@@ -48,8 +48,8 @@ public:
     }
 
     // convert to log?
-    inline double get_transition_prob(LocalTree *tree, const States &states, 
-                                      int i, int j)
+    inline double get_transition_prob(
+        const LocalTree *tree, const States &states, int i, int j) const
     {
         const int node1 = states[i].node;
         const int a = states[i].time;
@@ -82,10 +82,10 @@ public:
 
 
 // A compressed representation of the switch transition matrix
-class TransMatrixSwitchCompress
+class TransMatrixSwitch
 {
 public:
-    TransMatrixSwitchCompress(int nstates1, int nstates2, bool alloc=true) :
+    TransMatrixSwitch(int nstates1, int nstates2, bool alloc=true) :
         nstates1(nstates1),
         nstates2(nstates2),
         own_data(false)
@@ -94,7 +94,7 @@ public:
             allocate(nstates1, nstates2);
     }
 
-    ~TransMatrixSwitchCompress()
+    ~TransMatrixSwitch()
     {
         if (own_data) {
             delete [] determ;
@@ -115,7 +115,7 @@ public:
         recombrow = new double [nstates2];
     }
     
-    inline double get_transition_prob(int i, int j)
+    inline double get_transition_prob(int i, int j) const
     {
         if (i == recoalsrc) {
             return recoalrow[j];
@@ -141,37 +141,41 @@ public:
 };
 
 
-void calc_transition_probs(LocalTree *tree, ArgModel *model,
-                           const States &states, LineageCounts *lineages,
+void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
+    const States &states, const LineageCounts *lineages, TransMatrix *matrix);
+
+void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
+                           const States &states, const LineageCounts *lineages,
                            double **transprob);
 
-void calc_transition_probs_compress(LocalTree *tree, ArgModel *model,
-    const States &states, LineageCounts *lineages, TransMatrixCompress *matrix);
-void calc_transition_probs(LocalTree *tree, ArgModel *model,
-                           const States &states, LineageCounts *lineages,
-                           TransMatrixCompress *matrix, double **transprob);
-
-void get_deterministic_transitions(
-    LocalTree *tree, LocalTree *last_tree, const Spr &spr, int *mapping,
-    const States &states1, const States &states2,
-    int ntimes, int *next_states);
+void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
+                           const States &states, const LineageCounts *lineages,
+                           const TransMatrix *matrix, double **transprob);
 
 void calc_transition_probs_switch(
-    LocalTree *tree, LocalTree *last_tree, const Spr &spr, int *mapping,
+    const LocalTree *tree, const LocalTree *last_tree, 
+    const Spr &spr, const int *mapping,
     const States &states1, const States &states2,
-    ArgModel *model, LineageCounts *lineages, double **transprob);
+    const ArgModel *model, const LineageCounts *lineages, 
+    TransMatrixSwitch *transmat_switch);
 
-void calc_transition_probs_switch_compress(
-    LocalTree *tree, LocalTree *last_tree, const Spr &spr, int *mapping,
+void calc_transition_probs_switch(
+    const LocalTree *tree, const LocalTree *last_tree, 
+    const Spr &spr, const int *mapping,
     const States &states1, const States &states2,
-    ArgModel *model, LineageCounts *lineages, 
-    TransMatrixSwitchCompress *transmat_switch_compress);
-void calc_transition_switch_probs(TransMatrixSwitchCompress *matrix, 
+    const ArgModel *model, const LineageCounts *lineages, double **transprob);
+
+void calc_transition_probs_switch(const TransMatrixSwitch *matrix, 
                                   double **transprob);
 
+void calc_state_priors(const States &states, const LineageCounts *lineages, 
+                       const ArgModel *model, double *priors);
 
-void calc_state_priors(const States &states, LineageCounts *lineages, 
-                       ArgModel *model, double *priors);
+void get_deterministic_transitions(
+    const LocalTree *tree, const LocalTree *last_tree, 
+    const Spr &spr, const int *mapping,
+    const States &states1, const States &states2,
+    int ntimes, int *next_states);
 
 
 } // namespace arghmm

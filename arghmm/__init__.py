@@ -1755,4 +1755,86 @@ def get_posterior_probs(model, n, verbose=False,
     return probs_post
 
 
+def est_arg_popsizes(arg, times=None):
 
+    nleaves = len(list(arg.leaves()))
+    assert times
+    eps = 1e-3
+
+    def get_parent(node):
+        parent = node.parents[0]
+        while len(parent.children) == 1:
+            parent = parent.parents[0]
+        return parent
+
+    ntimes = len(times)
+    time_steps = [times[i] -  times[i-1]
+                  for i in range(1, ntimes)]
+
+    ncoals = [0] * ntimes
+    k_lineages = [0] * ntimes
+
+    # loop through sprs    
+    for recomb_pos, (rnode, rtime), (cnode, ctime) in arglib.iter_arg_sprs(arg):
+        i, _ = util.binsearch(times, ctime)
+        ncoals[i] += 1
+
+        # get local tree coal times
+        tree = arg.get_marginal_tree(recomb_pos - eps)
+        recomb_node = tree[rnode]
+        broken_node = get_parent(recomb_node)
+        coals = [0.0] + [node.age for node in tree if len(node.children) == 2]
+        coals.sort()
+        nlineages = range(nleaves, 0, -1)
+        assert len(nlineages) == len(coals)
+
+        # subtract broken branch
+        r = coals.index(recomb_node.age)
+        r2 = coals.index(broken_node.age)
+        for i in range(r, r2):
+             nlineages[i] -= 1
+        
+
+        # get average number of branches in the time interval
+        data = zip(coals, nlineages)
+        for t in times[1:]:
+            data.append((t, "time step"))
+        data.sort()
+
+        lineages_per_time = []
+        counts = []
+        last_lineages = 0
+        last_time = 0.0
+        for a, b in data:
+            if b != "time step":
+                if a > last_time:
+                    counts.append((last_lineages, a - last_time))
+                last_lineages = b
+            else:
+                counts.append((last_lineages, a - last_time))
+                s = sum(u * v for u, v in counts)
+                total_time = sum(v for u, v in counts)
+                if s == 0.0:                    
+                    lineages_per_time.append(last_lineages)
+                else:
+                    lineages_per_time.append(s / total_time)
+                counts = []
+            last_time = a
+
+        #print lineages_per_time
+        assert len(lineages_per_time) == len(time_steps)
+
+        # BUG
+        r, _ = util.binsearch(times, rtime)
+        c, _ = util.binsearch(times, ctime)
+        for j in range(r, c):
+            k_lineages[j] += lineages_per_time[j]
+
+    print zip(ncoals, k_lineages)
+    
+
+    popsizes = [(time_steps[j] / 2.0 / ncoals[j] * k_lineages[j]
+                if ncoals[j] > 0 else util.INF)
+                for j in range(len(time_steps))]
+        
+    return popsizes

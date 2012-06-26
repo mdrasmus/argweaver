@@ -711,12 +711,12 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 10
+        k = 20
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = 10000
-        times = arghmm.get_time_points(ntimes=20)
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0
         
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
@@ -724,6 +724,8 @@ class Sample (unittest.TestCase):
         seqs = arglib.make_alignment(arg, muts)
         #arg.write("test/data/sample_arg2.arg")
         #seqs.write("test/data/sample_arg2.fa")
+
+        print times
         
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
@@ -850,12 +852,12 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 12
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 20000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1
         refine = 0
@@ -1386,25 +1388,23 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 12
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
         length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 10; nremove = 1
+        refine = 0; nremove = 1
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
-
-        print "times", times
 
         names = []
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(50):
+        for i in range(20):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1583,7 +1583,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 8
+        k = 7
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -2100,6 +2100,43 @@ class Sample (unittest.TestCase):
         y2 = [node.age for node in tree
               if len(node.children) != 1]
         p.plot([0] * len(y2), y2)
+
+        pause()
+
+
+    def test_sample_arg_popsizes(self):
+        """
+        Fully sample an ARG from stratch using API
+        """
+
+        k = 20
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 500000
+        times = arghmm.get_time_points(ntimes=20, maxtime=100000)
+        popsizes = [1e4 * (21.-i)/20. for i in range(len(times))]
+        refine = 0
+        
+        #arg = arglib.sample_arg_smc(k, 2 * popsizes[0],
+        #                            rho, start=0, end=length)
+        arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
+                                     rho, start=0, end=length,
+                                     times=times)
+        
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+        seqs = arglib.make_alignment(arg, muts)
+
+        arg2 = arghmm.sample_arg(seqs.get(seqs.keys()[:6]),
+                                 rho=rho, mu=mu, times=times, refine=5)
+        arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times)
+        popsizes2 = arghmm.est_arg_popsizes(arg2, times=times)
+
+        #popsizes2 = arghmm.est_arg_popsizes(arg, times=times)
+        
+        print popsizes2
+        p = plot(popsizes)
+        p.plot(popsizes2)
+        
 
         pause()
 

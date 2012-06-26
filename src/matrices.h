@@ -33,35 +33,38 @@ public:
         nstates1(0),
         nstates2(0),
         blocklen(0),
-        transmat_compress(NULL),
-        transmat_switch_compress(NULL),
         transmat(NULL),
         transmat_switch(NULL),
+        transprobs(NULL),
+        transprobs_switch(NULL),
         emit(NULL)
     {}
 
     ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
-                   double **transmat, double **transmat_switch, double **emit):
+                   double **transprobs, double **transprobs_switch, 
+                   double **emit):
         nstates1(nstates1),
         nstates2(nstates2),
         blocklen(blocklen),
-        transmat_compress(NULL),
-        transmat(transmat),
-        transmat_switch(transmat_switch),
+        transmat(NULL),
+        transmat_switch(NULL),
+        transprobs(transprobs),
+        transprobs_switch(transprobs_switch),
         emit(emit)
     {}
 
     ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
-                   TransMatrixCompress *transmat_compress,
-                   TransMatrixSwitchCompress *transmat_switch_compress,
-                   double **transmat, double **transmat_switch, double **emit):
+                   TransMatrix *transmat,
+                   TransMatrixSwitch *transmat_switch,
+                   double **transprobs, double **transprobs_switch, 
+                   double **emit):
         nstates1(nstates1),
         nstates2(nstates2),
         blocklen(blocklen),
-        transmat_compress(transmat_compress),
-        transmat_switch_compress(transmat_switch_compress),
         transmat(transmat),
         transmat_switch(transmat_switch),
+        transprobs(transprobs),
+        transprobs_switch(transprobs_switch),
         emit(emit)
     {}
 
@@ -71,21 +74,21 @@ public:
     // delete all matrices
     void clear()
     {
-        if (transmat_compress) {
-            delete transmat_compress;
-            transmat_compress = NULL;
-        }
-        if (transmat_switch_compress) {
-            delete transmat_switch_compress;
-            transmat_switch_compress = NULL;
-        }
         if (transmat) {
-            delete_matrix<double>(transmat, nstates2);
+            delete transmat;
             transmat = NULL;
         }
         if (transmat_switch) {
-            delete_matrix<double>(transmat_switch, nstates1);
+            delete transmat_switch;
             transmat_switch = NULL;
+        }
+        if (transprobs) {
+            delete_matrix<double>(transprobs, nstates2);
+            transmat = NULL;
+        }
+        if (transprobs_switch) {
+            delete_matrix<double>(transprobs_switch, nstates1);
+            transprobs_switch = NULL;
         }
         if (emit) {
             delete_matrix<double>(emit, blocklen);
@@ -93,13 +96,19 @@ public:
         }
     }
 
+
+    void alloc_emit(int blocklen, int nstates)
+    {
+        emit = new_matrix<double>(blocklen, nstates);
+    }
+
     int nstates1;
     int nstates2;
     int blocklen;
-    TransMatrixCompress* transmat_compress;
-    TransMatrixSwitchCompress* transmat_switch_compress;
-    double **transmat;
-    double **transmat_switch;
+    TransMatrix* transmat;
+    TransMatrixSwitch* transmat_switch;
+    double **transprobs;
+    double **transprobs_switch;
     double **emit;
 };
 
@@ -109,14 +118,14 @@ class ArgHmmMatrixIter
 {
 public:
     ArgHmmMatrixIter(ArgModel *model, Sequences *seqs, LocalTrees *trees, 
-                     int _new_chrom=-1, bool calc_full=true) :
+                     int _new_chrom=-1, bool calc_full=false) :
         model(model),
         seqs(seqs),
         trees(trees),
         new_chrom(_new_chrom),
         calc_full(calc_full),
         pos(trees->start_coord),
-        lineages(model->ntimes)        
+        lineages(model->ntimes)
     {
         if (new_chrom == -1)
             new_chrom = trees->get_num_leaves();
@@ -249,6 +258,7 @@ public:
         // if we have a previous state space (i.e. not first block)
         if (!last_states) {
             matrices->transmat_switch = NULL;
+            matrices->transprobs_switch = NULL;
             matrices->nstates1 = matrices->nstates2 = nstates;
             
         } else {
@@ -257,49 +267,39 @@ public:
             lineages.count(last_tree);
                 
             // calculate transmat_switch
-            matrices->transmat_switch_compress = new TransMatrixSwitchCompress(
+            matrices->transmat_switch = new TransMatrixSwitch(
                 matrices->nstates1, matrices->nstates2);
 
-            calc_transition_probs_switch_compress(tree, last_tree, 
+            calc_transition_probs_switch(tree, last_tree, 
                 tree_iter->spr, tree_iter->mapping,
                 *last_states, *states, model, &lineages, 
-                matrices->transmat_switch_compress);
+                matrices->transmat_switch);
 
             if (calc_full) {
-                matrices->transmat_switch = new_matrix<double>(
+                matrices->transprobs_switch = new_matrix<double>(
                     matrices->nstates1, matrices->nstates2);
-                calc_transition_switch_probs(matrices->transmat_switch_compress,
-                                             matrices->transmat_switch);
+                calc_transition_probs_switch(matrices->transmat_switch,
+                                             matrices->transprobs_switch);
             } else {
-                matrices->transmat_switch = NULL;
+                matrices->transprobs_switch = NULL;
             }
-            //calc_transition_probs_switch(
-            //    tree, last_tree, tree_iter->spr, tree_iter->mapping,
-            //    *last_states, *states,
-            //    model, &lineages, matrices->transmat_switch);
         }
 
         // update lineages to current tree
         lineages.count(tree);
         
         // calculate transmat and use it for rest of block
-        matrices->transmat_compress = new TransMatrixCompress(
-            model->ntimes, nstates);
-        calc_transition_probs_compress(tree, model, *states, &lineages, 
-                                       matrices->transmat_compress);
+        matrices->transmat = new TransMatrix(model->ntimes, nstates);
+        calc_transition_probs(tree, model, *states, &lineages, 
+                              matrices->transmat);
         if (calc_full) {
-            matrices->transmat = new_matrix<double>(nstates, nstates);
+            matrices->transprobs = new_matrix<double>(nstates, nstates);
             calc_transition_probs(tree, model, *states, &lineages,
-                matrices->transmat_compress, matrices->transmat);
+                matrices->transmat, matrices->transprobs);
         } else {
-            matrices->transmat = NULL;
+            matrices->transprobs = NULL;
         }
-        
-        // non-compressed version
-        //calc_transition_probs(tree, model, *states, &lineages, transmat);
     }
-
-
     
 
 protected:
@@ -324,7 +324,7 @@ class ArgHmmMatrixList : public ArgHmmMatrixIter
 {
 public:
     ArgHmmMatrixList(ArgModel *model, Sequences *seqs, LocalTrees *trees, 
-                     int new_chrom=-1, bool calc_full=true) :
+                     int new_chrom=-1, bool calc_full=false) :
         ArgHmmMatrixIter(model, seqs, trees, 
                          new_chrom, calc_full)
     {}

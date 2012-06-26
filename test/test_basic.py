@@ -1124,7 +1124,7 @@ class Basic (unittest.TestCase):
     
     def test_forward_c(self):
 
-        k = 10
+        k = 3
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -1132,8 +1132,7 @@ class Basic (unittest.TestCase):
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
-
-        print arglib.get_recomb_pos(arg)
+        
         print "muts", len(muts)
         print "recomb", arglib.get_recomb_pos(arg)
 

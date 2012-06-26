@@ -40,7 +40,7 @@ inline bool chomp(char *str)
 }
 
 // Returns string with whitespace removed from beginning and end of word
-inline string trim(const char *word)
+inline char *trim(char *word)
 {
     char *start = (char*) word;
     while (*start == ' ' ||
@@ -55,17 +55,21 @@ inline string trim(const char *word)
                            *end == '\n' ||
                            *end == '\r'))
         end--;
+    end[1] = '\0';
 
     // pure white space case
     if (end < start)
-        return string("");
+        return &end[1];
 
-    return string(start, end - start + 1);
+    return start;
 }
 
 
 vector<string> split(const char *str, const char *delim, 
                      bool multiDelim = true);
+
+char *concat_strs(char **strs, int nstrs);
+
 
 
 } // namespace arghmm

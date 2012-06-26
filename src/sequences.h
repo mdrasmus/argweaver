@@ -62,6 +62,23 @@ public:
         return seqlen;
     }
 
+    inline int set_length()
+    {
+        seqlen = -1;
+        for (unsigned int i=0; i<seqs.size(); i++) {
+            int len = strlen(seqs[0]);
+            if (seqlen == -1)
+                seqlen = len;
+            else if (seqlen != len) {
+                // error, sequences are not all the same length
+                seqlen = -1;
+                break;
+            }
+        }
+
+        return seqlen;
+    }
+
     inline char **get_seqs()
     {
         return &seqs[0];

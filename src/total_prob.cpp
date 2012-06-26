@@ -101,6 +101,8 @@ double calc_arg_prior(ArgModel *model, LocalTrees *trees)
     double lnl = 0.0;
     LineageCounts lineages(model->ntimes);
 
+    // TODO: add tree prior
+
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
         end += it->blocklen;

@@ -119,4 +119,31 @@ vector<string> split(const char *str, const char *delim, bool multiDelim)
 
 
 
+// concatenate multiple strings into one newly allocated string
+char *concat_strs(char **strs, int nstrs)
+{
+    int total_len = 0;
+    int lens[nstrs];
+
+    // count total length
+    for (int i=0; i<nstrs; i++) {
+        lens[i] = strlen(strs[i]);
+        total_len += lens[i];
+    }
+    
+    char *str = new char [total_len + 1];
+
+    // copy strings
+    char *p = str;
+    for (int i=0; i<nstrs; i++) {
+        memcpy(p, strs[i], lens[i]);
+        p += lens[i];
+    }
+    str[total_len] = '\0';
+
+    return str;
+}
+
+
+
 } // namespace arghmm

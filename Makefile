@@ -44,8 +44,9 @@ PKG=dist/$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_DIR=dist/$(PKG_NAME)-$(PKG_VERSION)
 
 # program files
-SCRIPTS =  bin/arghmm
-BINARIES = $(SCRIPTS)
+SCRIPTS =  
+PROGS = bin/argsample
+BINARIES = $(PROGS) $(SCRIPTS)
 
 ARGHMM_SRC = \
     src/emit.cpp \
@@ -87,7 +88,10 @@ LIBARGHMM_OBJS = $(ARGHMM_OBJS)
 # targets
 
 # default targets
-all: $(LIBARGHMM) $(LIBARGHMM_SHARED)
+all: $(PROGS) $(LIBARGHMM) $(LIBARGHMM_SHARED)
+
+bin/argsample: src/argsample.o $(LIBARGHMM)
+	$(CXX) $(CFLAGS) -o bin/argsample src/argsample.o $(LIBARGHMM)
 
 
 #-----------------------------

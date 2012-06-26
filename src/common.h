@@ -57,12 +57,14 @@ inline int find_vector(const ListT &list, const T value)
 //=============================================================================
 // Math
 
+inline double frand()
+{ return rand() / double(RAND_MAX); }
 
-inline float frand(float max=1.0)
-{ return rand() / float(RAND_MAX) * max; }
+inline double frand(double max)
+{ return rand() / double(RAND_MAX) * max; }
 
-inline float frand(float min, float max)
-{ return min + (rand() / float(RAND_MAX) * (max-min)); }
+inline double frand(double min, double max)
+{ return min + (rand() / double(RAND_MAX) * (max-min)); }
 
 inline int irand(int max)
 {
@@ -76,7 +78,7 @@ inline int irand(int min, int max)
     return (i == max) ? max - 1 : i;
 }
 
-inline float expovariate(float lambda)
+inline double expovariate(double lambda)
 { return -log(frand()) / lambda; }
 
 
@@ -93,20 +95,30 @@ inline void shuffle(T *list, int size)
 }
 
 
-// computes log(a + b) given log(a) and log(b)
 inline double logadd(double lna, double lnb)
 {
     if (lna == 1.0)
-        return lnb;
+         return lnb;
     if (lnb == 1.0)
         return lna;
     double diff = lna - lnb;
     if (diff < 500.0)
         return log(exp(diff) + 1.0) + lnb;
     else
-        return lna;
+         return lna;
 }
+ 
 
+/*
+// computes log(a + b) given log(a) and log(b)
+inline double logadd(double lna, double lnb) {
+    if (lna == -INFINITY)
+        return lnb;
+    if (lnb == -INFINITY)
+        return lna;
+    return max(lna, lnb) + log1p(t2exp(-fabs(lna - lnb)));
+}
+*/
 
 // subtracting numbers in log-space
 // NOTE: must have lna > lnb
@@ -124,9 +136,8 @@ inline double logsub(double lna, double lnb)
 }
 
 
-inline double logsum(double *vals, int nvals)
+inline double logsum(const double *vals, int nvals, const double threshold=-15)
 {
-    const double SUM_LOG_THRESHOLD = -15;
     if (nvals == 0)
         return 1.0;
 
@@ -146,7 +157,7 @@ inline double logsum(double *vals, int nvals)
     // instead of 1.0
     double expsum = 0.0;
     for (int i=0; i<nvals; i++)
-        if (vals[i] - maxval > SUM_LOG_THRESHOLD)
+        if (vals[i] - maxval > threshold)
             expsum += t2exp(vals[i] - maxval);
   
     return maxval + log(expsum);        
@@ -180,8 +191,9 @@ template <class T>
 T **new_matrix(int nrows, int ncols)
 {
     T** mat = new T* [nrows];
+    T *block = new T [nrows * ncols];
     for (int i=0; i<nrows; i++)
-        mat[i] = new T [ncols];
+        mat[i] = &block[i*ncols];
     return mat;
 }
 
@@ -189,8 +201,7 @@ T **new_matrix(int nrows, int ncols)
 template <class T>
 void delete_matrix(T **mat, int nrows)
 {
-    for (int i=0; i<nrows; i++)
-        delete [] mat[i];
+    delete [] mat[0];
     delete [] mat;
 }
 
@@ -200,7 +211,7 @@ int choose(int n, int k);
 double fchoose(int n, int k);
 
 
-inline int sample(double *weights, int nweights)
+inline int sample(const double *weights, int nweights)
 {
     // find total weight
     double total = 0.0;

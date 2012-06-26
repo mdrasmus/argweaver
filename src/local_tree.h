@@ -284,7 +284,7 @@ public:
     }
 
 
-    // Copt tree structure from another tree
+    // Copy tree structure from another tree
     void copy(const LocalTree &other)
     {
         // copy tree info
@@ -421,6 +421,11 @@ public:
         return end_coord - start_coord;
     }
 
+    inline int get_num_trees() const
+    {
+        return trees.size();
+    }
+
     // deallocate local trees
     void clear()
     {
@@ -464,7 +469,7 @@ public:
 
 
 // count the lineages in a tree
-void count_lineages(LocalTree *tree, int ntimes,
+void count_lineages(const LocalTree *tree, int ntimes,
                     int *nbranches, int *nrecombs, int *ncoals);
 
 // A structure that stores the number of lineages within each time segment
@@ -487,7 +492,7 @@ public:
     }
 
     // Counts the number of lineages for a tree
-    inline void count(LocalTree *tree) {
+    inline void count(const LocalTree *tree) {
         count_lineages(tree, ntimes, nbranches, nrecombs, ncoals);
     }
 
@@ -515,18 +520,17 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2);
 //=============================================================================
 // tree functions
 
-void apply_spr(LocalTree *tree, Spr *spr);
+void apply_spr(LocalTree *tree, const Spr &spr);
 double get_treelen(const LocalTree *tree, const double *times, int ntimes,
                     bool use_basal=true);
-double get_treelen_branch(const LocalTree *tree, double *times, int ntimes,
-                          int node, int time, double treelen=-1.0, 
+double get_treelen_branch(const LocalTree *tree, const double *times, 
+                          int ntimes, int node, int time, double treelen=-1.0, 
                           bool use_basal=true);
-double get_basal_branch(const LocalTree *tree, double *times, int ntimes,
-                        int node, int time);
+double get_basal_branch(const LocalTree *tree, const double *times, 
+                        int ntimes, int node, int time);
 
-
-inline void make_node_mapping(int *mapping, int nnodes, 
-                              int *ptree, int recomb_node)
+inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node, 
+                              int *mapping)
 {
     for (int j=0; j<nnodes; j++)
         mapping[j] = j;

@@ -8,11 +8,11 @@
 namespace arghmm {
 
 
-void parsimony_ancestral_seq(LocalTree *tree, char **seqs, 
+void parsimony_ancestral_seq(const LocalTree *tree, const char *const *seqs, 
                              int nseqs, int pos, char *ancestral);
-void calc_emissions(const States &states, LocalTree *tree,
-                    char **seqs, int nseqs, int seqlen, 
-                    ArgModel *model, double **emit);
+void calc_emissions(const States &states, const LocalTree *tree,
+                    const char * const*seqs, int nseqs, int seqlen, 
+                    const ArgModel *model, double **emit);
 
 
 //=============================================================================

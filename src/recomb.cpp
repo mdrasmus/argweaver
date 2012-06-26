@@ -26,9 +26,10 @@ double recomb_prob_unnormalized(ArgModel *model, LocalTree *tree,
     int nrecombs_k = lineages.nrecombs[k]
         + int(k <= last_state.time)
         + int(k == last_state.time);
-
+    
     double sum = 0.0;
     int recomb_parent_age = (recomb.node == -1 || 
+                             tree->nodes[recomb.node].parent == -1 ||
                              (recomb.node == last_state.node &&
                               recomb.time < last_state.time)) ? 
         last_state.time :
@@ -83,8 +84,8 @@ void sample_recombinations(
                     int last_state = thread_path[i-1];
 
                     double rate;
-                    if (matrices.transmat_compress) {
-                        TransMatrixCompress *m = matrices.transmat_compress;
+                    if (matrices.transmat) {
+                        TransMatrix *m = matrices.transmat;
                         int a = states[last_state].time;
                         double self_trans = exp(m->get_transition_prob(
                             tree, states, last_state, last_state));
@@ -106,7 +107,7 @@ void sample_recombinations(
                         double treelen2 = treelen2_b - get_basal_branch(
                             tree, model->times, model->ntimes, 
                             states[last_state].node, states[last_state].time);
-                        double self_trans = matrices.transmat[last_state][last_state];
+                        double self_trans = matrices.transprobs[last_state][last_state];
                         rate = max(1.0 - exp(-model->rho * (treelen2 - treelen)
                                              - self_trans), model->rho);
                     }
@@ -114,7 +115,7 @@ void sample_recombinations(
 
                     // NOTE: the min prevents large floats from overflowing
                     // when cast to int
-                    next_recomb = int(min(float(end), i + expovariate(rate)));
+                    next_recomb = int(min(double(end), i + expovariate(rate)));
                 }
 
                 if (i < next_recomb)
