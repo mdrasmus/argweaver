@@ -104,7 +104,14 @@ public:
         ArgHmmForwardTable(start_coord, seqlen)
     {}
 
-    virtual ~ArgHmmForwardTableOld() {}
+    virtual ~ArgHmmForwardTableOld() {
+        if (fw) {
+            for (int i=0; i<seqlen; i++)
+                delete [] fw[i];
+            delete [] fw;
+            fw = NULL;
+        }
+    }
 
     // allocate another block of the forward table
     virtual void new_block(int start, int end, int nstates)

@@ -87,7 +87,8 @@ if arghmmclib:
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
     export(arghmmclib, "delete_double_matrix", c_int,
            [c_double_p_p, "mat", c_int, "nrows"])
-
+    export(arghmmclib, "delete_forward_matrix", c_int,
+           [c_double_p_p, "mat", c_int, "nrows"])
 
     # ARG thread sampling
     export(arghmmclib, "arghmm_sample_posterior", POINTER(c_int *2),

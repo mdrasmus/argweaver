@@ -730,7 +730,7 @@ double **arghmm_forward_alg(
     Sequences sequences(seqs, nseqs, seqlen);
 
     // build matrices
-    ArgHmmMatrixList matrix_list(&model, &sequences, &trees, true);
+    ArgHmmMatrixList matrix_list(&model, &sequences, &trees);
     matrix_list.setup();
 
     ArgHmmForwardTableOld forward(0, sequences.length());
@@ -836,6 +836,14 @@ void delete_double_matrix(double **mat, int nrows)
 {
     delete_matrix<double>(mat, nrows);
 }
+
+void delete_forward_matrix(double **mat, int nrows)
+{
+    for (int i=0; i<nrows; i++)
+        delete [] mat[i];
+    delete [] mat;
+}
+
 
 
 } // extern "C"

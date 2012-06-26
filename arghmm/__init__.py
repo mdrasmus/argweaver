@@ -1633,7 +1633,7 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
 
 
     delete_state_spaces(all_states, len(ptrees))
-    delete_double_matrix(fw, seqlen)
+    delete_forward_matrix(fw, seqlen)
 
     if verbose:
         util.toc()

@@ -1124,7 +1124,7 @@ class Basic (unittest.TestCase):
     
     def test_forward_c(self):
 
-        k = 3
+        k = 10
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
