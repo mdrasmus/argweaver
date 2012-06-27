@@ -137,7 +137,10 @@ public:
             new_chrom = trees->get_num_leaves();
     }
 
-    virtual ~ArgHmmMatrixIter() {}
+    virtual ~ArgHmmMatrixIter() 
+    {
+        mat.clear();
+    }
 
     // initializes iterator
     virtual void begin()
@@ -149,9 +152,9 @@ public:
     {
         tree_iter = start;
         pos = start_coord;
-        
+
         // setup last_tree information
-        if (start == trees->begin()) {
+        if (start_coord == trees->start_coord) {
             // no last tree
             last_tree = NULL;
             last_states = NULL;
@@ -176,7 +179,6 @@ public:
     virtual void rbegin(LocalTrees::iterator start, int start_coord)
     {
         begin(start, start_coord);
-        last_states = &states2;
     }
 
 
@@ -202,10 +204,12 @@ public:
 
         if (it != trees->end()) {
             last_tree = it->tree;
+            last_states = &states2;
             get_coal_states(last_tree, model->ntimes, *last_states);
             pos -= it->blocklen;
         } else {
             last_tree = NULL;
+            last_states = NULL;
             pos = trees->start_coord;
         }
         
@@ -222,9 +226,9 @@ public:
 
     virtual void get_matrices(ArgHmmMatrices *matrices)
     {
-        printf("clear\n");
-        matrices->clear();
-        calc_matrices(matrices);
+        mat.clear();
+        calc_matrices(&mat);
+        *matrices = mat;
     }
 
     LocalTrees::iterator get_tree_iter()
@@ -316,7 +320,8 @@ protected:
     LocalTrees *trees;
     int new_chrom;
     bool calc_full;
-    
+
+    ArgHmmMatrices mat;
     int pos;
     LocalTrees::iterator tree_iter;
     LineageCounts lineages;

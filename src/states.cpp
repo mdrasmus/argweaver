@@ -54,6 +54,32 @@ void get_coal_states(LocalTree *tree, int ntimes, States &states)
     }
 }
 
+// Returns the number of possible coalescing states for a tree
+int get_num_coal_states(LocalTree *tree, int ntimes)
+{
+    int nstates = 0;
+    LocalNode *nodes = tree->nodes;
+    
+    // iterate over the branches of the tree
+    for (int i=0; i<tree->nnodes; i++) {
+        int time = nodes[i].age;
+        const int parent = nodes[i].parent;
+        
+        if (parent == -1) {
+            // no parent, allow coalescing up basal branch until ntimes-2
+            for (; time<ntimes-1; time++)
+                nstates++;
+        } else {
+            // allow coalescing up branch until parent
+            const int parent_age = nodes[parent].age;
+            for (; time<=parent_age; time++)
+                nstates++;
+        }
+    }
+
+    return nstates;
+}
+
 
 //=============================================================================
 // C interface

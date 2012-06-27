@@ -18,11 +18,11 @@ using namespace std;
 
 
 void sample_recombinations(
-    LocalTrees *trees, ArgModel *model, ArgHmmMatrixList *matrix_list,
+    LocalTrees *trees, ArgModel *model, ArgHmmMatrixIter *matrix_list,
     int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs);
 
 void max_recombinations(
-    LocalTrees *trees, ArgModel *model, ArgHmmMatrixList *matrix_list,
+    LocalTrees *trees, ArgModel *model, ArgHmmMatrixIter *matrix_list,
     int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs);
 
 

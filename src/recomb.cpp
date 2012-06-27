@@ -48,7 +48,7 @@ double recomb_prob_unnormalized(ArgModel *model, LocalTree *tree,
 
 
 void sample_recombinations(
-    LocalTrees *trees, ArgModel *model, ArgHmmMatrixList *matrix_list,
+    LocalTrees *trees, ArgModel *model, ArgHmmMatrixIter *matrix_iter,
     int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs)
 {
     States states;
@@ -60,11 +60,11 @@ void sample_recombinations(
 
     // loop through local blocks
     int end = trees->start_coord;
-    for (matrix_list->begin(); matrix_list->more(); matrix_list->next()) {
+    for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
 
         // get local block information
-        matrix_list->get_matrices(&matrices);
-        LocalTree *tree = matrix_list->get_tree_iter()->tree;
+        matrix_iter->get_matrices(&matrices);
+        LocalTree *tree = matrix_iter->get_tree_iter()->tree;
         int start = end + 1;  // don't allow new recomb at start
         end = start - 1 + matrices.blocklen;
         lineages.count(tree);
@@ -161,7 +161,7 @@ void sample_recombinations(
 
 
 void max_recombinations(
-    LocalTrees *trees, ArgModel *model, ArgHmmMatrixList *matrix_list,
+    LocalTrees *trees, ArgModel *model, ArgHmmMatrixIter *matrix_iter,
     int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs)
 {
     States states;
@@ -174,10 +174,10 @@ void max_recombinations(
     
     // loop through local blocks
     int end = trees->start_coord;
-    for (matrix_list->begin(); matrix_list->more(); matrix_list->next()) {
+    for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
         // get local block information
-        matrix_list->get_matrices(&matrices);
-        LocalTree *tree = matrix_list->get_tree_iter()->tree;
+        matrix_iter->get_matrices(&matrices);
+        LocalTree *tree = matrix_iter->get_tree_iter()->tree;
         int start = end + 1;  // don't allow new recomb at start
         end = start - 1 + matrices.blocklen;
         lineages.count(tree);

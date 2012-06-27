@@ -531,6 +531,54 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
 
     // build matrices
     Timer time;
+    ArgHmmMatrixIter matrix_iter(model, sequences, trees, new_chrom);
+    printf("matrix calc: %e s\n", time.time());
+    
+    // compute forward table
+    time.start();
+    arghmm_forward_alg_fast(trees, model, sequences, &matrix_iter, &forward);
+    int nstates = get_num_coal_states(trees->front().tree, model->ntimes);
+    printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
+           nstates, trees->get_num_trees());
+
+    // traceback
+    time.start();
+    double **fw = forward.get_table();
+    ArgHmmMatrixIter matrix_iter2(model, NULL, trees, new_chrom);
+    stochastic_traceback_fast(trees, model, &matrix_iter2, fw, thread_path);
+    printf("trace:       %e s\n", time.time());
+
+
+    time.start();
+
+    // sample recombination points
+    vector<int> recomb_pos;
+    vector<NodePoint> recombs;
+    sample_recombinations(trees, model, &matrix_iter2,
+                          thread_path, recomb_pos, recombs);
+
+    // add thread to ARG
+    add_arg_thread(trees, model->ntimes, thread_path, new_chrom, 
+                   recomb_pos, recombs);
+
+    printf("add thread:  %e s\n", time.time());
+
+    // clean up
+    delete [] thread_path_alloc;
+}
+
+
+// sample the thread of the last chromosome
+void sample_arg_thread2(ArgModel *model, Sequences *sequences, 
+                       LocalTrees *trees, int new_chrom)
+{
+    // allocate temp variables
+    ArgHmmForwardTable forward(trees->start_coord, trees->length());
+    int *thread_path_alloc = new int [trees->length()];
+    int *thread_path = &thread_path_alloc[-trees->start_coord];
+
+    // build matrices
+    Timer time;
     ArgHmmMatrixList matrix_list(model, sequences, trees, new_chrom);
     matrix_list.setup();
     printf("matrix calc: %e s\n", time.time());
@@ -538,13 +586,9 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     // compute forward table
     time.start();
     arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, &forward);
-
-    ArgHmmMatrices mat;
-    matrix_list.get_matrices(&mat);
+    int nstates = get_num_coal_states(trees->front().tree, model->ntimes);
     printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
-           mat.nstates2, trees->get_num_trees());
-    mat.detach();
-
+           nstates, trees->get_num_trees());
 
     // traceback
     time.start();
@@ -602,11 +646,9 @@ void max_arg_thread(ArgModel *model, Sequences *sequences,
     // compute forward table
     time.start();
     arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, &forward);
-    ArgHmmMatrices mat;
-    matrix_list.get_matrices(&mat);
+    int nstates = get_num_coal_states(trees->front().tree, model->ntimes);
     printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
-           mat.nstates2, trees->get_num_trees());
-    mat.detach();
+           nstates, trees->get_num_trees());
 
     // traceback
     time.start();
@@ -676,11 +718,9 @@ void cond_sample_arg_thread(ArgModel *model, Sequences *sequences,
     time.start();
     arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, &forward,
                             true);
-    ArgHmmMatrices mat;
-    matrix_list.get_matrices(&mat);
+    int nstates = get_num_coal_states(trees->front().tree, model->ntimes);
     printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
-           mat.nstates2, trees->get_num_trees());
-    mat.detach();
+           nstates, trees->get_num_trees());
 
     // fill in last state of traceback
     matrix_list.rbegin();

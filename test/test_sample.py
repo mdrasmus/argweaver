@@ -711,11 +711,11 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 20
+        k = 100
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 500000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0
         
@@ -852,12 +852,12 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 3
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 20000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1
         refine = 0

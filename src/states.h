@@ -108,6 +108,9 @@ void make_intstates(States states, intstate *istates);
 // Returns the possible coalescing states for a tree
 void get_coal_states(LocalTree *tree, int ntimes, States &states);
 
+// Returns the number of possible coalescing states for a tree
+int get_num_coal_states(LocalTree *tree, int ntimes);
+
 
 
 } // namespace arghmm
