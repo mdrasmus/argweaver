@@ -84,7 +84,7 @@ public:
         }
         if (transprobs) {
             delete_matrix<double>(transprobs, nstates2);
-            transmat = NULL;
+            transprobs = NULL;
         }
         if (transprobs_switch) {
             delete_matrix<double>(transprobs_switch, nstates1);
@@ -97,11 +97,17 @@ public:
     }
 
 
-    void alloc_emit(int blocklen, int nstates)
+    // release ownership of underlying data
+    void detach() 
     {
-        emit = new_matrix<double>(blocklen, nstates);
+        transmat = NULL;
+        transmat_switch = NULL;
+        transprobs = NULL;
+        transprobs_switch = NULL;
+        emit = NULL;
     }
 
+    
     int nstates1;
     int nstates2;
     int blocklen;
@@ -216,6 +222,8 @@ public:
 
     virtual void get_matrices(ArgHmmMatrices *matrices)
     {
+        printf("clear\n");
+        matrices->clear();
         calc_matrices(matrices);
     }
 
@@ -404,10 +412,10 @@ public:
         *mat = matrices[matrix_index];
     }
 
-    vector<ArgHmmMatrices> matrices;
-
+    
 protected:
     int matrix_index;
+    vector<ArgHmmMatrices> matrices;
 };
 
 

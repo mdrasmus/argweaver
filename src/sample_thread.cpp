@@ -31,7 +31,7 @@ using namespace std;
 
 inline double logsum_fast(const double *vals, int nvals)
 {
-    return logsum(vals, nvals, -15);
+    return logsum(vals, nvals, -6);
 }
 
 
@@ -538,16 +538,19 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     // compute forward table
     time.start();
     arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, &forward);
+
+    ArgHmmMatrices mat;
+    matrix_list.get_matrices(&mat);
     printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
-           matrix_list.matrices[0].nstates2,
-           (int) matrix_list.matrices.size());
+           mat.nstates2, trees->get_num_trees());
+    mat.detach();
 
 
     // traceback
     time.start();
     double **fw = forward.get_table();
     stochastic_traceback_fast(trees, model, &matrix_list, fw, 
-                              thread_path); //sequences->seqlen);
+                              thread_path);
     printf("trace:       %e s\n", time.time());
 
 
@@ -599,10 +602,11 @@ void max_arg_thread(ArgModel *model, Sequences *sequences,
     // compute forward table
     time.start();
     arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, &forward);
+    ArgHmmMatrices mat;
+    matrix_list.get_matrices(&mat);
     printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
-           matrix_list.matrices[0].nstates2,
-           (int) matrix_list.matrices.size());
-
+           mat.nstates2, trees->get_num_trees());
+    mat.detach();
 
     // traceback
     time.start();
@@ -672,9 +676,11 @@ void cond_sample_arg_thread(ArgModel *model, Sequences *sequences,
     time.start();
     arghmm_forward_alg_fast(trees, model, sequences, &matrix_list, &forward,
                             true);
+    ArgHmmMatrices mat;
+    matrix_list.get_matrices(&mat);
     printf("forward:     %e s  (%d states, %d blocks)\n", time.time(),
-           matrix_list.matrices[0].nstates2,
-           (int) matrix_list.matrices.size());
+           mat.nstates2, trees->get_num_trees());
+    mat.detach();
 
     // fill in last state of traceback
     matrix_list.rbegin();

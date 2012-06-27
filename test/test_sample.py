@@ -852,7 +852,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 2
+        k = 3
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1388,7 +1388,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 2
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -2109,34 +2109,73 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 20
+        k = 2
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = 10000000
+        times = arghmm.get_time_points(ntimes=50, maxtime=160000)
+        times2 = arghmm.get_time_points(ntimes=50, maxtime=160000)
+        popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
+        refine = 0
+
+        util.tic("sim ARG")
+        #arg = arglib.sample_arg_smc(k, 2 * popsizes[0],
+        #                            rho, start=0, end=length)        
+        arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
+                                     rho, start=0, end=length, times=times)
+        util.toc()
+        popsizes2 = arghmm.est_arg_popsizes(arg, times=times2)
+        
+        print popsizes2
+        p = plot(times, popsizes, xlog=10)
+        p.plot(times2[1:], popsizes2)
+
+        pause()
+
+
+    def test_sample_arg_popsizes2(self):
+        """
+        Fully sample an ARG from stratch using API
+        """
+
+        k = 12
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 500000
-        times = arghmm.get_time_points(ntimes=20, maxtime=100000)
-        popsizes = [1e4 * (21.-i)/20. for i in range(len(times))]
+        length = 100000
+        times = arghmm.get_time_points(ntimes=50, maxtime=160000)
+        popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
         refine = 0
-        
+
+        util.tic("sim ARG")
         #arg = arglib.sample_arg_smc(k, 2 * popsizes[0],
-        #                            rho, start=0, end=length)
+        #                            rho, start=0, end=length)        
         arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
-                                     rho, start=0, end=length,
-                                     times=times)
-        
+                                     rho, start=0, end=length, times=times)
+        util.toc()
+
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
 
-        arg2 = arghmm.sample_arg(seqs.get(seqs.keys()[:6]),
-                                 rho=rho, mu=mu, times=times, refine=5)
-        arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times)
-        popsizes2 = arghmm.est_arg_popsizes(arg2, times=times)
+        #arg2 = arghmm.sample_arg(seqs.get(seqs.keys()[:6]),
+        #                         rho=rho, mu=mu, times=times, refine=5)
+        #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times)
+
+        popsizes2 = [0] * (len(times) - 1)
+        nsamples = 1
+        for i in range(nsamples):
+            arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                     popsizes=popsizes,
+                                     refine=0, verbose=True)
+            popsizes3 = arghmm.est_arg_popsizes(arg2, times=times)
+            popsizes2 = vadd(popsizes2, popsizes3)
+        popsizes2 = vdivs(popsizes2, float(nsamples))
 
         #popsizes2 = arghmm.est_arg_popsizes(arg, times=times)
         
         print popsizes2
         p = plot(popsizes)
         p.plot(popsizes2)
-        
+        #p.plot(popsizes3)        
 
         pause()
 

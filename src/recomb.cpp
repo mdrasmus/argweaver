@@ -56,19 +56,17 @@ void sample_recombinations(
     const int new_node = -1;
     vector <NodePoint> candidates;
     vector <double> probs;
-
+    ArgHmmMatrices matrices;
 
     // loop through local blocks
-    int blocki = 0;
     int end = trees->start_coord;
-    for (LocalTrees::iterator it=trees->begin(); 
-         it != trees->end(); ++it, blocki++) {
+    for (matrix_list->begin(); matrix_list->more(); matrix_list->next()) {
 
         // get local block information
+        matrix_list->get_matrices(&matrices);
+        LocalTree *tree = matrix_list->get_tree_iter()->tree;
         int start = end + 1;  // don't allow new recomb at start
-        end = start - 1 + it->blocklen;
-        ArgHmmMatrices matrices = matrix_list->matrices[blocki];
-        LocalTree *tree = it->tree;
+        end = start - 1 + matrices.blocklen;
         lineages.count(tree);
         get_coal_states(tree, model->ntimes, states);
         int next_recomb = -1;
@@ -171,19 +169,17 @@ void max_recombinations(
     const int new_node = -1;
     vector <NodePoint> candidates;
     vector <double> probs;
+    ArgHmmMatrices matrices;
 
-
+    
     // loop through local blocks
-    int blocki = 0;
     int end = trees->start_coord;
-    for (LocalTrees::iterator it=trees->begin(); 
-         it != trees->end(); ++it, blocki++) {
-
+    for (matrix_list->begin(); matrix_list->more(); matrix_list->next()) {
         // get local block information
+        matrix_list->get_matrices(&matrices);
+        LocalTree *tree = matrix_list->get_tree_iter()->tree;
         int start = end + 1;  // don't allow new recomb at start
-        end = start - 1 + it->blocklen;
-        ArgHmmMatrices matrices = matrix_list->matrices[blocki];
-        LocalTree *tree = it->tree;
+        end = start - 1 + matrices.blocklen;
         lineages.count(tree);
         get_coal_states(tree, model->ntimes, states);
         

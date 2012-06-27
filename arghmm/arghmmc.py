@@ -434,14 +434,15 @@ def sample_posterior(model, n, probs_forward=None,
 # ARG sampling
 
 
-def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
                refine=0, nremove=1, times=None, verbose=False):
     """
     Sample ARG for sequences
     """
     if times is None:
         times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
-    popsizes = [popsize] * len(times)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
 
     if verbose:
         util.tic("sample arg")
@@ -464,14 +465,15 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     return arg
 
 
-def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize2=1e4,
                  refine=1, nremove=1, times=None, verbose=False):
     """
     Sample ARG for sequences
     """
     if times is None:
         times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
-    popsizes = [popsize] * len(times)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
 
     if verbose:
         util.tic("resample arg")
@@ -509,14 +511,15 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     return arg
 
 
-def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
                  refine=1, nremove=1, times=None, verbose=False):
     """
     Sample ARG for sequences
     """
     if times is None:
         times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
-    popsizes = [popsize] * len(times)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
 
     if verbose:
         util.tic("resample arg")

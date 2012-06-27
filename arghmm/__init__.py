@@ -269,7 +269,7 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
                                       names=names, make_names=make_names)
         discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
-
+    
 
     # sample SPRs
     pos = start
@@ -1820,18 +1820,14 @@ def est_arg_popsizes(arg, times=None):
                     lineages_per_time.append(s / total_time)
                 counts = []
             last_time = a
-
-        #print lineages_per_time
+        
         assert len(lineages_per_time) == len(time_steps)
-
-        # BUG
+        
         r, _ = util.binsearch(times, rtime)
         c, _ = util.binsearch(times, ctime)
         for j in range(r, c):
             k_lineages[j] += lineages_per_time[j]
-
-    print zip(ncoals, k_lineages)
-    
+            
 
     popsizes = [(time_steps[j] / 2.0 / ncoals[j] * k_lineages[j]
                 if ncoals[j] > 0 else util.INF)
