@@ -94,7 +94,7 @@ inline void shuffle(T *list, int size)
     }
 }
 
-
+/*
 inline double logadd(double lna, double lnb)
 {
     if (lna == 1.0)
@@ -107,9 +107,9 @@ inline double logadd(double lna, double lnb)
     else
          return lna;
 }
- 
+*/ 
 
-/*
+
 // computes log(a + b) given log(a) and log(b)
 inline double logadd(double lna, double lnb) {
     if (lna == -INFINITY)
@@ -118,7 +118,7 @@ inline double logadd(double lna, double lnb) {
         return lna;
     return max(lna, lnb) + log1p(t2exp(-fabs(lna - lnb)));
 }
-*/
+
 
 // subtracting numbers in log-space
 // NOTE: must have lna > lnb
