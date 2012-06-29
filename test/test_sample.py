@@ -711,11 +711,11 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 100
+        k = 20
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 500000
+        length = 10000
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0
         
@@ -1388,7 +1388,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 5
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -2109,10 +2109,10 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 2
+        k = 40
         rho = 1.5e-8
         mu = 2.5e-8
-        length = 10000000
+        length = 1000000
         times = arghmm.get_time_points(ntimes=50, maxtime=160000)
         times2 = arghmm.get_time_points(ntimes=50, maxtime=160000)
         popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
@@ -2127,7 +2127,7 @@ class Sample (unittest.TestCase):
         popsizes2 = arghmm.est_arg_popsizes(arg, times=times2)
         
         print popsizes2
-        p = plot(times, popsizes, xlog=10)
+        p = plot(times, popsizes, xlog=10, xmin=10)
         p.plot(times2[1:], popsizes2)
 
         pause()
@@ -2138,11 +2138,11 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 12
+        k = 40
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 100000
-        times = arghmm.get_time_points(ntimes=50, maxtime=160000)
+        length = 50000
+        times = arghmm.get_time_points(ntimes=30, maxtime=160000)
         popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
         refine = 0
 
@@ -2170,12 +2170,9 @@ class Sample (unittest.TestCase):
             popsizes2 = vadd(popsizes2, popsizes3)
         popsizes2 = vdivs(popsizes2, float(nsamples))
 
-        #popsizes2 = arghmm.est_arg_popsizes(arg, times=times)
-        
         print popsizes2
-        p = plot(popsizes)
-        p.plot(popsizes2)
-        #p.plot(popsizes3)        
+        p = plot(times, popsizes, xlog=10, xmin=10)
+        p.plot(times[1:], popsizes2)
 
         pause()
 

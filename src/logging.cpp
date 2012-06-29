@@ -6,13 +6,6 @@
 
 =============================================================================*/
 
-// c++ headers
-#include <assert.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-
 // arghmm headers
 #include "logging.h"
 
@@ -21,74 +14,86 @@ namespace arghmm {
 //=============================================================================
 // Errors and Logging
 
-// stream for logging
-static FILE *g_logstream = stderr;
-static int g_loglevel = LOG_QUIET;
+Logger g_logger(stderr, LOG_QUIET);
+
+
+void Logger::printTimerLog(const Timer &timer, int level, const char *fmt, ...)
+{
+    if (level <= loglevel) {
+        va_list ap;
+        va_start(ap, fmt);
+        printTimerLog(timer, level, fmt, ap);
+        va_end(ap);
+    }
+}
+
+
+void Logger::printTimerLog(const Timer &timer, int level, const char *fmt, 
+                           va_list ap)
+{
+    if (level <= loglevel) {
+        // print time
+        float time = timer.time();
+        if (time < 1e-3)
+            fprintf(logstream, "%5.1f us: ", time * 1e6);
+        else if (time < 1.0)
+            fprintf(logstream, "%5.1f ms: ", time * 1e3);
+        else if (time < 60.0)
+            fprintf(logstream, "%5.1f s : ", time);
+        else if (time < 3600.0)
+            fprintf(logstream, "%5.1f m : ", time / 60.0);
+        else
+            fprintf(logstream, "%5.1f h : ", time / 3600.0);
+        
+        // print message
+        vfprintf(logstream, fmt, ap);
+        
+        fprintf(logstream, "\n");
+        fflush(logstream);
+    }
+}
+
+
+void printLog(int level, const char *fmt, ...)
+{
+    if (g_logger.isLogLevel(level)) {
+        va_list ap;
+        va_start(ap, fmt);
+        g_logger.printLog(level, fmt, ap);
+        va_end(ap);
+    }
+}
+
+
+void printTimerLog(const Timer &timer, int level, const char *fmt, ...)
+{
+    if (g_logger.isLogLevel(level)) {
+        va_list ap;
+        va_start(ap, fmt);
+        g_logger.printTimerLog(timer, level, fmt, ap);
+        va_end(ap);
+    }
+}
+
+
+void printError(const char *fmt, va_list ap)
+{
+    fprintf(stderr, "error: ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+}
 
 
 void printError(const char *fmt, ...)
 {
     va_list ap;   
     va_start(ap, fmt);
-   
     fprintf(stderr, "error: ");
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
-   
     va_end(ap);
 }
 
 
-void printLog(int level, const char *fmt, ...)
-{
-    if (level <= g_loglevel) {
-        va_list ap;   
-        va_start(ap, fmt);
-        vfprintf(g_logstream, fmt, ap);
-        va_end(ap);
-	fflush(g_logstream);
-    }
-}
-
-
-bool openLogFile(const char *filename)
-{
-    FILE *stream = fopen(filename, "w");
     
-    if (stream != NULL) {
-        openLogFile(stream);
-        return true;
-    } else {
-        return false;
-    }
-}
-
-void openLogFile(FILE *stream)
-{
-    g_logstream = stream;
-}
-
-
-void setLogLevel(int level)
-{
-    g_loglevel = level;
-}
-
-bool isLogLevel(int level)
-{
-    return level <= g_loglevel;
-}
-
-void closeLogFile()
-{
-    fclose(g_logstream);
-}
-
-FILE *getLogFile()
-{
-    return g_logstream;
-}
-
-
-
 } // namespace spidir
