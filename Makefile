@@ -50,6 +50,7 @@ BINARIES = $(PROGS) $(SCRIPTS)
 
 ARGHMM_SRC = \
     src/emit.cpp \
+    src/est_popsize.cpp \
     src/hmm.cpp \
     src/itree.cpp \
     src/local_tree.cpp \

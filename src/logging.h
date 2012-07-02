@@ -211,4 +211,4 @@ void printError(const char *fmt, ...);
 
 } // namespace arghmm
 
-#endif // ARGHMM_COMMON_H
+#endif // ARGHMM_LOGGING_H

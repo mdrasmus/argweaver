@@ -98,18 +98,7 @@ if arghmmclib:
             c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            POINTER(POINTER(c_int *2)), "path"])
-
-    '''
-    export(arghmmclib, "arghmm_sample_thread", c_void_p,
-           [c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", 
-            c_double_list, "times", c_int, "ntimes",
-            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
-    '''
-    
+            POINTER(POINTER(c_int *2)), "path"])    
     export(arghmmclib, "arghmm_sample_thread", c_void_p,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -160,6 +149,12 @@ if arghmmclib:
            [c_void_p, "trees", 
             c_double_list, "times", c_int, "ntimes", c_double_list, "popsizes",
             c_double, "rho"])
+
+    # estimating population sizes
+    export(arghmmclib, "arghmm_est_popsizes_trees", c_double,
+           [c_void_p, "trees", 
+            c_double_list, "times", c_int, "ntimes", c_int, "step",
+            c_out(c_double_list), "popsizes"])
 
 
     # ARG data structure API
@@ -435,7 +430,8 @@ def sample_posterior(model, n, probs_forward=None,
 
 
 def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
-               refine=0, nremove=1, times=None, verbose=False):
+               refine=0, nremove=1, times=None, verbose=False,
+               carg=False):
     """
     Sample ARG for sequences
     """
@@ -455,6 +451,9 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
         popsizes, rho, mu,
         (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]), refine,
         nremove)
+
+    if carg:
+        return (trees, names)
 
     # convert to python
     arg = ctrees2arg(trees, names, times, verbose=verbose)
@@ -727,6 +726,20 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsize=1e4,
     return p
 
 
+#=============================================================================
+def est_popsizes_trees(arg, times, step):
+
+    trees, names = arg2ctrees(arg, times)    
+
+    popsizes = [0.0] * (len(times) - 1)
+    arghmm_est_popsizes_trees(trees, times, len(times), step, popsizes)
+
+    if not is_carg(arg):
+        delete_local_trees(trees)
+        
+    return popsizes
+
+
 
 #=============================================================================
 # tree functions
@@ -785,8 +798,15 @@ def make_ptree(tree, skip_single=True, nodes=None):
 #=============================================================================
 # passing ARG through C interface
 
+def is_carg(arg):
+    return isinstance(arg, tuple)
+
 
 def arg2ctrees(arg, times):
+
+    # check to see if arg is already converted
+    if is_carg(arg):
+        return arg
 
     (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
         arg, times)

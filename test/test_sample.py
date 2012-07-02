@@ -2109,12 +2109,11 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 40
+        k = 30
         rho = 1.5e-8
         mu = 2.5e-8
         length = 1000000
-        times = arghmm.get_time_points(ntimes=50, maxtime=160000)
-        times2 = arghmm.get_time_points(ntimes=50, maxtime=160000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=160000)
         popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
         refine = 0
 
@@ -2124,11 +2123,12 @@ class Sample (unittest.TestCase):
         arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
                                      rho, start=0, end=length, times=times)
         util.toc()
-        popsizes2 = arghmm.est_arg_popsizes(arg, times=times2)
+        #popsizes2 = arghmm.est_arg_popsizes(arg, times=times2)
+        popsizes2 = arghmm.est_popsizes_trees(arg, times, 200)
         
         print popsizes2
-        p = plot(times, popsizes, xlog=10, xmin=10)
-        p.plot(times2[1:], popsizes2)
+        p = plot(times, popsizes, xlog=10, xmin=10, ymin=0, ymax=20000)
+        p.plot(times[1:], popsizes2)
 
         pause()
 
@@ -2138,10 +2138,10 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 40
+        k = 5
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 50000
+        length = 10000
         times = arghmm.get_time_points(ntimes=30, maxtime=160000)
         popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
         refine = 0
@@ -2167,6 +2167,8 @@ class Sample (unittest.TestCase):
                                      popsizes=popsizes,
                                      refine=0, verbose=True)
             popsizes3 = arghmm.est_arg_popsizes(arg2, times=times)
+            #popsizes3 = arghmm.est_popsizes_trees(arg2, times, length/200)
+            print popsizes3
             popsizes2 = vadd(popsizes2, popsizes3)
         popsizes2 = vdivs(popsizes2, float(nsamples))
 
