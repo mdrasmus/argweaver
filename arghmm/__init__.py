@@ -1755,16 +1755,21 @@ def get_posterior_probs(model, n, verbose=False,
     return probs_post
 
 
+
 def est_arg_popsizes(arg, times=None):
 
     nleaves = len(list(arg.leaves()))
     assert times
     eps = 1e-3
 
-    def get_parent(node):
-        parent = node.parents[0]
-        while len(parent.children) == 1:
-            parent = parent.parents[0]
+    def get_local_children(node, pos, local):
+        return set(child for child in arg.get_local_children(node, pos)
+                   if child in local)
+
+    def get_parent(node, pos, local):
+        parent = arg.get_local_parent(node, pos)
+        while len(get_local_children(parent, pos, local)) == 1:
+            parent = arg.get_local_parent(parent, pos)
         return parent
 
     ntimes = len(times)
@@ -1773,21 +1778,21 @@ def est_arg_popsizes(arg, times=None):
 
     ncoals = [0] * ntimes
     k_lineages = [0] * ntimes
-
-    # loop through sprs    
-    for recomb_pos, (rnode, rtime), (cnode, ctime) in arglib.iter_arg_sprs(arg):
+    
+    # loop through sprs
+    for recomb_pos, (rnode, rtime), (cnode, ctime), local in arglib.iter_arg_sprs(arg, use_local=True):
         i, _ = util.binsearch(times, ctime)
         ncoals[i] += 1
-
-        # get local tree coal times
-        tree = arg.get_marginal_tree(recomb_pos - eps)
-        recomb_node = tree[rnode]
-        broken_node = get_parent(recomb_node)
-        coals = [0.0] + [node.age for node in tree if len(node.children) == 2]
+        
+        recomb_node = arg[rnode]
+        broken_node = get_parent(recomb_node, recomb_pos-eps, local)
+        coals = [0.0] + [node.age for node in local
+            if len(get_local_children(node, recomb_pos-eps, local)) == 2]
+        
         coals.sort()
         nlineages = range(nleaves, 0, -1)
         assert len(nlineages) == len(coals)
-
+        
         # subtract broken branch
         r = coals.index(recomb_node.age)
         r2 = coals.index(broken_node.age)
@@ -1834,3 +1839,6 @@ def est_arg_popsizes(arg, times=None):
                 for j in range(len(time_steps))]
         
     return popsizes
+
+
+

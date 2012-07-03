@@ -94,7 +94,7 @@ public:
 class Logger 
 {
 public:
-     Logger(FILE *stream, int level):
+ Logger(FILE *stream, int level):
         logstream(stream),
         loglevel(level)
     {}

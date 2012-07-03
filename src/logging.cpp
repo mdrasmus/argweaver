@@ -32,21 +32,21 @@ void Logger::printTimerLog(const Timer &timer, int level, const char *fmt,
                            va_list ap)
 {
     if (level <= loglevel) {
+        // print message
+        vfprintf(logstream, fmt, ap);
+
         // print time
         float time = timer.time();
         if (time < 1e-3)
-            fprintf(logstream, "%5.1f us: ", time * 1e6);
+            fprintf(logstream, " %5.1f us", time * 1e6);
         else if (time < 1.0)
-            fprintf(logstream, "%5.1f ms: ", time * 1e3);
+            fprintf(logstream, " %5.1f ms", time * 1e3);
         else if (time < 60.0)
-            fprintf(logstream, "%5.1f s : ", time);
+            fprintf(logstream, " %5.1f s", time);
         else if (time < 3600.0)
-            fprintf(logstream, "%5.1f m : ", time / 60.0);
+            fprintf(logstream, " %5.1f m", time / 60.0);
         else
-            fprintf(logstream, "%5.1f h : ", time / 3600.0);
-        
-        // print message
-        vfprintf(logstream, fmt, ap);
+            fprintf(logstream, " %5.1f h", time / 3600.0);
         
         fprintf(logstream, "\n");
         fflush(logstream);

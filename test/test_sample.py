@@ -2109,22 +2109,28 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 30
+        k = 40
         rho = 1.5e-8
         mu = 2.5e-8
-        length = 1000000
-        times = arghmm.get_time_points(ntimes=20, maxtime=160000)
-        popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
+        length = 10000000
+        times = arghmm.get_time_points(ntimes=50, maxtime=160000)
+        a = 60.
+        b = 15
+        popsizes = [1e4 * (a - b + abs(i-b))/a for i in range(len(times))]
+        #popsizes = [1e4 * (a - i)/a for i in range(len(times))]
+        #popsizes = [1e4 for i in range(len(times))]
         refine = 0
 
         util.tic("sim ARG")
         #arg = arglib.sample_arg_smc(k, 2 * popsizes[0],
-        #                            rho, start=0, end=length)        
+        #                            rho, start=0, end=length)
         arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
                                      rho, start=0, end=length, times=times)
         util.toc()
-        #popsizes2 = arghmm.est_arg_popsizes(arg, times=times2)
-        popsizes2 = arghmm.est_popsizes_trees(arg, times, 200)
+
+        util.tic("estimate popsizes")
+        popsizes2 = arghmm.est_arg_popsizes(arg, times=times)
+        util.toc()
         
         print popsizes2
         p = plot(times, popsizes, xlog=10, xmin=10, ymin=0, ymax=20000)
@@ -2133,7 +2139,40 @@ class Sample (unittest.TestCase):
         pause()
 
 
-    def test_sample_arg_popsizes2(self):
+    def test_sample_arg_popsizes_trees(self):
+        """
+        Fully sample an ARG from stratch using API
+        """
+
+        k = 40
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = 10000000
+        times = arghmm.get_time_points(ntimes=50, maxtime=160000)
+        popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
+        #popsizes = [1e4 for i in range(len(times))]
+        refine = 0
+
+        util.tic("sim ARG")
+        #arg = arglib.sample_arg_smc(k, 2 * popsizes[0],
+        #                            rho, start=0, end=length)
+        arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
+                                     rho, start=0, end=length, times=times)
+        util.toc()
+
+        util.tic("estimate popsizes")
+        popsizes2 = arghmm.est_popsizes_trees(arg, times=times,
+                                              step=length/200)
+        util.toc()
+        
+        print popsizes2
+        p = plot(times, popsizes, xlog=10, xmin=10, ymin=0, ymax=20000)
+        p.plot(times[1:], popsizes2)
+
+        pause()
+
+
+    def test_sample_arg_popsizes_infer(self):
         """
         Fully sample an ARG from stratch using API
         """
