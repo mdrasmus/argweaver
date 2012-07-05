@@ -453,10 +453,10 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
         nremove)
 
     if carg:
-        return (trees, names)
-
-    # convert to python
-    arg = ctrees2arg(trees, names, times, verbose=verbose)
+        arg = (trees, names)
+    else:
+        # convert to python
+        arg = ctrees2arg(trees, names, times, verbose=verbose)
     
     if verbose:
         util.toc()
@@ -727,12 +727,21 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsize=1e4,
 
 
 #=============================================================================
-def est_popsizes_trees(arg, times, step):
+def est_popsizes_trees(arg, times, step, verbose=False):
 
-    trees, names = arg2ctrees(arg, times)    
+    if verbose:
+        util.tic("convert arg")
+    trees, names = arg2ctrees(arg, times)
+
+    if verbose:
+        util.toc()
+        util.tic("estimate popsizes")
 
     popsizes = [0.0] * (len(times) - 1)
     arghmm_est_popsizes_trees(trees, times, len(times), step, popsizes)
+
+    if verbose:
+        util.toc()
 
     if not is_carg(arg):
         delete_local_trees(trees)
@@ -875,6 +884,13 @@ def ctrees2arg(trees, names, times, verbose=False, delete_trees=True):
         util.toc()
 
     return arg
+
+
+def iter_arg_sprs_ids(arg, start=None, end=None):
+
+    for pos, (rnode, rtime), (cnode, ctime), local in arglib.iter_arg_sprs(arg, start=start, end=end, use_local=True):
+        pass
+        
 
 
 

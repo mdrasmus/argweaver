@@ -1388,7 +1388,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 2
+        k = 6
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -2109,15 +2109,15 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 40
+        k = 2
         rho = 1.5e-8
         mu = 2.5e-8
-        length = 10000000
-        times = arghmm.get_time_points(ntimes=50, maxtime=160000)
+        length = int(200e6)
+        times = arghmm.get_time_points(ntimes=30, maxtime=160000)
         a = 60.
         b = 15
-        popsizes = [1e4 * (a - b + abs(i-b))/a for i in range(len(times))]
-        #popsizes = [1e4 * (a - i)/a for i in range(len(times))]
+        #popsizes = [1e4 * (a - b + abs(i-b))/a for i in range(len(times))]
+        popsizes = [1e4 * (a - i)/a for i in range(len(times))]
         #popsizes = [1e4 for i in range(len(times))]
         refine = 0
 
@@ -2135,7 +2135,7 @@ class Sample (unittest.TestCase):
         print popsizes2
         p = plot(times, popsizes, xlog=10, xmin=10, ymin=0, ymax=20000)
         p.plot(times[1:], popsizes2)
-
+        
         pause()
 
 
@@ -2144,11 +2144,11 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 40
+        k = 2
         rho = 1.5e-8
         mu = 2.5e-8
-        length = 10000000
-        times = arghmm.get_time_points(ntimes=50, maxtime=160000)
+        length = int(20e6)
+        times = arghmm.get_time_points(ntimes=30, maxtime=160000)
         popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
         #popsizes = [1e4 for i in range(len(times))]
         refine = 0
@@ -2162,7 +2162,7 @@ class Sample (unittest.TestCase):
 
         util.tic("estimate popsizes")
         popsizes2 = arghmm.est_popsizes_trees(arg, times=times,
-                                              step=length/200)
+                                              step=length/1000, verbose=True)
         util.toc()
         
         print popsizes2
@@ -2177,10 +2177,10 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 5
+        k = 2
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
+        length = int(100e6) / 20
         times = arghmm.get_time_points(ntimes=30, maxtime=160000)
         popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
         refine = 0
@@ -2194,11 +2194,7 @@ class Sample (unittest.TestCase):
 
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
-
-        #arg2 = arghmm.sample_arg(seqs.get(seqs.keys()[:6]),
-        #                         rho=rho, mu=mu, times=times, refine=5)
-        #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times)
-
+        
         popsizes2 = [0] * (len(times) - 1)
         nsamples = 1
         for i in range(nsamples):
@@ -2217,6 +2213,47 @@ class Sample (unittest.TestCase):
 
         pause()
 
+
+    def test_sample_arg_popsizes_trees_infer(self):
+        """
+        Fully sample an ARG from stratch using API
+        """
+
+        k = 6
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(10e6) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=160000)
+        popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
+        refine = 5
+
+        util.tic("sim ARG")
+        #arg = arglib.sample_arg_smc(k, 2 * popsizes[0],
+        #                            rho, start=0, end=length)        
+        arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
+                                     rho, start=0, end=length, times=times)
+        util.toc()
+
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+        seqs = arglib.make_alignment(arg, muts)
+        
+        popsizes2 = [0] * (len(times) - 1)
+        nsamples = 1
+        for i in range(nsamples):
+            arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                     popsizes=popsizes,
+                                     refine=refine, verbose=True, carg=True)
+            popsizes3 = arghmm.est_popsizes_trees(arg2, times, length/1000,
+                                                  verbose=True)
+            print popsizes3
+            popsizes2 = vadd(popsizes2, popsizes3)
+        popsizes2 = vdivs(popsizes2, float(nsamples))
+
+        print popsizes2
+        p = plot(times, popsizes, xlog=10, xmin=10)
+        p.plot(times[1:], popsizes2)
+
+        pause()
 
     def test_treeset(self):
         """

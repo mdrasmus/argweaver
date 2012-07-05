@@ -91,7 +91,7 @@ void est_popsize_trees(const ArgModel *model, const LocalTree *const *trees,
             int start = (j == 0) ? nleaves : lineages.nbranches[j-1];
             int end = lineages.nbranches[j];
             int ncoals = start - end;
-            int pairs = end * (end-1) / 2;
+            int pairs = start * (start-1) / 2;
 
             total_ncoals[j] += ncoals;
             total_pairs[j] += pairs;
@@ -102,9 +102,8 @@ void est_popsize_trees(const ArgModel *model, const LocalTree *const *trees,
         if (total_ncoals[j] == 0)
             popsizes[j] = 0.0;
         else
-            popsizes[j] = .5 * model->time_steps[j] * (
-                total_ncoals[j] + total_pairs[j]) / 
-            double(total_ncoals[j] - ntrees);
+            popsizes[j] = .5 * model->time_steps[j] * total_pairs[j] / 
+                double(total_ncoals[j]);
         printf("> %d %d\n", total_pairs[j], total_ncoals[j]);
         printf("popsize %f\n", popsizes[j]);
     }
