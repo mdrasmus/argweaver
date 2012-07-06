@@ -134,6 +134,11 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "region_start", c_int, "region_end"])
+    export(arghmmclib, "arghmm_sample_arg_seq_gibbs", c_void_p,
+           [c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "seqiters", c_int, "gibbsiters"])
     
     # ARG probability
     export(arghmmclib, "arghmm_likelihood", c_double,
@@ -385,8 +390,7 @@ def max_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4, times=None,
 
 
 
-def sample_posterior(model, n, probs_forward=None,
-                     verbose=False, matrices=None):
+def sample_posterior(model, n, verbose=False):
 
     if verbose:
         util.tic("sample thread")
@@ -464,8 +468,44 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     return arg
 
 
-def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize2=1e4,
-                 refine=1, nremove=1, times=None, verbose=False):
+def sample_arg_seq_gibbs(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
+               seqiters=4, gibbsiters=3, times=None, verbose=False,
+               carg=False):
+    """
+    Sample ARG for sequences using sequential and gibbs stages
+    """
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
+
+    if verbose:
+        util.tic("sample arg")
+
+    names, seqs2 = zip(* seqs.items())
+
+    # sample arg
+    trees = arghmm_sample_arg_seq_gibbs(
+        times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]), 
+        seqiters, gibbsiters)
+
+    if carg:
+        arg = (trees, names)
+    else:
+        # convert to python
+        arg = ctrees2arg(trees, names, times, verbose=verbose)
+    
+    if verbose:
+        util.toc()
+    
+    return arg
+
+
+
+def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
+                 refine=1, nremove=1, times=None, verbose=False, carg=False):
     """
     Sample ARG for sequences
     """
@@ -501,8 +541,11 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize2=1e4,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2),
         seqlen, refine, nremove)
 
-    # convert arg back to python
-    arg = ctrees2arg(trees, names, times, verbose=verbose)
+    if carg:
+        arg = (trees, names)
+    else:
+        # convert arg back to python
+        arg = ctrees2arg(trees, names, times, verbose=verbose)
 
     if verbose:
         util.toc()
@@ -558,14 +601,15 @@ def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
 def resample_arg_region(arg, seqs, region_start, region_end,
                         ntimes=20, rho=1.5e-8, mu=2.5e-8,
-                        popsize=1e4, times=None,
+                        popsizes=1e4, times=None,
                         verbose=False):
     """
     Sample ARG for sequences
     """
     if times is None:
         times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
-    popsizes = [popsize] * len(times)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
 
     if verbose:
         util.tic("resample arg")
@@ -667,14 +711,15 @@ def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8,
     return lk
 
 
-def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsize=1e4,
+def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsizes=1e4,
                     times=None, verbose=False):
     """
     Calculate arg_joint_prob
     """
     if times is None:
         times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
-    popsizes = [popsize] * len(times)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
 
     if verbose:
         util.tic("calc likelihood")
@@ -695,14 +740,15 @@ def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsize=1e4,
     return p
 
 
-def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsize=1e4,
+def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsizes=1e4,
                     times=None, verbose=False):
     """
     Calculate arg_joint_prob
     """
     if times is None:
         times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
-    popsizes = [popsize] * len(times)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
 
     if verbose:
         util.tic("calc likelihood")
@@ -953,6 +999,7 @@ def get_treeset(arg, times, start=None, end=None):
 
         else:
             (rname, rtime), (cname, ctime) = spr
+            assert rname != cname
             
             # find old node and new node
             recomb_parent = last_tree2[rname].parent

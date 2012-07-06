@@ -556,6 +556,10 @@ def iter_posterior_times(model, probs, perc=.5):
             node, timei = model.states[pos][j]
             col[timei] += exp(p)
 
+        # normalize column
+        s = sum(col)
+        col = [x / s for x in col]
+
         tot = 0.0
         j = 0
         while j < len(times) and tot < perc:
@@ -611,7 +615,6 @@ def remove_arg_thread(arg, *chroms):
     arglib.subarg_by_leaf_names(arg, keep)
     return arglib.smcify_arg(arg)
 
-    return arg2
 
 
 def add_arg_thread(arg, new_name, thread, recombs):

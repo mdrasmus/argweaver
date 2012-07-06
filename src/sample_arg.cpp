@@ -81,6 +81,55 @@ void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 }
 
 
+// sample an ARG with both sequential and gibbs iterations
+void sample_arg_seq_gibbs(ArgModel *model, Sequences *sequences, 
+                          LocalTrees *trees, int seqiters, int gibbsiters)
+{
+    const int nseqs = sequences->get_nseqs();
+    const int seqlen = sequences->length();
+    const int minseqs = 3;
+
+    // initialize ARG as trunk
+    const int capacity = 2 * nseqs - 1;
+    trees->make_trunk(0, seqlen, capacity);
+    
+    int nleaves = 1;
+    Timer time;
+    while (nleaves < nseqs) {
+        time.start();
+
+        // sequential stage
+        int nleaves2 = max(min(nleaves + seqiters, nseqs), minseqs);
+
+        // add more chromosomes one by one
+        for (int nchroms=nleaves+1; nchroms<=nleaves2; nchroms++) {
+            // use first nchroms sequences
+            Sequences sequences2(sequences, nchroms);
+            int new_chrom = nchroms - 1;
+            sample_arg_thread(model, &sequences2, trees, new_chrom);
+        }
+        nleaves = nleaves2;
+
+
+        // gibbs stage 
+        // randomly choose gibbsiters chromosomes
+        int chroms[nleaves];
+        for (int i=0; i<nleaves; i++)
+            chroms[i] = i;
+        shuffle(chroms, nleaves);
+
+        for (int i=0; i<min(gibbsiters, nleaves); i++) {
+            remove_arg_thread(trees, chroms[i]);
+            sample_arg_thread(model, sequences, trees, chroms[i]);
+        }
+
+        printTimerLog(time, LOG_QUIET, 
+                      "seq_gibbs stage (%3d leaves):       ", nleaves);
+    }
+}
+
+
+
 // resample the threading of all the chromosomes
 void remax_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                int nremove)
@@ -306,6 +355,20 @@ LocalTrees *arghmm_resample_arg_region(
     return trees;
 }
 
+
+LocalTrees *arghmm_sample_arg_seq_gibbs(double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int seqiters, int gibbsiters)
+{
+    // setup model, local trees, and sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    LocalTrees *trees = new LocalTrees();    
+
+    sample_arg_seq_gibbs(&model, &sequences, trees, seqiters, gibbsiters);
+
+    return trees;
+}
 
 
 } // extern C

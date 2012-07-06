@@ -803,7 +803,7 @@ intstate *arghmm_sample_posterior(
     Sequences sequences(seqs, nseqs, seqlen);
     
     // build matrices
-    ArgHmmMatrixList matrix_list(&model, &sequences, &trees);
+    ArgHmmMatrixList matrix_list(&model, &sequences, &trees, -1, true);
     matrix_list.setup();
     
     // compute forward table

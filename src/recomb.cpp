@@ -90,7 +90,6 @@ void sample_recombinations(
                         rate = 1.0 - (m->norecombs[a] / self_trans);
                         
                     } else {
-                        // TODO: need to compute row sum
                         assert(false);
                         
                         double treelen_b = get_treelen(

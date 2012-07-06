@@ -863,7 +863,7 @@ class Basic (unittest.TestCase):
 
     def test_post_plot(self):
 
-        k = 7
+        k = 6
         n = 1e4
         rho = 1.5e-8 * 50
         mu = 2.5e-8 * 50
@@ -879,22 +879,17 @@ class Basic (unittest.TestCase):
         #arglib.write_arg("test/data/k4.arg", arg)
         #fasta.write_fasta("test/data/k4.fa", seqs)
 
-        tree = arg.get_marginal_tree(0)
-        treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
-
-
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
                                                by_block=False))    
-        p = plot(cget(thread, 1), style="lines", ymin=30,
+        p = plot(cget(thread, 1), style="lines", ymin=times[1],
                  ylog=10)
 
         # remove chrom
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg = arglib.smcify_arg(arg)
+        new_name = "n%d" % (k-1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
 
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
                               rho=rho, mu=mu)
         print "states", len(model.states[0])
         print "muts", len(muts)

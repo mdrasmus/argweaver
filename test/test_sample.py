@@ -146,11 +146,11 @@ class Sample (unittest.TestCase):
         Sample a thread from the posterior of the ArgHmm
         """
 
-        k = 10
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
+        length = 1000
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -194,8 +194,7 @@ class Sample (unittest.TestCase):
 
 
         for i in xrange(1):
-            path = arghmm.sample_posterior(model, length, verbose=True,
-                                           probs_forward=fw)
+            path = arghmm.sample_posterior(model, length, verbose=True)
             thread2 = [times[model.states[pos][state][1]]
                        for pos, state in enumerate(path)]
             p.plot(thread2, style="lines")
@@ -209,38 +208,41 @@ class Sample (unittest.TestCase):
         Sample many threads from the ArgHmm
         """
 
-        k = 5
+        k = 30
         n = 1e4
-        rho = 1.5e-8 * 40
-        mu = 2.5e-8 * 40
-        length = 10000
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(1000e3) / 20
         times = arghmm.get_time_points(ntimes=20)
 
         x = []
         y = []
 
         for i in range(10):
+            util.tic("sim")
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times)
             seqs = arglib.make_alignment(arg, muts)
+            util.toc()
 
             new_name = "n%d" % (k-1)
             thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
                                                    by_block=False))
 
             # remove chrom
+            util.tic("remove thread")
             arg = arghmm.remove_arg_thread(arg, new_name)
+            util.toc()
 
             for j in xrange(1):
-                arg2 = arghmm.resample_arg(arg, seqs, popsize=n,
+                arg2 = arghmm.resample_arg(arg, seqs, popsizes=n,
                                            times=times, rho=rho, mu=mu,
-                                           refine=0)
+                                           refine=0, verbose=True)
                 thread2 = list(arghmm.iter_chrom_thread(
                     arg2, arg2[new_name], by_block=False))
                 x.extend(cget(thread, 1)[::100])
                 y.extend(cget(thread2, 1)[::100])
-                print len(x), len(y)
 
         x = map(safelog, x)
         y = map(safelog, y)
@@ -303,129 +305,6 @@ class Sample (unittest.TestCase):
 
         pause()
 
-
-    def _test_sample_recomb(self):
-        """
-        Sample recombinations for a true thread
-        """
-
-        k = 2
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 10000
-        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-
-
-        rx = []
-        ry = []
-
-        for i in range(40):
-            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                         times=times)
-            seqs = dict((l, "A"*length) for l in arg.leaf_names())
-            
-            # count initial recomb count
-            nrecombs = ilen(arghmm.iter_visible_recombs(arg))
-
-            # get new chrom thread
-            new_name = "n%d" % (k-1)
-            thread_clades = list(arghmm.iter_chrom_thread(
-                arg, arg[new_name], by_block=True, use_clades=True))
-
-            # remove chrom
-            util.tic("setup G_{n-1}")
-            new_name = "n%d" % (k-1)
-            arg = arghmm.remove_arg_thread(arg, new_name)
-            nrecombs2 = ilen(arghmm.iter_visible_recombs(arg))
-            new_recombs = nrecombs - nrecombs2
-            util.toc()
-
-            # setup model and convert thread
-            model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
-                                  popsize=n, rho=rho, mu=mu)
-            thread = []
-            for leaves, age, block in thread_clades:
-                node = arghmm.arg_lca(arg, leaves, None, block[0]).name
-                for i in range(block[0], block[1]):
-                    thread.append((node, age))
-            
-
-            util.tic("sample recomb")
-            for i in range(4):
-                recombs = list(arghmm.sample_recombinations_thread(
-                    model, thread))
-                rx.append(new_recombs)
-                ry.append(len(recombs))
-            util.toc()
-
-        p = plot(dither(rx, .2), dither(ry, .2),
-                 xlab="actual new recombs", ylab="sampled new recombs")
-        p.plot([0, max(rx)], [0, max(rx)], style="lines")
-        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
-
-        
-        pause()
-
-
-    def test_sample_recomb2(self):
-        """
-        Sample both a thread and its recombinations
-        """
-
-        k = 5
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 10000
-        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-
-        rx = []
-        ry = []
-        
-        for i in range(20):
-            util.tic("sim arg")
-            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                         times=times)
-            muts = arghmm.sample_arg_mutations(arg, mu, times)
-            seqs = arglib.make_alignment(arg, muts)
-            util.toc()
-            
-            # count initial recomb count
-            nrecombs = ilen(arghmm.iter_visible_recombs(arg))
-            
-            # get new chrom thread
-            new_name = "n%d" % (k-1)
-            
-            # remove chrom
-            util.tic("setup G_{n-1}")
-            new_name = "n%d" % (k-1)
-            arg = arghmm.remove_arg_thread(arg, new_name)
-            nrecombs2 = ilen(arghmm.iter_visible_recombs(arg))
-            new_recombs = nrecombs - nrecombs2
-            util.toc()
-
-            # setup model
-            model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
-                                  rho=rho, mu=mu)
-
-            util.tic("sample recomb")
-            for j in range(2):
-                path = arghmm.sample_posterior(model, length, verbose=False)
-                thread = list(arghmm.iter_thread_from_path(model, path))
-                recombs = list(arghmm.sample_recombinations_thread(
-                    model, thread))
-                rx.append(new_recombs)
-                ry.append(len(recombs))
-
-            util.toc()
-
-        p = plot(dither(rx, .2), dither(ry, .2),
-                 xlab="actual new recombs", ylab="sampled new recombs")
-        p.plot([0, max(rx)], [0, max(rx)], style="lines")
-        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
-        
-        pause()
 
 
     def test_add_thread(self):
@@ -845,6 +724,63 @@ class Sample (unittest.TestCase):
         
 
         pause()
+
+
+    def test_sample_thread_recomb(self):
+        """
+        Plot the ARG joint prob from a fully sampled ARG
+        """
+
+        k = 6
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(1000e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        refine = 0; nremove = 1
+        write = False
+        if write:
+            make_clean_dir("test/data/sample_arg_joint")
+
+        names = []
+        rx = []
+        ry = []
+        util.tic("plot")
+        for i in range(20):
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+            seqs = arglib.make_alignment(arg, muts)
+            if write:
+                arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
+                seqs.write("test/data/sample_arg_joint/%d.fa" % i)
+
+            nrecombs = ilen(arghmm.iter_visible_recombs(arg))
+
+            
+            util.tic("sample ARG %d" % i)
+            arg = arghmm.remove_arg_thread(arg, "n%d" % (k-1))
+            common = ilen(arghmm.iter_visible_recombs(arg))
+            
+            arg2 = arghmm.resample_arg(arg, seqs, rho=rho, mu=mu, times=times,
+                                       refine=refine, nremove=nremove)
+            util.toc()
+
+            nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
+            rx.append(nrecombs - common)
+            ry.append(nrecombs2 - common)
+            if write:
+                arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg2)
+        util.toc()        
+
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
+
+        p = plot(rx, ry,
+                 xlab="true ARG # recombinations",
+                 ylab="inferred ARG # recombinations")
+        p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
+        
+        pause()
         
 
     def test_sample_arg_recomb(self):
@@ -857,7 +793,7 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 20000
+        length = int(1000e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1
         refine = 0
@@ -867,7 +803,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(40):
+        for i in range(10):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -879,6 +815,55 @@ class Sample (unittest.TestCase):
                 util.tic("sample ARG %d, %d" % (i, j))
                 arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
                                          refine=refine)
+                util.toc()
+                
+                nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
+                rx.append(nrecombs)
+                ry.append(nrecombs2)
+        util.toc()
+
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
+
+        p = plot(rx, ry,
+                 xlab="true # recombinations",
+                 ylab="inferred # recombinations")
+        p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
+        
+        pause()
+
+
+
+    def test_sample_arg_recomb_seq_gibbs(self):
+        """
+        Plot the recombinations from a fully sampled ARG
+        """
+
+        k = 12
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 20000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        seqiters=1; gibbsiters=4
+
+        print "times", times
+
+        rx = []
+        ry = []
+        util.tic("plot")
+        for i in range(20):
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+            seqs = arglib.make_alignment(arg, muts)
+            
+            nrecombs = ilen(arghmm.iter_visible_recombs(arg))
+
+            for j in range(1):
+                util.tic("sample ARG %d, %d" % (i, j))
+                arg2 = arghmm.sample_arg_seq_gibbs(
+                    seqs, rho=rho, mu=mu, times=times,
+                    seqiters=seqiters, gibbsiters=gibbsiters)
                 util.toc()
                 
                 nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
@@ -1383,7 +1368,7 @@ class Sample (unittest.TestCase):
         pause()
 
 
-    def test_sample_arg_joint(self):
+    def test_sample_thread_joint(self):
         """
         Plot the ARG joint prob from a fully sampled ARG
         """
@@ -1391,9 +1376,8 @@ class Sample (unittest.TestCase):
         k = 6
         n = 1e4
         rho = 1.5e-8 * 20
-        rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = int(100e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0; nremove = 1
         write = False
@@ -1413,13 +1397,72 @@ class Sample (unittest.TestCase):
                 arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
                 seqs.write("test/data/sample_arg_joint/%d.fa" % i)
 
+            lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
+
+            
+            util.tic("sample ARG %d" % i)
+            arg = arghmm.remove_arg_thread(arg, "n%d" % (k-1))
+            arg2 = arghmm.resample_arg(arg, seqs, rho=rho, mu=mu, times=times,
+                                       refine=refine, nremove=nremove,
+                                       carg=True)
+            util.toc()
+
+            lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
+                                         times=times)
+            rx.append(lk)
+            ry.append(lk2)
+            if write:
+                arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg2)
+        util.toc()        
+
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
+
+        p = plot(rx, ry,
+                 xlab="true ARG joint probability",
+                 ylab="inferred ARG joint probability")
+        p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
+        
+        pause()
+
+
+
+    def test_sample_arg_joint(self):
+        """
+        Plot the ARG joint prob from a fully sampled ARG
+        """
+
+        k = 2
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(100e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        refine = 0; nremove = 1
+        write = False
+        if write:
+            make_clean_dir("test/data/sample_arg_joint")
+
+        names = []
+        rx = []
+        ry = []
+        util.tic("plot")
+        for i in range(100):
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+            seqs = arglib.make_alignment(arg, muts)
+            if write:
+                arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
+                seqs.write("test/data/sample_arg_joint/%d.fa" % i)
+
             
             lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
 
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
-                arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
-                                         refine=refine, nremove=nremove)
+                arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                         refine=refine, nremove=nremove,
+                                         carg=True)
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
@@ -1445,6 +1488,72 @@ class Sample (unittest.TestCase):
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
         
         pause()
+
+
+    def test_sample_arg_joint_seq_gibbs(self):
+        """
+        Plot the ARG joint prob from a fully sampled ARG
+        """
+
+        k = 20
+        n = 1e4
+        rho = 1.5e-8 * 20
+        rho2 = rho
+        mu = 2.5e-8 * 20
+        length = 10000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        seqiters = 1; gibbsiters = 0
+        write = False
+        if write:
+            make_clean_dir("test/data/sample_arg_joint")
+
+        names = []
+        rx = []
+        ry = []
+        util.tic("plot")
+        for i in range(20):
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+            seqs = arglib.make_alignment(arg, muts)
+            if write:
+                arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
+                seqs.write("test/data/sample_arg_joint/%d.fa" % i)
+
+            
+            lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
+
+            for j in range(1):
+                util.tic("sample ARG %d, %d" % (i, j))
+                arg2 = arghmm.sample_arg_seq_gibbs(
+                    seqs, rho=rho2, mu=mu, times=times,
+                    seqiters=seqiters, gibbsiters=gibbsiters)
+                util.toc()
+
+                lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
+                                             times=times)
+                rx.append(lk)
+                ry.append(lk2)
+                names.append([i, j])
+                if write:
+                    arglib.write_arg("test/data/sample_arg_joint/%d-%d.arg" %
+                                     (i, j), arg2)
+        util.toc()
+
+        if write:
+            data = [[i, j, a, b] for (i, j), a, b in zip(names, rx, ry)]
+            write_delim("test/data/sample_arg_joint/data.txt", data)
+        
+
+        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
+
+        p = plot(rx, ry,
+                 xlab="true ARG joint probability",
+                 ylab="inferred ARG joint probability")
+        p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
+        
+        pause()
+
 
 
     def test_sample_arg_joint_core(self):
@@ -1530,12 +1639,12 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 12
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0; nremove = 1;
 
@@ -1583,14 +1692,14 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 7
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = int(1000e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        nremove = 1; refine = 5
+        nremove = 1; refine = 1
         write = False
         
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
@@ -1602,27 +1711,29 @@ class Sample (unittest.TestCase):
             seqs.write("test/data/sample_arg_joint/%d.fa" % i)
         
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times,
-                                    popsize=n)
+                                    popsizes=n)
         print "real joint", lk
 
         y = []
         
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
-                                 popsize=n)
+                                 popsizes=n)
         util.toc()
         
         lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho, times=times,
-                                     popsize=n)
+                                     popsizes=n)
         y.append(lk2)
 
         for i in range(50):
             util.tic("resample ARG %d" % i)
-            arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-                                     popsize=n, refine=refine, nremove=nremove)
+            arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                     popsizes=n)
+            #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
+            #                         popsizes=n, refine=refine, nremove=nremove)
             util.toc()
             lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
-                                         times=times, popsize=n)
+                                         times=times, popsizes=n)
             y.append(lk2)
             print lk2
 
