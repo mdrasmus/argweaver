@@ -1311,6 +1311,50 @@ class Basic (unittest.TestCase):
         test_arg_equal(arg, arg2)
 
 
+    #======================================================================
+    # misc
+
+    def test_state_corr(self):
+
+        k = 12
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(1e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200e3)
+        
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times)
+        seqs = arglib.make_alignment(arg, muts)
+                
+        # remove chrom
+        new_name = "n%d" % (k-1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
+        
+        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
+                              rho=rho, mu=mu)
+        print "states", len(model.states[0])
+
+
+        nstates = len(model.states[0])
+        prior = [-util.INF] * nstates
+        prior[random.randint(0, nstates)] = 0.0
+
+        probs1 = list(arghmm.forward_algorithm(model, length, verbose=True))
+        probs2 = list(arghmm.forward_algorithm(model, length, prior=prior,
+                                               verbose=True))
+
+        model.rho *= 1e-9
+        probs3 = list(arghmm.forward_algorithm(model, length, prior=prior,
+                                               verbose=True))
+
+        p = plot(vsubs(probs1[length-1], mean(probs1[length-1])))
+        p.plot(vsubs(probs2[length-1], mean(probs2[length-1])))
+        p.plot(vsubs(probs3[length-1], mean(probs3[length-1])))
+
+        pause()
+
 
 #=============================================================================
 if __name__ == "__main__":

@@ -769,7 +769,7 @@ double **arghmm_forward_alg(
     int **ptrees, int **ages, int **sprs, int *blocklens,
     int ntrees, int nnodes, double *times, int ntimes,
     double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen)
+    char **seqs, int nseqs, int seqlen, bool prior_given, double *prior)
 {    
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
@@ -781,8 +781,23 @@ double **arghmm_forward_alg(
     matrix_list.setup();
 
     ArgHmmForwardTableOld forward(0, sequences.length());
+
+    // setup prior
+    if (prior_given) {
+        LocalTree *tree = trees.begin()->tree;
+        int blocklen = trees.begin()->blocklen;
+        LineageCounts lineages(ntimes);
+        States states;
+        get_coal_states(tree, model.ntimes, states);
+
+        forward.new_block(0, blocklen, states.size());
+        double **fw = forward.get_table();
+        for (unsigned int i=0; i<states.size(); i++)
+            fw[0][i] = prior[i];
+    }
+
     arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list,
-                            &forward);
+                            &forward, prior_given);
 
     // steal pointer
     double **fw = forward.detach_table();

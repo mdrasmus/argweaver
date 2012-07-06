@@ -84,7 +84,8 @@ if arghmmclib:
             c_int, "ntrees", c_int, "nnodes", 
             c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_bool, "prior_given", c_double_list, "prior"])
     export(arghmmclib, "delete_double_matrix", c_int,
            [c_double_p_p, "mat", c_int, "nrows"])
     export(arghmmclib, "delete_forward_matrix", c_int,

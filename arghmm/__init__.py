@@ -1587,7 +1587,8 @@ def iter_trans_emit_matrices(model, n):
 
     
 
-def forward_algorithm(model, n, verbose=False, matrices=None):
+def forward_algorithm(model, n, verbose=False, matrices=None,
+                      prior=[]):
 
     probs = []
 
@@ -1609,7 +1610,7 @@ def forward_algorithm(model, n, verbose=False, matrices=None):
                             model.times, len(model.times),
                             model.popsizes, model.rho, model.mu,
                             (c_char_p * len(seqs))(*seqs), len(seqs),
-                            seqlen)
+                            seqlen, len(prior) > 0, prior)
 
     # map states to python state space
     all_states = get_state_spaces(ptrees, ages, sprs, blocklens,
