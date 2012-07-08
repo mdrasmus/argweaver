@@ -2394,6 +2394,45 @@ class Sample (unittest.TestCase):
         print arghmm.get_treeset(arg, times)
 
 
+    def test_sample_removal_path(self):
+        """
+        Test the sampling of a branch removal path
+        """
+
+        k = 5
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(1000e3) / 20
+        times = arghmm.get_time_points(ntimes=20)
+
+        util.tic("sim")
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        trees, names = arghmm.arg2ctrees(arg,times)
+        nnodes = 2*k - 1
+        ntrees = arghmm.get_local_trees_ntrees(trees)
+        print ntrees, nnodes
+        util.toc()
+
+        x = []
+        y = []
+        for i in range(100):
+            path = [0] * ntrees
+            node = random.randint(0, nnodes - 1)
+            arghmm.arghmm_sample_arg_removal_path(trees, node, path)
+
+            for j in xrange(ntrees):
+                x.append(j)
+                y.append(path[j])
+        
+        arghmm.delete_local_trees(trees)
+
+        p = plot(x, y)
+
+        pause()
+
+
 
 #=============================================================================
 if __name__ == "__main__":

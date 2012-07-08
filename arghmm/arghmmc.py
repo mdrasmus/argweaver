@@ -162,6 +162,9 @@ if arghmmclib:
             c_double_list, "times", c_int, "ntimes", c_int, "step",
             c_out(c_double_list), "popsizes"])
 
+    # threading
+    export(arghmmclib, "arghmm_sample_arg_removal_path", c_int,
+           [c_void_p, "trees", c_int, "node", c_out(c_int_list), "path"])
 
     # ARG data structure API
     export(arghmmclib, "arghmm_new_trees", c_void_p,

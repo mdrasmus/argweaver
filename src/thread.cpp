@@ -577,4 +577,168 @@ void remove_arg_thread(LocalTrees *trees, int remove_seqid)
 }
 
 
+//=============================================================================
+// internal branch threading operations
+
+
+// find the next possible branches in a removal path
+void get_next_removal_nodes(const LocalTree *tree1, 
+                            const Spr &spr2, const int *mapping2,
+                            int node, int next_nodes[2])
+{   
+    LocalNode *nodes = tree1->nodes;
+
+    // get passive transition
+    next_nodes[0] = mapping2[node];
+    if (next_nodes[0] == -1) {
+        // node is broken by SPR
+        // next node is then non-recomb child
+        int *c = nodes[node].child;
+        next_nodes[0] = (c[0] == spr2.recomb_node ? c[1] : c[0]);
+    }
+    
+    // get possible active transition
+    // if recoal is on this branch (node) then there is a split in the path
+    if (spr2.coal_node == node) {
+        // find recoal node, its the node with no inward mappings
+        const int nnodes = tree1->nnodes;
+        bool mapped[nnodes];
+        fill(mapped, mapped + nnodes, false);
+        for (int i=0; i<nnodes; i++) {
+            if (mapping2[i] != -1)
+                mapped[mapping2[i]] = true;
+        }
+
+        for (int i=0; i<nnodes; i++) {
+            if (!mapped[i]) {
+                next_nodes[1] = i;
+                break;
+            }
+        }
+    } else {
+        // no second transition
+        next_nodes[1] = -1;
+    }
+}
+
+
+void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
+{
+    int i = 0;
+    path[i++] = node;
+    LocalTree *last_tree = NULL;
+
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        LocalTree *tree = it->tree;
+
+        if (last_tree) {
+            int next_nodes[2];
+            get_next_removal_nodes(last_tree, it->spr, it->mapping,
+                                   path[i-1], next_nodes);
+            int j = (next_nodes[1] != -1 ? irand(2) : 0);
+            path[i++] = next_nodes[j];
+        }
+        
+        last_tree = tree;
+    }
+}
+
+
+// Removes a thread path from an ARG and returns a partial ARG
+void remove_arg_thread_path(LocalTrees *trees, int *removal_path, int maxtime)
+{
+    int nnodes = trees->nnodes;
+    int nleaves = trees->get_num_leaves();
+    
+    int i=0;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, i++) 
+    {
+        LocalTree *tree = it->tree;
+        LocalNode *nodes = tree->nodes;
+
+        int removal_node = removal_path[i];
+        
+        // modify local into subtree-maintree format
+        int broken_node = nodes[removal_node].parent;
+        int *c = nodes[broken_node].child;
+        int broken_child = (c[0] == removal_node ? c[1] : c[0]);
+        Spr removal_spr(removal_node, nodes[removal_node].age,
+                        tree->root, maxtime);
+        apply_spr(tree, removal_spr);
+
+        // get next tree
+        LocalTrees::iterator it2 = it;
+        ++it2;
+        if (it2 == trees->end())
+            continue;
+
+        // fix SPR
+        Spr *spr = &it2->spr;
+
+        // if recomb is on branch removed, prune it
+        if (spr->recomb_node == removal_node) {
+            spr->set_null();
+            continue;
+        }
+
+        // see if recomb node is renamed
+        if (spr->recomb_node == broken_node) {
+            spr->recomb_node = broken_child;
+        }
+        
+        // TODO: consider what happens when removal SPR is a bubble
+        // or if it can be.
+
+        /*
+        // if recomb is on root branch, prune it
+        if (spr->recomb_node == broken_child && nodes[broken_child].parent == -1) {
+            spr->set_null();
+            continue;
+        }
+
+        // rename spr coal_node
+        if (spr->coal_node == remove_leaf) {
+            // mediated coal
+            spr->coal_node = coal_child;
+            spr->coal_time = coal_time;
+
+        } else if (spr->coal_node == remove_coal) {
+            // move coal down a branch
+            spr->coal_node = coal_child;
+        } else {
+            // rename recomb_node due to displacement
+            spr->coal_node = displace[spr->coal_node];
+        }
+
+
+        // check for bubbles
+        if (spr->recomb_node == spr->coal_node) {
+            spr->set_null();
+            continue;
+        }
+        */
+        
+    }
+    
+    // remove extra trees
+    remove_null_sprs(trees);
+    
+    assert_trees(trees);
+}
+
+
+
+//=============================================================================
+// C interface
+
+extern "C" {
+
+void arghmm_sample_arg_removal_path(LocalTrees *trees, int node, int *path)
+{
+    sample_arg_removal_path(trees, node, path);
+}
+
+
+} // extern C
+
 } // namespace arghmm
