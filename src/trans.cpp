@@ -710,18 +710,22 @@ void calc_transition_probs_switch_internal(
     {
         // stay case (recomb above)
         int j = recomb_next_states[0];
-        recomb_parent_age = last_tree->nodes[
-            last_tree->nodes[spr.recomb_node].parent].age;
-        transmat_switch->recombrow[j] = log(calc_recomb_recoal(
-            last_tree, model, lineages, spr, states1[recombsrc],
-            recomb_parent_age));
+        if (j != -1) {
+            recomb_parent_age = last_tree->nodes[
+                last_tree->nodes[spr.recomb_node].parent].age;
+            transmat_switch->recombrow[j] = log(calc_recomb_recoal(
+                last_tree, model, lineages, spr, states1[recombsrc],
+                recomb_parent_age));
+        }
 
         // escape case (recomb below)
         j = recomb_next_states[1];
-        recomb_parent_age = states1[recombsrc].time;
-        transmat_switch->recombrow[j] = log(calc_recomb_recoal(
-            last_tree, model, lineages, spr, states1[recombsrc],
-            recomb_parent_age));
+        if (j != -1) {
+            recomb_parent_age = states1[recombsrc].time;
+            transmat_switch->recombrow[j] = log(calc_recomb_recoal(
+                last_tree, model, lineages, spr, states1[recombsrc],
+                recomb_parent_age));
+        }
     }
     
 

@@ -31,7 +31,7 @@ using namespace std;
 
 inline double logsum_fast(const double *vals, int nvals)
 {
-    return logsum(vals, nvals, -6);
+    return logsum(vals, nvals, -10);
 }
 
 
@@ -40,7 +40,8 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
                               const int blocklen, const States &states, 
                               const LineageCounts &lineages,
                               const TransMatrix *matrix,
-                              const double* const *emit, double **fw)
+                              const double* const *emit, double **fw,
+                              bool internal=false)
 {
     const int nstates = states.size();
     const int ntimes = model->ntimes;
@@ -53,6 +54,14 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
     const double *G = matrix->G;
     const double *norecombs = matrix->norecombs;
 
+    double Bq = 0.0;
+    if (internal) {
+        const int subtree_root = nodes[tree->root].child[0];
+        const int subtree_age = nodes[subtree_root].age;
+        if (subtree_age > 0)
+            Bq = B[subtree_age - 1];
+    }
+
     // compute ntimes*ntimes and ntime*nstates temp matrices
     double lnorecombs[ntimes];
     double tmatrix[ntimes][ntimes];
@@ -62,7 +71,7 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
 
         for (int b=0; b<ntimes-1; b++) {
             const double I = double(a <= b);
-            tmatrix[a][b] = log(D[a] * E[b] * (B[min(a,b)] - I * G[a]));
+            tmatrix[a][b] = log(D[a] * E[b] * (B[min(a,b)] - Bq - I*G[a]));
         }
 
         for (int k=0; k<nstates; k++) {
@@ -71,7 +80,7 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
             const int c = nodes[node2].age;
             const double Bc = (c > 0 ? B[c-1] : 0.0);
             const double I = double(a <= b);
-            tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)] - I * G[a] - Bc));
+            tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)]-Bq - I*G[a] - Bc));
         }
     }
 
@@ -159,19 +168,23 @@ void arghmm_forward_switch(const double *col1, double* col2,
                            const TransMatrixSwitch *matrix,
                            const double *emit)
 {        
+    // if state space is size zero, we still treat it as size 1
+    const int nstates1 = max(matrix->nstates1, 1);
+    const int nstates2 = max(matrix->nstates2, 1);
+
     // initialize all entries in col2 to log(0)
-    for (int k=0; k<matrix->nstates2; k++)
+    for (int k=0; k<nstates2; k++)
         col2[k] = -INFINITY;
 
     // add deterministic transitions
-    for (int j=0; j<matrix->nstates1; j++) {
-        if (j != matrix->recombsrc && j != matrix->recoalsrc) {
-            int k = matrix->determ[j];
+    for (int j=0; j<nstates1; j++) {
+        int k = matrix->determ[j];
+        if (j != matrix->recombsrc && j != matrix->recoalsrc && k != -1) {
             col2[k] = logadd(col2[k], col1[j] + matrix->determprob[j]);
         }
     }
     
-    for (int k=0; k<matrix->nstates2; k++) {
+    for (int k=0; k<nstates2; k++) {
         if (matrix->recombrow[k] > -INFINITY)
             col2[k] = logadd(col2[k], col1[matrix->recombsrc] + 
                              matrix->recombrow[k]);
