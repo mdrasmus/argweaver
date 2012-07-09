@@ -581,40 +581,46 @@ void remove_arg_thread(LocalTrees *trees, int remove_seqid)
 // internal branch threading operations
 
 
+// find recoal node, it is the node with no inward mappings
+int get_recoal_node(const LocalTree *tree, 
+                     const Spr &spr, const int *mapping)
+{
+    const int nnodes = tree->nnodes;
+    bool mapped[nnodes];
+    fill(mapped, mapped + nnodes, false);
+
+    for (int i=0; i<nnodes; i++)
+        if (mapping[i] != -1)
+            mapped[mapping[i]] = true;
+    
+    for (int i=0; i<nnodes; i++)
+        if (!mapped[i])
+            return i;
+}
+
+
 // find the next possible branches in a removal path
 void get_next_removal_nodes(const LocalTree *tree1, 
                             const Spr &spr2, const int *mapping2,
                             int node, int next_nodes[2])
 {   
-    LocalNode *nodes = tree1->nodes;
+    const int recoal = get_recoal_node(tree1, spr2, mapping2);
 
     // get passive transition
     next_nodes[0] = mapping2[node];
     if (next_nodes[0] == -1) {
         // node is broken by SPR
-        // next node is then non-recomb child
-        int *c = nodes[node].child;
-        next_nodes[0] = (c[0] == spr2.recomb_node ? c[1] : c[0]);
+        // next node is then non-recomb child or recoal
+        next_nodes[0] = tree1->get_sibling(spr2.recomb_node);
+        if (spr2.coal_node == next_nodes[0])
+            next_nodes[0] = recoal;
     }
     
     // get possible active transition
     // if recoal is on this branch (node) then there is a split in the path
     if (spr2.coal_node == node) {
         // find recoal node, its the node with no inward mappings
-        const int nnodes = tree1->nnodes;
-        bool mapped[nnodes];
-        fill(mapped, mapped + nnodes, false);
-        for (int i=0; i<nnodes; i++) {
-            if (mapping2[i] != -1)
-                mapped[mapping2[i]] = true;
-        }
-
-        for (int i=0; i<nnodes; i++) {
-            if (!mapped[i]) {
-                next_nodes[1] = i;
-                break;
-            }
-        }
+        next_nodes[1] = recoal;
     } else {
         // no second transition
         next_nodes[1] = -1;
@@ -647,24 +653,48 @@ void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
 // Removes a thread path from an ARG and returns a partial ARG
 void remove_arg_thread_path(LocalTrees *trees, int *removal_path, int maxtime)
 {
-    int nnodes = trees->nnodes;
-    int nleaves = trees->get_num_leaves();
+    LocalTree *tree = NULL;
     
     int i=0;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, i++) 
     {
-        LocalTree *tree = it->tree;
+        LocalTree *last_tree = tree;
+        tree = it->tree;
         LocalNode *nodes = tree->nodes;
 
         int removal_node = removal_path[i];
         
         // modify local into subtree-maintree format
         int broken_node = nodes[removal_node].parent;
-        int *c = nodes[broken_node].child;
-        int broken_child = (c[0] == removal_node ? c[1] : c[0]);
+        int coal_time = nodes[broken_node].age;
+        int broken_child = tree->get_sibling(removal_node);
         Spr removal_spr(removal_node, nodes[removal_node].age,
                         tree->root, maxtime);
-        apply_spr(tree, removal_spr);
+
+        if (removal_node == tree->root) {
+            // removal path has "fallen off the top" there is nothing to edit
+            continue;
+        } else 
+            apply_spr(tree, removal_spr);
+        
+        // determine subtree and maintree roots
+        int subtree_root = removal_node;
+        int maintree_root = tree->get_sibling(subtree_root);
+        
+        // ensure subtree is the first child of the root
+        int *c = nodes[tree->root].child;
+        if (c[0] == maintree_root) {
+            c[0] = subtree_root;
+            c[1] = maintree_root;
+        }
+        
+        // fix previous mapping
+        if (it->mapping) {
+            assert(last_tree);
+            if (removal_path[i-1] != last_tree->root)
+                it->mapping[last_tree->root] = tree->root;
+        }
+
 
         // get next tree
         LocalTrees::iterator it2 = it;
@@ -672,11 +702,16 @@ void remove_arg_thread_path(LocalTrees *trees, int *removal_path, int maxtime)
         if (it2 == trees->end())
             continue;
 
+
+
         // fix SPR
         Spr *spr = &it2->spr;
+        int *mapping = it2->mapping;
 
         // if recomb is on branch removed, prune it
         if (spr->recomb_node == removal_node) {
+            int p = nodes[spr->recomb_node].parent;
+            assert(mapping[p] != -1 || p == tree->root);
             spr->set_null();
             continue;
         }
@@ -686,39 +721,60 @@ void remove_arg_thread_path(LocalTrees *trees, int *removal_path, int maxtime)
             spr->recomb_node = broken_child;
         }
         
-        // TODO: consider what happens when removal SPR is a bubble
-        // or if it can be.
+        // detect branch path splits
+        int next_nodes[2];
+        get_next_removal_nodes(tree, *spr, mapping, 
+                               removal_path[i], next_nodes);
 
-        /*
-        // if recomb is on root branch, prune it
-        if (spr->recomb_node == broken_child && nodes[broken_child].parent == -1) {
-            spr->set_null();
-            continue;
+        if (spr->coal_node == removal_node) {
+            if (removal_path[i+1] == next_nodes[0]) {
+                // removal path chooses lower path
+                // note: sister_node = broken_child
+                
+                if (spr->recomb_node == broken_child) {
+                    // spr is now bubble, prune it
+                    int p = nodes[spr->recomb_node].parent;
+                    assert(mapping[p] != -1 || p == tree->root);
+                    spr->set_null();
+                    continue;
+                } else {
+                    // recomb is on non-sister branch, therefore it is a
+                    // mediated coalescence
+                    spr->coal_node = broken_child;
+                    spr->coal_time = coal_time;
+                }
+            } else {
+                // removal path chooses upper path
+                // keep spr recoal where it is
+
+                // assert that upper path is the new recoal node
+                // nobody should map to the new recoal node
+                for (int j=0; j<tree->nnodes; j++)
+                    assert(mapping[j] != removal_path[i+1]);
+            }
+        } else if (spr->coal_node == broken_node) {
+            // rename spr recoal
+            spr->coal_node = broken_child;
         }
-
-        // rename spr coal_node
-        if (spr->coal_node == remove_leaf) {
-            // mediated coal
-            spr->coal_node = coal_child;
-            spr->coal_time = coal_time;
-
-        } else if (spr->coal_node == remove_coal) {
-            // move coal down a branch
-            spr->coal_node = coal_child;
-        } else {
-            // rename recomb_node due to displacement
-            spr->coal_node = displace[spr->coal_node];
-        }
-
-
+        
         // check for bubbles
         if (spr->recomb_node == spr->coal_node) {
+            int p = nodes[spr->recomb_node].parent;
+            assert(mapping[p] != -1 || p == tree->root);
             spr->set_null();
             continue;
         }
-        */
-        
+
+        // ensure broken node maps to -1
+        int spr_broken_node = nodes[spr->recomb_node].parent;
+        mapping[spr_broken_node] = -1;
+
+        // assert spr
+        if (last_tree && !it->spr.is_null())
+            assert_spr(last_tree, tree, &it->spr, it->mapping);
     }
+
+    assert_trees(trees);
     
     // remove extra trees
     remove_null_sprs(trees);
@@ -736,6 +792,12 @@ extern "C" {
 void arghmm_sample_arg_removal_path(LocalTrees *trees, int node, int *path)
 {
     sample_arg_removal_path(trees, node, path);
+}
+
+void arghmm_remove_arg_thread_path(LocalTrees *trees, int *removal_path, 
+                                   int maxtime)
+{
+    remove_arg_thread_path(trees, removal_path, maxtime);
 }
 
 

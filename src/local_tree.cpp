@@ -532,6 +532,9 @@ bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping)
     if (spr->recomb_node == -1)
         assert(false);
 
+    // recomb baring branch cannot be broken
+    assert(mapping[spr->recomb_node] != -1);
+
     // coal time is older than recomb time
     if (spr->recomb_time > spr->coal_time)
         assert(false);
@@ -591,8 +594,23 @@ bool assert_trees(LocalTrees *trees)
         assert(it->blocklen >= 0);
         assert(assert_tree(tree));
 
-        if (last_tree)
-            assert(assert_spr(last_tree, tree, spr, mapping));
+        if (last_tree) {
+            if (spr->is_null()) {
+                // just check that mapping is 1-to-1
+                bool mapped[tree->nnodes];
+                fill(mapped, mapped + tree->nnodes, false);
+
+                for (int i=0; i<tree->nnodes; i++) {
+                    assert(mapping[i] != -1);
+                    assert(!mapped[mapping[i]]);
+                    mapped[mapping[i]] = true;
+                }
+
+            } else {
+                assert(assert_spr(last_tree, tree, spr, mapping));
+            }
+        }
+
         last_tree = tree;
     }
 

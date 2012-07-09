@@ -285,7 +285,7 @@ public:
 
 
     // Copy tree structure from another tree
-    void copy(const LocalTree &other)
+    inline void copy(const LocalTree &other)
     {
         // copy tree info
         nnodes = other.nnodes;        
@@ -295,6 +295,18 @@ public:
         // copy node info
         for (int i=0; i<nnodes; i++)
             nodes[i].copy(other.nodes[i]);
+    }
+
+    
+    inline int get_sibling(int node) const {
+        int parent = nodes[node].parent;
+        if (parent == -1)
+            return -1;
+        int *c = nodes[parent].child;
+        if (c[0] == node)
+            return c[1];
+        else
+            return c[0];
     }
 
 

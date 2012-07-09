@@ -165,6 +165,8 @@ if arghmmclib:
     # threading
     export(arghmmclib, "arghmm_sample_arg_removal_path", c_int,
            [c_void_p, "trees", c_int, "node", c_out(c_int_list), "path"])
+    export(arghmmclib, "arghmm_remove_arg_thread_path", c_int,
+           [c_void_p, "trees", c_int_list, "path", c_int, "maxtime"])
 
     # ARG data structure API
     export(arghmmclib, "arghmm_new_trees", c_void_p,
