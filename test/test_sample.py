@@ -1431,13 +1431,13 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 4
+        k = 12
         n = 1e4
-        rho = 1.5e-8 * 20
+        rho = 1.5e-8 * 20 / 10.
         mu = 2.5e-8 * 20
-        length = int(100e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 10; nremove = 1
+        refine = 0; nremove = 1
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")

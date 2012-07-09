@@ -200,7 +200,7 @@ void arghmm_forward_switch(const double *col1, double* col2,
 // run forward algorithm with matrices precomputed
 void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
     Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
-       ArgHmmForwardTable *forward, bool prior_given)
+    ArgHmmForwardTable *forward, bool prior_given)
 {
     LineageCounts lineages(model->ntimes);
     States states;
