@@ -1431,13 +1431,13 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 2
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = int(100e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 0; nremove = 1
+        refine = 10; nremove = 1
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
@@ -1446,7 +1446,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(100):
+        for i in range(20):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1639,7 +1639,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 2
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1692,7 +1692,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 2
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
@@ -1725,7 +1725,7 @@ class Sample (unittest.TestCase):
                                      popsizes=n)
         y.append(lk2)
 
-        for i in range(50):
+        for i in range(10):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                      popsizes=n)

@@ -38,6 +38,7 @@ class NodeStateLookup
 {
 public:
     NodeStateLookup(const States &states, int nnodes) :
+        states(states),
         nstates(states.size()),
         nnodes(nnodes)
     {
@@ -46,10 +47,9 @@ public:
         // allocate lookup arrays
         node_offset = new int[nnodes];
         state_lookup = new int[nstates];
-
-
+        nstates_per_node = new int[nnodes];
+        
         // count number of states per node and mintime per node
-        int nstates_per_node[nnodes];
         int node_mintimes[nnodes];
 
         // initialize arrays
@@ -81,17 +81,30 @@ public:
         // clean up lookup arrays
         delete [] node_offset;
         delete [] state_lookup;
+        delete [] nstates_per_node;
     }
 
     // Returns the state index for state (node, time)
     inline int lookup(int node, int time) {
-        return state_lookup[node_offset[node] + time];
+        if (nstates_per_node[node] == 0)
+            return -1;
+        const int i = node_offset[node] + time;
+        if (i < 0 || i >= nstates)
+            return -1;
+        const int statei = state_lookup[i];
+        if (states[statei].node != node ||
+            states[statei].time != time)
+            return -1;
+        return statei;
     }
 
+protected:
+    const States &states;
     int nstates;
     int nnodes;
     int *node_offset;
     int *state_lookup;
+    int *nstates_per_node;
 };
 
 

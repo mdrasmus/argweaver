@@ -108,12 +108,13 @@ public:
     {
         nstates1 = nstates1;
         nstates2 = nstates2;
-        own_data = true;
-        determ = new int [nstates1];
-        determprob = new double [nstates1];
 
-        // NOTE: nstates2 might be zero
+        // NOTE: nstates1 and nstates2 might be zero
         // we still calculate transitions for a state space of size zero
+
+        own_data = true;
+        determ = new int [max(nstates1, 1)];
+        determprob = new double [max(nstates1, 1)];
         recoalrow = new double [max(nstates2, 1)];
         recombrow = new double [max(nstates2, 1)];
     }
