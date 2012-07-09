@@ -111,8 +111,11 @@ public:
         own_data = true;
         determ = new int [nstates1];
         determprob = new double [nstates1];
-        recoalrow = new double [nstates2];
-        recombrow = new double [nstates2];
+
+        // NOTE: nstates2 might be zero
+        // we still calculate transitions for a state space of size zero
+        recoalrow = new double [max(nstates2, 1)];
+        recombrow = new double [max(nstates2, 1)];
     }
     
     inline double get_transition_prob(int i, int j) const
@@ -143,14 +146,13 @@ public:
 
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     const States &states, const LineageCounts *lineages, TransMatrix *matrix);
-
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
-                           const States &states, const LineageCounts *lineages,
-                           double **transprob);
-
-void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
+                          const States &states, const LineageCounts *lineages,
+                          double **transprob);
+void get_transition_probs(const LocalTree *tree, const ArgModel *model,
                            const States &states, const LineageCounts *lineages,
                            const TransMatrix *matrix, double **transprob);
+
 
 void calc_transition_probs_switch(
     const LocalTree *tree, const LocalTree *last_tree, 
@@ -158,15 +160,13 @@ void calc_transition_probs_switch(
     const States &states1, const States &states2,
     const ArgModel *model, const LineageCounts *lineages, 
     TransMatrixSwitch *transmat_switch);
-
 void calc_transition_probs_switch(
     const LocalTree *tree, const LocalTree *last_tree, 
     const Spr &spr, const int *mapping,
     const States &states1, const States &states2,
     const ArgModel *model, const LineageCounts *lineages, double **transprob);
-
-void calc_transition_probs_switch(const TransMatrixSwitch *matrix, 
-                                  double **transprob);
+void get_transition_probs_switch(const TransMatrixSwitch *matrix, 
+                                 double **transprob);
 
 void calc_state_priors(const States &states, const LineageCounts *lineages, 
                        const ArgModel *model, double *priors);

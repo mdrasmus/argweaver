@@ -58,6 +58,61 @@ void count_lineages(const LocalTree *tree, int ntimes,
 }
 
 
+// Counts the number of lineages in a tree for each time segment
+//
+// NOTE: Nodes in the tree are not allowed to exist at the top time point 
+// point (ntimes - 1).
+//
+// tree      -- local tree to count
+// ntimes    -- number of time segments
+// nbranches -- number of branches that exists between time i and i+1
+// nrecombs  -- number of possible recombination points at time i
+// ncoals    -- number of possible coalescing points at time i
+void count_lineages_internal(const LocalTree *tree, int ntimes,
+                             int *nbranches, int *nrecombs, int *ncoals)
+{
+    const LocalNode *nodes = tree->nodes;
+    const int subtree_root = nodes[tree->root].child[0];
+    const int minage = nodes[subtree_root].age;
+
+    // initialize counts
+    for (int i=0; i<ntimes; i++) {
+        nbranches[i] = 0;
+        nrecombs[i] = 0;
+        ncoals[i] = 0;
+    }
+
+    // iterate over the branches of the tree
+    for (int i=0; i<tree->nnodes; i++) {
+        assert(nodes[i].age < ntimes - 1);
+        const int parent = nodes[i].parent;
+        const int parent_age = ((parent == tree->root) ? ntimes - 2 : 
+                                nodes[parent].age);
+
+        // skip virtual branches
+        if (i == subtree_root || i == tree->root)
+            continue;
+        
+        // add counts for every segment along branch
+        for (int j=max(nodes[i].age, minage); j<parent_age; j++) {
+            nbranches[j]++;
+            nrecombs[j]++;
+            ncoals[j]++;
+        }
+
+        // recomb and coal are also allowed at the top of a branch
+        nrecombs[parent_age]++;
+        ncoals[parent_age]++;
+        if (parent == tree->root)
+            nbranches[parent_age]++;
+    }
+    
+    // ensure last time segment always has one branch
+    nbranches[ntimes - 1] = 1;
+}
+
+
+
 // Calculate tree length according to ArgHmm rules
 double get_treelen(const LocalTree *tree, const double *times, int ntimes,
                    bool use_basal)
@@ -80,6 +135,25 @@ double get_treelen(const LocalTree *tree, const double *times, int ntimes,
     return treelen;
 }
 
+
+double get_treelen_internal(const LocalTree *tree, const double *times, 
+                            int ntimes)
+{
+    double treelen = 0.0;
+    const LocalNode *nodes = tree->nodes;
+    
+    for (int i=0; i<tree->nnodes; i++) {
+        int parent = nodes[i].parent;
+        int age = nodes[i].age;
+        if (parent == tree->root) {
+            // skip virtual branches
+        } else {
+            treelen += times[nodes[parent].age] - times[age];
+        }
+    }
+    
+    return treelen;
+}
 
 double get_treelen_branch(const LocalTree *tree, const double *times, 
                           int ntimes, int node, int time, 
@@ -126,6 +200,7 @@ double get_basal_branch(const LocalTree *tree, const double *times, int ntimes,
 }
 
 
+// modify a local tree by Subtree Pruning and Regrafting
 void apply_spr(LocalTree *tree, const Spr &spr)
 {
     // before SPR:
@@ -207,6 +282,7 @@ void apply_spr(LocalTree *tree, const Spr &spr)
 //=============================================================================
 // local trees methods
 
+// removes a null SPR from one local tree
 bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it)
 {
     // look one tree ahead
@@ -345,6 +421,8 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
 }
 
 
+// breaks a list of local trees into two separate trees
+// Returns second list of local trees.
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos)
 {
     // find break point
@@ -459,18 +537,17 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
 // assert functions
 
 // Asserts that a postorder traversal is correct
-bool assert_tree_postorder(LocalTree *tree, int *order)
+bool assert_tree_postorder(const LocalTree *tree, const int *order)
 {
     if (tree->root != order[tree->nnodes-1])
         return false;
 
-    char seen[tree->nnodes];
-    for (int i=0; i<tree->nnodes; i++)
-        seen[i] = 0;
+    bool seen[tree->nnodes];
+    fill(seen, seen + tree->nnodes, false);
 
     for (int i=0; i<tree->nnodes; i++) {
         int node = order[i];
-        seen[node] = 1;
+        seen[node] = true;
         if (!tree->nodes[node].is_leaf()) {
             if (! seen[tree->nodes[node].child[0]] ||
                 ! seen[tree->nodes[node].child[1]])
@@ -504,8 +581,6 @@ bool assert_tree(const LocalTree *tree)
             if (nodes[c[1]].parent != i)
                 return false;
         }
-
-        // check parent
 
         // check root
         if (nodes[i].parent == -1) {

@@ -290,8 +290,8 @@ public:
             if (calc_full) {
                 matrices->transprobs_switch = new_matrix<double>(
                     matrices->nstates1, matrices->nstates2);
-                calc_transition_probs_switch(matrices->transmat_switch,
-                                             matrices->transprobs_switch);
+                get_transition_probs_switch(matrices->transmat_switch,
+                                            matrices->transprobs_switch);
             } else {
                 matrices->transprobs_switch = NULL;
             }
@@ -306,7 +306,7 @@ public:
                               matrices->transmat);
         if (calc_full) {
             matrices->transprobs = new_matrix<double>(nstates, nstates);
-            calc_transition_probs(tree, model, *states, &lineages,
+            get_transition_probs(tree, model, *states, &lineages,
                 matrices->transmat, matrices->transprobs);
         } else {
             matrices->transprobs = NULL;

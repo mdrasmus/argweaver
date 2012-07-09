@@ -535,6 +535,8 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2);
 void apply_spr(LocalTree *tree, const Spr &spr);
 double get_treelen(const LocalTree *tree, const double *times, int ntimes,
                     bool use_basal=true);
+double get_treelen_internal(const LocalTree *tree, const double *times, 
+                            int ntimes);
 double get_treelen_branch(const LocalTree *tree, const double *times, 
                           int ntimes, int node, int time, double treelen=-1.0, 
                           bool use_basal=true);
@@ -555,6 +557,7 @@ inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
 //=============================================================================
 // assert functions
 
+bool assert_tree_postorder(const LocalTree *tree, const int *order);
 bool assert_tree(const LocalTree *tree);
 bool assert_spr(const LocalTree *last_tree, const LocalTree *tree, 
                 const Spr *spr, const int *mapping);
