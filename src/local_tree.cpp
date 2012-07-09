@@ -483,7 +483,7 @@ bool assert_tree_postorder(LocalTree *tree, int *order)
 
 
 // Asserts structure of tree
-bool assert_tree(LocalTree *tree)
+bool assert_tree(const LocalTree *tree)
 {
     LocalNode *nodes = tree->nodes;
     int nnodes = tree->nnodes;
@@ -525,7 +525,8 @@ bool assert_tree(LocalTree *tree)
 }
 
 
-bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping)
+bool assert_spr(const LocalTree *last_tree, const LocalTree *tree, 
+                const Spr *spr, const int *mapping)
 {
     LocalNode *last_nodes = last_tree->nodes;
 

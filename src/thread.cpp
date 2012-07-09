@@ -583,7 +583,7 @@ void remove_arg_thread(LocalTrees *trees, int remove_seqid)
 
 // find recoal node, it is the node with no inward mappings
 int get_recoal_node(const LocalTree *tree, 
-                     const Spr &spr, const int *mapping)
+                    const Spr &spr, const int *mapping)
 {
     const int nnodes = tree->nnodes;
     bool mapped[nnodes];
@@ -596,6 +596,9 @@ int get_recoal_node(const LocalTree *tree,
     for (int i=0; i<nnodes; i++)
         if (!mapped[i])
             return i;
+
+    assert(false);
+    return -1;
 }
 
 
@@ -651,7 +654,8 @@ void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
 
 
 // Removes a thread path from an ARG and returns a partial ARG
-void remove_arg_thread_path(LocalTrees *trees, int *removal_path, int maxtime)
+void remove_arg_thread_path(LocalTrees *trees, const int *removal_path, 
+                            int maxtime)
 {
     LocalTree *tree = NULL;
     

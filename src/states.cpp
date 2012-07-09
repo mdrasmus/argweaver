@@ -31,10 +31,10 @@ void make_intstates(States states, intstate *istates)
 // NOTE: Do not allow coalescing at top time
 // states for the same branch are clustered together and ages are given
 // in increasing order
-void get_coal_states(LocalTree *tree, int ntimes, States &states)
+void get_coal_states(const LocalTree *tree, int ntimes, States &states)
 {
     states.clear();
-    LocalNode *nodes = tree->nodes;
+    const LocalNode *nodes = tree->nodes;
     
     // iterate over the branches of the tree
     for (int i=0; i<tree->nnodes; i++) {
@@ -55,10 +55,10 @@ void get_coal_states(LocalTree *tree, int ntimes, States &states)
 }
 
 // Returns the number of possible coalescing states for a tree
-int get_num_coal_states(LocalTree *tree, int ntimes)
+int get_num_coal_states(const LocalTree *tree, int ntimes)
 {
     int nstates = 0;
-    LocalNode *nodes = tree->nodes;
+    const LocalNode *nodes = tree->nodes;
     
     // iterate over the branches of the tree
     for (int i=0; i<tree->nnodes; i++) {
@@ -79,6 +79,76 @@ int get_num_coal_states(LocalTree *tree, int ntimes)
 
     return nstates;
 }
+
+
+// Returns the possible coalescing states for a tree that is in
+// subtree-maintree format for internal branch resampling
+//
+// NOTE: Do not allow coalescing at top time
+// states for the same branch are clustered together and ages are given
+// in increasing order
+void get_coal_states_internal(const LocalTree *tree, int ntimes, States &states)
+{
+    states.clear();
+    const LocalNode *nodes = tree->nodes;
+    int subtree_root = nodes[tree->root].child[0];
+    int minage = nodes[subtree_root].age;
+    
+    // iterate over the branches of the tree
+    for (int i=0; i<tree->nnodes; i++) {
+        int time = max(nodes[i].age, minage);
+        const int parent = nodes[i].parent;
+        
+        // skip subtree root branch and root node
+        if (i == subtree_root || i == tree->root)
+            continue;
+
+        if (parent == tree->root) {
+            // no parent, allow coalescing up basal branch until ntimes-2
+            for (; time<ntimes-1; time++)
+                states.push_back(State(i, time));
+        } else {
+            // allow coalescing up branch until parent
+            const int parent_age = nodes[parent].age;
+            for (; time<=parent_age; time++)
+                states.push_back(State(i, time));
+        }
+    }
+}
+
+
+// Returns the number of possible coalescing states for a tree
+int get_num_coal_states_internal(const LocalTree *tree, int ntimes)
+{
+    int nstates = 0;
+    const LocalNode *nodes = tree->nodes;
+    int subtree_root = nodes[tree->root].child[0];
+    int minage = nodes[subtree_root].age;
+    
+    // iterate over the branches of the tree
+    for (int i=0; i<tree->nnodes; i++) {
+        int time = max(nodes[i].age, minage);
+        const int parent = nodes[i].parent;
+        
+        // skip subtree root branch and root node
+        if (i == subtree_root || i == tree->root)
+            continue;
+
+        if (parent == tree->root) {
+            // no parent, allow coalescing up basal branch until ntimes-2
+            for (; time<ntimes-1; time++)
+                nstates++;
+        } else {
+            // allow coalescing up branch until parent
+            const int parent_age = nodes[parent].age;
+            for (; time<=parent_age; time++)
+                nstates++;
+        }
+    }
+
+    return nstates;
+}
+
 
 
 //=============================================================================

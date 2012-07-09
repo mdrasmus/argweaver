@@ -555,8 +555,9 @@ inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
 //=============================================================================
 // assert functions
 
-bool assert_tree(LocalTree *tree);
-bool assert_spr(LocalTree *last_tree, LocalTree *tree, Spr *spr, int *mapping);
+bool assert_tree(const LocalTree *tree);
+bool assert_spr(const LocalTree *last_tree, const LocalTree *tree, 
+                const Spr *spr, const int *mapping);
 bool assert_trees(LocalTrees *trees);
 
 

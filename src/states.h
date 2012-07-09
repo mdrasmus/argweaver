@@ -105,11 +105,11 @@ void make_states(intstate *istates, int nstates, States &states);
 // Converts state class represent to integer-based
 void make_intstates(States states, intstate *istates);
 
-// Returns the possible coalescing states for a tree
-void get_coal_states(LocalTree *tree, int ntimes, States &states);
+void get_coal_states(const LocalTree *tree, int ntimes, States &states);
+int get_num_coal_states(const LocalTree *tree, int ntimes);
 
-// Returns the number of possible coalescing states for a tree
-int get_num_coal_states(LocalTree *tree, int ntimes);
+void get_coal_states_internal(const LocalTree *tree, int ntimes,States &states);
+int get_num_coal_states_internal(const LocalTree *tree, int ntimes);
 
 
 
