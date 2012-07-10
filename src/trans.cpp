@@ -846,14 +846,16 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
     for (int i=0; i<nstates; i++) {
         int b = states[i].time;
 
+        if (b < minage) {
+            priors[i] = -INFINITY;
+            continue;
+        }
+
         double sum = 0.0;
         for (int m=minage; m<b; m++)
             sum += time_steps[m] * nbranches[m] / (2.0 * popsizes[m]);
 
-        if (sum == 0.0)
-            priors[i] = -INFINITY;
-        else
-            priors[i] = log((1.0 - exp(- time_steps[b] * nbranches[b] /
+        priors[i] = log((1.0 - exp(- time_steps[b] * nbranches[b] /
                             (2.0 * popsizes[b]))) / ncoals[b] * exp(-sum));
     }
 }

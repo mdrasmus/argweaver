@@ -224,7 +224,7 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
     LineageCounts lineages(model->ntimes);
     States states;
     ArgHmmMatrices matrices;
-
+    
     double **fw = forward->get_table();
 
     // forward algorithm over local trees
