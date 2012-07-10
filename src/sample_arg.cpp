@@ -81,6 +81,34 @@ void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 }
 
 
+// resample the threading of all the chromosomes
+void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
+{
+    const int maxtime = model->ntimes + 1;
+    int *removal_path = new int [sequences->length()];
+
+    assert_trees(trees);
+
+    int node = irand(trees->nnodes);
+    sample_arg_removal_path(trees, node, removal_path);
+    remove_arg_thread_path(trees, removal_path, maxtime);
+    sample_arg_thread_internal(model, sequences, trees);
+
+    // ensure trees are not partial any more
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        LocalTree *tree = it->tree;
+        assert(tree->nodes[tree->root].age < model->ntimes);
+    }
+
+    assert_trees(trees);
+    
+    delete [] removal_path;
+}
+
+
+
+
+
 // sample an ARG with both sequential and gibbs iterations
 void sample_arg_seq_gibbs(ArgModel *model, Sequences *sequences, 
                           LocalTrees *trees, int seqiters, int gibbsiters)
@@ -315,6 +343,31 @@ LocalTrees *arghmm_resample_arg(
     
     return trees;
 }
+
+
+// resample all branches in an ARG with gibbs
+LocalTrees *arghmm_resample_all_arg(
+    LocalTrees *trees, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int niters)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    
+    // sequentially sample until all chromosomes are present
+    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++)
+        sample_arg_thread(&model, &sequences, trees, new_chrom);
+
+    // gibbs sample
+    for (int i=0; i<niters; i++)
+        resample_arg_all(&model, &sequences, trees);
+    
+    return trees;
+}
+
+
+
 
 
 // remax an ARG with viterbi

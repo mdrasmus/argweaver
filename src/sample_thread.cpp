@@ -457,7 +457,11 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
         else
             get_coal_states(tree, model->ntimes, states);
         pos -= mat.blocklen;
-        
+        if (mat.transmat_switch)
+            printf("start=%d end=%d n1=%d n2=%d\n", pos, pos+mat.blocklen,
+                   mat.transmat_switch->nstates1, 
+                   mat.transmat_switch->nstates2);
+
         sample_hmm_posterior(mat.blocklen, tree, states,
                              mat.transmat, mat.emit, 
                              &fw[pos], &path[pos]);
@@ -643,6 +647,7 @@ void sample_arg_thread_internal(ArgModel *model, Sequences *sequences,
     time.start();
     double **fw = forward.get_table();
     ArgHmmMatrixIter matrix_iter2(model, NULL, trees);
+    matrix_iter2.set_internal(internal);
     stochastic_traceback_fast(trees, model, &matrix_iter2, fw, thread_path,
                               false, internal);
     printTimerLog(time, LOG_QUIET, 
@@ -650,21 +655,20 @@ void sample_arg_thread_internal(ArgModel *model, Sequences *sequences,
 
     time.start();
 
-    /*
+
     // sample recombination points
     vector<int> recomb_pos;
     vector<NodePoint> recombs;
     sample_recombinations(trees, model, &matrix_iter2,
-                          thread_path, recomb_pos, recombs);
+                          thread_path, recomb_pos, recombs, internal);
 
     // add thread to ARG
-    add_arg_thread(trees, model->ntimes, thread_path, -1,
-                   recomb_pos, recombs);
+    add_arg_thread_path(trees, model->ntimes, thread_path,
+                        recomb_pos, recombs);
 
     //printf("add thread:  %e s\n", time.time());
     printTimerLog(time, LOG_QUIET, 
                   "add thread:                         ");
-    */
 
     // clean up
     delete [] thread_path_alloc;

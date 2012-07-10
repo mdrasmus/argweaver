@@ -166,7 +166,11 @@ public:
             last_states = &states2;
             last_tree = tree_iter2->tree;
             states = &states1;
-            get_coal_states(last_tree, model->ntimes, *last_states);
+            if (internal)
+                get_coal_states_internal(
+                    last_tree, model->ntimes, *last_states);
+            else
+                get_coal_states(last_tree, model->ntimes, *last_states);
         }
     }
     
@@ -206,7 +210,11 @@ public:
         if (it != trees->end()) {
             last_tree = it->tree;
             last_states = &states2;
-            get_coal_states(last_tree, model->ntimes, *last_states);
+            if (internal)
+                get_coal_states_internal(
+                    last_tree, model->ntimes, *last_states);
+            else
+                get_coal_states(last_tree, model->ntimes, *last_states);
             pos -= it->blocklen;
         } else {
             last_tree = NULL;

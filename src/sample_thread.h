@@ -160,6 +160,9 @@ void max_traceback_fast(LocalTrees *trees, ArgModel *model,
 void sample_arg_thread(ArgModel *model, Sequences *sequences, 
                        LocalTrees *trees, int new_chrom);
 
+void sample_arg_thread_internal(ArgModel *model, Sequences *sequences, 
+                                LocalTrees *trees);
+
 void resample_arg_thread(ArgModel *model, Sequences *sequences, 
                          LocalTrees *trees, int chrom);
 

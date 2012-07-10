@@ -90,23 +90,46 @@ int get_num_coal_states(const LocalTree *tree, int ntimes)
 void get_coal_states_internal(const LocalTree *tree, int ntimes, States &states)
 {
     states.clear();
+    const int nnodes = tree->nnodes;
     const LocalNode *nodes = tree->nodes;
 
     if (nodes[tree->root].age < ntimes) {
-        // we have a fully specified tree
+        // we have a fully specified tree, there are no states
         return;
     }
 
     int subtree_root = nodes[tree->root].child[0];
     int minage = nodes[subtree_root].age;
+
+    // ignore root and whole subtree
+    bool ignore[nnodes];
+    fill(ignore, ignore + nnodes, false);
+    ignore[tree->root] = true;
+
+    // recurse down subtree
+    int stack[nnodes];
+    int stacki = 0;
+    stack[stacki++] = subtree_root;
+    while (stacki > 0) {
+        // pop stack
+        int node = stack[--stacki];
+        ignore[node] = true;
+
+        // push children on stack
+        if (!nodes[node].is_leaf()) {
+            stack[stacki++] = nodes[node].child[0];
+            stack[stacki++] = nodes[node].child[1];
+        }
+    }
+    
     
     // iterate over the branches of the tree
-    for (int i=0; i<tree->nnodes; i++) {
+    for (int i=0; i<nnodes; i++) {
         int time = max(nodes[i].age, minage);
         const int parent = nodes[i].parent;
         
-        // skip subtree root branch and root node
-        if (i == subtree_root || i == tree->root)
+        // skip subtree and root node
+        if (ignore[i])
             continue;
 
         if (parent == tree->root) {

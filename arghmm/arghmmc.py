@@ -122,6 +122,11 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "niters", c_int, "nremove"])
+    export(arghmmclib, "arghmm_resample_all_arg", c_void_p,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "niters"])
     export(arghmmclib, "arghmm_remax_arg", c_void_p,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -566,7 +571,7 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     # get sequences in same order    
     # and add all other sequences not in arg yet
     seqs2 = [seqs[name] for name in names]
-    leaves = set(arg.leaf_names())
+    leaves = set(names) #set(arg.leaf_names())
     for name, seq in seqs.items():
         if name not in leaves:
             names.append(name)
@@ -590,6 +595,56 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
         util.toc()
     
     return arg
+
+
+def resample_all_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
+                     refine=1, times=None, verbose=False, carg=False):
+    """
+    Sample ARG for sequences
+    """
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
+
+    if verbose:
+        util.tic("resample arg")
+
+    # convert arg to c++
+    if verbose:
+        util.tic("convert arg")
+    trees, names = arg2ctrees(arg, times)
+    if verbose:
+        util.toc()
+
+    # get sequences in same order    
+    # and add all other sequences not in arg yet
+    seqs2 = [seqs[name] for name in names]
+    leaves = set(names)
+    for name, seq in seqs.items():
+        if name not in leaves:
+            names.append(name)
+            seqs2.append(seq)
+
+    # resample arg
+    seqlen = len(seqs[names[0]])
+    trees = arghmm_resample_all_arg(
+        trees, times, len(times),
+        popsizes, rho, mu,
+        (c_char_p * len(seqs2))(*seqs2), len(seqs2),
+        seqlen, refine)
+
+    if carg:
+        arg = (trees, names)
+    else:
+        # convert arg back to python
+        arg = ctrees2arg(trees, names, times, verbose=verbose)
+
+    if verbose:
+        util.toc()
+    
+    return arg
+
 
 
 def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,

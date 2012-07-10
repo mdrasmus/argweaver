@@ -97,7 +97,7 @@ public:
         child[1] = other.child[1];
     }
 
-    inline bool is_leaf()
+    inline bool is_leaf() const
     {
         return child[0] == -1;
     }

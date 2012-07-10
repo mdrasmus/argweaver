@@ -289,6 +289,7 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
 
 
 
+
 // add a thread to an ARG
 void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
                     vector<int> &recomb_pos, vector<NodePoint> &recombs)
@@ -614,9 +615,11 @@ void get_next_removal_nodes(const LocalTree *tree1,
     if (next_nodes[0] == -1) {
         // node is broken by SPR
         // next node is then non-recomb child or recoal
-        next_nodes[0] = tree1->get_sibling(spr2.recomb_node);
-        if (spr2.coal_node == next_nodes[0])
+        int sib = tree1->get_sibling(spr2.recomb_node);
+        if (spr2.coal_node == sib)
             next_nodes[0] = recoal;
+        else
+            next_nodes[0] = mapping2[sib];
     }
     
     // get possible active transition
@@ -642,14 +645,285 @@ void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
 
         if (last_tree) {
             int next_nodes[2];
-            get_next_removal_nodes(last_tree, it->spr, it->mapping,
+            Spr *spr = &it->spr;
+            int *mapping = it->mapping;
+            get_next_removal_nodes(last_tree, *spr, mapping,
                                    path[i-1], next_nodes);
             int j = (next_nodes[1] != -1 ? irand(2) : 0);
             path[i++] = next_nodes[j];
+
+            // DEBUG
+            if (last_tree->root == path[i-2] && tree->root != path[i-1]) {
+                assert(spr->coal_node == last_tree->root);
+            }
         }
         
         last_tree = tree;
     }
+}
+
+
+
+// update an SPR and mapping after adding a new branch
+void add_spr_branch(LocalTree *tree, LocalTree *last_tree, 
+                    State state, State last_state,
+                    Spr *spr, int *mapping,
+                    int subtree_root, int last_subtree_root)
+{
+    // get tree info
+    LocalNode *nodes = tree->nodes;
+    LocalNode *last_nodes = last_tree->nodes;
+    int node2 = state.node = state.node;
+    int last_newcoal = last_nodes[last_subtree_root].parent;
+
+    int newcoal;
+    if (state.node != -1) {
+        newcoal = nodes[subtree_root].parent;
+    } else {
+        // fully specified tree
+        if (mapping[last_subtree_root] != -1)
+            newcoal = nodes[mapping[last_subtree_root]].parent;
+        else {
+            int sib = last_tree->get_sibling(spr->recomb_node);
+            assert(mapping[sib] != -1);
+            newcoal = nodes[mapping[sib]].parent;
+        }
+    }
+                
+    // set default new node mapping 
+    mapping[last_newcoal] = newcoal;
+        
+    // parent of recomb node should be the recoal point
+    // however, if it equals newcoal, then either (1) the recomb branch is 
+    // renamed, (2) there is mediation, or (3) new branch escapes
+    int recoal = nodes[mapping[spr->recomb_node]].parent;
+    if (recoal == newcoal) {
+        if (mapping[last_state.node] == node2) {
+            // (1) recomb is above coal state, we rename spr recomb node
+            spr->recomb_node = last_newcoal;
+        } else {
+            // if this is a mediated coal, then state should equal recomb
+            int state_node = state.node;
+            if (state_node == mapping[spr->recomb_node]) {
+                // (3) this is a mediated coal, rename coal node and time
+                spr->coal_node = last_subtree_root;
+                spr->coal_time = state.time;
+            } else {
+                // (2) this is the new branch escaping
+                // no other updates are necessary
+            }
+        }
+    } else {
+        // the other possibility is that newcoal is under recoal point
+        // if newcoal is child of recoal, then coal is renamed
+        int *c = nodes[recoal].child;
+        if (c[0] == newcoal || c[1] == newcoal) {
+            // we either coal above the newcoal or our existing
+            // node just broke and newcoal was underneath.
+                
+            // if newcoal was previously above spr->coal_node
+            // then we rename the spr coal node
+            if (last_nodes[spr->coal_node].parent == last_newcoal)
+                spr->coal_node = last_newcoal;
+        }
+    }
+            
+    // determine if mapping of new node needs to be changed
+    // newcoal was parent of recomb, it is broken
+    if (last_nodes[spr->recomb_node].parent == last_newcoal) {
+        mapping[last_newcoal] = -1;
+        int p = last_nodes[last_newcoal].parent;
+        if (p != -1)
+            mapping[p] = newcoal;
+    } else {
+        // newcoal was not broken
+        // find child without recomb or coal on it
+        int x = last_newcoal;
+        int y = last_nodes[x].child[0];
+        if (y == spr->coal_node)
+            y = last_nodes[x].child[1];
+        if (mapping[y] == -1)
+            y = last_tree->get_sibling(spr->recomb_node);
+        if (y == spr->coal_node)
+            y = last_nodes[x].child[1];
+        printf("y = %d\n", y);
+        printf("old mapping[%d] = %d\n", last_newcoal, mapping[last_newcoal]);
+        mapping[last_newcoal] = nodes[mapping[y]].parent;
+
+        /*
+        while (true) {
+            printf("x = %d\n", x);
+            int y = last_nodes[x].child[0];
+            if (y == spr->coal_node || y == spr->recomb_node)
+                y = last_nodes[x].child[1];
+            x = y;
+            if (mapping[x] != -1)
+                break;
+        }
+        printf("old mapping[%d] = %d\n", last_newcoal, mapping[last_newcoal]);
+        mapping[last_newcoal] = nodes[mapping[x]].parent;
+        */
+    }
+
+    assert(assert_spr(last_tree, tree, spr, mapping));
+}
+
+
+
+// Add a branch to a partial ARG
+void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path, 
+                         vector<int> &recomb_pos, vector<NodePoint> &recombs)
+{
+    LocalTree *last_tree = NULL;
+    State last_state;
+    int last_subtree_root = -1;
+    unsigned int irecomb = 0;
+    int end = trees->start_coord;
+    
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) 
+    {
+        LocalTree *tree = it->tree;
+        LocalNode *nodes = tree->nodes;
+        Spr *spr = &(it->spr);
+        State state;
+        int start = end;
+        end += it->blocklen;
+        const int subtree_root = nodes[tree->root].child[0];
+        States states;
+        get_coal_states_internal(tree, ntimes, states);
+        int nstates = states.size();
+
+        printf("\n");
+        printf("> [%d, %d]\n", start, end);
+        printf("> poss subtree = %d\n", nodes[tree->root].child[0]);
+        for (int i=0; i<tree->nnodes; i++)
+            printf("> %d(%d) --> %d(%d)\n", i, nodes[i].age,
+                   nodes[i].parent, nodes[nodes[i].parent].age);
+
+
+        // detect whether local tree is partial
+        if (nodes[tree->root].age > ntimes) {
+            assert(nstates > 0);
+            // modify local tree according to thread path
+
+            state = states[thread_path[start]];
+            Spr add_spr(subtree_root, nodes[subtree_root].age,
+                        state.node, state.time);
+            apply_spr(tree, add_spr);
+
+            int nleaves = (tree->nnodes + 1) / 2;
+            for (int i=0; i<nleaves; i++)
+                assert(nodes[i].parent != -1);
+            assert(assert_tree(tree));
+        } else {
+            // set null state
+            state.node = -1;
+            state.time = -1;
+        }
+
+        // fix spr
+        // update mapping and spr
+        int *mapping = it->mapping;
+        if (mapping) {
+            if (last_state.node != -1) {
+                printf("spr %d,%d %d,%d\n", spr->recomb_node, spr->recomb_time,
+                       spr->coal_node, spr->coal_time);
+                add_spr_branch(tree, last_tree, state, last_state,
+                               spr, mapping, subtree_root, last_subtree_root);
+            }
+        }
+
+        
+        // break this block for each new recomb within this block
+        for (;irecomb < recombs.size() && 
+              recomb_pos[irecomb] < end; irecomb++) {
+            // do not test this yet
+            printf("recombs\n");
+            assert(false);
+
+            int pos = recomb_pos[irecomb];
+            LocalNode *nodes = tree->nodes;
+            state = states[thread_path[pos]];
+            last_state = states[thread_path[pos-1]];
+            int newcoal = nodes[subtree_root].parent;
+            
+            // assert that thread time is still on track
+            assert(tree->nodes[newcoal].age == last_state.time);
+            
+            // determine real name of recomb node
+            // it may be different due to adding a new branch
+            Spr spr2;
+            spr2.recomb_node = recombs[irecomb].node;
+            spr2.recomb_time = recombs[irecomb].time;
+            assert(spr2.recomb_time <= tree->nodes[newcoal].age);
+
+            // determine coal node and time
+            if (spr2.recomb_node == subtree_root) {
+                // recomb on new branch, coal given thread
+                spr2.coal_node = state.node;
+                
+                // rename coal node due to newcoal underneath
+                if (state.node == last_state.node &&
+                    state.time > last_state.time)
+                    spr2.coal_node = newcoal;
+            } else {
+                // recomb in maintree, coal on new branch
+                if (state.time > last_state.time)
+                    spr2.coal_node = nodes[subtree_root].parent;
+                else
+                    spr2.coal_node = subtree_root;
+            }
+            spr2.coal_time = state.time;
+
+            
+            // determine mapping:
+            // all nodes keep their name expect the broken node, which is the
+            // parent of recomb
+            int *mapping2 = new int [tree->capacity];
+            for (int j=0; j<tree->nnodes; j++)
+                mapping2[j] = j;
+            mapping2[nodes[spr2.recomb_node].parent] = -1;
+
+            
+            // make new local tree and apply SPR operation
+            LocalTree *new_tree = new LocalTree(tree->nnodes, tree->capacity);
+            new_tree->copy(*tree);
+            apply_spr(new_tree, spr2);
+
+            // calculate block end
+            int block_end;
+            if (irecomb < recombs.size() - 1)
+                // use next recomb in this block to determine block end
+                block_end = min(recomb_pos[irecomb+1], end);
+            else
+                // no more recombs in this block
+                block_end = end;
+           
+            // insert new tree and spr into local trees list
+            it->blocklen = pos - start;
+            ++it;
+            it = trees->trees.insert(it, 
+                LocalTreeSpr(new_tree, spr2, block_end - pos, mapping2));
+            
+
+            // assert tree and SPR
+            assert(assert_tree(new_tree));
+            assert(new_tree->nodes[newcoal].age == state.time);
+            assert(assert_spr(tree, new_tree, &spr2, mapping2));
+
+            // remember the previous tree for next iteration of loop
+            tree = new_tree;
+            nodes = tree->nodes;
+            start = pos;
+        }
+        
+        // record previous local tree information
+        last_tree = tree;
+        last_state = state;
+        last_subtree_root = subtree_root;
+    }
+
+    assert_trees(trees);
 }
 
 
@@ -667,6 +941,15 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         LocalNode *nodes = tree->nodes;
 
         int removal_node = removal_path[i];
+
+        if (removal_node == tree->root) {
+            // fix previous mapping
+            if (it->mapping && removal_path[i-1] != last_tree->root)
+                it->mapping[last_tree->root] = -1;
+
+            // removal path has "fallen off the top" there is nothing to edit
+            continue;
+        }
         
         // modify local into subtree-maintree format
         int broken_node = nodes[removal_node].parent;
@@ -675,12 +958,8 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         Spr removal_spr(removal_node, nodes[removal_node].age,
                         tree->root, maxtime);
 
-        if (removal_node == tree->root) {
-            // removal path has "fallen off the top" there is nothing to edit
-            continue;
-        } else 
-            apply_spr(tree, removal_spr);
-        
+        apply_spr(tree, removal_spr);
+            
         // determine subtree and maintree roots
         int subtree_root = removal_node;
         int maintree_root = tree->get_sibling(subtree_root);

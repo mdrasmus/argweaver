@@ -2442,7 +2442,7 @@ class Sample (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(1000e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20)
 
         util.tic("sim")
@@ -2504,6 +2504,30 @@ class Sample (unittest.TestCase):
         arghmm.delete_local_trees(trees)
 
 
+
+    def test_resample_all_arg(self):
+        """
+        Test the sampling of a branch removal path
+        """
+
+        k = 3
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(100e3) / 20
+        times = arghmm.get_time_points(ntimes=20)
+
+        util.tic("sim")
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+        seqs = arglib.make_alignment(arg, muts)
+
+        arg = arghmm.sample_arg(seqs, rho=rho, mu=mu, popsizes=n,
+                                times=times, verbose=True, carg=True)
+        arg = arghmm.resample_all_arg(arg, seqs, rho=rho / 1e9, mu=mu, popsizes=n,
+                                      refine=20, times=times, verbose=True,
+                                      carg=False)
 
 
 

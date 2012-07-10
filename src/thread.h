@@ -24,6 +24,17 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
 // remove a thread from an ARG
 void remove_arg_thread(LocalTrees *trees, int remove_seqid);
 
+
+// Add a branch to a partial ARG
+void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path, 
+                         vector<int> &recomb_pos, vector<NodePoint> &recombs);
+// Removes a thread path from an ARG and returns a partial ARG
+void remove_arg_thread_path(LocalTrees *trees, const int *removal_path, 
+                            int maxtime);
+void sample_arg_removal_path(LocalTrees *trees, int node, int *path);
+
+
+
 } // namespace arghmm
 
 #endif //ARGHMM_THREAD_H

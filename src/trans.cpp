@@ -446,6 +446,8 @@ double calc_recomb_recoal(
         int maintree_root = last_tree->nodes[last_tree->root].child[1];
         subtree_root_age = last_tree->nodes[subtree_root].age;
 
+        assert(spr.recomb_node != subtree_root);
+
         // detect sprs onto subtree root branch
         if (spr.coal_node == subtree_root) {
             if (a < spr.coal_time)
@@ -640,7 +642,6 @@ void calc_transition_probs_switch_internal(
     const int nstates2 = states2.size();
     int recomb_parent_age;
     
-
     // remove from the top case
     if (nstates1 == 0) {
         // switching between two completely specified blocks

@@ -19,7 +19,8 @@ using namespace std;
 
 void sample_recombinations(
     LocalTrees *trees, ArgModel *model, ArgHmmMatrixIter *matrix_list,
-    int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs);
+    int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs,
+    bool internal=false);
 
 void max_recombinations(
     LocalTrees *trees, ArgModel *model, ArgHmmMatrixIter *matrix_list,

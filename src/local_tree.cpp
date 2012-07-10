@@ -228,6 +228,12 @@ void apply_spr(LocalTree *tree, const Spr &spr)
 
     LocalNode *nodes = tree->nodes;
 
+    // trival case
+    if (spr.recomb_node == tree->root) {
+        assert(spr.coal_node == tree->root);
+        return;
+    }
+
     // recoal is also the node we are breaking
     int recoal = nodes[spr.recomb_node].parent;
 
@@ -604,6 +610,7 @@ bool assert_spr(const LocalTree *last_tree, const LocalTree *tree,
                 const Spr *spr, const int *mapping)
 {
     LocalNode *last_nodes = last_tree->nodes;
+    LocalNode *nodes = tree->nodes;
 
     if (spr->recomb_node == -1)
         assert(false);
@@ -642,6 +649,15 @@ bool assert_spr(const LocalTree *last_tree, const LocalTree *tree,
         int last_other = (c[0] == spr->recomb_node ? c[1] : c[0]);
         assert(mapping[last_other] != -1);
         assert(tree->nodes[mapping[last_other]].parent == recoal);
+    }
+
+    // ensure mapped nodes don't change in age
+    for (int i=0; i<last_tree->nnodes; i++) {
+        int i2 = mapping[i];
+        if (i2 != -1)
+            assert(last_nodes[i].age == nodes[i2].age);
+        if (last_nodes[i].is_leaf())
+            assert(nodes[i2].is_leaf());
     }
         
     return true;

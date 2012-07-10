@@ -49,7 +49,8 @@ double recomb_prob_unnormalized(ArgModel *model, LocalTree *tree,
 
 void sample_recombinations(
     LocalTrees *trees, ArgModel *model, ArgHmmMatrixIter *matrix_iter,
-    int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs)
+    int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs,
+    bool internal)
 {
     States states;
     LineageCounts lineages(model->ntimes);
@@ -67,7 +68,7 @@ void sample_recombinations(
         LocalTree *tree = matrix_iter->get_tree_iter()->tree;
         int start = end + 1;  // don't allow new recomb at start
         end = start - 1 + matrices.blocklen;
-        lineages.count(tree);
+        lineages.count(tree, internal);
         get_coal_states(tree, model->ntimes, states);
         int next_recomb = -1;
 
@@ -77,6 +78,12 @@ void sample_recombinations(
             
             if (thread_path[i] == thread_path[i-1]) {
                 // no change in state, recombination is optional
+                
+                // DEBUG:
+                if (internal)
+                    continue;
+
+
                 if (i > next_recomb) {
                     // sample the next recomb pos
                     int last_state = thread_path[i-1];
@@ -136,8 +143,15 @@ void sample_recombinations(
                     candidates.push_back(NodePoint(state.node, k));
             }
             
-            for (int k=0; k<=end_time; k++)
-                candidates.push_back(NodePoint(new_node, k));
+            if (internal) {
+                const int subtree_root = tree->nodes[tree->root].child[0];
+                const int subtree_root_age = tree->nodes[subtree_root].age;
+                for (int k=subtree_root_age; k<=end_time; k++)
+                    candidates.push_back(NodePoint(subtree_root, k));
+            } else {
+                for (int k=0; k<=end_time; k++)
+                    candidates.push_back(NodePoint(new_node, k));
+            }
 
             // compute probability of each candidate
             probs.clear();

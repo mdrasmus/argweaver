@@ -52,12 +52,6 @@ public:
     inline double get_transition_prob(
         const LocalTree *tree, const States &states, int i, int j) const
     {
-        const int node1 = states[i].node;
-        const int a = states[i].time;
-        const int c = tree->nodes[node1].age;
-        const int node2 = states[j].node;
-        const int b = states[j].time;
-        const double I = float(a <= b);            
         double Bq = 0.0;
 
         if (internal) {
@@ -68,6 +62,13 @@ public:
             if (subtree_age > 0)
                 Bq = B[subtree_age - 1];
         }
+
+        const int node1 = states[i].node;
+        const int a = states[i].time;
+        const int c = tree->nodes[node1].age;
+        const int node2 = states[j].node;
+        const int b = states[j].time;
+        const double I = float(a <= b);            
 
 
         if (node1 != node2)
