@@ -788,12 +788,12 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 2
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = int(1000e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1
         refine = 0
@@ -803,7 +803,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(10):
+        for i in range(40):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)

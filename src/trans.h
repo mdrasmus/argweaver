@@ -17,7 +17,8 @@ public:
     TransMatrix(int ntimes, int nstates, bool alloc=true) :
         ntimes(ntimes),
         nstates(nstates),
-        own_data(false)
+        own_data(false),
+        internal(false)
     {
         if (alloc)
             allocate(ntimes);
@@ -56,12 +57,23 @@ public:
         const int c = tree->nodes[node1].age;
         const int node2 = states[j].node;
         const int b = states[j].time;
-        const double I = float(a <= b);
-            
+        const double I = float(a <= b);            
+        double Bq = 0.0;
+
+        if (internal) {
+            if (nstates == 0)
+                return 0.0;
+            const int subtree_root = tree->nodes[tree->root].child[0];
+            const int subtree_age = tree->nodes[subtree_root].age;
+            if (subtree_age > 0)
+                Bq = B[subtree_age - 1];
+        }
+
+
         if (node1 != node2)
-            return log(D[a] * E[b] * (B[min(a,b)] - I * G[a]));
+            return log(D[a] * E[b] * (B[min(a,b)]-Bq - I * G[a]));
         else {
-            double p = D[a] * E[b] * (2*B[min(a,b)] - 2*I*G[a] - B[min(c,b)]);
+            double p = D[a] * E[b] * (2*B[min(a,b)]-Bq - 2*I*G[a]-B[min(c,b)]);
             if (a == b)
                 p += norecombs[a];
             return log(p);
@@ -77,7 +89,7 @@ public:
     double *E;
     double *G;
     double *norecombs;
-    //double *sums;
+    bool internal;
 };
 
 

@@ -142,7 +142,8 @@ void arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
 void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model, 
                                ArgHmmMatrixIter *matrix_iter, 
                                double **fw, int *path, 
-                               bool last_state_given=false);
+                               bool last_state_given=false,
+                               bool internal=false);
 
 void stochastic_traceback(ArgHmmMatrixIter *matrix_iter, 
                           double **fw, int *path, 

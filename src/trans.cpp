@@ -103,6 +103,7 @@ void calc_transition_probs_internal(const LocalTree *tree,
     double *E = matrix->E;
     double *G = matrix->G;
     double *norecombs = matrix->norecombs;
+    matrix->internal = true;
 
     // find root node
     const int *c = tree->nodes[tree->root].child;
