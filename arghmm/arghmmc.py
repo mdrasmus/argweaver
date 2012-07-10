@@ -79,13 +79,10 @@ if arghmmclib:
 
     # ArgHMM Forward algorithm
     export(arghmmclib, "arghmm_forward_alg", c_double_p_p,
-           [c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", 
-            c_double_list, "times", c_int, "ntimes",
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_bool, "prior_given", c_double_list, "prior"])
+            c_bool, "prior_given", c_double_list, "prior", c_bool, "internal"])
     export(arghmmclib, "delete_double_matrix", c_int,
            [c_double_p_p, "mat", c_int, "nrows"])
     export(arghmmclib, "delete_forward_matrix", c_int,
@@ -188,9 +185,7 @@ if arghmmclib:
     export(arghmmclib, "delete_path", c_int,
            [POINTER(c_int * 2), "path"])
     export(arghmmclib, "get_state_spaces", POINTER(POINTER(c_int * 2)),
-           [c_int_matrix, "ptrees", c_int_matrix, "ages",
-            c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", c_int, "ntimes"])
+           [c_void_p, "trees",  c_int, "ntimes", c_bool, "internal"])
     export(arghmmclib, "delete_state_spaces", c_int,
            [POINTER(POINTER(c_int * 2)), "all_states", c_int, "ntrees"])
 
@@ -326,6 +321,44 @@ def delete_trans_emit_matrices(matrices):
         delete_emissions(emit, block[1] - block[0])
         delete_transition_probs(transmat, nstates)
         
+
+
+
+def arghmm_forward_algorithm(arg, seqs, rho=1.5e-8,
+                             mu=2.5e-8, popsizes=1e4, times=None,
+                             verbose=False, 
+                             prior=[], internal=False):
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
+
+    probs = []
+
+    if verbose:
+        util.tic("forward")
+
+    if is_carg(arg):
+        trees, names = arg
+    else:
+        trees, names = arg2ctrees(arg, times)
+    
+    seqs2 = [seqs[node] for node in names]
+    for name in seqs.keys():
+        if name not in names:
+            seqs2.append(seqs[name])
+    seqlen = len(seqs2[0])
+    
+    fw = arghmm_forward_alg(trees, times, len(times),
+                            popsizes, rho, mu,
+                            (c_char_p * len(seqs2))(*seqs2), len(seqs2),
+                            seqlen, len(prior) > 0, prior, internal)
+    delete_forward_matrix(fw, seqlen)
+
+    if verbose:
+        util.toc()
+            
+    return probs
 
 
 #=============================================================================

@@ -423,19 +423,48 @@ double calc_recomb_recoal(
 */
 
 
+// TODO: account for subtree_root_age in lineage counts
 double calc_recomb_recoal(
     const LocalTree *last_tree, const ArgModel *model, 
     const LineageCounts *lineages, 
     const Spr &spr, const State state1, 
-    const int recomb_parent_age)
+    const int recomb_parent_age,
+    const bool internal=false)
 {
     const int *nbranches = lineages->nbranches;
     const int *ncoals = lineages->ncoals;
 
     // get times
-    const int a = state1.time;
+    int a = state1.time;
     const int k = spr.recomb_time;
     const int j = spr.coal_time;
+
+    int subtree_root_age = 0;
+    if (internal) {
+        int subtree_root = last_tree->nodes[last_tree->root].child[0];
+        int maintree_root = last_tree->nodes[last_tree->root].child[1];
+        subtree_root_age = last_tree->nodes[subtree_root].age;
+
+        // detect sprs onto subtree root branch
+        if (spr.coal_node == subtree_root) {
+            if (a < spr.coal_time)
+                return -INFINITY;
+            if (spr.recomb_node == maintree_root) {
+                if(a != spr.coal_time) {
+                    return -INFINITY;
+                }
+            }
+        }
+
+        if (spr.recomb_node == maintree_root) {
+            // add an extra lineage for the branch above subtree root
+            // this makes sure that nbranches_j != 0
+            // we can do this by extending time a just a little higher
+            a++;
+            // TODO: find more straight forward implementation
+        }
+
+    }
     
     //double last_treelen = get_treelen_branch(
     //    last_tree, model->times, model->ntimes,
@@ -470,7 +499,7 @@ double calc_recomb_recoal(
     if (j < model->ntimes - 1)
         p *= 1.0 - exp(-model->time_steps[j] * nbranches_j / 
                        (2.0*model->popsizes[j]));
-
+    
     if (ncoals_j <= 0 || nbranches_j <= 0 || 
         nrecombs_k <= 0 || nbranches_k <= 0) {
         printf("counts %d %d %d %d %e\n", 
@@ -652,7 +681,7 @@ void calc_transition_probs_switch_internal(
                 
                 transmat_switch->determprob[i] = log(calc_recomb_recoal(
                     last_tree, model, lineages, spr, 
-                    states1[i], recomb_parent_age));
+                    states1[i], recomb_parent_age, true));
             }
         }
 
@@ -677,7 +706,7 @@ void calc_transition_probs_switch_internal(
 
             transmat_switch->determprob[i] = log(calc_recomb_recoal(
               last_tree, model, lineages, spr, 
-              states1[i], recomb_parent_age));
+              states1[i], recomb_parent_age, true));
         }
     }
 
@@ -715,7 +744,7 @@ void calc_transition_probs_switch_internal(
                 last_tree->nodes[spr.recomb_node].parent].age;
             transmat_switch->recombrow[j] = log(calc_recomb_recoal(
                 last_tree, model, lineages, spr, states1[recombsrc],
-                recomb_parent_age));
+                recomb_parent_age, true));
         }
 
         // escape case (recomb below)
@@ -724,12 +753,18 @@ void calc_transition_probs_switch_internal(
             recomb_parent_age = states1[recombsrc].time;
             transmat_switch->recombrow[j] = log(calc_recomb_recoal(
                 last_tree, model, lineages, spr, states1[recombsrc],
-                recomb_parent_age));
+                recomb_parent_age, true));
         }
     }
     
 
     // compute recoal case
+    if (recoalsrc == -1) {
+        for (int j=0; j<nstates2; j++)
+            transmat_switch->recoalrow[j] = -INFINITY;
+        return;
+    }
+
     int node1 = states1[recoalsrc].node;
     int time1 = states1[recoalsrc].time;
     
@@ -764,7 +799,7 @@ void calc_transition_probs_switch_internal(
         spr2.coal_time = time2;
         transmat_switch->recoalrow[j] = log(calc_recomb_recoal(
             last_tree, model, lineages, spr2, states1[recoalsrc],
-            recomb_parent_age));
+            recomb_parent_age, true));
     }
 }
 
@@ -799,7 +834,8 @@ void calc_transition_probs_switch(
 // prior for state space
 
 void calc_state_priors(const States &states, const LineageCounts *lineages, 
-                       const ArgModel *model, double *priors)
+                       const ArgModel *model, double *priors,
+                       const int minage)
 {
     const int nstates = states.size();
     const double *time_steps = model->time_steps;
@@ -811,11 +847,14 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
         int b = states[i].time;
 
         double sum = 0.0;
-        for (int m=0; m<b; m++)
+        for (int m=minage; m<b; m++)
             sum += time_steps[m] * nbranches[m] / (2.0 * popsizes[m]);
-        
-        priors[i] = log((1.0 - exp(- time_steps[b] * nbranches[b] /
-                          (2.0 * popsizes[b]))) / ncoals[b] * exp(-sum)); 
+
+        if (sum == 0.0)
+            priors[i] = -INFINITY;
+        else
+            priors[i] = log((1.0 - exp(- time_steps[b] * nbranches[b] /
+                            (2.0 * popsizes[b]))) / ncoals[b] * exp(-sum));
     }
 }
 

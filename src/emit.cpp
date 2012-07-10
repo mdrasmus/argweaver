@@ -249,7 +249,9 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
     const int nnodes = tree->nnodes;
     const LocalNode *nodes = tree->nodes;
 
-    assert(states.size() > 0);
+    // ignore fully specified local tree
+    if (states.size() == 0)
+        return;
     
     double t1, t2, t2a, t2b, t3;
     double parent_age;
@@ -305,7 +307,7 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
 
         // TODO: don't do parsimony directly on subtree-maintree represenation
         parsimony_ancestral_seq(tree, seqs, nseqs, i, ancestral);
-        v = seqs[subtree_root][i];
+        v = ancestral[subtree_root];
 
         
         // iterate through states

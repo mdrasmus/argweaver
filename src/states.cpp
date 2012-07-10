@@ -91,6 +91,12 @@ void get_coal_states_internal(const LocalTree *tree, int ntimes, States &states)
 {
     states.clear();
     const LocalNode *nodes = tree->nodes;
+
+    if (nodes[tree->root].age < ntimes) {
+        // we have a fully specified tree
+        return;
+    }
+
     int subtree_root = nodes[tree->root].child[0];
     int minage = nodes[subtree_root].age;
     
@@ -156,6 +162,7 @@ int get_num_coal_states_internal(const LocalTree *tree, int ntimes)
 
 extern "C" {
 
+    /*
 // Returns state-spaces, useful for calling from python
 intstate **get_state_spaces(int **ptrees, int **ages, int **sprs, 
                             int *blocklens, int ntrees, int nnodes, int ntimes)
@@ -169,6 +176,34 @@ intstate **get_state_spaces(int **ptrees, int **ages, int **sprs,
     // iterate over local trees
     int i = 0;
     for (LocalTrees::iterator it=trees.begin(); it != trees.end(); it++) {
+        LocalTree *tree = it->tree;
+        get_coal_states(tree, ntimes, states);
+        int nstates = states.size();
+        all_states[i] = new intstate [nstates];
+        
+        for (int j=0; j<nstates; j++) {
+            all_states[i][j][0] = states[j].node;
+            all_states[i][j][1] = states[j].time;
+        }
+        i++;
+    }
+
+    return all_states;
+}
+    */
+
+
+// Returns state-spaces, useful for calling from python
+intstate **get_state_spaces(LocalTrees *trees, int ntimes, bool internal)
+{
+    States states;
+    
+    // allocate state space
+    intstate **all_states = new intstate* [trees->get_num_trees()];
+
+    // iterate over local trees
+    int i = 0;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); it++) {
         LocalTree *tree = it->tree;
         get_coal_states(tree, ntimes, states);
         int nstates = states.size();

@@ -153,6 +153,9 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
 void get_transition_probs(const LocalTree *tree, const ArgModel *model,
                            const States &states, const LineageCounts *lineages,
                            const TransMatrix *matrix, double **transprob);
+void calc_transition_probs_internal(const LocalTree *tree, 
+    const ArgModel *model, const States &states, const LineageCounts *lineages,
+    TransMatrix *matrix);
 
 
 void calc_transition_probs_switch(
@@ -168,9 +171,17 @@ void calc_transition_probs_switch(
     const ArgModel *model, const LineageCounts *lineages, double **transprob);
 void get_transition_probs_switch(const TransMatrixSwitch *matrix, 
                                  double **transprob);
+void calc_transition_probs_switch_internal(
+    const LocalTree *tree, const LocalTree *last_tree, 
+    const Spr &spr, const int *mapping,
+    const States &states1, const States &states2,
+    const ArgModel *model, const LineageCounts *lineages, 
+    TransMatrixSwitch *transmat_switch);
+
 
 void calc_state_priors(const States &states, const LineageCounts *lineages, 
-                       const ArgModel *model, double *priors);
+                       const ArgModel *model, double *priors,
+                       const int minage=0);
 
 void get_deterministic_transitions(
     const LocalTree *tree, const LocalTree *last_tree, 

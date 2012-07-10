@@ -56,6 +56,7 @@ public:
     virtual void new_block(int start, int end, int nstates)
     {
         // allocate block
+        nstates = max(nstates, 1);
         int blocklen = end - start;
         double *block = new double [blocklen * nstates];
         blocks.push_back(block);
@@ -118,7 +119,7 @@ public:
     {
         // allocate block
         for (int i=start; i<end; i++)
-            fw[i-start_coord] = new double [nstates];
+            fw[i-start_coord] = new double [max(nstates, 1)];
     }
 };
 
@@ -128,7 +129,7 @@ public:
 
 void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
     Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
-    ArgHmmForwardTable *forward, bool prior_given=false);
+    ArgHmmForwardTable *forward, bool prior_given=false, bool internal=false);
 
 void arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
     Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 

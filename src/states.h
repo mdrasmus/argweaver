@@ -43,6 +43,7 @@ public:
         nnodes(nnodes)
     {
         const int nstates = states.size();
+        const int MAXTIME = 1000000;
 
         // allocate lookup arrays
         node_offset = new int[nnodes];
@@ -55,10 +56,11 @@ public:
         // initialize arrays
         for (int i=0; i<nnodes; i++) {
             nstates_per_node[i] = 0;
-            node_mintimes[i] = nstates;
+            node_mintimes[i] = MAXTIME;
         }
 
         for (int i=0; i<nstates; i++) {
+            state_lookup[i] = -1;
             nstates_per_node[states[i].node]++;
             node_mintimes[states[i].node] = min(node_mintimes[states[i].node], 
                                                 states[i].time);
@@ -72,8 +74,11 @@ public:
         }
 
         // set states
-        for (int i=0; i<nstates; i++)
-            state_lookup[node_offset[states[i].node] + states[i].time] = i;
+        for (int i=0; i<nstates; i++) {
+            int j = node_offset[states[i].node] + states[i].time;
+            assert(j >=0 && j<nstates);
+            state_lookup[j] = i;
+        }
     }
 
     ~NodeStateLookup()
@@ -92,6 +97,8 @@ public:
         if (i < 0 || i >= nstates)
             return -1;
         const int statei = state_lookup[i];
+        if (statei == -1)
+            return -1;
         if (states[statei].node != node ||
             states[statei].time != time)
             return -1;

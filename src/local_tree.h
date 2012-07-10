@@ -483,6 +483,9 @@ public:
 // count the lineages in a tree
 void count_lineages(const LocalTree *tree, int ntimes,
                     int *nbranches, int *nrecombs, int *ncoals);
+void count_lineages_internal(const LocalTree *tree, int ntimes,
+                    int *nbranches, int *nrecombs, int *ncoals);
+
 
 // A structure that stores the number of lineages within each time segment
 class LineageCounts
@@ -504,8 +507,11 @@ public:
     }
 
     // Counts the number of lineages for a tree
-    inline void count(const LocalTree *tree) {
-        count_lineages(tree, ntimes, nbranches, nrecombs, ncoals);
+    inline void count(const LocalTree *tree, bool internal=false) {
+        if (internal)
+            count_lineages_internal(tree, ntimes, nbranches, nrecombs, ncoals);
+        else
+            count_lineages(tree, ntimes, nbranches, nrecombs, ncoals);
     }
 
     int ntimes;      // number of time points

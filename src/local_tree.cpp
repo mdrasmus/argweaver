@@ -73,7 +73,7 @@ void count_lineages_internal(const LocalTree *tree, int ntimes,
 {
     const LocalNode *nodes = tree->nodes;
     const int subtree_root = nodes[tree->root].child[0];
-    const int minage = nodes[subtree_root].age;
+    //const int minage = nodes[subtree_root].age;
 
     // initialize counts
     for (int i=0; i<ntimes; i++) {
@@ -84,17 +84,17 @@ void count_lineages_internal(const LocalTree *tree, int ntimes,
 
     // iterate over the branches of the tree
     for (int i=0; i<tree->nnodes; i++) {
+        // skip virtual branches
+        if (i == subtree_root || i == tree->root)
+            continue;
+
         assert(nodes[i].age < ntimes - 1);
         const int parent = nodes[i].parent;
         const int parent_age = ((parent == tree->root) ? ntimes - 2 : 
                                 nodes[parent].age);
-
-        // skip virtual branches
-        if (i == subtree_root || i == tree->root)
-            continue;
         
         // add counts for every segment along branch
-        for (int j=max(nodes[i].age, minage); j<parent_age; j++) {
+        for (int j=nodes[i].age; j<parent_age; j++) {
             nbranches[j]++;
             nrecombs[j]++;
             ncoals[j]++;

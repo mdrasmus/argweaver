@@ -1588,33 +1588,30 @@ def iter_trans_emit_matrices(model, n):
     
 
 def forward_algorithm(model, n, verbose=False, matrices=None,
-                      prior=[]):
+                      prior=[], internal=False):
 
     probs = []
 
     if verbose:
         util.tic("forward")
 
+    trees, names = arg2ctrees(model.arg, model.times)
 
     (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
         model.arg, model.times)
-    blocklens = [x[1] - x[0] for x in blocks]
-    seqlen = sum(blocklens)
-
     seqs = [model.seqs[node] for node in all_nodes[0]
             if model.arg[node].is_leaf()]
     seqs.append(model.seqs[model.new_name])
-    nnodes = len(ptrees[0])
-    fw = arghmm_forward_alg(ptrees, ages, sprs, blocklens,
-                            len(ptrees), nnodes, 
-                            model.times, len(model.times),
+    seqlen = len(seqs[0])
+    
+    fw = arghmm_forward_alg(trees, model.times, len(model.times),
                             model.popsizes, model.rho, model.mu,
                             (c_char_p * len(seqs))(*seqs), len(seqs),
-                            seqlen, len(prior) > 0, prior)
+                            seqlen, len(prior) > 0, prior, internal)
+
 
     # map states to python state space
-    all_states = get_state_spaces(ptrees, ages, sprs, blocklens,
-                                  len(ptrees), nnodes, len(model.times))
+    all_states = get_state_spaces(trees, len(model.times), internal)
 
     probs = []
     for k, (start, end) in enumerate(blocks):

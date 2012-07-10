@@ -55,11 +55,23 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
     const double *norecombs = matrix->norecombs;
 
     double Bq = 0.0;
+    int minage = 0;
+    int subtree_root, maintree_root;
     if (internal) {
-        const int subtree_root = nodes[tree->root].child[0];
+        subtree_root = nodes[tree->root].child[0];
+        maintree_root = nodes[tree->root].child[1];
         const int subtree_age = nodes[subtree_root].age;
-        if (subtree_age > 0)
+        if (subtree_age > 0) {
             Bq = B[subtree_age - 1];
+            minage = subtree_age;
+        }
+
+        if (nstates == 0) {
+            // handle fully given case
+            for (int i=1; i<blocklen; i++)
+                fw[i][0] = fw[i-1][0];
+            return;
+        }
     }
 
     // compute ntimes*ntimes and ntime*nstates temp matrices
@@ -94,14 +106,19 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
     int ages1[tree->nnodes];
     int ages2[tree->nnodes];
     for (int i=0; i<tree->nnodes; i++) {
-        ages1[i] = nodes[i].age;
-        ages2[i] = (tree->root == i) ? maxtime : nodes[nodes[i].parent].age;
+        ages1[i] = max(nodes[i].age, minage);
+        if (internal)
+            ages2[i] = (i == maintree_root) ? 
+                maxtime : nodes[nodes[i].parent].age;
+        else
+            ages2[i] = (i == tree->root) ? maxtime : nodes[nodes[i].parent].age;
     }
     
 
     // group states by age
     int nstates_per_time[ntimes];
-    memset(nstates_per_time, 0, ntimes*sizeof(int));
+    fill(nstates_per_time, nstates_per_time+ntimes, 0);
+    //memset(nstates_per_time, 0, ntimes*sizeof(int));
     for (int j=0; j<nstates; j++)
         nstates_per_time[states[j].time]++;
     int offset[ntimes], offset2[ntimes];
@@ -118,7 +135,7 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
 
     NodeStateLookup state_lookup(states, tree->nnodes);
 
-    double vec[nstates];
+    double vec[nstates + ntimes];
     double tmatrix_fgroups[ntimes];
     double fgroups[ntimes];
     for (int i=1; i<blocklen; i++) {
@@ -149,8 +166,10 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
             // same branch case (extra terms substracted, no 2*B[min(a,b)])
             vec[0] = tmatrix_fgroups[b];
             int m = 1;
-            int j2 = state_lookup.lookup(node2, age2);
-            for (int j=state_lookup.lookup(node2, age1), a=age1; j<=j2; j++,a++)
+            const int j1 = state_lookup.lookup(node2, age1);
+            const int j2 = state_lookup.lookup(node2, age2);
+            assert(j2 != -1 && j1 != -1);
+            for (int j=j1, a=age1; j<=j2; j++, a++)
                 vec[m++] = tmatrix2[a][k] + col1[j];
             
             // same state case (add possibility of no recomb)
@@ -200,7 +219,7 @@ void arghmm_forward_switch(const double *col1, double* col2,
 // run forward algorithm with matrices precomputed
 void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
     Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
-    ArgHmmForwardTable *forward, bool prior_given)
+    ArgHmmForwardTable *forward, bool prior_given, bool internal)
 {
     LineageCounts lineages(model->ntimes);
     States states;
@@ -218,15 +237,24 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
         if (pos > trees->start_coord || !prior_given)
             forward->new_block(pos, pos+matrices.blocklen, matrices.nstates2);
         
-        get_coal_states(it->tree, model->ntimes, states);
-        lineages.count(it->tree);
+        if (internal)
+            get_coal_states_internal(it->tree, model->ntimes, states);
+        else
+            get_coal_states(it->tree, model->ntimes, states);
+        lineages.count(it->tree, internal);
         
         // use switch matrix for first column of forward table
         // if we have a previous state space (i.e. not first block)
         if (pos == trees->start_coord) {
             // calculate prior of first state
-            if (!prior_given)
-                calc_state_priors(states, &lineages, model, fw[pos]);
+            if (!prior_given) {
+                int minage = 0;
+                if (internal) {
+                    int subtree_root = it->tree->nodes[it->tree->root].child[0];
+                    minage = it->tree->nodes[subtree_root].age;
+                }
+                calc_state_priors(states, &lineages, model, fw[pos], minage);
+            }
         } else {
             // perform one column of forward algorithm with transmat_switch
             arghmm_forward_switch(fw[pos-1], fw[pos], 
@@ -237,7 +265,7 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
         arghmm_forward_alg_block(it->tree, model, matrices.blocklen, 
                                  states, lineages, 
                                  matrices.transmat,
-                                 matrices.emit, &fw[pos]);
+                                 matrices.emit, &fw[pos], internal);
     }
 }
 
@@ -779,29 +807,32 @@ extern "C" {
 
 
 double **arghmm_forward_alg(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes, double *times, int ntimes,
+    LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, bool prior_given, double *prior)
+    char **seqs, int nseqs, int seqlen, bool prior_given, double *prior,
+    bool internal)
 {    
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
-    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
     Sequences sequences(seqs, nseqs, seqlen);
 
     // build matrices
-    ArgHmmMatrixList matrix_list(&model, &sequences, &trees);
+    ArgHmmMatrixList matrix_list(&model, &sequences, trees);
+    matrix_list.set_internal(internal);
     matrix_list.setup();
 
     ArgHmmForwardTableOld forward(0, sequences.length());
 
     // setup prior
     if (prior_given) {
-        LocalTree *tree = trees.begin()->tree;
-        int blocklen = trees.begin()->blocklen;
+        LocalTree *tree = trees->begin()->tree;
+        int blocklen = trees->begin()->blocklen;
         LineageCounts lineages(ntimes);
         States states;
-        get_coal_states(tree, model.ntimes, states);
+        if (internal)
+            get_coal_states_internal(tree, model.ntimes, states);
+        else
+            get_coal_states(tree, model.ntimes, states);
 
         forward.new_block(0, blocklen, states.size());
         double **fw = forward.get_table();
@@ -809,14 +840,15 @@ double **arghmm_forward_alg(
             fw[0][i] = prior[i];
     }
 
-    arghmm_forward_alg_fast(&trees, &model, &sequences, &matrix_list,
-                            &forward, prior_given);
+    arghmm_forward_alg_fast(trees, &model, &sequences, &matrix_list,
+                            &forward, prior_given, internal);
 
     // steal pointer
     double **fw = forward.detach_table();
 
     return fw;
 }
+
 
 
 intstate *arghmm_sample_posterior(
