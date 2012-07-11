@@ -1,4 +1,5 @@
 
+#include "math.h"
 #include "stdio.h"
 #include "local_tree.h"
 
@@ -145,10 +146,11 @@ double get_treelen_internal(const LocalTree *tree, const double *times,
     for (int i=0; i<tree->nnodes; i++) {
         int parent = nodes[i].parent;
         int age = nodes[i].age;
-        if (parent == tree->root) {
+        if (parent == tree->root || parent == -1) {
             // skip virtual branches
         } else {
             treelen += times[nodes[parent].age] - times[age];
+            assert(!isnan(treelen));
         }
     }
     
@@ -622,6 +624,9 @@ bool assert_spr(const LocalTree *last_tree, const LocalTree *tree,
     if (spr->recomb_time > spr->coal_time)
         assert(false);
 
+    // recomb cannot be on root branch
+    assert(last_nodes[spr->recomb_node].parent != -1);
+
     // ensure recomb is within branch
     if (spr->recomb_time > last_nodes[last_nodes[spr->recomb_node].parent].age
         || spr->recomb_time < last_nodes[spr->recomb_node].age)
@@ -637,6 +642,7 @@ bool assert_spr(const LocalTree *last_tree, const LocalTree *tree,
 
     // ensure spr matches the trees
     int recoal = tree->nodes[mapping[spr->recomb_node]].parent;
+    assert(recoal != -1);
     int *c = tree->nodes[recoal].child;
     int other = (c[0] == mapping[spr->recomb_node] ? c[1] : c[0]);
     if (mapping[spr->coal_node] != -1) {
@@ -659,6 +665,9 @@ bool assert_spr(const LocalTree *last_tree, const LocalTree *tree,
         if (last_nodes[i].is_leaf())
             assert(nodes[i2].is_leaf());
     }
+
+    // test for bubbles
+    assert(spr->recomb_node != spr->coal_node);
         
     return true;
 }

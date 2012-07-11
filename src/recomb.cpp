@@ -69,8 +69,15 @@ void sample_recombinations(
         int start = end + 1;  // don't allow new recomb at start
         end = start - 1 + matrices.blocklen;
         lineages.count(tree, internal);
-        get_coal_states(tree, model->ntimes, states);
+        if (internal)
+            get_coal_states_internal(tree, model->ntimes, states);
+        else
+            get_coal_states(tree, model->ntimes, states);
         int next_recomb = -1;
+
+        // don't sample recombination if there is no state space
+        if (internal && states.size() == 0)
+            continue;
 
         
         // loop through positions in block
@@ -79,11 +86,6 @@ void sample_recombinations(
             if (thread_path[i] == thread_path[i-1]) {
                 // no change in state, recombination is optional
                 
-                // DEBUG:
-                if (internal)
-                    continue;
-
-
                 if (i > next_recomb) {
                     // sample the next recomb pos
                     int last_state = thread_path[i-1];
@@ -125,6 +127,7 @@ void sample_recombinations(
                 if (i < next_recomb)
                     continue;
             }
+
 
             // sample recombination
             next_recomb = -1;

@@ -83,16 +83,24 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
 
         for (int b=0; b<ntimes-1; b++) {
             const double I = double(a <= b);
-            tmatrix[a][b] = log(D[a] * E[b] * (B[min(a,b)] - Bq - I*G[a]));
+            if (a < minage || b < minage)
+                tmatrix[a][b] = -INFINITY;
+            else
+                tmatrix[a][b] = log(D[a] * E[b] * (B[min(a,b)] - Bq - I*G[a]));
+            assert(!isnan(tmatrix[a][b]));
         }
 
         for (int k=0; k<nstates; k++) {
             const int b = states[k].time;
             const int node2 = states[k].node;
             const int c = nodes[node2].age;
+            //const double Bc = (c > 0 ? B[max(c, minage)-1] : 0.0);
             const double Bc = (c > 0 ? B[c-1] : 0.0);
             const double I = double(a <= b);
-            tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)]-Bq - I*G[a] - Bc));
+            if (a < minage || b < minage)
+                tmatrix2[a][k] = -INFINITY;
+            else
+                tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)]-Bq - I*G[a] - Bc));
         }
     }
 
@@ -190,7 +198,7 @@ void arghmm_forward_switch(const double *col1, double* col2,
     // if state space is size zero, we still treat it as size 1
     const int nstates1 = max(matrix->nstates1, 1);
     const int nstates2 = max(matrix->nstates2, 1);
-
+    
     // initialize all entries in col2 to log(0)
     for (int k=0; k<nstates2; k++)
         col2[k] = -INFINITY;
@@ -204,14 +212,18 @@ void arghmm_forward_switch(const double *col1, double* col2,
     }
     
     for (int k=0; k<nstates2; k++) {
-        if (matrix->recombrow[k] > -INFINITY)
+        if (matrix->recombsrc != -1 && matrix->recombrow[k] > -INFINITY)
             col2[k] = logadd(col2[k], col1[matrix->recombsrc] + 
                              matrix->recombrow[k]);
-        if (matrix->recoalrow[k] > -INFINITY)
+        if (matrix->recoalsrc != -1 && matrix->recoalrow[k] > -INFINITY)
             col2[k] = logadd(col2[k], col1[matrix->recoalsrc] + 
                              matrix->recoalrow[k]);
         col2[k] += emit[k];
+        assert(!isnan(col2[k]));
     }
+
+    // DEBUG
+    assert(logsum(col2, nstates2) != -INFINITY);
 }
 
 
@@ -228,10 +240,12 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
     double **fw = forward->get_table();
 
     // forward algorithm over local trees
+    LocalTree *last_tree = NULL;
     for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
         LocalTrees::iterator it = matrix_iter->get_tree_iter();
         matrix_iter->get_matrices(&matrices);
         int pos = matrix_iter->get_position();
+        LocalTree *tree = it->tree;
 
         // allocate the forward table
         if (pos > trees->start_coord || !prior_given)
@@ -257,6 +271,7 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
             }
         } else {
             // perform one column of forward algorithm with transmat_switch
+            Spr &spr = it->spr;
             arghmm_forward_switch(fw[pos-1], fw[pos], 
                 matrices.transmat_switch, matrices.emit[0]);
         }
@@ -266,6 +281,18 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
                                  states, lineages, 
                                  matrices.transmat,
                                  matrices.emit, &fw[pos], internal);
+
+        // DEBUG        
+        int nstates = max(matrices.transmat->nstates, 1);
+        //for (int i=0; i<nstates; i++) {
+        //    printf("fw[%d][%d] = %f\n", pos + matrices.blocklen - 1, i,
+        //           fw[pos + matrices.blocklen - 1][i]);
+        //}
+        double total = logsum(fw[pos + matrices.blocklen - 1], nstates);
+        //printf("total = %f\n", total);
+        assert(total != -INFINITY && !isnan(total));
+
+        last_tree = tree;
     }
 }
 
@@ -404,9 +431,13 @@ void sample_hmm_posterior(int n, const LocalTree *tree, const States &states,
         for (int j=0; j<nstates; j++)
             A[j] = fw[i][j] + trans[j];
         double total = logsum_fast(A, nstates);
+        assert(total != -INFINITY);
         for (int j=0; j<nstates; j++)
             A[j] = t2exp(A[j] - total);
         path[i] = sample(A, nstates);
+
+        // DEBUG
+        assert(trans[path[i]] != -INFINITY);
     }
 }
 
@@ -420,9 +451,14 @@ int sample_hmm_posterior_step(const TransMatrixSwitch *matrix,
     for (int j=0; j<nstates1; j++)
         A[j] = col1[j] + matrix->get_transition_prob(j, state2);
     const double total = logsum_fast(A, nstates1);
+    assert(total != -INFINITY);
     for (int j=0; j<nstates1; j++)
         A[j] = t2exp(A[j] - total);
-    return sample(A, nstates1);
+    int k = sample(A, nstates1);
+
+    // DEBUG
+    assert(matrix->get_transition_prob(k, state2) != -INFINITY);
+    return k;
 }
 
 
@@ -457,11 +493,7 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
         else
             get_coal_states(tree, model->ntimes, states);
         pos -= mat.blocklen;
-        if (mat.transmat_switch)
-            printf("start=%d end=%d n1=%d n2=%d\n", pos, pos+mat.blocklen,
-                   mat.transmat_switch->nstates1, 
-                   mat.transmat_switch->nstates2);
-
+        
         sample_hmm_posterior(mat.blocklen, tree, states,
                              mat.transmat, mat.emit, 
                              &fw[pos], &path[pos]);

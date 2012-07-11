@@ -301,6 +301,7 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                 time = max(time, mintime);
 
                 emit[i][j] = - mu * time;
+                assert(!isnan(emit[i][j]));
             }
             continue;
         }
@@ -392,6 +393,8 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                                  / (1 - exp(-mu * t1)))
                     -mu * (time + t2 + t3 - t1);
             }
+
+            assert(!isnan(emit[i][j]));
         }
     }
 }

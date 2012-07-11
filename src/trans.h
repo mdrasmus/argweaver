@@ -53,28 +53,33 @@ public:
         const LocalTree *tree, const States &states, int i, int j) const
     {
         double Bq = 0.0;
-
+        int minage = 0;
         if (internal) {
             if (nstates == 0)
                 return 0.0;
             const int subtree_root = tree->nodes[tree->root].child[0];
             const int subtree_age = tree->nodes[subtree_root].age;
+            minage = subtree_age;
             if (subtree_age > 0)
                 Bq = B[subtree_age - 1];
         }
 
         const int node1 = states[i].node;
         const int a = states[i].time;
-        const int c = tree->nodes[node1].age;
         const int node2 = states[j].node;
+        const int c = tree->nodes[node2].age;
         const int b = states[j].time;
         const double I = float(a <= b);            
 
+        if (a < minage || b < minage)
+            return -INFINITY;
 
         if (node1 != node2)
-            return log(D[a] * E[b] * (B[min(a,b)]-Bq - I * G[a]));
+            return log(D[a] * E[b] * (B[min(a,b)] - Bq - I * G[a]));
         else {
-            double p = D[a] * E[b] * (2*B[min(a,b)]-Bq - 2*I*G[a]-B[min(c,b)]);
+            //double p = D[a] * E[b] * (2*B[min(a,b)] - Bq - 2*I*G[a] -
+            //                          B[max(c, minage)-1]);
+            double p = D[a] * E[b] * (2*B[min(a,b)] - Bq - 2*I*G[a] - B[c-1]);
             if (a == b)
                 p += norecombs[a];
             return log(p);
@@ -200,7 +205,7 @@ void get_deterministic_transitions(
     const LocalTree *tree, const LocalTree *last_tree, 
     const Spr &spr, const int *mapping,
     const States &states1, const States &states2,
-    int ntimes, int *next_states);
+    int ntimes, int *next_states, bool internal=false);
 
 
 } // namespace arghmm

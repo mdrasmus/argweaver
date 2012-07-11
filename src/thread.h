@@ -30,7 +30,7 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
                          vector<int> &recomb_pos, vector<NodePoint> &recombs);
 // Removes a thread path from an ARG and returns a partial ARG
 void remove_arg_thread_path(LocalTrees *trees, const int *removal_path, 
-                            int maxtime);
+                            int maxtime, int *original_thread=NULL);
 void sample_arg_removal_path(LocalTrees *trees, int node, int *path);
 
 
