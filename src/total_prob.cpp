@@ -95,6 +95,55 @@ double calc_arg_likelihood(ArgModel *model, Sequences *sequences,
 }
 
 
+
+double calc_spr_prob(const ArgModel *model, const LocalTree *tree, 
+                     const Spr &spr, LineageCounts &lineages)
+{
+    double lnl = 0.0;
+
+    const LocalNode *nodes = tree->nodes;
+    const int root_age = nodes[tree->root].age;
+
+    // get tree length
+    const double treelen = get_treelen(
+        tree, model->times, model->ntimes, false);
+    const double treelen_b = treelen + model->time_steps[nodes[tree->root].age];
+
+    // get lineage counts
+    lineages.count(tree);
+    lineages.nrecombs[root_age]--;
+            
+    // probability of recombination location in tree
+    int k = spr.recomb_time;
+    lnl += log(lineages.nbranches[k] * model->time_steps[k] /
+               (lineages.nrecombs[k] * treelen_b));
+
+    // probability of re-coalescence
+    int j = spr.coal_time;
+    int broken_age = nodes[nodes[spr.recomb_node].parent].age;
+    int ncoals_j = lineages.ncoals[j] 
+        - int(j < broken_age) - int(j == broken_age);
+    int nbranches_j = lineages.nbranches[j] - int(j < broken_age);
+
+    lnl -= log(ncoals_j);
+    if (j < model->ntimes - 1)
+        lnl += (1.0 - exp(- model->time_steps[j] * nbranches_j / 
+                          (2.0 * model->popsizes[j])));
+            
+    double sum = 0.0;
+    for (int m=k; m<j; m++) {
+        int nbranches_m = lineages.nbranches[m] - int(m < broken_age);
+        
+        sum += model->time_steps[m] * nbranches_m / 
+            (2.0 * model->popsizes[m]);
+    }
+    lnl -= sum;
+    
+    return lnl;
+}
+
+
+
 // calculate the probability of an ARG given the model parameters
 double calc_arg_prior(ArgModel *model, LocalTrees *trees)
 {
@@ -120,43 +169,7 @@ double calc_arg_prior(ArgModel *model, LocalTrees *trees)
             // probability of recombining after blocklen
             lnl += log(recomb_rate) - recomb_rate * blocklen;
             
-            // get SPR move information
-            ++it;
-            Spr *spr = &it->spr;
-            double treelen_b = treelen + 
-                model->time_steps[nodes[tree->root].age];
-            lineages.count(tree);
-            lineages.nrecombs[root_age]--;
-            
-            // probability of recombination location in tree
-            int k = spr->recomb_time;
-            lnl += log(lineages.nbranches[k] * model->time_steps[k] /
-                       (lineages.nrecombs[k] * treelen_b));
-
-            // probability of re-coalescence
-            int j = spr->coal_time;
-            int broken_age = nodes[nodes[spr->recomb_node].parent].age;
-            int ncoals_j = lineages.ncoals[j] 
-                - int(j < broken_age) - int(j == broken_age);
-            int nbranches_j = lineages.nbranches[j]
-                - int(j < broken_age);
-
-            lnl -= log(ncoals_j);
-
-            if (j < model->ntimes-1)
-                lnl += (1.0 - exp(- model->time_steps[j] * nbranches_j / 
-                                  (2.0 * model->popsizes[j])));
-            
-            double sum = 0.0;
-            for (int m=k; m<j; m++) {
-                int nbranches_m = lineages.nbranches[m] -
-                    int(m < broken_age);
-
-                sum += model->time_steps[m] * nbranches_m / 
-                    (2.0 * model->popsizes[m]);
-            }
-            lnl -= sum;
-
+            lnl += calc_spr_prob(model, tree, *spr, lineages);
         } else {
             // last block
             // probability of not recombining after blocklen

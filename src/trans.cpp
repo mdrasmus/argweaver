@@ -453,11 +453,11 @@ double calc_recomb_recoal(
 
     double last_treelen, last_treelen_b;
 
-    int subtree_root_age = 0;
+    int q = 0;
     if (internal) {
         int subtree_root = last_tree->nodes[last_tree->root].child[0];
         int maintree_root = last_tree->nodes[last_tree->root].child[1];
-        subtree_root_age = last_tree->nodes[subtree_root].age;
+        q = last_tree->nodes[subtree_root].age;
 
         assert(spr.recomb_node != subtree_root);
 
@@ -468,7 +468,6 @@ double calc_recomb_recoal(
             if (spr.recomb_node == maintree_root) {
                 if(state1.node != maintree_root) {
                     return 0.0;
-                    // XXX: double check this
                 }
             }
         }
@@ -477,9 +476,6 @@ double calc_recomb_recoal(
         const double root_age = model->times[root_age_index];
         last_treelen = get_treelen_internal(last_tree, 
                                             model->times, model->ntimes);
-        //last_treelen_b = last_treelen + get_basal_branch(
-        //    last_tree, model->times, model->ntimes,
-        //    state1.node, state1.time);
 
         if (a > root_age_index) {
             // add wrapped branch
@@ -503,6 +499,7 @@ double calc_recomb_recoal(
             last_tree, model->times, model->ntimes,
             state1.node, state1.time);
     }
+
     
     // recomb prob
     int nbranches_k = lineages->nbranches[k] + int(k < a);
@@ -514,8 +511,8 @@ double calc_recomb_recoal(
     // coal prob
     double sum = 0.0;
     for (int m=k; m<j; m++) {
-        int nbranches_m = lineages->nbranches[m] 
-            - int(m < recomb_parent_age) + int(m < a);
+        int nbranches_m = lineages->nbranches[m] - int(m < recomb_parent_age) 
+            + int(m < a);
         sum += model->time_steps[m] * nbranches_m / (2.0 * model->popsizes[m]);
     }
     int nbranches_j = nbranches[j] - int(j < recomb_parent_age) + int(j < a);
@@ -523,11 +520,14 @@ double calc_recomb_recoal(
         - int(j == recomb_parent_age) + int(j <= a) + int (j == a);
 
     if (internal) {
+        int subtree_root = last_tree->nodes[last_tree->root].child[0];
         int maintree_root = last_tree->nodes[last_tree->root].child[1];
         if (spr.recomb_node == maintree_root) {
-            // special case for properly calculating ncoals_j and nbranches_j
-            nbranches_j = 1;
-            ncoals_j = 1;
+            // special cases for properly calculating ncoals_j and nbranches_j
+            if (spr.coal_time >= last_tree->nodes[subtree_root].age) {
+                nbranches_j = 1;
+                ncoals_j++;
+            }
         }
     }
 

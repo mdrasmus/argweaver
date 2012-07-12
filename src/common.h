@@ -232,6 +232,16 @@ inline int sample(const double *weights, int nweights)
 }
 
 
+template <class T>
+inline T max_array(const T* lst, int size)
+{
+    T top = lst[0];
+    for (int i=1; i<size; i++)
+        if (lst[i] > top)
+            top = lst[i];
+    return top;
+}
+
 
 } // namespace arghmm
 

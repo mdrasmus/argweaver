@@ -74,7 +74,7 @@ void count_lineages_internal(const LocalTree *tree, int ntimes,
 {
     const LocalNode *nodes = tree->nodes;
     const int subtree_root = nodes[tree->root].child[0];
-    //const int minage = nodes[subtree_root].age;
+    const int minage = nodes[subtree_root].age;
 
     // initialize counts
     for (int i=0; i<ntimes; i++) {
@@ -107,6 +107,20 @@ void count_lineages_internal(const LocalTree *tree, int ntimes,
         if (parent == tree->root)
             nbranches[parent_age]++;
     }
+
+    // discount one lineage from within subtree, since it will be added 
+    // back by other procedures
+    for (int i=0; i<minage; i++) {
+        nbranches[i]--;
+        ncoals[i]--;
+        nrecombs[i]--;
+    }
+    /*
+    if (minage > 0) {
+        ncoals[minage]--;
+        nrecombs[minage]--;
+    }
+    */
     
     // ensure last time segment always has one branch
     nbranches[ntimes - 1] = 1;

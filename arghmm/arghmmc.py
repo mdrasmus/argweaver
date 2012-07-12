@@ -105,7 +105,11 @@ if arghmmclib:
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
-
+    export(arghmmclib, "arghmm_sample_arg_thread_internal", c_int,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_out(c_int_list), "thread_path"])
     
     # ARG sampling
     export(arghmmclib, "arghmm_sample_arg_seq", c_void_p,
@@ -167,11 +171,21 @@ if arghmmclib:
     # threading
     export(arghmmclib, "arghmm_sample_arg_removal_path", c_int,
            [c_void_p, "trees", c_int, "node", c_out(c_int_list), "path"])
+    export(arghmmclib, "arghmm_sample_arg_removal_leaf_path", c_int,
+           [c_void_p, "trees", c_int, "node", c_out(c_int_list), "path"])
+    export(arghmmclib, "arghmm_sample_arg_removal_path2", c_int,
+           [c_void_p, "trees", c_int, "node", c_int, "pos",
+            c_out(c_int_list), "path"])
     export(arghmmclib, "arghmm_remove_arg_thread_path", c_int,
            [c_void_p, "trees", c_int_list, "path", c_int, "maxtime"])
     export(arghmmclib, "arghmm_remove_arg_thread_path2", c_int,
            [c_void_p, "trees", c_int_list, "path", c_int, "maxtime",
             c_out(c_int_list), "original_thread"])
+    export(arghmmclib, "arghmm_get_thread_times", c_int,
+           [c_void_p, "trees", c_int, "ntimes", c_int_list, "path",
+            c_out(c_int_list), "path_times"])
+
+
 
     # ARG data structure API
     export(arghmmclib, "arghmm_new_trees", c_void_p,
@@ -1255,4 +1269,6 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
     return arg
     
 
-
+def seqs2cseqs(seqs, names):
+    seqs2 = [seqs[name] for name in names]
+    return (c_char_p * len(seqs2))(*seqs2)

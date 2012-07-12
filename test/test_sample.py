@@ -1441,8 +1441,8 @@ class Sample (unittest.TestCase):
         mu = 2.5e-8 * 20
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        #refine = 5 * 9; nremove = 1
-        refine = 0;
+        refine = 20; nremove = 1
+        #refine = 0;
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
@@ -1451,7 +1451,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(10):
+        for i in range(40):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1465,11 +1465,11 @@ class Sample (unittest.TestCase):
 
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
-                #arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                #                         refine=5, nremove=nremove,
-                #                         carg=True)
-                arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
-                                             refine=refine, carg=True)
+                arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                         refine=1, nremove=nremove,
+                                         carg=True)
+                #arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
+                #                             refine=refine, carg=True)
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
@@ -2447,6 +2447,47 @@ class Sample (unittest.TestCase):
         pause()
 
 
+    def test_sample_removal_path2(self):
+        """
+        Test the sampling of a branch removal path
+        """
+
+        k = 12
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(500e3) / 20
+        times = arghmm.get_time_points(ntimes=20)
+
+        util.tic("sim")
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        trees, names = arghmm.arg2ctrees(arg,times)
+        nnodes = 2*k - 1
+        ntrees = arghmm.get_local_trees_ntrees(trees)
+        print ntrees, nnodes
+        util.toc()
+
+        x = []
+        y = []
+        for i in range(500):
+            path = [0] * ntrees
+            node = random.randint(0, nnodes - 1)
+            pos = random.randint(0, length)
+            arghmm.arghmm_sample_arg_removal_path2(trees, node, pos, path)
+
+            for j in xrange(ntrees):
+                x.append(j)
+                y.append(path[j])
+        
+        arghmm.delete_local_trees(trees)
+
+        p = plot(dither(x, .4), dither(y, .4))
+
+        pause()
+
+
+
     def test_remove_thread_path(self):
         """
         Test the sampling of a branch removal path
@@ -2483,16 +2524,19 @@ class Sample (unittest.TestCase):
         Test the sampling of a branch removal path
         """
 
-        k = 4
+        k = 12
         n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = int(10e3) / 20
-        times = arghmm.get_time_points(ntimes=20)
+        rho = 1.5e-8 * 20 / 5
+        mu = 2.5e-8 * 20 * 5
+        length = int(500e3) / 20
+        times = arghmm.get_time_points(ntimes=80)
 
         util.tic("sim")
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                     times=times)        
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+        seqs = arglib.make_alignment(arg, muts)
+
         trees, names = carg = arghmm.arg2ctrees(arg, times)
         nnodes = 2*k - 1
         ntrees = arghmm.get_local_trees_ntrees(trees)
@@ -2503,12 +2547,37 @@ class Sample (unittest.TestCase):
         path = [0] * ntrees
         original_path = [0] * length
         node = random.randint(0, nnodes - 1)
-        arghmm.arghmm_sample_arg_removal_path(trees, node, path)
+        pos = random.randint(0, length)
+        arghmm.arghmm_sample_arg_removal_path2(trees, node, pos, path)
         arghmm.arghmm_remove_arg_thread_path2(trees, path, len(times)+1,
                                               original_path)
 
-        times2 = arghmm.get_time_points(ntimes=22)
-        arg2 = arghmm.ctrees2arg(trees, names, times2)
+
+        ntimes = len(times)
+        popsizes = [n] * ntimes
+        seqs2 = arghmm.seqs2cseqs(seqs, names)
+        sample_path = [0] * length
+        arghmm.arghmm_sample_arg_thread_internal(
+            trees, times, ntimes, popsizes, rho, mu,
+            seqs2, len(seqs), seqs.alignlen(), sample_path)
+
+
+        x = [0] * length
+        arghmm.arghmm_get_thread_times(trees, len(times), original_path, x)
+        y = [0] * length
+        arghmm.arghmm_get_thread_times(trees, len(times), sample_path, y)
+
+        #p = plot(x)
+        #p.plot(y)
+        x = x[::length/1000]
+        y = y[::length/1000]
+        p = plot(dither(x, .4), dither(y, .4))
+        p.plot([0, len(times)], [0, len(times)], style="lines")
+
+        pause()
+
+        #times2 = arghmm.get_time_points(ntimes=22)
+        #arg2 = arghmm.ctrees2arg(trees, names, times2)
 
         '''
         for (start, end), tree in arglib.iter_tree_tracks(arg):
@@ -2569,7 +2638,7 @@ class Sample (unittest.TestCase):
         Test the sampling of a branch removal path
         """
 
-        k = 4
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20

@@ -604,11 +604,13 @@ int get_recoal_node(const LocalTree *tree,
 
 
 // find the next possible branches in a removal path
-void get_next_removal_nodes(const LocalTree *tree1, 
+void get_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
                             const Spr &spr2, const int *mapping2,
                             int node, int next_nodes[2])
 {   
     const int recoal = get_recoal_node(tree1, spr2, mapping2);
+    //const int recoal = tree2->nodes[mapping2[spr2.recomb_node]].parent;
+    
 
     // get passive transition
     next_nodes[0] = mapping2[node];
@@ -634,8 +636,138 @@ void get_next_removal_nodes(const LocalTree *tree1,
 }
 
 
+// find the previous possible branches in a removal path
+void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
+                            const Spr &spr2, const int *mapping2,
+                            int node, int prev_nodes[2])
+{
+    const int nnodes = tree1->nnodes;
+
+    // make inverse mapping
+    int inv_mapping[nnodes];
+    fill(inv_mapping, inv_mapping + nnodes, -1);
+
+    for (int i=0; i<nnodes; i++)
+        if (mapping2[i] != -1)
+            inv_mapping[mapping2[i]] = i;
+
+    // get first transition
+    prev_nodes[0] = inv_mapping[node];
+    if (prev_nodes[0] == -1) {
+        // there is no inv_mapping because node is recoal
+        // the node spr.coal_node therefore is the previous node
+        prev_nodes[0] = spr2.coal_node;
+
+        // get optional second transition
+        int sib = tree1->get_sibling(spr2.recomb_node);
+        if (mapping2[sib] == node && sib == spr2.coal_node) {
+            prev_nodes[1] = tree1->nodes[sib].parent;
+        } else
+            prev_nodes[1] = -1;
+    } else {
+        // get optional second transition
+        int sib = tree1->get_sibling(spr2.recomb_node);
+        if (mapping2[sib] == node && sib != spr2.coal_node) {
+            prev_nodes[1] = sib;
+        } else
+            prev_nodes[1] = -1;
+    }
+}
+
+
+void sample_arg_removal_path_forward(LocalTrees *trees, LocalTrees::iterator it,
+                                     int node, int *path, int i)
+{
+    path[i++] = node;
+    LocalTree *last_tree = NULL;
+
+    for (; it != trees->end(); ++it) {
+        LocalTree *tree = it->tree;
+
+        if (last_tree) {
+            int next_nodes[2];
+            Spr *spr = &it->spr;
+            int *mapping = it->mapping;
+            get_next_removal_nodes(last_tree, tree, *spr, mapping,
+                                   path[i-1], next_nodes);
+            int j = (next_nodes[1] != -1 ? irand(2) : 0);
+            path[i++] = next_nodes[j];
+            
+            // ensure that a removal path re-enters the local tree correctly
+            if (last_tree->root == path[i-2] && tree->root != path[i-1]) {
+                assert(spr->coal_node == last_tree->root);
+            }
+        }
+        
+        last_tree = tree;
+    }
+}
+
+
+void sample_arg_removal_path_backward(
+    LocalTrees *trees, LocalTrees::iterator it, int node, int *path, int i)
+{
+    path[i--] = node;
+    
+    LocalTree *tree2 = it->tree;
+    Spr *spr2 = &it->spr;
+    int *mapping2 = it->mapping;
+    --it;
+
+    for (; it != trees->end(); --it) {
+        //printf("i=%d\n", i);
+
+        int prev_nodes[2];
+        LocalTree *tree1 = it->tree;
+        assert(!spr2->is_null());
+
+        get_prev_removal_nodes(tree1, tree2, *spr2, mapping2, 
+                               path[i+1], prev_nodes);        
+        int j = (prev_nodes[1] != -1 ? irand(2) : 0);
+        path[i--] = prev_nodes[j];
+        //printf("path[%d] = %d\n", i+1, path[i+1]);
+
+        int next_nodes[2];
+        get_next_removal_nodes(tree1, tree2, *spr2, mapping2, 
+                               path[i+1], next_nodes);
+        assert(next_nodes[0] == path[i+2] || next_nodes[1] == path[i+2]);
+
+
+        spr2 = &it->spr;
+        mapping2 = it->mapping;
+        tree2 = tree1;
+    }
+}
+
+
+void sample_arg_removal_path2(LocalTrees *trees, int node, int pos, int *path)
+{
+    // search for block with pos
+    LocalTrees::iterator it = trees->begin();
+    int end = trees->start_coord;
+    int i = 0;
+    for (; it != trees->end(); ++it, i++) {
+        int start = end;
+        end += it->blocklen;
+        if (start <= pos && pos < end)
+            break;
+    }
+    
+    // search forward
+    sample_arg_removal_path_forward(trees, it, node, path, i);
+    sample_arg_removal_path_backward(trees, it, node, path, i);
+}
+
+
 void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
 {
+    // search for block with pos
+    LocalTrees::iterator it = trees->begin();
+    sample_arg_removal_path_forward(trees, it, node, path, 0);
+
+    /*
+    sample_arg_removal_path_backward(trees, it, node, path, i);
+
     int i = 0;
     path[i++] = node;
     LocalTree *last_tree = NULL;
@@ -660,7 +792,9 @@ void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
         
         last_tree = tree;
     }
+    */
 }
+
 
 
 void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path)
@@ -676,7 +810,7 @@ void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path)
             int next_nodes[2];
             Spr *spr = &it->spr;
             int *mapping = it->mapping;
-            get_next_removal_nodes(last_tree, *spr, mapping,
+            get_next_removal_nodes(last_tree, tree, *spr, mapping,
                                    path[i-1], next_nodes);
             path[i++] = next_nodes[0];
             
@@ -1120,7 +1254,7 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         
         // detect branch path splits
         int next_nodes[2];
-        get_next_removal_nodes(tree, *spr, mapping, 
+        get_next_removal_nodes(tree, it2->tree, *spr, mapping, 
                                removal_path[i], next_nodes);
 
         if (spr->coal_node == removal_node) {
@@ -1231,6 +1365,18 @@ void arghmm_sample_arg_removal_path(LocalTrees *trees, int node, int *path)
     sample_arg_removal_path(trees, node, path);
 }
 
+void arghmm_sample_arg_removal_path2(LocalTrees *trees, int node, 
+                                     int pos, int *path)
+{
+    sample_arg_removal_path2(trees, node, pos, path);
+}
+
+void arghmm_sample_arg_removal_leaf_path(LocalTrees *trees, int node, 
+                                           int *path)
+{
+    sample_arg_removal_leaf_path(trees, node, path);
+}
+
 void arghmm_remove_arg_thread_path(LocalTrees *trees, int *removal_path, 
                                    int maxtime)
 {
@@ -1241,6 +1387,24 @@ void arghmm_remove_arg_thread_path2(LocalTrees *trees, int *removal_path,
                                     int maxtime, int *original_thread)
 {
     remove_arg_thread_path(trees, removal_path, maxtime, original_thread);
+}
+
+
+void arghmm_get_thread_times(LocalTrees *trees, int ntimes, int *path, 
+                             int *path_times)
+{
+    States states;
+
+    int end = trees->start_coord;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        int start = end;
+        end += it->blocklen;
+        LocalTree *tree = it->tree;
+        get_coal_states_internal(tree, ntimes, states);
+
+        for (int i=start; i<end; i++)
+            path_times[i] = states[path[i]].time;
+    }
 }
 
 

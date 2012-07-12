@@ -33,6 +33,7 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
                             int maxtime, int *original_thread=NULL);
 void sample_arg_removal_path(LocalTrees *trees, int node, int *path);
 void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path);
+void sample_arg_removal_path2(LocalTrees *trees, int node, int pos, int *path);
 
 
 
