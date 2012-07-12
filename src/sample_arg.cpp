@@ -85,8 +85,8 @@ void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 {
     const int maxtime = model->ntimes + 1;
-    int *removal_path = new int [sequences->length()];
-    int *original_thread = new int [sequences->length()];
+    int *removal_path = new int [trees->get_num_trees()];
+    //int *original_thread = new int [sequences->length()];
 
     assert_trees(trees);
 
@@ -96,8 +96,10 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
     //int node = irand(trees->get_num_leaves());
     //sample_arg_removal_leaf_path(trees, node, removal_path);
 
-    remove_arg_thread_path(trees, removal_path, maxtime, original_thread);
-    
+    remove_arg_thread_path(trees, removal_path, maxtime);
+    sample_arg_thread_internal(model, sequences, trees);
+
+    /*
     // sample recombination points
     const bool internal = true;
     ArgHmmMatrixIter matrix_iter2(model, NULL, trees);
@@ -110,9 +112,8 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
     // add thread to ARG
     add_arg_thread_path(trees, model->ntimes, original_thread,
                         recomb_pos, recombs);
+    */
     
-
-    //sample_arg_thread_internal(model, sequences, trees);
     
     delete [] removal_path;
 }

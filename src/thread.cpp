@@ -810,9 +810,9 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
     unsigned int irecomb = 0;
     int end = trees->start_coord;
     
-    printf("\n");
-    printf("===============================\n");
-    printf("add thread\n");
+    //printf("\n");
+    //printf("===============================\n");
+    //printf("add thread\n");
 
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) 
     {
@@ -826,6 +826,7 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
         get_coal_states_internal(tree, ntimes, states);
         int nstates = states.size();
 
+        /*
         printf("\n");
         printf("%d-%d\n", start, end);
         printf("> poss subtree = %d\n", nodes[tree->root].child[0]);
@@ -844,6 +845,7 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
                        spr->coal_node, spr->coal_time);
             }
         }
+        */
 
         // detect whether local tree is partial
         if (nodes[tree->root].age > ntimes) {
@@ -1016,13 +1018,14 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         original_states = new State [trees->length()];
     }
 
-    printf("====================================\n");
-    printf("remove before\n");
-    print_local_trees(trees);
+    //printf("====================================\n");
+    //printf("remove before\n");
+    //print_local_trees(trees);
 
-    printf("\n");
-    printf("====================================\n");
-    printf("removing\n");
+    //printf("\n");
+    //printf("====================================\n");
+    //printf("removing\n");
+
     int i=0;
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, i++) 
@@ -1080,26 +1083,11 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
 
         // record thread
         if (original_states) {
-            States states;
-            // DEBUG
-            /*
-            const int ntimes = maxtime - 1;
-            get_coal_states_internal(tree, ntimes, states);
-            int nstates = states.size();
-            int statei = 0;
-            for (; statei<nstates; statei++) {
-                State state = states[statei];
-                if (state.node == broken_child &&
-                    state.time == coal_time)
-                    break;
-            }
-            assert(statei < nstates);
-            */
-            printf("\n");
-            printf("%d-%d\n", start, end);
-            printf("> poss subtree = %d\n", nodes[tree->root].child[0]);
-            print_local_tree(tree);
-            printf("> state = (%d %d)\n", broken_child, coal_time);
+            //printf("\n");
+            //printf("%d-%d\n", start, end);
+            //printf("> poss subtree = %d\n", nodes[tree->root].child[0]);
+            //print_local_tree(tree);
+            //printf("> state = (%d %d)\n", broken_child, coal_time);
                         
             for (int j=start; j<end; j++)
                 original_states[j].set(broken_child, coal_time);
@@ -1178,9 +1166,9 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         int spr_broken_node = nodes[spr->recomb_node].parent;
         mapping[spr_broken_node] = -1;
 
-        printf("spr: r=(%d, %d), c=(%d, %d)\n\n",
-               spr->recomb_node, spr->recomb_time,
-               spr->coal_node, spr->coal_time);
+        //printf("spr: r=(%d, %d), c=(%d, %d)\n\n",
+        //       spr->recomb_node, spr->recomb_time,
+        //       spr->coal_node, spr->coal_time);
 
         // assert spr
         if (last_tree && !it->spr.is_null())

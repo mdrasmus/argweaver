@@ -1441,7 +1441,8 @@ class Sample (unittest.TestCase):
         mu = 2.5e-8 * 20
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 5 * 9; nremove = 1
+        #refine = 5 * 9; nremove = 1
+        refine = 0;
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
@@ -2376,6 +2377,9 @@ class Sample (unittest.TestCase):
 
         pause()
 
+
+    #------------------------------------------------------------
+
     def test_treeset(self):
         """
         Test the treeset representation of an ARG
@@ -2413,7 +2417,7 @@ class Sample (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(100e3) / 20
+        length = int(500e3) / 20
         times = arghmm.get_time_points(ntimes=20)
 
         util.tic("sim")
@@ -2427,7 +2431,7 @@ class Sample (unittest.TestCase):
 
         x = []
         y = []
-        for i in range(100):
+        for i in range(500):
             path = [0] * ntrees
             node = random.randint(0, nnodes - 1)
             arghmm.arghmm_sample_arg_removal_path(trees, node, path)
@@ -2438,7 +2442,7 @@ class Sample (unittest.TestCase):
         
         arghmm.delete_local_trees(trees)
 
-        p = plot(x, y)
+        p = plot(dither(x, .4), dither(y, .4))
 
         pause()
 
