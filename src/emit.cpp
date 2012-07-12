@@ -294,9 +294,9 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                 double time = times[timei] - subtree_root_age;
                 double node_age = ages[node];
 
-                if (nodes[node].parent == -1) {
+                if (nodes[node].parent == tree->root) {
                     // adjust time by unwrapping branch e(v)
-                    time += time - node_age;
+                    time += times[timei] - node_age;
                 }
                 time = max(time, mintime);
 
@@ -315,49 +315,49 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
         for (unsigned int j=0; j<states.size(); j++) {
             int node = states[j].node;
             int timei = states[j].time;
-            double time = times[timei] - subtree_root_age;
+            double time = times[timei];
             double node_age = ages[node];
+            double blen = time - subtree_root_age;
 
             x = ancestral[node];
 
             // get bases and ages
-            if (nodes[node].parent != -1) {
+            if (nodes[node].parent != tree->root) {
                 parent = nodes[node].parent;
                 parent_age = ages[parent];
 
-                if (nodes[parent].parent == -1) {
+                if (nodes[parent].parent == tree->root) {
                     // unwrap top branch
                     const int *c = nodes[parent].child;
                     int sib = (node == c[0] ? c[1] : c[0]);
                     p = ancestral[sib];
 
                     // modify (x,p) length to (x,p) + (sib,p)
-                    parent_age = 2 * parent_age - ages[sib];
-
+                    parent_age += parent_age - ages[sib];
                 } else {
                     p = ancestral[parent];
                 }
             } else {
                 // adjust time by unwrapping branch e(v)
-                parent = -1;
+                parent = tree->root;
                 parent_age = -1;
-                time += time - node_age;
+                blen += time - node_age;
                 p = x;
             }
             
 
             // ensure mintime
-            if (time < mintime) 
-                time = mintime;
+            if (blen < mintime) 
+                blen = mintime;
 
             // handle cases
             if (v == x && x == p) {
                 // no mutation
-                emit[i][j] = - mu * time;
+                emit[i][j] = - mu * blen;
 
             } else if (v != p && p == x) {
                 // mutation on v
-                emit[i][j] = log(.333333 - .333333 * exp(-mu * time));
+                emit[i][j] = log(.333333 - .333333 * exp(-mu * blen));
 
             } else if (v == p && p != x) {
                 // mutation on x
@@ -365,7 +365,7 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                 t2 = max(time - node_age, mintime);
 
                 emit[i][j] = log((1 - exp(-mu *t2)) / (1 - exp(-mu * t1)))
-                    -mu * (time + t2 - t1);
+                    -mu * (blen + t2 - t1);
 
             } else if (v == x && x != p) {
                 // mutation on (y,p)
@@ -373,12 +373,12 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                 t2 = max(parent_age - time, mintime);
 
                 emit[i][j] = log((1 - exp(-mu * t2)) / (1 - exp(-mu * t1)))
-                    -mu * (time + t2 - t1);
+                    -mu * (blen + t2 - t1);
 
             } else {
                 // two mutations (v,x)
                 // mutation on x
-                if (parent != -1) {
+                if (parent != tree->root) {
                     t1 = max(parent_age - node_age, mintime);
                     t2a = max(parent_age - time, mintime);
                 } else {
@@ -387,11 +387,11 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                 }
                 t2b = max(time - node_age, mintime);
                 t2 = max(t2a, t2b);
-                t3 = time;
+                t3 = blen;
 
                 emit[i][j] = log((1 - exp(-mu *t2)) * (1 - exp(-mu *t3))
                                  / (1 - exp(-mu * t1)))
-                    -mu * (time + t2 + t3 - t1);
+                    -mu * (blen + t2 + t3 - t1);
             }
 
             assert(!isnan(emit[i][j]));

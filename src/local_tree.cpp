@@ -541,6 +541,41 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
 }
 
 
+void print_local_tree(const LocalTree *tree, FILE *out)
+{
+    const LocalNode *nodes = tree->nodes;
+
+    for (int i=0; i<tree->nnodes; i++) {
+        fprintf(out, "%d: parent=%2d, child=(%2d, %2d), age=%d\n",
+                i, nodes[i].parent, nodes[i].child[0], nodes[i].child[1],
+                nodes[i].age);
+    }
+}
+
+
+void print_local_trees(LocalTrees *trees, FILE *out)
+{
+    int end = trees->start_coord;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        int start = end;
+        end += it->blocklen;
+        LocalTree *tree = it->tree;
+
+        fprintf(out, "%d-%d\n", start, end);
+        print_local_tree(tree, out);
+
+        LocalTrees::iterator it2 = it;
+        ++it2;
+        if (it2 != trees->end()) {
+            Spr &spr = it2->spr;
+            fprintf(out, "spr: r=(%d, %d), c=(%d, %d)\n\n",
+                    spr.recomb_node, spr.recomb_time,
+                    spr.coal_node, spr.coal_time);
+        }
+    }
+}
+
+
 //=============================================================================
 // assert functions
 

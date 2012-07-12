@@ -24,6 +24,11 @@ public:
         return (node == other.node) && (time == other.time);
     }
 
+    void set(const int &_node, const int &_time) {
+        node = _node;
+        time = _time;
+    }
+
     int node;
     int time;
 };

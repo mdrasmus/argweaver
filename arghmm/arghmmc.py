@@ -890,7 +890,7 @@ def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsizes=1e4,
 
 
 def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsizes=1e4,
-                    times=None, verbose=False):
+                    times=None, verbose=False, delete=True):
     """
     Calculate arg_joint_prob
     """
@@ -913,7 +913,8 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsizes=1e4,
     p = arghmm_joint_prob(
         trees, times, len(times), popsizes, mu, rho,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen)
-    delete_local_trees(trees)
+    if delete:
+        delete_local_trees(trees)
 
     if verbose:
         util.toc()

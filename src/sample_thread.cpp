@@ -94,10 +94,10 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
             const int b = states[k].time;
             const int node2 = states[k].node;
             const int c = nodes[node2].age;
-            //const double Bc = (c > 0 ? B[max(c, minage)-1] : 0.0);
             const double Bc = (c > 0 ? B[c-1] : 0.0);
             const double I = double(a <= b);
-            if (a < minage || b < minage)
+            assert(b >= minage);
+            if (a < minage)
                 tmatrix2[a][k] = -INFINITY;
             else
                 tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)]-Bq - I*G[a] - Bc));

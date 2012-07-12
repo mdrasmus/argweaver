@@ -560,6 +560,9 @@ inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
     mapping[parent] = -1;
 }
 
+void print_local_tree(const LocalTree *tree, FILE *out=stdout);
+void print_local_trees(LocalTrees *trees, FILE *out=stdout);
+
 //=============================================================================
 // assert functions
 

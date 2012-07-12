@@ -788,14 +788,13 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 4
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
-        rho2 = rho
         mu = 2.5e-8 * 20
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        nremove = 1
+        nremove = 0
         refine = 0
 
         print "times", times
@@ -803,7 +802,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(40):
+        for i in range(20):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -813,8 +812,11 @@ class Sample (unittest.TestCase):
 
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
-                arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
-                                         refine=refine)
+                #arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                #                         refine=refine)
+                arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
+                                             refine=refine)
+
                 util.toc()
                 
                 nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
@@ -995,11 +997,11 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 20000
+        length = int(400e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         write = False
         #nremove = 2; refine = 5
-        nremove = 1; refine = 1
+        nremove = 1; refine = 7
 
         makedirs("test/data/sample_arg_recomb2/")
 
@@ -1026,8 +1028,10 @@ class Sample (unittest.TestCase):
 
         for i in range(50):
             util.tic("resample ARG %d" % i)
-            arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-                                       refine=refine, nremove=nremove)
+            #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
+            #                           refine=refine, nremove=nremove)
+            arg2 = arghmm.resample_all_arg(arg2, seqs, rho=rho, mu=mu,
+                                           times=times, refine=refine)
             util.toc()
             nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
             y.append(nrecombs2)
@@ -1160,7 +1164,7 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = int(20e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
         arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
@@ -1184,7 +1188,7 @@ class Sample (unittest.TestCase):
         for i in range(50):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-                                       refine=3)
+                                       refine=1)
             util.toc()
             arglen2 = arglib.arglen(arg2)
             y.append(arglen2)
@@ -1431,13 +1435,13 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 4
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(300e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 10; nremove = 1
+        refine = 5 * 9; nremove = 1
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
@@ -1461,11 +1465,10 @@ class Sample (unittest.TestCase):
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
                 #arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                #                         refine=refine, nremove=nremove,
+                #                         refine=5, nremove=nremove,
                 #                         carg=True)
                 arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
-                                         refine=refine, 
-                                         carg=True)                
+                                             refine=refine, carg=True)
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
@@ -1700,9 +1703,9 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = int(1000e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        nremove = 1; refine = 1
+        nremove = 1; refine = 5 * 12
         write = False
         
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
@@ -1728,12 +1731,16 @@ class Sample (unittest.TestCase):
                                      popsizes=n)
         y.append(lk2)
 
-        for i in range(10):
+        for i in range(40):
             util.tic("resample ARG %d" % i)
-            arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                                     popsizes=n)
+            #arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+            #                         popsizes=n)
             #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
             #                         popsizes=n, refine=refine, nremove=nremove)
+            arg2 = arghmm.resample_all_arg(
+                arg2, seqs, rho=rho, mu=mu, times=times,
+                popsizes=n, refine=refine)
+
             util.toc()
             lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
                                          times=times, popsizes=n)
@@ -2402,7 +2409,7 @@ class Sample (unittest.TestCase):
         Test the sampling of a branch removal path
         """
 
-        k = 5
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -2558,11 +2565,11 @@ class Sample (unittest.TestCase):
         Test the sampling of a branch removal path
         """
 
-        k = 8
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(500e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20)
         refine = 20
 
