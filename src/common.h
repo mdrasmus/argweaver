@@ -243,6 +243,28 @@ inline T max_array(const T* lst, int size)
 }
 
 
+// test whether two floats are approximately equal
+inline bool fequal(double f1, double f2, double rel=.0001, double eabs=1e-12)
+{
+    if (f1 == f2)
+        return true;
+    
+    double err;
+    double diff = fabs(f1 - f2);
+    if (f2 == 0.0)
+        err = f1;
+    else if (f1 == 0)
+        err = f2;
+    else
+        err = diff / fabs(f2);
+
+    if (diff < eabs)
+        return true;
+
+    return err < rel;
+}
+
+
 } // namespace arghmm
 
 #endif // ARGHMM_COMMON_H

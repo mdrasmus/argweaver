@@ -86,7 +86,7 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
             if (a < minage || b < minage)
                 tmatrix[a][b] = -INFINITY;
             else
-                tmatrix[a][b] = log(D[a] * E[b] * (B[min(a,b)] - Bq - I*G[a]));
+                tmatrix[a][b] = log(D[a] * E[b] * (B[min(a,b)] -Bq - I*G[a]));
             assert(!isnan(tmatrix[a][b]));
         }
 
@@ -100,7 +100,7 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
             if (a < minage)
                 tmatrix2[a][k] = -INFINITY;
             else
-                tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)]-Bq - I*G[a] - Bc));
+                tmatrix2[a][k] = log(D[a] * E[b] * (B[min(a,b)] - I*G[a] - Bc));
         }
     }
 
@@ -274,6 +274,9 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
             arghmm_forward_switch(fw[pos-1], fw[pos], 
                 matrices.transmat_switch, matrices.emit[0]);
         }
+
+        // DEBUG
+        assert_transmat(it->tree, model, matrices.transmat);
         
         // calculate rest of block
         arghmm_forward_alg_block(it->tree, model, matrices.blocklen, 

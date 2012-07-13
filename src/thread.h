@@ -2,7 +2,9 @@
 #define ARGHMM_THREAD_H
 
 #include "local_tree.h"
+#include "model.h"
 #include "states.h"
+#include "trans.h"
 
 namespace arghmm {
 
@@ -34,6 +36,10 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
 void sample_arg_removal_path(LocalTrees *trees, int node, int *path);
 void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path);
 void sample_arg_removal_path2(LocalTrees *trees, int node, int pos, int *path);
+
+
+bool assert_transmat(const LocalTree *tree, const ArgModel *model,
+                     const TransMatrix *matrix);
 
 
 

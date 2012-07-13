@@ -112,6 +112,8 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
     // get lineage counts
     lineages.count(tree);
     lineages.nrecombs[root_age]--;
+
+    assert(spr.recomb_node != tree->root);
             
     // probability of recombination location in tree
     int k = spr.recomb_time;
@@ -122,14 +124,14 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
     int j = spr.coal_time;
     int broken_age = nodes[nodes[spr.recomb_node].parent].age;
     int ncoals_j = lineages.ncoals[j] 
-        - int(j < broken_age) - int(j == broken_age);
+        - int(j <= broken_age) - int(j == broken_age);
     int nbranches_j = lineages.nbranches[j] - int(j < broken_age);
 
     lnl -= log(ncoals_j);
-    if (j < model->ntimes - 1)
-        lnl += (1.0 - exp(- model->time_steps[j] * nbranches_j / 
-                          (2.0 * model->popsizes[j])));
-            
+    if (j < model->ntimes - 2)
+        lnl += log((1.0 - exp(- model->time_steps[j] * nbranches_j / 
+                              (2.0 * model->popsizes[j]))));
+
     double sum = 0.0;
     for (int m=k; m<j; m++) {
         int nbranches_m = lineages.nbranches[m] - int(m < broken_age);
@@ -156,10 +158,8 @@ double calc_arg_prior(ArgModel *model, LocalTrees *trees)
     for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
         end += it->blocklen;
         LocalTree *tree = it->tree;
-        LocalNode *nodes = tree->nodes;
         int blocklen = it->blocklen;
         double treelen = get_treelen(tree, model->times, model->ntimes, false);
-        int root_age = nodes[tree->root].age;
 
         // calculate probability P(blocklen | T_{i-1})
         double recomb_rate = max(model->rho * treelen, model->rho);
@@ -169,7 +169,11 @@ double calc_arg_prior(ArgModel *model, LocalTrees *trees)
             // probability of recombining after blocklen
             lnl += log(recomb_rate) - recomb_rate * blocklen;
             
+            // get SPR move information
+            ++it;
+            Spr *spr = &it->spr;
             lnl += calc_spr_prob(model, tree, *spr, lineages);
+
         } else {
             // last block
             // probability of not recombining after blocklen

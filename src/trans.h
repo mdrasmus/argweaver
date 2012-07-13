@@ -67,9 +67,10 @@ public:
         const int node1 = states[i].node;
         const int a = states[i].time;
         const int node2 = states[j].node;
-        const int c = tree->nodes[node2].age;
         const int b = states[j].time;
-        const double I = float(a <= b);            
+        const int c = tree->nodes[node2].age;
+        const double Bc = (c > 0 ? B[c-1] : 0.0);
+        const double I = double(a <= b);
 
         if (a < minage || b < minage)
             return -INFINITY;
@@ -77,9 +78,7 @@ public:
         if (node1 != node2)
             return log(D[a] * E[b] * (B[min(a,b)] - Bq - I * G[a]));
         else {
-            //double p = D[a] * E[b] * (2*B[min(a,b)] - Bq - 2*I*G[a] -
-            //                          B[max(c, minage)-1]);
-            double p = D[a] * E[b] * (2*B[min(a,b)] - Bq - 2*I*G[a] - B[c-1]);
+            double p = D[a] * E[b] * (2*B[min(a,b)] - Bq - 2*I*G[a] - Bc);
             if (a == b)
                 p += norecombs[a];
             return log(p);

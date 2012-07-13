@@ -44,8 +44,8 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     E[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
                       / (2.0 * popsizes[0]))) / ncoals[0];
     G[0] = time_steps[0] * ((nbranches[0] + 1.0) / (nrecombs[0] + 1.0) -
-                            (nbranches[0]) / (nrecombs[0] + 1.0 + 
-                                              int(0 < root_age_index)));
+                            (nbranches[0] / (nrecombs[0] + 1.0 + 
+                                             int(0 < root_age_index))));
     norecombs[0] = exp(-max(rho * treelen, rho));
     
     // calculate all other time points (time>0)
@@ -122,8 +122,8 @@ void calc_transition_probs_internal(const LocalTree *tree,
     E[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
                       / (2.0 * popsizes[0]))) / ncoals[0];
     G[0] = time_steps[0] * ((nbranches[0] + 1.0) / (nrecombs[0] + 1.0) -
-                            (nbranches[0]) / (nrecombs[0] + 1.0 + 
-                                              int(0 < root_age_index)));
+                            (nbranches[0] / (nrecombs[0] + 1.0 + 
+                                             int(0 < root_age_index))));
     norecombs[0] = exp(-max(rho * treelen, rho));
     
     // calculate all other time points (time>0)

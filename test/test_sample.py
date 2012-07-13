@@ -590,12 +590,12 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 20
+        k = 3
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = 10000
-        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        times = arghmm.get_time_points(ntimes=5, maxtime=200000)
         refine = 0
         
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
@@ -1451,7 +1451,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(40):
+        for i in range(10):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1465,11 +1465,11 @@ class Sample (unittest.TestCase):
 
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
-                arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                                         refine=1, nremove=nremove,
-                                         carg=True)
-                #arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
-                #                             refine=refine, carg=True)
+                #arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                #                         refine=1, nremove=nremove,
+                #                         carg=True)
+                arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
+                                             refine=refine, carg=True)
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,

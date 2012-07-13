@@ -413,14 +413,15 @@ class Basic (unittest.TestCase):
 
         k = 2
         n = 1e4
-        rho = 1.5e-8 
-        mu = 2.5e-8
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
         length = 1000
+        times = arghmm.get_time_points(ntimes=5, maxtime=200000)
+        
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
         
-        times = arghmm.get_time_points(10)
         arghmm.discretize_arg(arg, times)
         print "recomb", arglib.get_recomb_pos(arg)
 
@@ -464,36 +465,41 @@ class Basic (unittest.TestCase):
         def recomb(i, k):
             treelen = 2*model.times[i] + model.time_steps[i]
             if k < i:
-                return 2.0 * model.time_steps[k] / treelen
+                return 2.0 * model.time_steps[k] / treelen / 2.0
             else:
-                return model.time_steps[k] / treelen
+                return model.time_steps[k] / treelen / 2.0
 
         def trans(i, j):
             a = states[i][1]
             b = states[j][1]
-            p = isrecomb(a) * sum(recoal(k, b) * recomb(a, k)
-                                  for k in range(0, min(a, b)+1))
+
+            p = sum(recoal(k, b) * recomb(a, k)
+                    for k in range(0, min(a, b)+1))
+            p += sum(recoal(k, b) * recomb(a, k)
+                     for k in range(0, min(a, b)+1))
+            p *= isrecomb(a)
             if i == j:
                 p += 1.0 - isrecomb(a)
             return p
-        
+
         
         for i in range(len(states)):
-            for j in range(len(states)):                
-                print i, j, mat[i][j], log(trans(i, j))
+            for j in range(len(states)):
+                print isrecomb(states[i][1])
+                print states[i], states[j], mat[i][j], log(trans(i, j))
                 fequal(mat[i][j], log(trans(i, j)))
             
 
             # recombs add up to 1
-            fequal(sum(recomb(i, k) for k in range(i+1)), 1.0)
+            fequal(sum(recomb(i, k) for k in range(i+1)), 0.5)
 
             # recoal add up to 1
             fequal(sum(recoal(i, j) for j in range(i, nstates)), 1.0)
 
-            # recomb * recoal add up to 1
+            # recomb * recoal add up to .5
             fequal(sum(sum(recoal(k, j) * recomb(i, k)
                            for k in range(0, min(i, j)+1))
-                       for j in range(0, nstates)), 1.0)
+                       for j in range(0, nstates)), 0.5)
 
             fequal(sum(trans(i, j) for j in range(len(states))), 1.0)
             
