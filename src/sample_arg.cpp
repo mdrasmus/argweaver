@@ -164,8 +164,12 @@ void sample_arg_seq_gibbs(ArgModel *model, Sequences *sequences,
         shuffle(chroms, nleaves);
 
         for (int i=0; i<min(gibbsiters, nleaves); i++) {
+            resample_arg_all(model, sequences, trees);
+
+            /*
             remove_arg_thread(trees, chroms[i]);
             sample_arg_thread(model, sequences, trees, chroms[i]);
+            */
         }
 
         printTimerLog(time, LOG_QUIET, 

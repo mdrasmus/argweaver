@@ -838,13 +838,13 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 12
+        k = 8
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 20000
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        seqiters=1; gibbsiters=4
+        seqiters=1; gibbsiters=12
 
         print "times", times
 
@@ -869,6 +869,7 @@ class Sample (unittest.TestCase):
                 nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
                 rx.append(nrecombs)
                 ry.append(nrecombs2)
+                print nrecombs, nrecombs2, nrecombs2/float(nrecombs)
         util.toc()
 
         print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
@@ -1442,9 +1443,9 @@ class Sample (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(200e3) / 20
+        length = int(400e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 40; nremove = 1
+        refine = 50; nremove = 1
         #refine = 0;
         write = False
         if write:
@@ -1454,7 +1455,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(40):
+        for i in range(20):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1709,7 +1710,7 @@ class Sample (unittest.TestCase):
         mu = 2.5e-8 * 20
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        nremove = 1; refine = 5 * 12
+        nremove = 1; refine = 12 * 5
         write = False
         
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
@@ -1735,7 +1736,7 @@ class Sample (unittest.TestCase):
                                      popsizes=n)
         y.append(lk2)
 
-        for i in range(40):
+        for i in range(50):
             util.tic("resample ARG %d" % i)
             #arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
             #                         popsizes=n)

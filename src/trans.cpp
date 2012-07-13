@@ -457,11 +457,12 @@ double calc_recomb_recoal(
 
     double last_treelen, last_treelen_b;
 
-    int q = 0;
+
+    int root_age;
     if (internal) {
         int subtree_root = last_tree->nodes[last_tree->root].child[0];
         int maintree_root = last_tree->nodes[last_tree->root].child[1];
-        q = last_tree->nodes[subtree_root].age;
+        root_age = last_tree->nodes[maintree_root].age;
 
         assert(spr.recomb_node != subtree_root);
 
@@ -476,26 +477,27 @@ double calc_recomb_recoal(
             }
         }
 
-        const int root_age_index = last_tree->nodes[maintree_root].age;
-        const double root_age = model->times[root_age_index];
-        last_treelen = get_treelen_internal(last_tree, 
-                                            model->times, model->ntimes);
+        last_treelen = get_treelen_internal(
+            last_tree, model->times, model->ntimes);
+        last_treelen += model->times[a] - 
+            model->times[last_tree->nodes[subtree_root].age];
 
-        if (a > root_age_index) {
+        if (a > root_age) {
             // add wrapped branch
-            last_treelen += model->times[a] - root_age;
+            last_treelen += model->times[a] - model->times[root_age];
 
             // add basal branch
             last_treelen_b = last_treelen + model->time_steps[a];
         } else {
             // add basal branch
-            last_treelen_b = last_treelen + model->time_steps[root_age_index];
+            last_treelen_b = last_treelen + model->time_steps[root_age];
         }
     } else {
         //double last_treelen = get_treelen_branch(
         //    last_tree, model->times, model->ntimes,
         //    state1.node, state2.time, -1, false);
 
+        root_age = last_tree->nodes[last_tree->root].age;
         last_treelen = get_treelen_branch(
             last_tree, model->times, model->ntimes,
             state1.node, state1.time, -1, false);
@@ -506,7 +508,7 @@ double calc_recomb_recoal(
 
 
     // recomb prob
-    int root_age = last_tree->nodes[last_tree->root].age;
+    //int root_age = last_tree->nodes[last_tree->root].age;
     int nbranches_k = lineages->nbranches[k] + int(k < a);
     int nrecombs_k = lineages->nrecombs[k] + int(k <= a) + 
         int(k == a) - int(k >= max(root_age, a));
@@ -1252,16 +1254,19 @@ bool assert_transmat_switch_internal(const LocalTree *last_tree,
 
 
             // add branches
-            Spr add_spr(last_subtree_root, last_tree2[subtree_root].age,
+            Spr add_spr(last_subtree_root, last_tree2[last_subtree_root].age,
                         state1.node, state1.time);
             apply_spr(&last_tree2, add_spr);
             Spr add_spr2(subtree_root, tree2[subtree_root].age,
                          state2.node, state2.time);
             apply_spr(&tree2, add_spr2);
-
             add_spr_branch(&tree2, &last_tree2, state2, state1,
                            &spr, mapping, subtree_root, last_subtree_root);
 
+            print_local_tree(&last_tree2);
+
+            printf("spr: (%d,%d) (%d,%d)\n", spr.recomb_node, spr.recomb_time,
+                   spr.coal_node, spr.coal_time);
 
             double recomb_prob = calc_recomb_prob(&last_tree2, model);
             double p = log(recomb_prob);
