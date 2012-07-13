@@ -126,7 +126,6 @@ void arghmm_forward_alg_block(const LocalTree *tree, const ArgModel *model,
     // group states by age
     int nstates_per_time[ntimes];
     fill(nstates_per_time, nstates_per_time+ntimes, 0);
-    //memset(nstates_per_time, 0, ntimes*sizeof(int));
     for (int j=0; j<nstates; j++)
         nstates_per_time[states[j].time]++;
     int offset[ntimes], offset2[ntimes];
@@ -281,7 +280,7 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
                                  matrices.transmat,
                                  matrices.emit, &fw[pos], internal);
 
-        // DEBUG        
+        // safety check
         int nstates = max(matrices.transmat->nstates, 1);
         double top = max_array(fw[pos + matrices.blocklen - 1], nstates);
         assert(top > -INFINITY);
@@ -701,16 +700,6 @@ void sample_arg_thread_internal(ArgModel *model, Sequences *sequences,
 }
 
 
-// resample the threading of one chromosome
-void resample_arg_thread(ArgModel *model, Sequences *sequences, 
-                         LocalTrees *trees, int chrom)
-{
-    // remove chromosome from ARG and resample its thread
-    remove_arg_thread(trees, chrom);
-    sample_arg_thread(model, sequences, trees, chrom);
-}
-
-
 // sample the thread of the last chromosome
 void max_arg_thread(ArgModel *model, Sequences *sequences, 
                     LocalTrees *trees, int new_chrom)
@@ -819,13 +808,12 @@ void cond_sample_arg_thread(ArgModel *model, Sequences *sequences,
                               thread_path, true);
     printf("trace:       %e s\n", time.time());
     assert(fw[trees->start_coord][thread_path[trees->start_coord]] == 0.0);
-    //for (int i=trees->start_coord; i<trees->end_coord; i++) 
-    //    printf("thread_path[%d] = %d\n", i, thread_path[i]);
 
 
-    time.start();
+
 
     // sample recombination points
+    time.start();
     vector<int> recomb_pos;
     vector<NodePoint> recombs;
     sample_recombinations(trees, model, &matrix_list,
@@ -842,12 +830,25 @@ void cond_sample_arg_thread(ArgModel *model, Sequences *sequences,
 }
 
 
+
+// resample the threading of one chromosome
+void resample_arg_thread(ArgModel *model, Sequences *sequences, 
+                         LocalTrees *trees, int chrom)
+{
+    // remove chromosome from ARG and resample its thread
+    remove_arg_thread(trees, chrom);
+    sample_arg_thread(model, sequences, trees, chrom);
+}
+
+
+
 //=============================================================================
 // C interface
 
 extern "C" {
 
 
+// perform forward algorithm
 double **arghmm_forward_alg(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
@@ -892,7 +893,7 @@ double **arghmm_forward_alg(
 }
 
 
-
+// perform forward algorithm and sample threading path from posterior
 intstate *arghmm_sample_posterior(
     int **ptrees, int **ages, int **sprs, int *blocklens,
     int ntrees, int nnodes, double *times, int ntimes,
@@ -943,7 +944,7 @@ intstate *arghmm_sample_posterior(
 }
 
 
-// sample the thread of the last chromosome
+// sample the thread of an internal branch
 void arghmm_sample_arg_thread_internal(LocalTrees *trees,
     double *times, int ntimes, double *popsizes, double rho, double mu,
     char **seqs, int nseqs, int seqlen, int *thread_path)
@@ -972,6 +973,7 @@ void arghmm_sample_arg_thread_internal(LocalTrees *trees,
 }
 
 
+// add one chromosome to an ARG
 LocalTrees *arghmm_sample_thread(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
@@ -988,6 +990,7 @@ LocalTrees *arghmm_sample_thread(
 }
 
 
+// add one chromosome to an ARG using maximization
 LocalTrees *arghmm_max_thread(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,

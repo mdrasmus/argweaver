@@ -45,7 +45,7 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
         else
             states = &states1;
 
-        start += it->blocklen; //.length();
+        start += it->blocklen;
     }
 
     return true;
@@ -142,6 +142,8 @@ void add_tree_branch(LocalTree *tree, int node, int time)
 }
 
 
+// removes a leaf branch from a local tree
+// any node displacements are recorded in the displace array
 void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
 {
     LocalNode *nodes = tree->nodes;
@@ -194,7 +196,8 @@ void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
 
 
 
-// update an SPR and mapping after adding a new branch
+// update an SPR and mapping after adding a new branch to two
+// neighboring local trees
 void add_spr_branch(LocalTree *tree, LocalTree *last_tree, 
                     State state, State last_state,
                     Spr *spr, int *mapping,
@@ -290,7 +293,7 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
 
 
 
-// add a thread to an ARG
+// add a leaf thread to an ARG
 void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
                     vector<int> &recomb_pos, vector<NodePoint> &recombs)
 {
@@ -331,9 +334,6 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
         // update mapping and spr
         int *mapping = it->mapping;
         if (mapping) {
-            //printf("spr %d %d, %d %d\n", 
-            //       it->spr.recomb_node, it->spr.recomb_time,
-            //       it->spr.coal_node, it->spr.coal_time);
             add_spr_branch(tree, last_tree, state, last_state,
                            &it->spr, mapping,
                            newleaf, displaced, newcoal);
@@ -443,7 +443,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
 
 
 
-// Removes a thread from an ARG
+// Removes a leaf thread from an ARG
 // NOTE: if remove_leaf is not last_leaf, nleaves - 1, 
 // last_leaf is renamed to remove_leaf
 void remove_arg_thread(LocalTrees *trees, int remove_seqid)
@@ -675,6 +675,7 @@ void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
 }
 
 
+// sample a removal path forward along an ARG
 void sample_arg_removal_path_forward(LocalTrees *trees, LocalTrees::iterator it,
                                      int node, int *path, int i)
 {
@@ -704,6 +705,7 @@ void sample_arg_removal_path_forward(LocalTrees *trees, LocalTrees::iterator it,
 }
 
 
+// sample a removal path backward along an ARG
 void sample_arg_removal_path_backward(
     LocalTrees *trees, LocalTrees::iterator it, int node, int *path, int i)
 {
@@ -715,8 +717,6 @@ void sample_arg_removal_path_backward(
     --it;
 
     for (; it != trees->end(); --it) {
-        //printf("i=%d\n", i);
-
         int prev_nodes[2];
         LocalTree *tree1 = it->tree;
         assert(!spr2->is_null());
@@ -725,13 +725,6 @@ void sample_arg_removal_path_backward(
                                path[i+1], prev_nodes);        
         int j = (prev_nodes[1] != -1 ? irand(2) : 0);
         path[i--] = prev_nodes[j];
-        //printf("path[%d] = %d\n", i+1, path[i+1]);
-
-        int next_nodes[2];
-        get_next_removal_nodes(tree1, tree2, *spr2, mapping2, 
-                               path[i+1], next_nodes);
-        assert(next_nodes[0] == path[i+2] || next_nodes[1] == path[i+2]);
-
 
         spr2 = &it->spr;
         mapping2 = it->mapping;
@@ -740,7 +733,9 @@ void sample_arg_removal_path_backward(
 }
 
 
-void sample_arg_removal_path2(LocalTrees *trees, int node, int pos, int *path)
+// sample a removal path that goes through a particular node and position
+// in the ARG
+void sample_arg_removal_path(LocalTrees *trees, int node, int pos, int *path)
 {
     // search for block with pos
     LocalTrees::iterator it = trees->begin();
@@ -759,6 +754,7 @@ void sample_arg_removal_path2(LocalTrees *trees, int node, int pos, int *path)
 }
 
 
+// sample a removal path that starts at a particular node in the ARG
 void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
 {
     // search for block with pos
@@ -767,7 +763,8 @@ void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
 }
 
 
-
+// sample a removal path that only contains leaves
+// TODO: this could be simplified, calculating leaf path are easy
 void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path)
 {
     int i = 0;
@@ -798,7 +795,7 @@ void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path)
 
 
 
-// update an SPR and mapping after adding a new branch
+// update an SPR and mapping after adding a new internal branch
 void add_spr_branch(LocalTree *tree, LocalTree *last_tree, 
                     State state, State last_state,
                     Spr *spr, int *mapping,
@@ -872,7 +869,6 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
             int p = last_nodes[spr->coal_node].parent;
             if (p != -1)
                 assert(spr->coal_time <= last_nodes[p].age);
-            // BUG
         }
     }
             
@@ -894,8 +890,6 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
             y = last_tree->get_sibling(spr->recomb_node);
         if (y == spr->coal_node)
             y = last_nodes[x].child[1];
-        //printf("y = %d\n", y);
-        //printf("old mapping[%d] = %d\n", last_newcoal, mapping[last_newcoal]);
         mapping[last_newcoal] = nodes[mapping[y]].parent;
     }
 
@@ -915,10 +909,6 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
     unsigned int irecomb = 0;
     int end = trees->start_coord;
     
-    //printf("\n");
-    //printf("===============================\n");
-    //printf("add thread\n");
-
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) 
     {
         LocalTree *tree = it->tree;
@@ -931,27 +921,7 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
         get_coal_states_internal(tree, ntimes, states);
         int nstates = states.size();
 
-        /*
-        printf("\n");
-        printf("%d-%d\n", start, end);
-        printf("> poss subtree = %d\n", nodes[tree->root].child[0]);
-        print_local_tree(tree);
-        if (nstates > 0) {
-            state = states[thread_path[start]];
-            printf("> state %d = (%d %d)\n", thread_path[start],
-                   state.node, state.time);
-
-            LocalTrees::iterator it2 = it;
-            ++it2;
-            if (it2 != trees->end()) {
-                Spr *spr = &it2->spr;
-                printf("spr: r=(%d, %d), c=(%d, %d)\n\n",
-                       spr->recomb_node, spr->recomb_time,
-                       spr->coal_node, spr->coal_time);
-            }
-        }
-        */
-
+        
         // detect whether local tree is partial
         if (nodes[tree->root].age > ntimes) {
             assert(nstates > 0);
@@ -961,15 +931,6 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
             Spr add_spr(subtree_root, nodes[subtree_root].age,
                         state.node, state.time);
             apply_spr(tree, add_spr);
-
-            int nleaves = (tree->nnodes + 1) / 2;
-            for (int i=0; i<nleaves; i++)
-                assert(nodes[i].parent != -1);
-            assert(assert_tree(tree));
-
-            // check whether thread when to right place
-            assert(nodes[nodes[subtree_root].parent].age == state.time);
-
         } else {
             // set null state
             state.node = -1;
@@ -981,8 +942,6 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
         int *mapping = it->mapping;
         if (mapping) {
             if (last_state.node != -1) {
-                //printf("spr %d,%d %d,%d\n", spr->recomb_node,spr->recomb_time,
-                //       spr->coal_node, spr->coal_time);
                 add_spr_branch(tree, last_tree, state, last_state,
                                spr, mapping, subtree_root, last_subtree_root);
             }
@@ -992,7 +951,6 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
         // break this block for each new recomb within this block
         for (;irecomb < recombs.size() && 
               recomb_pos[irecomb] < end; irecomb++) {
-            //printf("new recomb %d\n", recomb_pos[irecomb]);
             
             int pos = recomb_pos[irecomb];
             LocalNode *nodes = tree->nodes;
@@ -1084,6 +1042,7 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path,
 
 
 
+// get the new names for nodes due to collapsing null SPRs
 LocalTree *get_actual_nodes(LocalTrees *trees, LocalTrees::iterator it, 
                             int *nodes)
 {
@@ -1119,18 +1078,12 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
     LocalTree *tree = NULL;
     State *original_states = NULL;
 
+    // prepare original thread array if requested
     if (original_thread) {
         original_states = new State [trees->length()];
     }
 
-    //printf("====================================\n");
-    //printf("remove before\n");
-    //print_local_trees(trees);
-
-    //printf("\n");
-    //printf("====================================\n");
-    //printf("removing\n");
-
+    
     int i=0;
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, i++) 
@@ -1188,12 +1141,6 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
 
         // record thread
         if (original_states) {
-            //printf("\n");
-            //printf("%d-%d\n", start, end);
-            //printf("> poss subtree = %d\n", nodes[tree->root].child[0]);
-            //print_local_tree(tree);
-            //printf("> state = (%d %d)\n", broken_child, coal_time);
-                        
             for (int j=start; j<end; j++)
                 original_states[j].set(broken_child, coal_time);
         }
@@ -1270,11 +1217,7 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         // ensure broken node maps to -1
         int spr_broken_node = nodes[spr->recomb_node].parent;
         mapping[spr_broken_node] = -1;
-
-        //printf("spr: r=(%d, %d), c=(%d, %d)\n\n",
-        //       spr->recomb_node, spr->recomb_time,
-        //       spr->coal_node, spr->coal_time);
-
+        
         // assert spr
         if (last_tree && !it->spr.is_null())
             assert_spr(last_tree, tree, &it->spr, it->mapping);
@@ -1314,9 +1257,6 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         
         delete [] original_states;
     }
-
-
-    assert_trees(trees);
     
     // remove extra trees
     remove_null_sprs(trees);
@@ -1339,7 +1279,7 @@ void arghmm_sample_arg_removal_path(LocalTrees *trees, int node, int *path)
 void arghmm_sample_arg_removal_path2(LocalTrees *trees, int node, 
                                      int pos, int *path)
 {
-    sample_arg_removal_path2(trees, node, pos, path);
+    sample_arg_removal_path(trees, node, pos, path);
 }
 
 void arghmm_sample_arg_removal_leaf_path(LocalTrees *trees, int node, 
