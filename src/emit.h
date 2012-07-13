@@ -17,6 +17,10 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen, 
                              const ArgModel *model, double **emit);
 
+void calc_emissions2(const States &states, const LocalTree *tree,
+                     const char *const *seqs, int nseqs, int seqlen, 
+                     const ArgModel *model, double **emit);
+
 
 //=============================================================================
 // C interface

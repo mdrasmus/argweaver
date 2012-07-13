@@ -2,6 +2,7 @@
 #include "common.h"
 #include "emit.h"
 #include "seq.h"
+#include "thread.h"
 
 namespace arghmm {
 
@@ -85,7 +86,8 @@ void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs,
 
 
 
-void calc_emissions(const States &states, const LocalTree *tree,
+
+void calc_emissions2(const States &states, const LocalTree *tree,
                     const char *const *seqs, int nseqs, int seqlen, 
                     const ArgModel *model, double **emit)
 {
@@ -237,8 +239,159 @@ void calc_emissions(const States &states, const LocalTree *tree,
 }
 
 
+// Juke-Cantor
+inline double prob_branch(double t, double mu, bool mut)
+{
+    const double f = 4. / 3.;
+    if (!mut)
+        return .25 * (1.0 + 3. * exp(-f*mu*t));
+    else
+        return .25 * (1.0 - exp(-f*mu*t));
+}
+
+
+double likelihood_site(const LocalTree *tree, const char *const *seqs, 
+                       int pos, const int *order, const double *muts,
+                       const double *nomuts)
+{
+    const int nnodes = tree->nnodes;
+    const LocalNode* nodes = tree->nodes;
+    double table[nnodes][4];
+
+    // iterate postorder through nodes
+    for (int i=0; i<nnodes; i++) {
+        const int j = order[i];
+        
+        if (nodes[j].is_leaf()) {
+            // leaf case
+            const char c = seqs[j][pos];
+            table[j][0] = 0.0;
+            table[j][1] = 0.0;
+            table[j][2] = 0.0;
+            table[j][3] = 0.0;
+            table[j][dna2int[(int) c]] = 1.0;
+        } else {
+            // internal node case
+            int c1 = nodes[j].child[0];
+            int c2 = nodes[j].child[1];
+            
+            for (int a=0; a<4; a++) {
+                double p1 = 0.0;
+                double p2 = 0.0;
+                
+                for (int b=0; b<4; b++) {
+                    if (a == b) {
+                        p1 += table[c1][b] * nomuts[c1];
+                        p2 += table[c2][b] * nomuts[c2];
+                    } else {
+                        p1 += table[c1][b] * muts[c1];
+                        p2 += table[c2][b] * muts[c2];
+                    }
+                }
+
+                table[j][a] = p1 * p2;
+            }
+        }
+    }
+
+    // sum over root node
+    double p = 0.0;
+    int root = tree->root;
+    for (int a=0; a<4; a++)
+        p += table[root][a];
+    
+    return log(p * .25);
+}
+
+
+void likelihood_sites(const LocalTree *tree, const ArgModel *model,
+                      const char *const *seqs, 
+                      const int seqlen, const int statei, double **emit)
+{
+    const double *times = model->times;
+    const LocalNode *nodes = tree->nodes;
+    const double mintime = times[1];
+
+    // get postorder
+    int order[tree->nnodes];
+    tree->get_postorder(order);
+
+    // get mutation probabilities
+    double muts[tree->nnodes];
+    double nomuts[tree->nnodes];
+    for (int i=0; i<tree->nnodes; i++) {
+        if (i != tree->root) {
+            double t = max(times[nodes[nodes[i].parent].age] - 
+                           times[nodes[i].age], mintime);
+            muts[i] = prob_branch(t, model->mu, true);
+            nomuts[i] = prob_branch(t, model->mu, false);
+        }
+    }
+
+    // calculate emissions for tree at each site
+    for (int i=0; i<seqlen; i++) {
+        emit[i][statei] = likelihood_site(tree, seqs, i, order, muts, nomuts);
+    }
+}
+
+
+void calc_emissions(const States &states, const LocalTree *tree,
+                     const char *const *seqs, int nseqs, int seqlen, 
+                     const ArgModel *model, double **emit)
+{
+    const int nstates = states.size();
+    const int newleaf = tree->get_num_leaves();
+    int displace[tree->nnodes + 2];
+
+    // create local tree we can edit
+    LocalTree tree2(tree->nnodes, tree->nnodes + 2);
+    tree2.copy(*tree);
+
+
+    for (int j=0; j<nstates; j++) {
+        State state = states[j];
+        add_tree_branch(&tree2, state.node, state.time);
+        likelihood_sites(&tree2, model, seqs, seqlen, j, emit);
+        remove_tree_branch(&tree2, newleaf, displace);                  
+    }
+}
+
 
 void calc_emissions_internal(const States &states, const LocalTree *tree,
+                     const char *const *seqs, int nseqs, int seqlen, 
+                     const ArgModel *model, double **emit)
+{
+    const int nstates = states.size();
+    const int subtree_root = tree->nodes[tree->root].child[0];
+    const int subtree_root_age = tree->nodes[subtree_root].age;
+    const int maxtime = model->ntimes + 1;
+
+    // ignore fully specified local tree
+    if (nstates == 0)
+        return;
+
+    // create local tree we can edit
+    LocalTree tree2(tree->nnodes, tree->nnodes + 2);
+    tree2.copy(*tree);
+
+    for (int j=0; j<nstates; j++) {
+        State state = states[j];
+        assert(subtree_root != tree2.root);
+        Spr add_spr(subtree_root, subtree_root_age, state.node, state.time);
+        apply_spr(&tree2, add_spr);
+
+        likelihood_sites(&tree2, model, seqs, seqlen, j, emit);
+
+        Spr remove_spr(subtree_root, subtree_root_age, 
+                       tree2.root, maxtime);
+        apply_spr(&tree2, remove_spr);
+    }
+}
+
+
+
+
+void calc_emissions_internal2(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen, 
                              const ArgModel *model, double **emit)
 {

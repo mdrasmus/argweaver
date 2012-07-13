@@ -14,14 +14,23 @@ namespace arghmm {
 class ArgModel 
 {
 public:
-    ArgModel(int ntimes, double *times, double *popsizes, 
+    ArgModel(int ntimes, double *_times, double *_popsizes, 
              double rho, double mu) :
         ntimes(ntimes),
-        times(times),
-        popsizes(popsizes),
         rho(rho),
         mu(mu)
     {
+        times = new double [ntimes];
+        copy(_times, _times + ntimes, times);
+
+        if (_popsizes) {
+            popsizes = new double [ntimes];
+            copy(_popsizes, _popsizes + ntimes, popsizes);
+        } else {
+            popsizes = NULL;
+        }
+
+        // setup time steps
         time_steps = new double [ntimes];
         for (int i=0; i<ntimes-1; i++)
             time_steps[i] = times[i+1] - times[i];
@@ -29,7 +38,10 @@ public:
     }
     ~ArgModel()
     {
+        delete [] times;
         delete [] time_steps;
+        if (popsizes)
+            delete [] popsizes;
     }
 
     // time points

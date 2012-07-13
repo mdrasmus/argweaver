@@ -810,10 +810,13 @@ class Sample (unittest.TestCase):
 
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
+                arg2 = arghmm.resample_all_arg(arg, seqs, rho=rho, mu=mu,
+                                           times=times,
+                                           refine=5*8)
                 #arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                 #                         refine=refine)
-                arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
-                                             refine=refine)
+                #arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
+                #                             refine=refine)
 
                 util.toc()
                 
@@ -996,11 +999,11 @@ class Sample (unittest.TestCase):
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = int(400e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         write = False
-        #nremove = 2; refine = 5
-        nremove = 1; refine = 7
+        #nremove = 1; refine = 1
+        nremove = 1; refine = 20
 
         makedirs("test/data/sample_arg_recomb2/")
 
@@ -1020,6 +1023,7 @@ class Sample (unittest.TestCase):
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times)
         util.toc()
+        #arg2 = arg
         
         nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
         y.append(nrecombs2)
@@ -1443,9 +1447,9 @@ class Sample (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(400e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 50; nremove = 1
+        refine = 30; nremove = 1
         #refine = 0;
         write = False
         if write:
@@ -1455,7 +1459,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(20):
+        for i in range(10):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1470,10 +1474,11 @@ class Sample (unittest.TestCase):
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
                 #arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                #                         refine=4, nremove=nremove,
+                #                         refine=5, nremove=nremove,
                 #                         carg=True)
-                arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
-                                             refine=refine, carg=True)
+                arg2 = arghmm.sample_all_arg(
+                    seqs, rho=rho, mu=mu, times=times, popsizes=n,
+                    refine=refine, carg=True)
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,

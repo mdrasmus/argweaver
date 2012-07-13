@@ -85,7 +85,6 @@ double calc_arg_likelihood(ArgModel *model, Sequences *sequences,
             else
                 t = times[nodes[parent].age] - times[nodes[j].age];
             t = max(t, minlen);
-            //printf("t %e c %d %d\n", t, counts[j], blocklen);
             lnl += (counts[j] - blocklen) * model->mu * t +
                 counts[j] * log(1/3. - 1/3. * exp(-model->mu * t));
         }
@@ -127,8 +126,6 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
         - int(j <= broken_age) - int(j == broken_age);
     int nbranches_j = lineages.nbranches[j] - int(j < broken_age);
 
-    //printf(">ncoals_j %d %d %d %f\n", ncoals_j, lineages.nbranches[k],
-    //       lineages.nrecombs[k], treelen_b);
     lnl -= log(ncoals_j);
     if (j < model->ntimes - 2)
         lnl += log((1.0 - exp(- model->time_steps[j] * nbranches_j / 
@@ -179,7 +176,7 @@ double calc_arg_prior(ArgModel *model, LocalTrees *trees)
         } else {
             // last block
             // probability of not recombining after blocklen
-            lnl += log(1.0 - recomb_rate * exp(- recomb_rate * blocklen));
+            lnl += - recomb_rate * blocklen;
             ++it;
         }
     }

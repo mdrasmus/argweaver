@@ -89,6 +89,8 @@ void calc_transition_probs_internal(const LocalTree *tree,
     const ArgModel *model, const States &states, const LineageCounts *lineages,
     TransMatrix *matrix)
 {
+    matrix->internal = true;
+
     // get model parameters
     const int ntimes = model->ntimes;
     const double *times = model->times;
@@ -1437,7 +1439,6 @@ bool arghmm_assert_transmat_switch_internal(
     LocalTree *last_tree = NULL;
     for (matrix_iter.begin(); matrix_iter.more(); matrix_iter.next()) {
         matrix_iter.get_matrices(&matrices);
-        int pos = matrix_iter.get_position();
         LocalTrees::iterator it = matrix_iter.get_tree_iter();
         LocalTree *tree = it->tree;
 
