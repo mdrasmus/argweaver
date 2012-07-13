@@ -19,6 +19,11 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
                     State state, State last_state,
                     Spr *spr, int *mapping,
                     int newleaf, int displaced, int newcoal);
+void add_spr_branch(LocalTree *tree, LocalTree *last_tree, 
+                    State state, State last_state,
+                    Spr *spr, int *mapping,
+                    int subtree_root, int last_subtree_root);
+
 
 // add a thread to an ARG
 void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
@@ -26,6 +31,15 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
 
 // remove a thread from an ARG
 void remove_arg_thread(LocalTrees *trees, int remove_seqid);
+
+
+
+void get_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
+                            const Spr &spr2, const int *mapping2,
+                            int node, int next_nodes[2]);
+void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
+                            const Spr &spr2, const int *mapping2,
+                            int node, int prev_nodes[2]);
 
 
 // Add a branch to a partial ARG

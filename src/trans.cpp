@@ -2,6 +2,7 @@
 // transitions
 
 #include "common.h"
+#include "matrices.h"
 #include "total_prob.h"
 #include "thread.h"
 #include "trans.h"
@@ -1109,12 +1110,11 @@ bool assert_transmat_switch(const LocalTree *tree, const Spr &_spr,
             
             
             // compare probabilities
-            
+            printf("> %d,%d (%d,%d)->(%d,%d): %e = %e; %e\n", 
+                   i, j,
+                   state1.node, state1.time,
+                   state2.node, state2.time, p, p2, p - p2);
             if (!fequal(p, p2, 1e-4, 1e-9)) {
-                printf("> %d,%d (%d,%d)->(%d,%d): %e = %e; %e\n", 
-                       i, j,
-                       state1.node, state1.time,
-                       state2.node, state2.time, p, p2, p - p2);
                 return false;
             }
         }
@@ -1122,6 +1122,164 @@ bool assert_transmat_switch(const LocalTree *tree, const Spr &_spr,
 
     return true;
 }
+
+
+
+
+bool assert_transmat_internal(const LocalTree *tree, const ArgModel *model,
+                              const TransMatrix *matrix)
+{
+    LineageCounts lineages(model->ntimes);
+    States states;
+    get_coal_states_internal(tree, model->ntimes, states);
+    int nstates = states.size();
+    int subtree_root = tree->nodes[tree->root].child[0];
+
+    // get local tree we can modify
+    LocalTree tree2(tree->nnodes);
+    tree2.copy(*tree);
+    
+    
+    for (int i=0; i<nstates; i++) {
+        for (int j=0; j<nstates; j++) {
+            State state1 = states[i];
+            State state2 = states[j];
+            Spr spr;
+            int sister_age = tree2.nodes[state1.node].age;
+            
+            Spr add_spr(subtree_root, tree->nodes[subtree_root].age,
+                        state1.node, state1.time);
+            apply_spr(&tree2, add_spr);
+
+            // calculate probability of recombination
+            double recomb_prob = calc_recomb_prob(&tree2, model);
+
+            double p = -INFINITY;
+
+            // recomb could be on new branch
+            // recoal is state2
+            spr.recomb_node = subtree_root;
+            spr.coal_node = state2.node;
+            spr.coal_time = state2.time;
+            assert(tree2[subtree_root].age <= spr.coal_time);
+
+            // sum over possible recombination times
+            for (int rtime=tree2[subtree_root].age; 
+                 rtime<=min(state1.time, state2.time); rtime++) {
+                spr.recomb_time = rtime;
+                p = logadd(p, calc_spr_prob(model, &tree2, spr, lineages));
+            }
+
+
+            if (state1.node == state2.node) {
+                // recomb could be state1.node
+                // recoal is on new branch or parent of state1.node
+                spr.recomb_node = state1.node;
+
+                if (state2.time < state1.time) {
+                    spr.coal_node = subtree_root;
+                } else if (state2.time >= state1.time) {
+                    spr.coal_node = tree2.nodes[subtree_root].parent;
+                }
+                spr.coal_time = state2.time;
+                
+                // sum over possible recombination times
+                for (int rtime=sister_age; 
+                     rtime<=min(state1.time, state2.time); rtime++) {
+                    spr.recomb_time = rtime;
+                    p = logadd(p, calc_spr_prob(model, &tree2, spr, lineages));
+                }
+            }
+
+            p += log(recomb_prob);
+
+            if (i == j)
+                p = logadd(p, log(1.0 - recomb_prob));
+
+            
+            double p2 = matrix->get_transition_prob(tree, states, i, j);
+
+            printf("> (%d,%d)->(%d,%d): %e = %e; %e\n", 
+                   state1.node, state1.time,
+                   state2.node, state2.time, p, p2, p - p2);
+            if (!fequal(p, p2, 1e-4, 1e-9)) {
+                return false;
+            }
+
+            Spr remove_spr(subtree_root, tree2[subtree_root].age, 
+                           tree2.root, model->ntimes+1);
+            apply_spr(&tree2, remove_spr);
+        }
+    }
+
+    return true;
+}
+
+
+bool assert_transmat_switch_internal(const LocalTree *last_tree, 
+                                     const LocalTree *tree, 
+                                     const Spr &_spr, const int *_mapping, 
+                                     ArgModel *model, 
+                                     TransMatrixSwitch *transmat_switch)
+{
+    LineageCounts lineages(model->ntimes);
+    States states, last_states;
+    get_coal_states_internal(last_tree, model->ntimes, last_states);
+    get_coal_states_internal(tree, model->ntimes, states);
+    int nstates1 = last_states.size();
+    int nstates2 = states.size();
+    int last_subtree_root = last_tree->nodes[last_tree->root].child[0];
+    int subtree_root = tree->nodes[tree->root].child[0];    
+    
+    for (int i=0; i<nstates1; i++) {
+        for (int j=0; j<nstates2; j++) {
+            State state1 = last_states[i];
+            State state2 = states[j];
+
+            double p2 = transmat_switch->get_transition_prob(i, j);
+            if (p2 == -INFINITY)
+                continue;
+
+            // get local tree we can modify
+            LocalTree last_tree2(last_tree->nnodes);
+            last_tree2.copy(*last_tree);
+            LocalTree tree2(tree->nnodes);
+            tree2.copy(*tree);
+            Spr spr = _spr;
+            int mapping[tree->nnodes];
+            for (int k=0; k<tree->nnodes; k++)
+                mapping[k] = _mapping[k];
+
+
+            // add branches
+            Spr add_spr(last_subtree_root, last_tree2[subtree_root].age,
+                        state1.node, state1.time);
+            apply_spr(&last_tree2, add_spr);
+            Spr add_spr2(subtree_root, tree2[subtree_root].age,
+                         state2.node, state2.time);
+            apply_spr(&tree2, add_spr2);
+
+            add_spr_branch(&tree2, &last_tree2, state2, state1,
+                           &spr, mapping, subtree_root, last_subtree_root);
+
+
+            double recomb_prob = calc_recomb_prob(&last_tree2, model);
+            double p = log(recomb_prob);
+            p += calc_spr_prob(model, &last_tree2, spr, lineages);
+            
+            printf("> (%d,%d)->(%d,%d): %e = %e; %e\n", 
+                   state1.node, state1.time,
+                   state2.node, state2.time, p, p2, p - p2);
+            if (!fequal(p, p2, 1e-4, 1e-9)) {
+                return false;
+            }
+        }
+    }    
+
+    return true;
+}
+
+
 
 
 //=============================================================================
@@ -1249,6 +1407,75 @@ bool arghmm_assert_transmat_switch(
         &transmat_switch);
 
     return assert_transmat_switch(&last_tree, spr, &model, &transmat_switch);
+}
+
+
+bool arghmm_assert_transmat_internal(int nnodes, int *ptree, int *ages, 
+                                     int ntimes, double *times, 
+                                     double *popsizes, double rho)
+{
+    ArgModel model(ntimes, times, popsizes, rho, 0.0);
+    LocalTree tree(ptree, nnodes, ages);
+
+    // randomly choose branch to remove
+    int node = irand(nnodes);
+    Spr remove_spr(node, tree[node].age, tree.root, ntimes+1);
+    apply_spr(&tree, remove_spr);
+    int *c = tree[tree.root].child;
+    if (c[0] != node) {
+        int tmp = c[0];
+        c[0] = c[1];
+        c[1] = tmp;
+    }
+
+
+    States states;
+    get_coal_states_internal(&tree, ntimes, states);
+
+    LineageCounts lineages(ntimes);
+    lineages.count(&tree, true);
+
+    TransMatrix transmat(ntimes, states.size());
+    calc_transition_probs_internal(&tree, &model, states, &lineages, &transmat);
+    
+    return assert_transmat_internal(&tree, &model, &transmat);
+}
+
+
+bool arghmm_assert_transmat_switch_internal(
+    LocalTrees *trees, int ntimes, double *times, double *popsizes, double rho)
+{
+    ArgModel model(ntimes, times, popsizes, rho, 0.0);
+
+    const int maxtime = model.ntimes + 1;
+    int *removal_path = new int [trees->get_num_trees()];
+    int node = irand(trees->nnodes);
+    sample_arg_removal_path(trees, node, removal_path);
+    remove_arg_thread_path(trees, removal_path, maxtime);
+
+    // build matrices
+    ArgHmmMatrices matrices;
+    ArgHmmMatrixIter matrix_iter(&model, NULL, trees);
+    matrix_iter.set_internal(true);
+
+    LocalTree *last_tree = NULL;
+    for (matrix_iter.begin(); matrix_iter.more(); matrix_iter.next()) {
+        matrix_iter.get_matrices(&matrices);
+        int pos = matrix_iter.get_position();
+        LocalTrees::iterator it = matrix_iter.get_tree_iter();
+        LocalTree *tree = it->tree;
+
+        if (matrices.transmat_switch) {
+            if (!assert_transmat_switch_internal(last_tree, tree, it->spr,
+                                                 it->mapping, &model, 
+                                                 matrices.transmat_switch))
+                return false;
+        }
+        
+        last_tree = tree;
+    }
+
+    return true;
 }
 
 

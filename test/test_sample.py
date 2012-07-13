@@ -1258,15 +1258,15 @@ class Sample (unittest.TestCase):
         Plot the ARG likelihood from a fully sampled ARG
         """
 
-        k = 2
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 0
-        write = True
+        refine = 20
+        write = False
         if write:
             make_clean_dir("test/data/sample_arg_lk")
 
@@ -1289,8 +1289,13 @@ class Sample (unittest.TestCase):
 
             for j in range(4):
                 util.tic("sample ARG %d, %d" % (i, j))
-                arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
-                                         refine=refine)
+                #arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
+                #                         refine=refine)
+
+                arg2 = arghmm.sample_all_arg(seqs, rho=rho2, mu=mu, times=times,
+                                             refine=refine)
+
+                
                 if write:
                     arglib.write_arg("test/data/sample_arg_lk/%d-%d.arg" %
                                      (i, j), arg2)
@@ -1433,13 +1438,13 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 4
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 20; nremove = 1
+        refine = 40; nremove = 1
         #refine = 0;
         write = False
         if write:

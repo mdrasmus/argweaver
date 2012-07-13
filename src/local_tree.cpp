@@ -115,6 +115,7 @@ void count_lineages_internal(const LocalTree *tree, int ntimes,
         ncoals[i]--;
         nrecombs[i]--;
     }
+
     /*
     if (minage > 0) {
         ncoals[minage]--;

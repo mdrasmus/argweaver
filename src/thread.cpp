@@ -764,35 +764,6 @@ void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
     // search for block with pos
     LocalTrees::iterator it = trees->begin();
     sample_arg_removal_path_forward(trees, it, node, path, 0);
-
-    /*
-    sample_arg_removal_path_backward(trees, it, node, path, i);
-
-    int i = 0;
-    path[i++] = node;
-    LocalTree *last_tree = NULL;
-
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        LocalTree *tree = it->tree;
-
-        if (last_tree) {
-            int next_nodes[2];
-            Spr *spr = &it->spr;
-            int *mapping = it->mapping;
-            get_next_removal_nodes(last_tree, *spr, mapping,
-                                   path[i-1], next_nodes);
-            int j = (next_nodes[1] != -1 ? irand(2) : 0);
-            path[i++] = next_nodes[j];
-            
-            // ensure that a removal path re-enters the local tree correctly
-            if (last_tree->root == path[i-2] && tree->root != path[i-1]) {
-                assert(spr->coal_node == last_tree->root);
-            }
-        }
-        
-        last_tree = tree;
-    }
-    */
 }
 
 

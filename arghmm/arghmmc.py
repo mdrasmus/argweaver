@@ -74,6 +74,13 @@ if arghmmclib:
             c_int, "coal_name", c_int, "coal_time",
             c_int, "ntimes", c_double_list, "times", 
             c_double_list, "popsizes", c_double, "rho"])
+    export(arghmmclib, "arghmm_assert_transmat_internal", c_bool,
+           [c_int, "nnodes", c_int_list, "ptree", c_int_list, "ages", 
+            c_int, "ntimes", c_double_list, "times", 
+            c_double_list, "popsizes", c_double, "rho"])
+    export(arghmmclib, "arghmm_assert_transmat_switch_internal", c_bool,
+           [c_void_p, "trees", c_int, "ntimes", c_double_list, "times", 
+            c_double_list, "popsizes", c_double, "rho"])
 
 
     # emission calculation
@@ -364,6 +371,17 @@ def assert_transition_probs(tree, times, popsizes, rho):
     
     return arghmm_assert_transmat(len(ptree), ptree, ages, 
                                   len(times), times, popsizes, rho)
+
+def assert_transition_probs_internal(tree, times, popsizes, rho):
+    
+    times_lookup = dict((t, i) for i, t in enumerate(times))
+    tree2 = tree.get_tree()
+    ptree, nodes, nodelookup = make_ptree(tree2)
+    ages = [times_lookup[tree[node.name].age] for node in nodes]
+    
+    return arghmm_assert_transmat_internal(len(ptree), ptree, ages, 
+                                           len(times), times, popsizes, rho)
+
     
 def assert_transition_switch_probs(tree, spr, times, popsizes, rho):
     
@@ -382,6 +400,12 @@ def assert_transition_switch_probs(tree, spr, times, popsizes, rho):
         len(ptree), ptree, ages,
         recomb_name, recomb_time, coal_name, coal_time,
         len(times), times, popsizes, rho)
+
+
+def assert_transition_probs_switch_internal(trees, times, popsizes, rho):
+    
+    return arghmm_assert_transmat_switch_internal(
+        trees, len(times), times, popsizes, rho)
 
 
 
