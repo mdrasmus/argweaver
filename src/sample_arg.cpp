@@ -90,12 +90,12 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 
     assert_trees(trees);
 
-    //int node = irand(trees->nnodes);
-    //int pos = irand(trees->start_coord, trees->end_coord);
-    //sample_arg_removal_path2(trees, node, pos, removal_path);
-
     int node = irand(trees->nnodes);
-    sample_arg_removal_path(trees, node, removal_path);
+    int pos = irand(trees->start_coord, trees->end_coord);
+    sample_arg_removal_path2(trees, node, pos, removal_path);
+
+    //int node = irand(trees->nnodes);
+    //sample_arg_removal_path(trees, node, removal_path);
     
     //int node = irand(trees->get_num_leaves());
     //sample_arg_removal_leaf_path(trees, node, removal_path);

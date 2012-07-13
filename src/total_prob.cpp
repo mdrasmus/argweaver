@@ -127,6 +127,8 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
         - int(j <= broken_age) - int(j == broken_age);
     int nbranches_j = lineages.nbranches[j] - int(j < broken_age);
 
+    //printf(">ncoals_j %d %d %d %f\n", ncoals_j, lineages.nbranches[k],
+    //       lineages.nrecombs[k], treelen_b);
     lnl -= log(ncoals_j);
     if (j < model->ntimes - 2)
         lnl += log((1.0 - exp(- model->time_steps[j] * nbranches_j / 

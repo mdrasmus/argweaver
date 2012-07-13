@@ -528,6 +528,38 @@ class Basic (unittest.TestCase):
         
         assert arghmm.assert_transition_probs(tree, times, popsizes, rho)
 
+
+
+    def test_trans_switch(self):
+        """
+        Calculate transition probabilities for k=2
+
+        Only calculate a single matrix
+        """
+
+        k = 12
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 1000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        popsizes = [n] * len(times)
+
+        recombs = []
+
+        while len(recombs) == 0:
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            recombs = [x.pos for x in arg if x.event == "recomb"]
+
+        pos = recombs[0]
+        tree = arg.get_marginal_tree(pos-.5)
+        rpos, r, c = arglib.iter_arg_sprs(arg, start=pos-.5).next()
+        spr = (r, c)
+        
+        assert arghmm.assert_transition_switch_probs(tree, spr,
+                                                     times, popsizes, rho)
+
             
 
     def test_emit(self):
