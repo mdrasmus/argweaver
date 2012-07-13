@@ -404,7 +404,7 @@ class Basic (unittest.TestCase):
                     model.times, model.time_steps, model.popsizes, model.rho)
     '''
 
-    def test_trans(self):
+    def test_trans2(self):
         """
         Calculate transition probabilities for k=2
 
@@ -502,6 +502,32 @@ class Basic (unittest.TestCase):
                        for j in range(0, nstates)), 0.5)
 
             fequal(sum(trans(i, j) for j in range(len(states))), 1.0)
+
+
+
+    def test_trans(self):
+        """
+        Calculate transition probabilities for k=2
+
+        Only calculate a single matrix
+        """
+
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = 1000
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        popsizes = [n] * len(times)
+        
+        arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)        
+        arghmm.discretize_arg(arg, times)
+
+        pos = 10
+        tree = arg.get_marginal_tree(pos)
+        
+        assert arghmm.assert_transition_probs(tree, times, popsizes, rho)
+
             
 
     def test_emit(self):

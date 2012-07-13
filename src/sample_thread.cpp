@@ -274,9 +274,6 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
             arghmm_forward_switch(fw[pos-1], fw[pos], 
                 matrices.transmat_switch, matrices.emit[0]);
         }
-
-        // DEBUG
-        assert_transmat(it->tree, model, matrices.transmat);
         
         // calculate rest of block
         arghmm_forward_alg_block(it->tree, model, matrices.blocklen, 

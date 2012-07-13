@@ -590,7 +590,7 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 3
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -610,8 +610,6 @@ class Sample (unittest.TestCase):
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                  refine=refine, verbose=True)
         util.toc()
-
-        print ilen(x for x in arg2 if x.event == "recomb")
 
         #arg2.write("test/data/sample_arg2_out.arg")
 

@@ -1,6 +1,5 @@
 
 #include "thread.h"
-#include "total_prob.h"
 #include "trans.h"
 
 namespace arghmm {
@@ -1352,109 +1351,6 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
     remove_null_sprs(trees);
     
     assert_trees(trees);
-}
-
-
-//=============================================================================
-// assert transition matrices
-
-bool assert_transmat(const LocalTree *tree, const ArgModel *model,
-                     const TransMatrix *matrix)
-{
-    const int nleaves = tree->get_num_leaves();
-    const int nnodes = tree->nnodes;
-    const int nnodes2 = nnodes + 2;
-
-    LineageCounts lineages(model->ntimes);
-    States states;
-    get_coal_states(tree, model->ntimes, states);
-    int nstates = states.size();
-    int displace[nnodes2];
-
-    // get local tree we can modify
-    LocalTree tree2(tree->nnodes, tree->capacity + 2);
-    tree2.copy(*tree);
-    
-    // node names
-    int newleaf = nleaves;
-    int displaced = nnodes;
-    int newcoal = nnodes + 1;
-
-    
-    for (int i=0; i<nstates; i++) {
-        for (int j=0; j<nstates; j++) {
-            State state1 = states[i];
-            State state2 = states[j];
-            Spr spr;
-            
-            add_tree_branch(&tree2, state1.node, state1.time);
-            double treelen = get_treelen(&tree2, model->times, 
-                                         model->ntimes, false);
-            double norecomb_prob = -max(model->rho * treelen, 
-                                            model->rho);
-
-            double p = -INFINITY;
-
-            // recomb could be on new branch
-            // recoal is state2
-            spr.recomb_node = newleaf;
-            spr.coal_node = state2.node;
-            spr.coal_time = state2.time;
-
-            // sum over possible recombination times
-            for (int rtime=0; rtime<=min(state1.time, state2.time); rtime++) {
-                spr.recomb_time = rtime;
-                p = logadd(p, calc_spr_prob(model, &tree2, spr, lineages));
-            }
-
-
-            if (state1.node == state2.node) {
-                // recomb could be state1.node
-                // recoal is on new branch or parent of state1.node
-                spr.recomb_node = state1.node;
-
-                if (state2.time < state1.time) {
-                    spr.coal_node = newleaf;
-                } else if (state2.time >= state1.time) {
-                    spr.coal_node = tree2.nodes[newleaf].parent;
-                }
-                spr.coal_time = state2.time;
-                
-                // sum over possible recombination times
-                for (int rtime=tree2.nodes[state1.node].age; 
-                     rtime<=min(state1.time, state2.time); rtime++) {
-                    spr.recomb_time = rtime;
-                    p = logadd(p, calc_spr_prob(model, &tree2, spr, lineages));
-                }
-            }
-
-            
-            p += log(1.0 - exp(norecomb_prob));
-
-            if (i == j)
-                p = logadd(norecomb_prob, p);
-
-            
-            double p2 = matrix->get_transition_prob(tree, states, i, j);
-            printf("> (%d,%d)->(%d,%d): %e = %e; %e\n", 
-                   state1.node, state1.time,
-                   state2.node, state2.time, p, p2, p - p2);
-            //if (i != j)
-            assert(fequal(p, p2, 1e-4, 1e-9));
-
-            /*
-            add_spr_branch(&tree2, &last_tree, 
-                    State state, State last_state,
-                    Spr *spr, int *mapping,
-                    int newleaf, int displaced, int newcoal)
-            */
-            
-
-            remove_tree_branch(&tree2, newleaf, displace);
-        }
-    }
-
-    return true;
 }
 
 

@@ -64,6 +64,11 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho"])
     export(arghmmclib, "delete_transition_probs", c_int,
            [c_double_p_p, "transition_probs", c_int, "nstates"])
+    export(arghmmclib, "arghmm_assert_transmat", c_bool,
+           [c_int, "nnodes", c_int_list, "ptree", c_int_list, "ages", 
+            c_int, "ntimes", c_double_list, "times", 
+            c_double_list, "popsizes", c_double, "rho"])
+
 
     # emission calculation
     export(arghmmclib, "new_emissions", c_double_p_p,
@@ -342,7 +347,23 @@ def delete_trans_emit_matrices(matrices):
     for block, nstates, transmat, transmat_switch, emit in matrices:
         delete_emissions(emit, block[1] - block[0])
         delete_transition_probs(transmat, nstates)
-        
+
+
+def assert_transition_probs(tree, times, popsizes, rho):
+    
+    times_lookup = dict((t, i) for i, t in enumerate(times))
+    tree2 = tree.get_tree()
+    ptree, nodes, nodelookup = make_ptree(tree2)
+    ages = [times_lookup[tree[node.name].age] for node in nodes]
+    
+    return arghmm_assert_transmat(len(ptree), ptree, ages, 
+                                  len(times), times, popsizes, rho)
+    
+
+
+
+
+#=============================================================================
 
 
 

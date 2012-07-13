@@ -2,16 +2,17 @@
 #define ARGHMM_THREAD_H
 
 #include "local_tree.h"
-#include "model.h"
 #include "states.h"
-#include "trans.h"
+
 
 namespace arghmm {
 
 // assert that a thread is compatiable with an ARG
 bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes);
 
-void add_tree_branch(LocalTree *tree, State state);
+// adding/removing branches from a local tree
+void add_tree_branch(LocalTree *tree, int node, int time);
+void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace);
 
 // update an SPR and mapping after adding a new branch
 void add_spr_branch(LocalTree *tree, LocalTree *last_tree, 
@@ -36,10 +37,6 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
 void sample_arg_removal_path(LocalTrees *trees, int node, int *path);
 void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path);
 void sample_arg_removal_path2(LocalTrees *trees, int node, int pos, int *path);
-
-
-bool assert_transmat(const LocalTree *tree, const ArgModel *model,
-                     const TransMatrix *matrix);
 
 
 

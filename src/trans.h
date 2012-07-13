@@ -207,6 +207,11 @@ void get_deterministic_transitions(
     int ntimes, int *next_states, bool internal=false);
 
 
+bool assert_transmat(const LocalTree *tree, const ArgModel *model,
+                     const TransMatrix *matrix);
+
+
+
 } // namespace arghmm
 
 #endif // ARGHMM_TRANS_H
