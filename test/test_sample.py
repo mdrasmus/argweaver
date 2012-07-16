@@ -590,12 +590,12 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 5
+        k = 50
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = 10000
-        times = arghmm.get_time_points(ntimes=5, maxtime=200000)
+        length = int(200e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0
         
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
@@ -1441,7 +1441,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 4
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20

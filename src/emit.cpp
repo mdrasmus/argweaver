@@ -151,7 +151,7 @@ void calc_emissions2(const States &states, const LocalTree *tree,
                     time += time - node_age;
                 }
 
-                emit[i][j] = - mu * max(time, mintime);
+                emit[i][j] = exp(- mu * max(time, mintime));
             }
             continue;
         }
@@ -200,27 +200,27 @@ void calc_emissions2(const States &states, const LocalTree *tree,
             // handle cases
             if (v == x && x == p) {
                 // no mutation
-                emit[i][j] = - mu * time;
+                emit[i][j] = exp(- mu * time);
 
             } else if (v != p && p == x) {
                 // mutation on v
-                emit[i][j] = log(.333333 - .333333 * exp(-mu * time));
+                emit[i][j] = .333333 - .333333 * exp(-mu * time);
 
             } else if (v == p && p != x) {
                 // mutation on x
                 t1 = max(parent_age - node_age, mintime);
                 t2 = max(time - node_age, mintime);
 
-                emit[i][j] = log((1 - exp(-mu *t2)) / (1 - exp(-mu * t1)))
-                    -mu * (time + t2 - t1);
+                emit[i][j] = (1 - exp(-mu *t2)) / (1 - exp(-mu * t1)) *
+                    exp(-mu * (time + t2 - t1));
 
             } else if (v == x && x != p) {
                 // mutation on (y,p)
                 t1 = max(parent_age - node_age, mintime);
                 t2 = max(parent_age - time, mintime);
 
-                emit[i][j] = log((1 - exp(-mu * t2)) / (1 - exp(-mu * t1)))
-                    -mu * (time + t2 - t1);
+                emit[i][j] = (1 - exp(-mu * t2)) / (1 - exp(-mu * t1)) *
+                    exp(-mu * (time + t2 - t1));
 
             } else {
                 // two mutations (v,x)
@@ -236,9 +236,9 @@ void calc_emissions2(const States &states, const LocalTree *tree,
                 t2 = max(t2a, t2b);
                 t3 = time;
 
-                emit[i][j] = log((1 - exp(-mu *t2)) * (1 - exp(-mu *t3))
-                                 / (1 - exp(-mu * t1)))
-                    -mu * (time + t2 + t3 - t1);
+                emit[i][j] = (1 - exp(-mu *t2)) * (1 - exp(-mu *t3))
+                                 / (1 - exp(-mu * t1)) *
+                    exp(-mu * (time + t2 + t3 - t1));
             }
         }
     }
@@ -256,13 +256,14 @@ inline double prob_branch(double t, double mu, bool mut)
 }
 
 
+typedef double lk_row[4];
+
 double likelihood_site(const LocalTree *tree, const char *const *seqs, 
-                       int pos, const int *order, const double *muts,
-                       const double *nomuts)
+                       const int pos, const int *order, const double *muts,
+                       const double *nomuts, lk_row* table)
 {
     const int nnodes = tree->nnodes;
     const LocalNode* nodes = tree->nodes;
-    double table[nnodes][4];
 
     // iterate postorder through nodes
     for (int i=0; i<nnodes; i++) {
@@ -306,7 +307,7 @@ double likelihood_site(const LocalTree *tree, const char *const *seqs,
     for (int a=0; a<4; a++)
         p += table[root][a]  * .25;
     
-    return log(p);
+    return p;
 }
 
 
@@ -320,6 +321,7 @@ void likelihood_sites(const LocalTree *tree, const ArgModel *model,
     const LocalNode *nodes = tree->nodes;
     const double mintime = times[1];
     double invariant_lk = -1;
+    double table[tree->nnodes][4];
 
     // get postorder
     int order[tree->nnodes];
@@ -343,7 +345,7 @@ void likelihood_sites(const LocalTree *tree, const ArgModel *model,
             emit[i][statei] = invariant_lk;
         else {
             emit[i][statei] = likelihood_site(tree, seqs, i, order, 
-                                              muts, nomuts);
+                                              muts, nomuts, table);
             // save invariant likelihood
             if (invariant && invariant[i]) {
                 invariant_lk = emit[i][statei];
@@ -408,8 +410,11 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
     bool *invariant = new bool [seqlen];
 
     // ignore fully specified local tree
-    if (nstates == 0)
+    if (nstates == 0) {
+        for (int i=0; i<seqlen; i++)
+            emit[i][0] = 1.0;
         return;
+    }
 
     // create local tree we can edit
     LocalTree tree2(tree->nnodes, tree->nnodes + 2);

@@ -359,7 +359,8 @@ void arghmm_forward_block(const LocalTree *tree, const ArgModel *model,
             // same state case (add possibility of no recomb)
             sum += norecombs[b] * col1[k];
             
-            col2[k] = sum * exp(emit2[k]);
+            //col2[k] = sum * exp(emit2[k]);
+            col2[k] = sum * emit2[k];
             norm += col2[k];
         }
 
@@ -399,9 +400,8 @@ void arghmm_forward_switch(const double *col1, double* col2,
             col2[k] += col1[matrix->recombsrc] * exp(matrix->recombrow[k]);
         if (matrix->recoalsrc != -1 && matrix->recoalrow[k] > -INFINITY)
             col2[k] += col1[matrix->recoalsrc] * exp(matrix->recoalrow[k]);
-        col2[k] *= exp(emit[k]);
-        assert(!isnan(col2[k]));
-
+        //col2[k] *= exp(emit[k]);
+        col2[k] *= emit[k];
         norm += col2[k];
     }
     
