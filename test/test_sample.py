@@ -1441,11 +1441,11 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 12
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(100e3) / 20
+        length = int(20e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=180000)
         refine = 6*10; nremove = 1
         #refine = 0;

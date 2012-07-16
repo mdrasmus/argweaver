@@ -298,8 +298,20 @@ void apply_spr(LocalTree *tree, const Spr &spr)
     }
     nodes[recoal].age = spr.coal_time;   
     
-    // set tree data
-    tree->set_root();
+    // set new root
+    int root;
+    if (spr.coal_node == tree->root)
+        root = recoal;
+    else if (recoal == tree->root) {
+        if (spr.coal_node == recomb_sib)
+            root = recoal;
+        else
+            root = recomb_sib;
+    } else {
+        root = tree->root;
+    }
+    tree->root = root;
+    //tree->set_root();
 }
 
 

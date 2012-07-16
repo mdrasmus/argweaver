@@ -137,8 +137,10 @@ void add_tree_branch(LocalTree *tree, int node, int time)
 
     // fix up tree data
     tree->nnodes = nnodes2;
-    tree->set_root();
-    //assert(assert_tree(tree));
+    if (nodes[newcoal].parent == -1)
+        tree->root = newcoal;
+    else
+        tree->root = (tree->root != newleaf ? tree->root : displaced);
 }
 
 
@@ -196,8 +198,14 @@ void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
     
     // set tree data
     tree->nnodes -= 2;
-    tree->set_root();
-    assert_tree(tree);
+    int root = tree->root;
+    if (tree->root == remove_coal)
+        root = coal_child;
+    if (root == nnodes-2)
+        root = last_leaf;
+    if (root == nnodes-1)
+        root = hole;
+    tree->root = root;
 }
 
 
