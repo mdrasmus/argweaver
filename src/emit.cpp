@@ -12,7 +12,8 @@ namespace arghmm {
 
 
 void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs, 
-                             int nseqs, int pos, char *ancestral) 
+                             int nseqs, int pos, char *ancestral,
+                             int *postorder) 
 {
     const int nnodes = tree->nnodes;
     const LocalNode *nodes = tree->nodes;
@@ -25,8 +26,11 @@ void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs,
         sets[node] = 0;
 
     // do unweighted parsimony by postorder traversal
-    int postorder[nnodes];
-    tree->get_postorder(postorder);
+    int postorder2[nnodes];
+    if (!postorder) {
+        tree->get_postorder(postorder2);
+        postorder = postorder2;
+    }
     for (int i=0; i<nnodes; i++) {
         int node = postorder[i];
         if (node < nleaves) {
@@ -110,6 +114,8 @@ void calc_emissions(const States &states, const LocalTree *tree,
 
     // parsimony ancestral sequences
     char ancestral[nnodes];
+    int postorder[nnodes];
+    tree->get_postorder(postorder);
 
 
     // base variables
@@ -150,7 +156,7 @@ void calc_emissions(const States &states, const LocalTree *tree,
             continue;
         }
 
-        parsimony_ancestral_seq(tree, seqs, nseqs, i, ancestral);
+        parsimony_ancestral_seq(tree, seqs, nseqs, i, ancestral, postorder);
         
         // iterate through states
         for (unsigned int j=0; j<states.size(); j++) {

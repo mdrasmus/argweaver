@@ -275,7 +275,7 @@ void arghmm_forward_block(const LocalTree *tree, const ArgModel *model,
             if (a < minage || b < minage)
                 tmatrix[a][b] = 0.0;
             else
-                tmatrix[a][b] = D[a] * E[b] * (B[min(a,b)] -Bq - I*G[a]);
+                tmatrix[a][b] = D[a] * E[b] * (B[min(a,b)] - Bq - I*G[a]);
             assert(!isnan(tmatrix[a][b]));
         }
 
@@ -300,19 +300,20 @@ void arghmm_forward_block(const LocalTree *tree, const ArgModel *model,
             maxtime = states[k].time;
 
     // get branch ages
+    NodeStateLookup state_lookup(states, tree->nnodes);
     int ages1[tree->nnodes];
     int ages2[tree->nnodes];
+    int indexes[tree->nnodes];
     for (int i=0; i<tree->nnodes; i++) {
         ages1[i] = max(nodes[i].age, minage);
+        indexes[i] = state_lookup.lookup(i, ages1[i]);
         if (internal)
             ages2[i] = (i == maintree_root) ? 
                 maxtime : nodes[nodes[i].parent].age;
         else
             ages2[i] = (i == tree->root) ? maxtime : nodes[nodes[i].parent].age;
     }
-    
 
-    NodeStateLookup state_lookup(states, tree->nnodes);
 
     double tmatrix_fgroups[ntimes];
     double fgroups[ntimes];
@@ -346,11 +347,14 @@ void arghmm_forward_block(const LocalTree *tree, const ArgModel *model,
             
             // same branch case (extra terms substracted, no 2*B[min(a,b)])
             double sum = tmatrix_fgroups[b];
-            const int j1 = state_lookup.lookup(node2, age1);
-            const int j2 = state_lookup.lookup(node2, age2);
-            assert(j2 != -1 && j1 != -1);
-            for (int j=j1, a=age1; j<=j2; j++, a++)
+            const int j1 = indexes[node2];
+            for (int j=j1, a=age1; a<=age2; j++, a++)
                 sum += tmatrix2[a][k] * col1[j];
+            //const int j1 = state_lookup.lookup(node2, age1);
+            //const int j2 = state_lookup.lookup(node2, age2);
+            //assert(j2 != -1 && j1 != -1);
+            //for (int j=j1, a=age1; j<=j2; j++, a++)
+            //    sum += tmatrix2[a][k] * col1[j];
             
             // same state case (add possibility of no recomb)
             sum += norecombs[b] * col1[k];
@@ -502,20 +506,20 @@ void sample_hmm_posterior(int n, const LocalTree *tree, const States &states,
         // recompute transition probabilities if state (k) changes
         if (k != last_k) {
             for (int j=0; j<nstates; j++)
-                trans[j] = matrix->get_log(tree, states, j, k);
+                trans[j] = matrix->get(tree, states, j, k);
             last_k = k;
         }
 
         for (int j=0; j<nstates; j++)
-            A[j] = log(fw[i][j]) + trans[j];
-        double total = logsum_fast(A, nstates);
-        assert(total != -INFINITY);
-        for (int j=0; j<nstates; j++)
-            A[j] = t2exp(A[j] - total);
+            A[j] = fw[i][j] * trans[j];
+        //double total = logsum_fast(A, nstates);
+        //assert(total != -INFINITY);
+        //for (int j=0; j<nstates; j++)
+        //    A[j] = t2exp(A[j] - total);
         path[i] = sample(A, nstates);
 
         // DEBUG
-        assert(trans[path[i]] != -INFINITY);
+        assert(trans[path[i]] != 0.0);
     }
 }
 

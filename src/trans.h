@@ -56,7 +56,7 @@ public:
         int minage = 0;
         if (internal) {
             if (nstates == 0)
-                return 0.0;
+                return 1.0;
             const int subtree_root = tree->nodes[tree->root].child[0];
             const int subtree_age = tree->nodes[subtree_root].age;
             minage = subtree_age;
