@@ -381,6 +381,7 @@ public:
                 matrices->transmat_switch);
 
             if (calc_full) {
+                // TODO: need to make a internal branch version
                 matrices->transprobs_switch = new_matrix<double>(
                     matrices->nstates1, matrices->nstates2);
                 get_transition_probs_switch(matrices->transmat_switch,

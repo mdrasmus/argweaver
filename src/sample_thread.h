@@ -152,7 +152,8 @@ void stochastic_traceback(ArgHmmMatrixIter *matrix_iter,
 void max_traceback_fast(LocalTrees *trees, ArgModel *model, 
                         ArgHmmMatrixIter *matrix_iter, 
                         double **fw, int *path, 
-                        bool last_state_given=false);
+                        bool last_state_given=false,
+                        bool internal=false);
 
 //=============================================================================
 // ARG thread sampling

@@ -87,7 +87,7 @@ void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs,
 
 
 
-void calc_emissions2(const States &states, const LocalTree *tree,
+void calc_emissions(const States &states, const LocalTree *tree,
                     const char *const *seqs, int nseqs, int seqlen, 
                     const ArgModel *model, double **emit)
 {
@@ -298,19 +298,22 @@ double likelihood_site(const LocalTree *tree, const char *const *seqs,
     double p = 0.0;
     int root = tree->root;
     for (int a=0; a<4; a++)
-        p += table[root][a];
+        p += table[root][a]  * .25;
     
-    return log(p * .25);
+    return log(p);
 }
 
 
 void likelihood_sites(const LocalTree *tree, const ArgModel *model,
                       const char *const *seqs, 
-                      const int seqlen, const int statei, double **emit)
+                      const int seqlen, const int statei, 
+                      const bool *invariant,
+                      double **emit)
 {
     const double *times = model->times;
     const LocalNode *nodes = tree->nodes;
     const double mintime = times[1];
+    double invariant_lk = -1;
 
     // get postorder
     int order[tree->nnodes];
@@ -330,34 +333,65 @@ void likelihood_sites(const LocalTree *tree, const ArgModel *model,
 
     // calculate emissions for tree at each site
     for (int i=0; i<seqlen; i++) {
-        emit[i][statei] = likelihood_site(tree, seqs, i, order, muts, nomuts);
+        if (invariant && invariant[i] && invariant_lk > 0)
+            emit[i][statei] = invariant_lk;
+        else {
+            emit[i][statei] = likelihood_site(tree, seqs, i, order, 
+                                              muts, nomuts);
+            // save invariant likelihood
+            if (invariant && invariant[i]) {
+                invariant_lk = emit[i][statei];
+            }
+        }
     }
 }
 
 
-void calc_emissions(const States &states, const LocalTree *tree,
+void find_invariant_sites(const char *const *seqs, int nseqs, int seqlen, 
+                          bool *invariant)
+{
+    // find invariant sites
+    for (int i=0; i<seqlen; i++) {
+        char c = seqs[0][i];
+        bool mut = false;
+        for (int j=1; j<nseqs; j++) {
+            if (seqs[j][i] != c) {
+                mut = true;
+                break;
+            }
+        }
+        invariant[i] = !mut;
+    }
+}
+
+
+void calc_emissions2(const States &states, const LocalTree *tree,
                      const char *const *seqs, int nseqs, int seqlen, 
                      const ArgModel *model, double **emit)
 {
     const int nstates = states.size();
     const int newleaf = tree->get_num_leaves();
-    int displace[tree->nnodes + 2];
+    bool *invariant = new bool [seqlen];
 
     // create local tree we can edit
     LocalTree tree2(tree->nnodes, tree->nnodes + 2);
     tree2.copy(*tree);
 
+    // find invariant sites
+    find_invariant_sites(seqs, nseqs, seqlen, invariant);
 
     for (int j=0; j<nstates; j++) {
         State state = states[j];
         add_tree_branch(&tree2, state.node, state.time);
-        likelihood_sites(&tree2, model, seqs, seqlen, j, emit);
-        remove_tree_branch(&tree2, newleaf, displace);                  
+        likelihood_sites(&tree2, model, seqs, seqlen, j, invariant, emit);
+        remove_tree_branch(&tree2, newleaf, NULL);
     }
+
+    delete [] invariant;
 }
 
 
-void calc_emissions_internal(const States &states, const LocalTree *tree,
+void calc_emissions_internal2(const States &states, const LocalTree *tree,
                      const char *const *seqs, int nseqs, int seqlen, 
                      const ArgModel *model, double **emit)
 {
@@ -365,6 +399,7 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
     const int subtree_root = tree->nodes[tree->root].child[0];
     const int subtree_root_age = tree->nodes[subtree_root].age;
     const int maxtime = model->ntimes + 1;
+    bool *invariant = new bool [seqlen];
 
     // ignore fully specified local tree
     if (nstates == 0)
@@ -374,24 +409,29 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
     LocalTree tree2(tree->nnodes, tree->nnodes + 2);
     tree2.copy(*tree);
 
+    // find invariant sites
+    find_invariant_sites(seqs, nseqs, seqlen, invariant);
+
     for (int j=0; j<nstates; j++) {
         State state = states[j];
         assert(subtree_root != tree2.root);
         Spr add_spr(subtree_root, subtree_root_age, state.node, state.time);
         apply_spr(&tree2, add_spr);
 
-        likelihood_sites(&tree2, model, seqs, seqlen, j, emit);
+        likelihood_sites(&tree2, model, seqs, seqlen, j, invariant, emit);
 
         Spr remove_spr(subtree_root, subtree_root_age, 
                        tree2.root, maxtime);
         apply_spr(&tree2, remove_spr);
     }
+
+    delete [] invariant;
 }
 
 
 
 
-void calc_emissions_internal2(const States &states, const LocalTree *tree,
+void calc_emissions_internal(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen, 
                              const ArgModel *model, double **emit)
 {

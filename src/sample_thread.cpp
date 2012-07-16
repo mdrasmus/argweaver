@@ -269,7 +269,6 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
             }
         } else {
             // perform one column of forward algorithm with transmat_switch
-            Spr &spr = it->spr;
             arghmm_forward_switch(fw[pos-1], fw[pos], 
                 matrices.transmat_switch, matrices.emit[0]);
         }
@@ -344,7 +343,7 @@ void arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
 
 
 void max_hmm_posterior(int n, const LocalTree *tree, const States &states,
-                       const TransMatrix *matrix, const double *const *emit, 
+                       const TransMatrix *matrix, 
                        const double *const *fw, int *path)
 {
     // NOTE: path[n-1] must already be sampled
@@ -400,7 +399,7 @@ int max_hmm_posterior_step(const TransMatrixSwitch *matrix,
 
 
 void sample_hmm_posterior(int n, const LocalTree *tree, const States &states,
-                          const TransMatrix *matrix, const double *const *emit, 
+                          const TransMatrix *matrix, 
                           const double *const *fw, int *path)
 {
     // NOTE: path[n-1] must already be sampled
@@ -488,8 +487,7 @@ void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model,
         pos -= mat.blocklen;
         
         sample_hmm_posterior(mat.blocklen, tree, states,
-                             mat.transmat, mat.emit, 
-                             &fw[pos], &path[pos]);
+                             mat.transmat, &fw[pos], &path[pos]);
 
         // use switch matrix for last col of next block
         if (pos > trees->start_coord) {
@@ -544,7 +542,7 @@ void stochastic_traceback(ArgHmmMatrixIter *matrix_iter,
 void max_traceback_fast(LocalTrees *trees, ArgModel *model, 
                         ArgHmmMatrixIter *matrix_iter, 
                         double **fw, int *path, 
-                        bool last_state_given)
+                        bool last_state_given, bool internal)
 {
     ArgHmmMatrices mat;
     States states;
@@ -571,12 +569,14 @@ void max_traceback_fast(LocalTrees *trees, ArgModel *model,
     for (; matrix_iter->more(); matrix_iter->prev()) {
         matrix_iter->get_matrices(&mat);
         LocalTree *tree = matrix_iter->get_tree_iter()->tree;
-        get_coal_states(tree, model->ntimes, states);
+        if (internal)
+            get_coal_states_internal(tree, model->ntimes, states);
+        else
+            get_coal_states(tree, model->ntimes, states);
         pos -= mat.blocklen;
         
         max_hmm_posterior(mat.blocklen, tree, states,
-                          mat.transmat, mat.emit, 
-                          &fw[pos], &path[pos]);
+                          mat.transmat, &fw[pos], &path[pos]);
 
         // use switch matrix for last col of next block
         if (pos > trees->start_coord) {
@@ -586,6 +586,7 @@ void max_traceback_fast(LocalTrees *trees, ArgModel *model,
         }
     }
 }
+
 
 
 
@@ -727,13 +728,11 @@ void max_arg_thread(ArgModel *model, Sequences *sequences,
     time.start();
     //stochastic_traceback(&matrix_list, fw, thread_path, sequences->seqlen);
     max_traceback_fast(trees, model, &matrix_list, fw, 
-                       thread_path, sequences->length());
+                       thread_path);
     printf("trace:       %e s\n", time.time());
 
-
-    time.start();
-
     // sample recombination points
+    time.start();
     vector<int> recomb_pos;
     vector<NodePoint> recombs;
     max_recombinations(trees, model, &matrix_list,

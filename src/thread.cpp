@@ -144,6 +144,7 @@ void add_tree_branch(LocalTree *tree, int node, int time)
 
 // removes a leaf branch from a local tree
 // any node displacements are recorded in the displace array
+// If displace is NULL, displacements are not recorded
 void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
 {
     LocalNode *nodes = tree->nodes;
@@ -164,27 +165,32 @@ void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
             c[1] = coal_child;
     }
         
-    // displace nodes
-    for (int i=0; i<nnodes; i++)
-        displace[i] = i;
-    displace[remove_leaf] = -1;
-    displace[remove_coal] = -1;
+    // record displace nodes
+    if (displace) {
+        for (int i=0; i<nnodes; i++)
+            displace[i] = i;
+        displace[remove_leaf] = -1;
+        displace[remove_coal] = -1;
+    }
         
     // move last leaf into remove_leaf spot
     if (last_leaf != remove_leaf) {
-        displace[last_leaf] = remove_leaf;
+        if (displace)
+            displace[last_leaf] = remove_leaf;
         displace_node(tree, last_leaf, remove_leaf);
     }
 
     // move nodes in nnodes-2 and nnodes-1 into holes
     int hole = last_leaf;
     if (remove_coal != nnodes-2) {
-        displace[nnodes-2] = hole;
+        if (displace)
+            displace[nnodes-2] = hole;
         displace_node(tree, nnodes-2, hole);
         hole = remove_coal;
     }
     if (remove_coal != nnodes-1) {
-        displace[nnodes-1] = hole;
+        if (displace)
+            displace[nnodes-1] = hole;
         displace_node(tree, nnodes-1, hole);
     }
     
