@@ -89,36 +89,12 @@ void sample_recombinations(
                 if (i > next_recomb) {
                     // sample the next recomb pos
                     int last_state = thread_path[i-1];
-
-                    double rate;
-                    if (matrices.transmat) {
-                        TransMatrix *m = matrices.transmat;
-                        int a = states[last_state].time;
-                        double self_trans = exp(m->get_transition_prob(
-                            tree, states, last_state, last_state));
-                        rate = 1.0 - (m->norecombs[a] / self_trans);
-                        
-                    } else {
-                        assert(false);
-                        
-                        double treelen_b = get_treelen(
-                            tree, model->times, model->ntimes);
-                        double treelen = treelen_b - get_basal_branch(
-                            tree, model->times, model->ntimes, -1, -1);
-
-                        double treelen2_b = get_treelen_branch(
-                            tree, model->times, model->ntimes,
-                            states[last_state].node,
-                            states[last_state].time, treelen_b);
-                        double treelen2 = treelen2_b - get_basal_branch(
-                            tree, model->times, model->ntimes, 
-                            states[last_state].node, states[last_state].time);
-                        double self_trans = matrices.transprobs[last_state][last_state];
-                        rate = max(1.0 - exp(-model->rho * (treelen2 - treelen)
-                                             - self_trans), model->rho);
-                    }
-                        
-
+                    TransMatrix *m = matrices.transmat;
+                    int a = states[last_state].time;
+                    double self_trans = m->get(
+                        tree, states, last_state, last_state);
+                    double rate = 1.0 - (m->norecombs[a] / self_trans);
+                    
                     // NOTE: the min prevents large floats from overflowing
                     // when cast to int
                     next_recomb = int(min(double(end), i + expovariate(rate)));

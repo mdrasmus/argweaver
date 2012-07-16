@@ -1441,12 +1441,12 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 12
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = int(100e3) / 20
-        times = arghmm.get_time_points(ntimes=30, maxtime=160000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=180000)
         refine = 6*10; nremove = 1
         #refine = 0;
         write = False
@@ -1476,9 +1476,9 @@ class Sample (unittest.TestCase):
                                          carg=True)
                 #arg2 = arghmm.remax_arg(arg2, seqs, rho=rho, mu=mu, times=times,
                 #                         refine=5)
-                arg2 = arghmm.resample_arg(arg2,
-                    seqs, rho=rho, mu=mu, times=times, popsizes=n,
-                    refine=20, carg=True)
+                #arg2 = arghmm.resample_arg(arg2,
+                #    seqs, rho=rho, mu=mu, times=times, popsizes=n,
+                #    refine=20, carg=True)
 
                 #arg2 = arghmm.resample_all_arg(arg,
                 #    seqs, rho=rho, mu=mu, times=times, popsizes=n,

@@ -870,7 +870,7 @@ void get_transition_probs_switch(const TransMatrixSwitch *matrix,
 {
     for (int i=0; i<matrix->nstates1; i++) {
         for (int j=0; j<matrix->nstates2; j++) {
-            transprob[i][j] = matrix->get_transition_prob(i, j);
+            transprob[i][j] = matrix->get_log(i, j);
         }
     }
 }
@@ -1004,7 +1004,7 @@ bool assert_transmat(const LocalTree *tree, const ArgModel *model,
                 p = logadd(p, log(1.0 - recomb_prob));
 
             
-            double p2 = matrix->get_transition_prob(tree, states, i, j);
+            double p2 = matrix->get_log(tree, states, i, j);
 
             // compare probabilities
             printf("> (%d,%d)->(%d,%d): %e = %e; %e\n", 
@@ -1070,7 +1070,7 @@ bool assert_transmat_switch(const LocalTree *tree, const Spr &_spr,
             double p = -INFINITY;
             Spr spr = _spr;
 
-            double p2 = matrix->get_transition_prob(i, j);
+            double p2 = matrix->get_log(i, j);
             if (p2 == -INFINITY)
                 continue;
 
@@ -1177,7 +1177,7 @@ bool assert_transmat_internal(const LocalTree *tree, const ArgModel *model,
                 p = logadd(p, log(1.0 - recomb_prob));
 
             
-            double p2 = matrix->get_transition_prob(tree, states, i, j);
+            double p2 = matrix->get_log(tree, states, i, j);
 
             printf("> (%d,%d)->(%d,%d): %e = %e; %e\n", 
                    state1.node, state1.time,
@@ -1216,7 +1216,7 @@ bool assert_transmat_switch_internal(const LocalTree *last_tree,
             State state1 = last_states[i];
             State state2 = states[j];
 
-            double p2 = transmat_switch->get_transition_prob(i, j);
+            double p2 = transmat_switch->get_log(i, j);
             if (p2 == -INFINITY)
                 continue;
 

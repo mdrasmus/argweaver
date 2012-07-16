@@ -48,8 +48,8 @@ public:
         //sums = new double [nstates];
     }
 
-    // convert to log?
-    inline double get_transition_prob(
+
+    inline double get(
         const LocalTree *tree, const States &states, int i, int j) const
     {
         double Bq = 0.0;
@@ -73,17 +73,25 @@ public:
         const double I = double(a <= b);
 
         if (a < minage || b < minage)
-            return -INFINITY;
+            return 0.0;
 
         if (node1 != node2)
-            return log(D[a] * E[b] * (B[min(a,b)] - Bq - I * G[a]));
+            return D[a] * E[b] * (B[min(a,b)] - Bq - I * G[a]);
         else {
             double p = D[a] * E[b] * (2*B[min(a,b)] - Bq - 2*I*G[a] - Bc);
             if (a == b)
                 p += norecombs[a];
-            return log(p);
+            return p;
         }
     }
+
+
+    inline double get_log(
+        const LocalTree *tree, const States &states, int i, int j) const
+    {
+        return log(get(tree, states, i, j));
+    }
+
 
 
     int ntimes;
@@ -136,7 +144,13 @@ public:
         recombrow = new double [max(nstates2, 1)];
     }
     
-    inline double get_transition_prob(int i, int j) const
+    inline double get(int i, int j) const
+    {
+        return exp(get_log(i, j));
+    }
+
+
+    inline double get_log(int i, int j) const
     {
         if (i == recoalsrc) {
             return recoalrow[j];
@@ -149,6 +163,8 @@ public:
                 return -INFINITY;
         }
     }
+
+    
 
     int nstates1;
     int nstates2;
