@@ -170,6 +170,10 @@ if arghmmclib:
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
+    export(arghmmclib, "arghmm_likelihood_parsimony", c_double,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
     export(arghmmclib, "arghmm_joint_prob", c_double,
            [c_void_p, "trees", 
             c_double_list, "times", c_int, "ntimes", c_double_list, "popsizes",
@@ -576,7 +580,11 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     if verbose:
         util.tic("sample arg")
 
-    names, seqs2 = zip(* seqs.items())
+    names = []
+    seqs2 = []
+    for name, seq in seqs.items():
+        names.append(name)
+        seqs2.append(seq)
 
     # sample arg
     trees = arghmm_sample_arg_refine(
@@ -832,7 +840,7 @@ def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
 def resample_arg_region(arg, seqs, region_start, region_end,
                         ntimes=20, rho=1.5e-8, mu=2.5e-8,
-                        popsizes=1e4, times=None,
+                        popsizes=1e4, times=None, carg=False,
                         verbose=False):
     """
     Sample ARG for sequences
@@ -855,7 +863,7 @@ def resample_arg_region(arg, seqs, region_start, region_end,
     # get sequences in same order    
     # and add all other sequences not in arg yet
     seqs2 = [seqs[name] for name in names]
-    leaves = set(arg.leaf_names())
+    leaves = set(names)
     for name, seq in seqs.items():
         if name not in leaves:
             names.append(name)
@@ -870,7 +878,10 @@ def resample_arg_region(arg, seqs, region_start, region_end,
         region_start, region_end)
 
     # convert arg back to python
-    arg = ctrees2arg(trees, names, times, verbose=verbose)
+    if carg:
+        arg = (trees, names)
+    else:
+        arg = ctrees2arg(trees, names, times, verbose=verbose)
 
     if verbose:
         util.toc()
@@ -880,10 +891,17 @@ def resample_arg_region(arg, seqs, region_start, region_end,
 
 def resample_arg_regions(arg, seqs, niters, width=1000,
                          ntimes=20, rho=1.5e-8, mu=2.5e-8,
-                         popsize=1e4, times=None, 
+                         popsize=1e4, times=None, carg=False,
                          verbose=False):
-    
-    recomb_pos = list(x.pos for x in arg if x.event == "recomb")
+    seqlen = len(seqs.values()[0])
+
+    if is_carg(arg):
+        trees, names = arg
+        arg2 = ctrees2arg(trees, names, times, verbose=verbose,
+                          delete_arg=False)
+        recomb_pos = list(x.pos for x in arg2 if x.event == "recomb")
+    else:
+        recomb_pos = list(x.pos for x in arg if x.event == "recomb")
     
     for it in range(niters):
         maxr = 0
@@ -892,16 +910,19 @@ def resample_arg_regions(arg, seqs, niters, width=1000,
             if r > maxr:
                 maxr = r
                 region = [max(recomb_pos[i]-10, 10),
-                          min(recomb_pos[j]+10, arg.end - 10)]
+                          min(recomb_pos[j]+10, seqlen - 10)]
 
         if verbose:
             util.tic("sample ARG region %s" % region)
+        print arg
         arg = arghmm.resample_arg_region(arg, seqs, region[0], region[1],
                                          rho=rho, mu=mu, times=times,
-                                         verbose=True)
-        recomb_pos = list(x.pos for x in arg if x.event == "recomb")
+                                         carg=carg, verbose=True)
+        if not carg:
+            recomb_pos = list(x.pos for x in arg if x.event == "recomb")
+            if verbose:
+                util.logger("%d: # recombs %d" %(it, len(recomb_pos)))
         if verbose:
-            util.logger("%d: # recombs %d" %(it, len(recomb_pos)))
             util.toc()
 
     return arg
@@ -913,7 +934,7 @@ def resample_arg_regions(arg, seqs, niters, width=1000,
 # ARG probabilities
 
 def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8, 
-                    times=None, verbose=False):
+                    times=None, delete_arg=True, verbose=False):
     """
     Calculate arg_likelihood
     """
@@ -922,19 +943,38 @@ def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8,
 
     if verbose:
         util.tic("calc likelihood")
-        util.tic("convert arg")    
 
     trees, names = arg2ctrees(arg, times)
-    seqs2 = [seqs[name] for name in names]
-    seqlen = len(seqs2[0])
+    seqs, nseqs, seqlen = seqs2cseqs(seqs, names)
     
+    lk = arghmm_likelihood(trees, times, len(times), mu, seqs, nseqs, seqlen)
+    if delete_arg:
+        delete_local_trees(trees)
+
     if verbose:
         util.toc()
+    
+    return lk
 
-    lk = arghmm_likelihood(
-        trees, times, len(times), mu,
-        (c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen)    
-    delete_local_trees(trees)
+
+def calc_likelihood_parsimony(arg, seqs, ntimes=20, mu=2.5e-8, 
+                              times=None, delete_arg=True, verbose=False):
+    """
+    Calculate arg_likelihood
+    """
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+
+    if verbose:
+        util.tic("calc likelihood")
+
+    trees, names = arg2ctrees(arg, times)
+    seqs, nseqs, seqlen = seqs2cseqs(seqs, names)
+
+    lk = arghmm_likelihood_parsimony(
+        trees, times, len(times), mu, seqs, nseqs, seqlen)
+    if delete_arg:
+        delete_local_trees(trees)
 
     if verbose:
         util.toc()
@@ -943,7 +983,7 @@ def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8,
 
 
 def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsizes=1e4,
-                    times=None, verbose=False):
+                    times=None, delete_arg=True, verbose=False):
     """
     Calculate arg_joint_prob
     """
@@ -954,16 +994,12 @@ def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsizes=1e4,
 
     if verbose:
         util.tic("calc likelihood")
-        util.tic("convert arg")
 
     trees, names = arg2ctrees(arg, times)
-    seqs2 = [seqs[name] for name in names]
-    
-    if verbose:
-        util.toc()
     
     p = arghmm_prior_prob(trees, times, len(times), popsizes, rho)
-    delete_local_trees(trees)
+    if delete_arg:
+        delete_local_trees(trees)
 
     if verbose:
         util.toc()
@@ -972,7 +1008,7 @@ def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsizes=1e4,
 
 
 def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsizes=1e4,
-                    times=None, verbose=False, delete=True):
+                    times=None, verbose=False, delete_arg=True):
     """
     Calculate arg_joint_prob
     """
@@ -983,19 +1019,13 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsizes=1e4,
 
     if verbose:
         util.tic("calc likelihood")
-        util.tic("convert arg")
 
     trees, names = arg2ctrees(arg, times)
-    seqs2 = [seqs[name] for name in names]
-    seqlen = len(seqs2[0])
-
-    if verbose:
-        util.toc()
+    seqs, nseqs, seqlen = seqs2cseqs(seqs, names)
     
     p = arghmm_joint_prob(
-        trees, times, len(times), popsizes, mu, rho,
-        (c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen)
-    if delete:
+        trees, times, len(times), popsizes, mu, rho, seqs, nseqs, seqlen)
+    if delete_arg:
         delete_local_trees(trees)
 
     if verbose:
@@ -1112,7 +1142,7 @@ def arg2ctrees(arg, times):
     return trees, names
 
 
-def ctrees2arg(trees, names, times, verbose=False, delete_trees=True):
+def ctrees2arg(trees, names, times, verbose=False, delete_arg=True):
     """
     Convert a C data structure for the ARG into a python ARG
     """
@@ -1155,7 +1185,7 @@ def ctrees2arg(trees, names, times, verbose=False, delete_trees=True):
     
     arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
 
-    if delete_trees:
+    if delete_arg:
         delete_local_trees(trees)
 
     if verbose:
@@ -1164,11 +1194,12 @@ def ctrees2arg(trees, names, times, verbose=False, delete_trees=True):
     return arg
 
 
+'''
 def iter_arg_sprs_ids(arg, start=None, end=None):
 
     for pos, (rnode, rtime), (cnode, ctime), local in arglib.iter_arg_sprs(arg, start=start, end=end, use_local=True):
         pass
-        
+'''        
 
 
 
@@ -1339,4 +1370,6 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
 
 def seqs2cseqs(seqs, names):
     seqs2 = [seqs[name] for name in names]
-    return (c_char_p * len(seqs2))(*seqs2)
+    nseqs = len(seqs2)
+    seqlen = len(seqs2[0])
+    return (c_char_p * len(seqs2))(*seqs2), nseqs, seqlen

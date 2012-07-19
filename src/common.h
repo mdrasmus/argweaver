@@ -190,7 +190,7 @@ T ipow(T val, int expo)
 template <class T>
 T **new_matrix(int nrows, int ncols)
 {
-    T** mat = new T* [nrows];
+    T **mat = new T* [nrows];
     T *block = new T [nrows * ncols];
     for (int i=0; i<nrows; i++)
         mat[i] = &block[i*ncols];
@@ -204,6 +204,26 @@ void delete_matrix(T **mat, int nrows)
     delete [] mat[0];
     delete [] mat;
 }
+
+
+template <class T>
+T **new_matrix_rows(int nrows, int ncols)
+{
+    T **mat = new T* [nrows];
+    for (int i=0; i<nrows; i++)
+        mat[i] = new T [ncols];
+    return mat;
+}
+
+
+template <class T>
+void delete_matrix_rows(T **mat, int nrows)
+{
+    for (int i=0; i<nrows; i++)
+        delete [] mat[i];
+    delete [] mat;
+}
+
 
 
 int choose(int n, int k);

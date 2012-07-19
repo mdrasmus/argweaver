@@ -18,9 +18,9 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen, 
                              const ArgModel *model, double **emit);
 
-void calc_emissions2(const States &states, const LocalTree *tree,
-                     const char *const *seqs, int nseqs, int seqlen, 
-                     const ArgModel *model, double **emit);
+double likelihood_tree(const LocalTree *tree, const ArgModel *model,
+                       const char *const *seqs, const int nseqs,
+                       const int start, const int end);
 
 
 //=============================================================================

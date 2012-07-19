@@ -915,9 +915,19 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
         for (int m=minage; m<b; m++)
             sum += time_steps[m] * nbranches[m] / (2.0 * popsizes[m]);
 
-        priors[i] = log((1.0 - exp(- time_steps[b] * nbranches[b] /
-                            (2.0 * popsizes[b]))) / ncoals[b] * exp(-sum));
+        priors[i] = (1.0 - exp(- time_steps[b] * nbranches[b] /
+                               (2.0 * popsizes[b]))) / ncoals[b] * exp(-sum);
     }
+}
+
+
+void calc_state_priors_log(const States &states, const LineageCounts *lineages, 
+                       const ArgModel *model, double *priors,
+                       const int minage)
+{
+    calc_state_priors(states, lineages, model, priors, minage);
+    for (unsigned int i=0; i<states.size(); i++)
+        priors[i] = log(priors[i]);
 }
 
 

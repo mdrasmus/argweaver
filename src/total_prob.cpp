@@ -15,9 +15,37 @@ using namespace std;
 namespace arghmm {
 
 
-// calculate the probability of the sequences given an ARG
 double calc_arg_likelihood(ArgModel *model, Sequences *sequences, 
-                           LocalTrees *trees)
+                            LocalTrees *trees)
+{
+    double lnl = 0.0;
+    int nseqs = sequences->get_nseqs();
+
+    if (trees->nnodes < 3)
+        return lnl += log(.25) * sequences->length();
+
+    // get sequences for trees
+    char *seqs[nseqs];
+    for (int j=0; j<nseqs; j++)
+        seqs[j] = sequences->seqs[trees->seqids[j]];
+
+    int end = trees->start_coord;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        int start = end;
+        end = start + it->blocklen;
+        LocalTree *tree = it->tree;
+
+        lnl += likelihood_tree(tree, model, seqs, nseqs, start, end);
+    }
+
+    return lnl;
+}
+
+
+
+// calculate the probability of the sequences given an ARG
+double calc_arg_likelihood_parsimony(ArgModel *model, Sequences *sequences, 
+                                     LocalTrees *trees)
 {
     double lnl = 0.0;
     int nseqs = sequences->get_nseqs();
@@ -212,6 +240,18 @@ double arghmm_likelihood(LocalTrees *trees,
 }
 
 
+double arghmm_likelihood_parsimony(LocalTrees *trees,
+                                   double *times, int ntimes,
+                                   double mu, 
+                                   char **seqs, int nseqs, int seqlen)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, NULL, 0.0, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    return calc_arg_likelihood_parsimony(&model, &sequences, trees);
+}
+
+
 double arghmm_prior_prob(LocalTrees *trees,
                          double *times, int ntimes, double *popsizes,
                          double rho)
@@ -233,54 +273,6 @@ double arghmm_joint_prob(LocalTrees *trees,
     return calc_arg_joint_prob(&model, &sequences, trees);
 }
 
-/*
-
-double arghmm_likelihood(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes, 
-    double *times, int ntimes,
-    double mu, 
-    char **seqs, int nseqs, int seqlen)
-{
-    // setup model, local trees, sequences
-    ArgModel model(ntimes, times, NULL, 0.0, mu);
-    Sequences sequences(seqs, nseqs, seqlen);
-    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
-
-    return calc_arg_likelihood(&model, &sequences, &trees);
-}
-
-
-double arghmm_prior_prob(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes, 
-    double *times, int ntimes, double *popsizes,
-    double rho)
-{
-    // setup model, local trees, sequences
-    ArgModel model(ntimes, times, popsizes, rho, 0.0);
-    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
-
-    return calc_arg_prior(&model, &trees);
-}
-
-
-double arghmm_joint_prob(
-    int **ptrees, int **ages, int **sprs, int *blocklens,
-    int ntrees, int nnodes, 
-    double *times, int ntimes, double *popsizes,
-    double mu, double rho,
-    char **seqs, int nseqs, int seqlen)
-{
-    // setup model, local trees, sequences
-    ArgModel model(ntimes, times, popsizes, rho, mu);
-    Sequences sequences(seqs, nseqs, seqlen);
-    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
-
-    return calc_arg_joint_prob(&model, &sequences, &trees);
-}
-
-*/
 
 
 } // extern "C"

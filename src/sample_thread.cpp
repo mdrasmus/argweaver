@@ -350,16 +350,10 @@ void arghmm_forward_block(const LocalTree *tree, const ArgModel *model,
             const int j1 = indexes[node2];
             for (int j=j1, a=age1; a<=age2; j++, a++)
                 sum += tmatrix2[a][k] * col1[j];
-            //const int j1 = state_lookup.lookup(node2, age1);
-            //const int j2 = state_lookup.lookup(node2, age2);
-            //assert(j2 != -1 && j1 != -1);
-            //for (int j=j1, a=age1; j<=j2; j++, a++)
-            //    sum += tmatrix2[a][k] * col1[j];
             
             // same state case (add possibility of no recomb)
             sum += norecombs[b] * col1[k];
             
-            //col2[k] = sum * exp(emit2[k]);
             col2[k] = sum * emit2[k];
             norm += col2[k];
         }
@@ -456,8 +450,6 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
                     minage = it->tree->nodes[subtree_root].age;
                 }
                 calc_state_priors(states, &lineages, model, fw[pos], minage);
-                for (unsigned int j=0; j<states.size(); j++)
-                    fw[pos][j] = exp(fw[pos][j]);
             }
         } else {
             // perform one column of forward algorithm with transmat_switch
@@ -467,14 +459,14 @@ void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
         
         // calculate rest of block
         arghmm_forward_block(it->tree, model, matrices.blocklen, 
-                                 states, lineages, 
-                                 matrices.transmat,
-                                 matrices.emit, &fw[pos], internal);
+                             states, lineages, 
+                             matrices.transmat,
+                             matrices.emit, &fw[pos], internal);
 
         // safety check
         int nstates = max(matrices.transmat->nstates, 1);
         double top = max_array(fw[pos + matrices.blocklen - 1], nstates);
-        assert(top > -INFINITY);
+        assert(top > 0.0);
 
         last_tree = tree;
     }
@@ -884,10 +876,10 @@ void cond_sample_arg_thread(ArgModel *model, Sequences *sequences,
     bool found = false;
     for (unsigned int j=0; j<states.size(); j++) {
         if (states[j] == start_state) {
-            fw[trees->start_coord][j] = 0.0;
+            fw[trees->start_coord][j] = 1.0;
             found = true;
         } else {
-            fw[trees->start_coord][j] = -INFINITY;
+            fw[trees->start_coord][j] = 0.0;
         }
     }
     assert(found);
@@ -912,7 +904,7 @@ void cond_sample_arg_thread(ArgModel *model, Sequences *sequences,
     stochastic_traceback_fast(trees, model, &matrix_list, fw, 
                               thread_path, true);
     printf("trace:       %e s\n", time.time());
-    assert(fw[trees->start_coord][thread_path[trees->start_coord]] == 0.0);
+    assert(fw[trees->start_coord][thread_path[trees->start_coord]] == 1.0);
 
 
 

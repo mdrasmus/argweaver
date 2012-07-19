@@ -7,6 +7,7 @@ from math import exp, log
 import random
 from itertools import chain, izip
 import heapq
+from collections import defaultdict
 
 # rasmus combio libs
 from rasmus import hmm, util, stats, treelib
@@ -422,12 +423,77 @@ def sample_arg_mutations(arg, mu, times):
             rate = blen * mu
             i = start
             while i < end:
-                i += int(min(random.expovariate(rate), 2*end))
+                #i += int(min(random.expovariate(rate), 2*end))
+                i += random.expovariate(rate)
                 if i < end:
                     t = random.uniform(node.age, node.age + blen)
-                    mutations.append((node, node.parents[0], i, t))
+                    mutations.append((node, node.parents[0], int(i), t))
     return mutations
 
+
+
+
+def make_alignment(arg, mutations):
+    aln = fasta.FastaDict()
+    alnlen = int(arg.end - arg.start)
+    leaves = list(arg.leaf_names())
+    nleaves = len(leaves)
+
+    # sort mutations by position
+    mutations.sort(key=lambda x: x[2])
+
+    # make align matrix
+    mat = []
+    
+    muti = 0
+    for i in xrange(alnlen):
+        ancestral = "ACGT"[random.randint(0, 3)]
+        #ancestral = "A"
+        
+        if muti >= len(mutations) or i < int(mutations[muti][2]):
+            # no mut
+            mat.append(ancestral * nleaves)
+        else:
+            # mut
+            mut_count = defaultdict(lambda: 0)
+            while muti < len(mutations) and i == int(mutations[muti][2]):
+                mut_count[mutations[muti][0].name] += 1
+                muti += 1
+            
+            tree = arg.get_marginal_tree(i-.5)
+            bases = {tree.root.name: ancestral}
+            
+            for node in tree.preorder():                
+                if not node.parents:
+                    continue
+                
+                ancestral = bases[node.parents[0].name]
+                if node.name in mut_count:
+                    c = mut_count[node.name]
+                    i = 0
+                    while True:
+                        derived = ancestral
+                        while derived == ancestral:
+                            derived = "ACGT"[random.randint(0, 3)]
+                        i += 1
+                        if i == c:
+                            break
+                        ancestral = derived
+                        
+                    bases[node.name] = derived
+                else:
+                    bases[node.name] = ancestral
+
+            mat.append("".join(bases[l] for l in leaves))
+    
+    # make fasta
+    for i, leaf in enumerate(leaves):
+        aln[leaf] = "".join(x[i] for x in mat)
+
+    return aln
+
+
+    
 
 #=============================================================================
 # recombination

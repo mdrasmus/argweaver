@@ -276,9 +276,6 @@ public:
                 subseqs[i] = &seqs->seqs[trees->seqids[i]][pos];
             subseqs[nleaves] = &seqs->seqs[new_chrom][pos];
             matrices->emit = new_matrix<double>(blocklen, nstates);
-            //calc_emissions(*states, tree, subseqs, nleaves + 1, blocklen, 
-            //               model, matrices->emit);
-
             calc_emissions(*states, tree, subseqs, nleaves + 1, blocklen, 
                            model, matrices->emit);
         } else {

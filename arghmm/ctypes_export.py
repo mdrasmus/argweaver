@@ -24,35 +24,34 @@ def c_matrix(c_type, mat):
     return cast(mat, POINTER(POINTER(c_type)))
 
 class c_out (object):
+    """
+    This wrapper object specifies that an argument should be used for output
+    """
     def __init__(self, c_type):
         self.c_type = c_type
-    
 
-# additional C types
+
+# additional primary C types
+c_bool_p = POINTER(c_bool)
+c_bool_p_p = POINTER(POINTER(c_bool))
+c_int_p = POINTER(c_int)
+c_int_p_p = POINTER(POINTER(c_int))
 c_float_p = POINTER(c_float)
 c_float_p_p = POINTER(POINTER(c_float))
 c_double_p = POINTER(c_double)
 c_double_p_p = POINTER(POINTER(c_double))
-c_int_p = POINTER(c_int)
-c_int_p_p = POINTER(POINTER(c_int))
 c_char_p_p = POINTER(c_char_p)
 
-
+# basic auto conversion list and matrix types
+c_bool_list = (c_int_p, lambda x: c_list(c_bool, x))
+c_bool_matrix = (c_int_p_p, lambda x: c_matrix(c_bool, x))
 c_int_list = (c_int_p, lambda x: c_list(c_int, x))
+c_int_matrix = (c_int_p_p, lambda x: c_matrix(c_int, x))
 c_float_list = (c_float_p, lambda x: c_list(c_float, x))
 c_float_matrix = (c_float_p_p, lambda x: c_matrix(c_float, x))
 c_double_list = (c_double_p, lambda x: c_list(c_double, x))
 c_double_matrix = (c_double_p_p, lambda x: c_matrix(c_double, x))
-c_int_matrix = (c_int_p_p, lambda x: c_matrix(c_int, x))
 
-'''
-c_int_list = c_out((c_int_p, lambda x: c_list(c_int, x)))
-c_float_list = c_out((c_float_p, lambda x: c_list(c_float, x)))
-c_float_matrix = c_out((c_float_p_p, lambda x: c_matrix(c_float, x)))
-c_double_list = c_out((c_double_p, lambda x: c_list(c_double, x)))
-c_double_matrix = c_out((c_double_p_p, lambda x: c_matrix(c_double, x)))
-c_int_matrix = c_out((c_int_p_p, lambda x: c_matrix(c_int, x)))
-'''
 
 class Exporter (object):
 
@@ -69,7 +68,6 @@ class Exporter (object):
         return_type -- return type of function
         prototypes  -- a list defining the function prototype
                        e.g. [type1, name1, type2, name2, type3, name3, ...]
-        env         -- environment to export to
         newname     -- if given, the name of the function after export
                        (default: funcname)
         """
@@ -103,12 +101,10 @@ class Exporter (object):
         # wrapper function for exported function
         def wrapper(*args):
 
-            # record array sizes
+            # record array sizes for outputs
             sizes = {}
             for i, argtype in enumerate(prototypes[0::2]):
                 if isinstance(argtype, c_out):
-                #if argtype in (c_int_list, c_float_list, c_float_matrix,
-                #               c_double_list, c_int_matrix, c_double_matrix):
                     sizes[i] = len(args[i])
 
             # convert arguments to c types
