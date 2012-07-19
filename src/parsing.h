@@ -65,6 +65,34 @@ inline char *trim(char *word)
 }
 
 
+// Returns string with whitespace removed from beginning and end of word
+inline char *trim(string &word)
+{
+    char *str = (char*) word.c_str();
+    char *start = str;
+    while (*start == ' ' ||
+           *start == '\t' ||
+           *start == '\n' ||
+           *start == '\r')
+        start++;
+
+    char *end = (char*) &str[strlen(str) - 1];
+    while (end > start && (*end == ' ' ||
+                           *end == '\t' ||
+                           *end == '\n' ||
+                           *end == '\r'))
+        end--;
+    word[end - start + 1] = '\0';
+
+    // pure white space case
+    if (end < start)
+        return &end[1];
+
+    return start;
+}
+
+
+
 vector<string> split(const char *str, const char *delim, 
                      bool multiDelim = true);
 

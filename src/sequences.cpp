@@ -44,7 +44,7 @@ Sequences *read_fasta(const char *filename)
         if (line[0] == '>') {
             if (seq.size() > 0) {  
                 // add new sequence
-                seqs->append(concat_strs(&seq[0], seq.size()));
+                seqs->append(key, concat_strs(&seq[0], seq.size()));
                 seq.clear();
                 discard.clean();
             }

@@ -11,6 +11,9 @@
 #include <string.h>
 #include <stdio.h>
 
+// arghmm includes
+#include "sequences.h"
+
 
 namespace arghmm {
 
@@ -100,6 +103,20 @@ public:
     inline bool is_leaf() const
     {
         return child[0] == -1;
+    }
+
+    inline int add_child(int child_node)
+    {
+        if (child[0] == -1) {
+            child[0] = child_node;
+            return 0;
+        } else if (child[1] == -1) {
+            child[1] = child_node;
+            return 1;
+        }
+
+        // already have two children
+        return -1;
     }
 
     inline void copy(const LocalNode &other)
@@ -284,6 +301,26 @@ public:
     }
 
 
+    inline double get_dist(int node, const double *times) const 
+    {
+        int parent = nodes[node].parent;
+        if (parent != -1)
+            return times[nodes[parent].age] - times[nodes[node].age];
+        else
+            return 0.0;
+    }
+
+
+    // add a node to the tree and return its name
+    inline int add_node()
+    {
+        nnodes++;
+        if (nnodes > capacity)
+            ensure_capacity(2*nnodes);
+        return nnodes - 1;
+    }
+
+
     // Copy tree structure from another tree
     inline void copy(const LocalTree &other)
     {
@@ -297,7 +334,8 @@ public:
             nodes[i].copy(other.nodes[i]);
     }
 
-    
+
+    // get the sibling of a node
     inline int get_sibling(int node) const {
         int parent = nodes[node].parent;
         if (parent == -1)
@@ -309,6 +347,17 @@ public:
             return c[0];
     }
 
+
+    // add a child to a node in the tree
+    inline int add_child(int parent, int child) {
+        int childi = nodes[parent].add_child(child);
+        if (childi == -1)
+            return -1;
+        
+        nodes[child].parent = parent;
+
+        return childi;
+    }
 
     int nnodes;        // number of nodes in tree
     int capacity;      // capacity of nodes array
@@ -562,6 +611,26 @@ inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
 
 void print_local_tree(const LocalTree *tree, FILE *out=stdout);
 void print_local_trees(LocalTrees *trees, FILE *out=stdout);
+
+//=============================================================================
+// input and output
+
+void write_newick_tree(FILE *out, const LocalTree *tree, 
+                       const char *const *names,
+                       const double *times, int depth, bool oneline);
+bool write_newick_tree(const char *filename, const LocalTree *tree, 
+                       const char *const *names, const double *times, 
+                       bool oneline);
+void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
+                       const double *times);
+bool write_local_trees(const char *filename, LocalTrees *trees, 
+                       const char *const *names, const double *times);
+
+void write_local_trees(FILE *out, LocalTrees *trees, const Sequences &seqs,
+                       const double *times);
+bool write_local_trees(const char *filename, LocalTrees *trees, 
+                       const Sequences &seqs, const double *times);
+
 
 //=============================================================================
 // assert functions

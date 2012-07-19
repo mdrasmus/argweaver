@@ -55,6 +55,47 @@ inline int find_vector(const ListT &list, const T value)
 
 
 //=============================================================================
+// sorting
+
+template <class KeyType, class ValueType>
+struct RankSortCmp
+{
+    RankSortCmp(ValueType *values): values(values) {}
+    
+    bool operator()(KeyType i, KeyType j)
+    { return values[i] < values[j]; }
+    
+    ValueType *values;
+};
+
+template <class KeyType, class ValueType>
+void ranksort(KeyType *keys, ValueType *values, int size)
+{
+    RankSortCmp<KeyType, ValueType> cmp(values);
+    sort(keys, keys + size, cmp);
+}
+
+
+void invertPerm(int *perm, int *inv, int size);
+
+template <class T>
+void permute(T* array, int *perm, int size)
+{
+    T *tmp = new T [size];
+    
+    // transfer permutation to temp array
+    for (int i=0; i<size; i++)
+        tmp[i] = array[perm[i]];
+    
+    // copy permutation back to original array
+    for (int i=0; i<size; i++)
+        array[i] = tmp[i];
+
+    delete [] tmp;
+}
+
+
+//=============================================================================
 // Math
 
 inline double frand()

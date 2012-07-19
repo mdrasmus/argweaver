@@ -1,21 +1,21 @@
 /*=============================================================================
 
   Matt Rasmussen
-  Copyright 2007-2012
+  Copyright 2007-2011
 
-  Detachable vector/array class
+  Simple vector/array class
 
 =============================================================================*/
 
 
-#ifndef ARGHMM_EXTEND_ARRAY_H
-#define ARGHMM_EXTEND_ARRAY_H
+#ifndef SPIDIR_EXTEND_ARRAY_H
+#define SPIDIR_EXTEND_ARRAY_H
 
 #include <assert.h>
 #include <algorithm>
 
 
-namespace arghmm {
+namespace spidir {
 
 
 /*=============================================================================
@@ -113,7 +113,7 @@ public:
         if (len != other.len)
             return false;
         
-        // compare data
+        // copy over data
         for (int i=0; i<len; i++)
             if (data[i] != other.data[i])
                 return false;
@@ -179,7 +179,7 @@ public:
         return setCapacity(newsize);
     }
     
-    inline int getCapacity() const
+    inline int get_capacity() const
     {
         return capacity;
     }
@@ -253,6 +253,88 @@ protected:
 
 
 
-} // namespace arghmm
+template <class ValueType>
+class StackPointer
+{
+public:
+    typedef ValueType* ValuePtrType;
+    typedef ValueType** ValuePtrPtrType;
 
-#endif // ARGHMM_EXTEND_ARRAY_H
+    StackPointer(ValueType *ptr=NULL) :
+        ptr(ptr)
+    {
+    }
+    
+    ~StackPointer()
+    {
+        if (ptr)
+            delete ptr;
+    }
+    
+    ValueType *detach()
+    {
+        ValueType *ret = ptr;
+        ptr = NULL;
+        return ret;
+    }
+    
+    
+    ValuePtrType &get() const
+    { return ptr; }
+    
+    operator ValuePtrType() const
+    { return ptr; }
+
+    ValuePtrPtrType operator &() const
+    { return &ptr; }
+        
+    
+protected:
+    ValueType *ptr;
+};
+
+
+template <class ValueType>
+class StackArray
+{
+public:
+    typedef ValueType* ValuePtrType;
+    typedef ValueType** ValuePtrPtrType;
+
+    StackArray(ValueType *ptr=NULL) :
+        ptr(ptr)
+    {
+    }
+    
+    ~StackArray()
+    {
+        if (ptr)
+            delete [] ptr;
+    }
+    
+    ValueType *detach()
+    {
+        ValueType *ret = ptr;
+        ptr = NULL;
+        return ret;
+    }    
+    
+    ValuePtrType &get() const
+    { return ptr; }
+    
+    operator ValuePtrType() const 
+    { return ptr; }
+
+    ValuePtrPtrType operator &() 
+    { return &ptr; }
+        
+    
+protected:
+    ValueType *ptr;
+};
+
+
+
+} // namespace spidir
+
+#endif // SPIDIR_EXTEND_ARRAY_H

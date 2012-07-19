@@ -2,6 +2,7 @@
 #include "math.h"
 #include "stdio.h"
 #include "local_tree.h"
+#include "logging.h"
 
 
 namespace arghmm {
@@ -115,13 +116,6 @@ void count_lineages_internal(const LocalTree *tree, int ntimes,
         ncoals[i]--;
         nrecombs[i]--;
     }
-
-    /*
-    if (minage > 0) {
-        ncoals[minage]--;
-        nrecombs[minage]--;
-    }
-    */
     
     // ensure last time segment always has one branch
     nbranches[ntimes - 1] = 1;
@@ -569,6 +563,228 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
 }
 
 
+//=============================================================================
+// local tree newick output
+
+// write out the newick notation of a tree
+void write_newick_node(FILE *out, const LocalTree *tree, 
+                       const char *const *names,
+                       const double *times, int node, int depth, bool oneline)
+{
+    if (tree->nodes[node].is_leaf()) {
+        if (!oneline)
+            for (int i=0; i<depth; i++) fprintf(out, "  ");
+        fprintf(out, "%s:%f", names[node], tree->get_dist(node, times));
+    } else {
+        // indent
+        if (oneline) {
+            fprintf(out, "(");
+        } else {
+            for (int i=0; i<depth; i++) fprintf(out, "  ");
+            fprintf(out, "(\n");
+        }
+        
+        write_newick_node(out, tree, names, times, 
+                          tree->nodes[node].child[0], depth+1, oneline);
+        if (oneline)
+            fprintf(out, ",");
+        else
+            fprintf(out, ",\n");
+        
+        write_newick_node(out, tree, names, times,
+                          tree->nodes[node].child[1], depth+1, oneline);
+        if (!oneline) {
+            fprintf(out, "\n");            
+            for (int i=0; i<depth; i++) fprintf(out, "  ");
+        }
+        fprintf(out, ")");
+        
+        if (depth > 0)
+            fprintf(out, "%s:%f", names[node], tree->get_dist(node, times));
+        else
+            fprintf(out, "%s", names[node]);
+    }
+}
+
+
+// write out the newick notation of a tree
+void write_newick_tree(FILE *out, const LocalTree *tree, 
+                       const char *const *names,
+                       const double *times, int depth, bool oneline)
+{
+    // setup default names
+    char **names2 = (char **) names;
+    char **default_names = NULL;
+    if (names == NULL) {
+        default_names = new char* [tree->nnodes];
+        for (int i=0; i<tree->nnodes; i++) {
+            default_names[i] = new char [11];
+            snprintf(default_names[i], 10, "%d", i);
+        }
+        names2 = default_names;
+    }
+
+
+    write_newick_node(out, tree, names2, times, tree->root, 0, oneline);
+    if (oneline)
+        fprintf(out, ";");
+    else
+        fprintf(out, ";\n");
+
+    // clean up default names
+    if (default_names) {
+        for (int i=0; i<tree->nnodes; i++)
+            delete [] default_names[i];
+        delete [] default_names;
+    }
+}
+
+
+bool write_newick_tree(const char *filename, const LocalTree *tree, 
+                       const char *const *names, const double *times, 
+                       bool oneline)
+{
+    FILE *out = NULL;
+    
+    if ((out = fopen(filename, "w")) == NULL) {
+        printError("cannot write file '%s'\n", filename);
+        return false;
+    }
+
+    write_newick_tree(out, tree, names, times, 0, oneline);
+    fclose(out);
+    return true;
+}
+
+
+//=============================================================================
+// output ARG as local trees
+
+void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
+                       const double *times)
+{
+    const int nnodes = trees->nnodes;
+
+    // print header
+    fprintf(out, "ARG\tstart=%d\tend=%d\n", 
+            trees->start_coord, trees->end_coord);
+
+    // print names
+    if (names) {
+        fprintf(out, "NAMES");
+        for (int i=0; i<trees->get_num_leaves(); i++)
+            fprintf(out, "\t%s", names[trees->seqids[i]]);
+        fprintf(out, "\n");
+    }
+
+    
+    // setup nodeids
+    char **nodeids = new char* [nnodes];
+    int *total_mapping = new int [nnodes];
+    for (int i=0; i<nnodes; i++) {
+        nodeids[i] = new char [11];
+        total_mapping[i] = i;
+    }
+
+    int end = trees->start_coord;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        end += it->blocklen;
+        LocalTree *tree = it->tree;
+
+        // compute nodeids
+        for (int i=0; i<nnodes; i++)
+            snprintf(nodeids[i], 10, "%d", total_mapping[i]);
+
+        fprintf(out, "TREE\t");
+        write_newick_tree(out, tree, NULL, times, 0, true);
+        fprintf(out, "\n");
+
+        LocalTrees::iterator it2 = it;
+        ++it2;
+        if (it2 != trees->end()) {
+            Spr &spr = it2->spr;
+            fprintf(out, "SPR\t%d\t%d\t%f\t%d\t%f\n", end,
+                    spr.recomb_node, times[spr.recomb_time],
+                    spr.coal_node, times[spr.coal_time]);
+
+            int *mapping = it2->mapping;
+            for (int i=0; i<nnodes; i++)
+                total_mapping[i] = mapping[total_mapping[i]];
+        }
+    }
+
+    // clean nodeids
+    for (int i=0; i<nnodes; i++)
+        delete [] nodeids[i];
+    delete [] nodeids;
+    delete [] total_mapping;
+}
+
+
+bool write_local_trees(const char *filename, LocalTrees *trees, 
+                       const char *const *names, const double *times)
+{
+    FILE *out = NULL;
+    
+    if ((out = fopen(filename, "w")) == NULL) {
+        printError("cannot write file '%s'\n", filename);
+        return false;
+    }
+
+    write_local_trees(out, trees, names, times);
+    fclose(out);
+    return true;
+}
+
+
+void write_local_trees(FILE *out, LocalTrees *trees, const Sequences &seqs,
+                       const double *times)
+{
+    // setup names
+    char **names;
+    const unsigned int nleaves = trees->get_num_leaves();
+    names = new char* [nleaves];
+    
+    for (unsigned int i=0; i<nleaves; i++) {
+        if (i < seqs.names.size()) {
+            names[i] = new char [seqs.names[i].size()+1];
+            strncpy(names[i], seqs.names[i].c_str(), seqs.names[i].size()+1);
+        } else {
+            // use ids
+            names[i] = new char [11];
+            snprintf(names[i], 10, "%d", i);
+        }
+    }
+
+    write_local_trees(out, trees, names, times);
+    
+    // clean up names
+    for (unsigned int i=0; i<nleaves; i++)
+        delete [] names[i];
+    delete [] names;
+}
+
+
+bool write_local_trees(const char *filename, LocalTrees *trees, 
+                       const Sequences &seqs, const double *times)
+{
+    FILE *out = NULL;
+    
+    if ((out = fopen(filename, "w")) == NULL) {
+        printError("cannot write file '%s'\n", filename);
+        return false;
+    }
+
+    write_local_trees(out, trees, seqs, times);
+    fclose(out);
+    return true;
+}
+
+
+//=============================================================================
+// debugging output
+
+// dump raw information about a local tree
 void print_local_tree(const LocalTree *tree, FILE *out)
 {
     const LocalNode *nodes = tree->nodes;
@@ -581,6 +797,7 @@ void print_local_tree(const LocalTree *tree, FILE *out)
 }
 
 
+// dump raw information about a set of local trees
 void print_local_trees(LocalTrees *trees, FILE *out)
 {
     int end = trees->start_coord;

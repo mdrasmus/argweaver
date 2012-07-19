@@ -55,17 +55,19 @@ ARGHMM_SRC = \
     src/itree.cpp \
     src/local_tree.cpp \
     src/logging.cpp \
+    src/newick.cpp \
     src/parsing.cpp \
     src/ptree.cpp \
+    src/recomb.cpp \
     src/sample_arg.cpp \
     src/sample_thread.cpp \
     src/seq.cpp \
     src/states.cpp \
-    src/recomb.cpp \
     src/sequences.cpp \
     src/thread.cpp \
     src/total_prob.cpp \
     src/trans.cpp \
+    src/Tree.cpp \
     src/t2exp.cpp
 
 
