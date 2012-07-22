@@ -650,6 +650,39 @@ void get_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
 }
 
 
+// find the next possible branches in all possible removal path
+void get_all_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
+                                const Spr &spr2, const int *mapping2,
+                                int next_nodes[][2])
+{   
+    const int recoal = get_recoal_node(tree1, spr2, mapping2);
+    
+    for (int node=0; node<tree1->nnodes; node++) {
+        // get passive transition
+        next_nodes[node][0] = mapping2[node];
+        if (next_nodes[node][0] == -1) {
+            // node is broken by SPR
+            // next node is then non-recomb child or recoal
+            int sib = tree1->get_sibling(spr2.recomb_node);
+            if (spr2.coal_node == sib)
+                next_nodes[node][0] = recoal;
+            else
+                next_nodes[node][0] = mapping2[sib];
+        }
+        
+        // get possible active transition
+        // if recoal is on this branch (node) then there is a split in the path
+        if (spr2.coal_node == node) {
+            // find recoal node, its the node with no inward mappings
+            next_nodes[node][1] = recoal;
+        } else {
+            // no second transition
+            next_nodes[node][1] = -1;
+        }
+    }
+}
+
+
 // find the previous possible branches in a removal path
 void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
                             const Spr &spr2, const int *mapping2,
@@ -687,6 +720,47 @@ void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
             prev_nodes[1] = -1;
     }
 }
+
+
+// find the previous possible branches in a removal path
+void get_all_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
+                                const Spr &spr2, const int *mapping2,
+                                int prev_nodes[][2])
+{
+    const int nnodes = tree1->nnodes;
+
+    // make inverse mapping
+    int inv_mapping[nnodes];
+    fill(inv_mapping, inv_mapping + nnodes, -1);
+    for (int i=0; i<nnodes; i++)
+        if (mapping2[i] != -1)
+            inv_mapping[mapping2[i]] = i;
+
+    for (int node=0; node<tree1->nnodes; node++) {
+        // get first transition
+        prev_nodes[node][0] = inv_mapping[node];
+        if (prev_nodes[node][0] == -1) {
+            // there is no inv_mapping because node is recoal
+            // the node spr.coal_node therefore is the previous node
+            prev_nodes[node][0] = spr2.coal_node;
+            
+            // get optional second transition
+            int sib = tree1->get_sibling(spr2.recomb_node);
+            if (mapping2[sib] == node && sib == spr2.coal_node) {
+                prev_nodes[node][1] = tree1->nodes[sib].parent;
+            } else
+                prev_nodes[node][1] = -1;
+        } else {
+            // get optional second transition
+            int sib = tree1->get_sibling(spr2.recomb_node);
+            if (mapping2[sib] == node && sib != spr2.coal_node) {
+                prev_nodes[node][1] = sib;
+            } else
+                prev_nodes[node][1] = -1;
+        }
+    }
+}
+
 
 
 // sample a removal path forward along an ARG
@@ -808,6 +882,114 @@ void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path)
 
 
 
+// sample a removal path that perfers recombination baring branches
+void sample_arg_removal_path_recomb(LocalTrees *trees, float recomb_preference,
+                                    int *path)
+{
+    const int ntrees = trees->get_num_trees();
+    const int nnodes = trees->nnodes;
+    
+    // build forward table for removal path sampling
+    typedef int next_row[2];
+    double **forward = new_matrix<double>(ntrees, nnodes);
+    next_row **backptrs = new_matrix<next_row>(ntrees, nnodes);
+    double **trans = new_matrix<double>(ntrees, nnodes);
+
+
+    // calculate prior
+    fill(forward[0], forward[0] + nnodes, 1.0 / nnodes);
+
+    // compute forward table
+    LocalTrees::iterator it=trees->begin();
+    LocalTree *last_tree = it->tree;
+    int next_nodes[nnodes][2];
+    ++it;
+    for (int i=1; i<ntrees; i++, ++it) {
+        LocalTree *tree = it->tree;
+        int *mapping = it->mapping;
+        get_all_next_removal_nodes(last_tree, tree, it->spr, mapping,
+                                   next_nodes);
+        get_all_prev_removal_nodes(last_tree, tree, it->spr, mapping,
+                                   backptrs[i]);
+
+        // get next spr
+        LocalTrees::iterator it2 = it;
+        it2++;
+        Spr &spr2 = it->spr;
+        
+        // calc transition probs
+        for (int j=0; j<nnodes; j++)
+            trans[i][j] = (next_nodes[j][1] != -1 ? .5 : 1.0);
+
+        // calc forward column
+        double norm = 0.0;
+        for (int j=0; j<nnodes; j++) {
+            double sum = 0.0;
+            for (int ki=0; ki<2; ki++) {
+                int k = backptrs[i][j][ki];
+                if (k == -1)
+                    continue;
+                sum += trans[i][j] * forward[i-1][k];
+            }
+            
+            double emit = (!spr2.is_null() && spr2.recomb_node == j ?
+                           recomb_preference : 1.0 - recomb_preference);
+            forward[i][j] = sum * emit;
+            norm += forward[i][j];
+        }
+
+        // normalize column for numerical stability
+        for (int j=0; j<nnodes; j++)
+            forward[i][j] /= norm;
+        
+
+        last_tree = tree;
+    }
+
+
+    // choose last branch
+    int i = ntrees-1;
+    path[i] = sample(forward[i], nnodes);
+
+    // stochastic traceback
+    int j = path[i];
+    i--;
+    for (; i>=0; i--) {
+        if (backptrs[i+1][j][1] == -1) {
+            // only one path
+            j = path[i] = backptrs[i+1][j][0];
+        } else {
+            // fork, sample path
+            double probs[2];
+            probs[0] = forward[i][backptrs[i+1][j][0]] * trans[i][j];
+            probs[1] = forward[i][backptrs[i+1][j][1]] * trans[i][j];
+            int ji = sample(probs, 2);
+            j = path[i] = backptrs[i+1][j][ji];
+        }
+    }
+    
+    
+    // clean up
+    delete_matrix<double>(forward, ntrees);
+    delete_matrix<next_row>(backptrs, ntrees);
+    delete_matrix<double>(trans, ntrees);
+
+    // DEBUG
+    int nrecomb = 0;
+    it = trees->begin();
+    for (int i=0; i<ntrees; i++, ++it) {
+        if (path[i] == it->spr.recomb_node)
+            nrecomb++;
+    }
+    printf("nrecomb resampled = %d\n", nrecomb);
+
+}
+
+
+
+//=============================================================================
+// internal branch adding and removing
+
 
 // update an SPR and mapping after adding a new internal branch
 void add_spr_branch(LocalTree *tree, LocalTree *last_tree, 
@@ -860,7 +1042,6 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
                     spr->coal_node = last_subtree_root;
                     spr->coal_time = state.time;
                 }
-                // BUG, gone? 7/11/2012
                 assert(spr->coal_time >= last_nodes[spr->coal_node].age);
             } else {
                 // (2) this is the new branch escaping

@@ -90,13 +90,13 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
     // ramdomly choose a removal path
     int node = irand(trees->nnodes);
     int pos = irand(trees->start_coord, trees->end_coord);
-    sample_arg_removal_path(trees, node, pos, removal_path);
+    //sample_arg_removal_path(trees, node, pos, removal_path);
 
     //int node = irand(trees->nnodes);
     //sample_arg_removal_path(trees, node, removal_path);
     
     //int node = irand(trees->get_num_leaves());
-    //sample_arg_removal_leaf_path(trees, node, removal_path);
+    sample_arg_removal_leaf_path(trees, node, removal_path);
 
     remove_arg_thread_path(trees, removal_path, maxtime);
     sample_arg_thread_internal(model, sequences, trees);
@@ -112,14 +112,18 @@ void resample_arg_climb(ArgModel *model, Sequences *sequences,
 {
     const int maxtime = model->ntimes + 1;
     int *removal_path = new int [trees->get_num_trees()];
-    
-    // ramdomly choose a removal path
-    int node = irand(trees->nnodes);
-    int pos = irand(trees->start_coord, trees->end_coord);
-    sample_arg_removal_path(trees, node, pos, removal_path);
+
+    printf("CLIMB\n");
+
+    // ramdomly choose a removal path weighted by recombinations
+    double preference = 0.5;
+    //sample_arg_removal_path_recomb(trees, preference, removal_path);
+    sample_arg_removal_path(trees, preference, removal_path);
     
     remove_arg_thread_path(trees, removal_path, maxtime);
-    sample_arg_thread_internal_climb(model, sequences, trees, nclimb);
+    sample_arg_thread_internal(model, sequences, trees);
+    
+    //sample_arg_thread_internal_climb(model, sequences, trees, nclimb);
     
     delete [] removal_path;
 }

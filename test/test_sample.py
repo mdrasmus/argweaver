@@ -1853,11 +1853,11 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 20
+        k = 6
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(200e3) / 20
+        length = int(500e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1; refine = 12 * 20
         write = False
@@ -1879,25 +1879,35 @@ class Sample (unittest.TestCase):
         
         util.tic("sample ARG")
         core_seqs = seqs.get(seqs.keys()[:6])
+
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                 popsizes=n, refine=5, carg=True)
         
-        arg2 = arghmm.sample_arg(core_seqs, rho=rho, mu=mu, times=times,
-                                 popsizes=n, refine=0, carg=True)
+        #arg2 = arghmm.sample_arg(core_seqs, rho=rho, mu=mu, times=times,
+        #                         popsizes=n, refine=0, carg=True)
         #arg2 = arghmm.sample_arg_seq_gibbs(
         #            seqs, rho=rho, mu=mu, times=times,
         #            seqiters=2, gibbsiters=1, carg=True)
         #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
         #                           popsizes=n, refine=10, carg=True)
-        #arg2 = arghmm.resample_climb_arg(
-        #    arg2, seqs, rho=rho, mu=mu, times=times,
-        #    popsizes=n, refine=100, nclimb=10, carg=True)
         util.toc()
+        arg2 = arg
         
         #lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho, times=times,
         #                             popsizes=n, delete_arg=False)
         #y.append(lk2)
         
-        for i in range(4000):
+        for i in range(300):
             util.tic("resample ARG %d" % i)
+            #arg2 = arghmm.resample_arg(
+            #    arg2, seqs, rho=rho, mu=mu, times=times,
+            #    popsizes=n, refine=1, carg=True)
+
+            
+            #arg2 = arghmm.resample_climb_arg(
+            #    arg2, seqs, rho=rho, mu=mu, times=times,
+            #    popsizes=n, refine=1, carg=True)
+
             arg2 = arghmm.resample_all_arg(
                 arg2, seqs, rho=rho, mu=mu, times=times,
                 popsizes=n, refine=1, carg=True)
