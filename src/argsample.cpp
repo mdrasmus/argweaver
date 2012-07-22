@@ -53,7 +53,7 @@ public:
                     "alignment compression factor (default=1.0)"));
 	config.add(new ConfigParam<string>
 		   ("-o", "--out-arg", "<ARG output file>", &out_argfile, 
-                    "arghmm.sprs",
+                    "arghmm.smc",
                     "output file for the sampled ARG (default='arghmm.sprs')"));
 
 
@@ -152,17 +152,12 @@ int main(int argc, char **argv)
     sample_arg_seq(&model, sequences, trees);
     printf("length %d\n", sequences->length());
     printf("ntrees %d\n", trees->get_num_trees());
-
-
-    //LocalTree *tree = trees->front().tree;
-    //write_newick_tree(stdout, tree, NULL, model.times, 0, true);
-
-    //write_local_trees(c.out_argfile.c_str(), trees, NULL, model.times);
-
-    printf("%s\n", sequences->names[0].c_str());
+    
     write_local_trees(c.out_argfile.c_str(), trees, *sequences, model.times);
 
 
     delete trees;
     delete sequences;
+
+    return 0;
 }

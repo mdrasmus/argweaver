@@ -139,11 +139,11 @@ void arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
 //=============================================================================
 // thread path sampling
 
-void stochastic_traceback_fast(LocalTrees *trees, ArgModel *model, 
-                               ArgHmmMatrixIter *matrix_iter, 
-                               double **fw, int *path, 
-                               bool last_state_given=false,
-                               bool internal=false);
+double stochastic_traceback_fast(LocalTrees *trees, ArgModel *model, 
+                                 ArgHmmMatrixIter *matrix_iter, 
+                                 double **fw, int *path, 
+                                 bool last_state_given=false,
+                                 bool internal=false);
 
 void stochastic_traceback(ArgHmmMatrixIter *matrix_iter, 
                           double **fw, int *path, 
@@ -163,6 +163,9 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
 
 void sample_arg_thread_internal(ArgModel *model, Sequences *sequences, 
                                 LocalTrees *trees);
+
+void sample_arg_thread_internal_climb(ArgModel *model, Sequences *sequences, 
+                                      LocalTrees *trees, int nsamples);
 
 void resample_arg_thread(ArgModel *model, Sequences *sequences, 
                          LocalTrees *trees, int chrom);

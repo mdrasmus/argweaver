@@ -426,7 +426,7 @@ public:
     {
         if (tree->capacity < _capacity)
             set_capacity(_capacity);
-    }   
+    }
 
     
     LocalTree *tree;  // local tree
@@ -486,6 +486,9 @@ public:
     {
         return trees.size();
     }
+
+    // Copy tree structure from another tree
+    void copy(LocalTrees &other);
 
     // deallocate local trees
     void clear()

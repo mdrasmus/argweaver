@@ -149,6 +149,11 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "niters"])
+    export(arghmmclib, "arghmm_resample_climb_arg", c_void_p,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "niters", c_int, "nclimb"])
     export(arghmmclib, "arghmm_remax_arg", c_void_p,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -214,6 +219,8 @@ if arghmmclib:
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
             c_int_matrix, "sprs", c_int_list, "blocklens",
             c_int, "ntrees", c_int, "nnodes"])
+    export(arghmmclib, "arghmm_copy_trees", c_void_p,
+           [c_void_p, "trees"])
     export(arghmmclib, "get_local_trees_ntrees", c_int,
            [c_void_p, "trees"])
     export(arghmmclib, "get_local_trees_nnodes", c_int,
@@ -665,6 +672,7 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     # and add all other sequences not in arg yet
     seqs2 = [seqs[name] for name in names]
     leaves = set(names) #set(arg.leaf_names())
+    names = list(names)
     for name, seq in seqs.items():
         if name not in leaves:
             names.append(name)
@@ -766,6 +774,7 @@ def resample_all_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     # and add all other sequences not in arg yet
     seqs2 = [seqs[name] for name in names]
     leaves = set(names)
+    names = list(names)
     for name, seq in seqs.items():
         if name not in leaves:
             names.append(name)
@@ -779,6 +788,52 @@ def resample_all_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2),
         seqlen, refine)
 
+    if carg:
+        arg = (trees, names)
+    else:
+        # convert arg back to python
+        arg = ctrees2arg(trees, names, times, verbose=verbose)
+
+    if verbose:
+        util.toc()
+    
+    return arg
+
+
+def resample_climb_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8,
+                       popsizes=1e4, refine=1, nclimb=10,
+                       times=None, verbose=False, carg=False):
+    """
+    Sample ARG for sequences
+    """
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
+
+    if verbose:
+        util.tic("resample arg")
+
+    # convert arg to c++
+    if verbose:
+        util.tic("convert arg")
+    trees, names = arg2ctrees(arg, times)
+    if verbose:
+        util.toc()
+
+    # get sequences in same order    
+    # and add all other sequences not in arg yet
+    leaves = set(names)
+    for name, seq in seqs.items():
+        if name not in leaves:
+            names.append(name)
+    seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
+
+    # resample arg
+    trees = arghmm_resample_climb_arg(
+        trees, times, len(times),
+        popsizes, rho, mu, seqs2, nseqs, seqlen, refine, nclimb)
+    
     if carg:
         arg = (trees, names)
     else:

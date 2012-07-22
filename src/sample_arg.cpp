@@ -81,7 +81,7 @@ void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 }
 
 
-// resample the threading of all the chromosomes
+// resample the threading of an internal branch
 void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 {
     const int maxtime = model->ntimes + 1;
@@ -100,6 +100,26 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 
     remove_arg_thread_path(trees, removal_path, maxtime);
     sample_arg_thread_internal(model, sequences, trees);
+    
+    delete [] removal_path;
+}
+
+
+
+// resample the threading of an internal branch
+void resample_arg_climb(ArgModel *model, Sequences *sequences, 
+                        LocalTrees *trees, int nclimb)
+{
+    const int maxtime = model->ntimes + 1;
+    int *removal_path = new int [trees->get_num_trees()];
+    
+    // ramdomly choose a removal path
+    int node = irand(trees->nnodes);
+    int pos = irand(trees->start_coord, trees->end_coord);
+    sample_arg_removal_path(trees, node, pos, removal_path);
+    
+    remove_arg_thread_path(trees, removal_path, maxtime);
+    sample_arg_thread_internal_climb(model, sequences, trees, nclimb);
     
     delete [] removal_path;
 }
@@ -370,6 +390,27 @@ LocalTrees *arghmm_resample_all_arg(
 }
 
 
+
+// resample all branches in an ARG with gibbs
+LocalTrees *arghmm_resample_climb_arg(
+    LocalTrees *trees, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int niters, int nclimb)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    
+    // sequentially sample until all chromosomes are present
+    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++)
+        sample_arg_thread(&model, &sequences, trees, new_chrom);
+
+    // gibbs sample
+    for (int i=0; i<niters; i++)
+        resample_arg_climb(&model, &sequences, trees, nclimb);
+    
+    return trees;
+}
 
 
 

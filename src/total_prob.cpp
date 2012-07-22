@@ -50,7 +50,7 @@ double calc_arg_likelihood_parsimony(ArgModel *model, Sequences *sequences,
     double lnl = 0.0;
     int nseqs = sequences->get_nseqs();
     double minlen = model->times[1];
-    const double log25 = -1.3862943611198906; // log(.25)
+    const double log25 = log(.25);
     const double *times = model->times;
 
     if (trees->nnodes < 3)
@@ -122,6 +122,49 @@ double calc_arg_likelihood_parsimony(ArgModel *model, Sequences *sequences,
 }
 
 
+// The probabiluty of going from 'a' lineages to 'b' lineages in time 't'
+// with population size 'n'
+double prob_coal_counts(int a, int b, double t, double n)
+{
+    double C = 1.0;
+    
+    for (int y=0; y<b; y++)
+        C *= (b+y)*(a-y)/double(a+y);
+
+    double s = exp(-b*(b-1)*t/2.0/n) * C;
+
+    for (int k=b+1; k<a+1; k++) {
+        const double k1 = double(k - 1);
+        C *= double(b+k1)*(a-k1)/(a+k1)/(b-k);
+        s += exp(-k*k1*t/2.0/n) * (2*k-1) / double(k1+b) * C;
+    }
+    
+    for (int i=1; i<=b; i++)
+        s /= i;
+
+    return s;
+}
+
+
+double calc_tree_prior(const ArgModel *model, const LocalTree *tree,
+                       LineageCounts &lineages)
+{
+    lineages.count(tree);
+    int nleaves = tree->get_num_leaves();
+    double lnl = 0.0;
+    
+    for (int i=0; i<model->ntimes-1; i++) {
+        int a = (i == 0 ? nleaves : lineages.nbranches[i-1]);
+        int b = lineages.nbranches[i];
+
+        lnl += log(prob_coal_counts(a, b, model->time_steps[i],
+                                    2.0*model->popsizes[i]));
+    }
+    
+
+    return lnl;
+}
+
 
 double calc_spr_prob(const ArgModel *model, const LocalTree *tree, 
                      const Spr &spr, LineageCounts &lineages)
@@ -179,7 +222,9 @@ double calc_arg_prior(ArgModel *model, LocalTrees *trees)
     double lnl = 0.0;
     LineageCounts lineages(model->ntimes);
 
-    // TODO: add tree prior
+    // first tree prior
+    lnl += calc_tree_prior(model, trees->front().tree, lineages);
+
 
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {

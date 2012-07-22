@@ -465,7 +465,7 @@ void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs,
 
 
 
-void calc_emissions2(const States &states, const LocalTree *tree,
+void calc_emissions_parsimony(const States &states, const LocalTree *tree,
                     const char *const *seqs, int nseqs, int seqlen, 
                     const ArgModel *model, double **emit)
 {
@@ -620,9 +620,10 @@ void calc_emissions2(const States &states, const LocalTree *tree,
 
 
 
-void calc_emissions_internal2(const States &states, const LocalTree *tree,
-                             const char *const *seqs, int nseqs, int seqlen, 
-                             const ArgModel *model, double **emit)
+void calc_emissions_internal_parsimony(
+    const States &states, const LocalTree *tree,
+    const char *const *seqs, int nseqs, int seqlen, 
+    const ArgModel *model, double **emit)
 {
     const double *times = model->times;
     const double mintime = times[1];

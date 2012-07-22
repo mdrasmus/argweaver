@@ -903,11 +903,17 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
     const int *nbranches = lineages->nbranches;
     const int *ncoals = lineages->ncoals;
     
+    // special case
+    if (nstates == 0) {
+        priors[0] = 1.0;
+        return;
+    }
+
     for (int i=0; i<nstates; i++) {
         int b = states[i].time;
 
         if (b < minage) {
-            priors[i] = -INFINITY;
+            priors[i] = 0.0;
             continue;
         }
 
@@ -925,8 +931,9 @@ void calc_state_priors_log(const States &states, const LineageCounts *lineages,
                        const ArgModel *model, double *priors,
                        const int minage)
 {
+    const int nstates = max((int) states.size(), 1);
     calc_state_priors(states, lineages, model, priors, minage);
-    for (unsigned int i=0; i<states.size(); i++)
+    for (int i=0; i<nstates; i++)
         priors[i] = log(priors[i]);
 }
 

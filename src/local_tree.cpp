@@ -408,6 +408,37 @@ LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
 }
 
 
+// Copy tree structure from another tree
+void LocalTrees::copy(LocalTrees &other)
+{
+    // clear previous data
+    clear();
+
+    // copy over information
+    start_coord = other.start_coord;
+    end_coord = other.end_coord;
+    nnodes = other.nnodes;
+    seqids = other.seqids;
+
+    // copy local trees
+    for (iterator it=other.begin(); it != other.end(); ++it) {
+        const int nnodes = it->tree->nnodes;
+        LocalTree *tree2 = new LocalTree();
+        tree2->copy(*it->tree);
+
+        int *mapping = it->mapping;
+        int *mapping2 = NULL;
+        if (mapping) {
+            mapping2 = new int [nnodes];
+            for (int i=0; i<nnodes; i++)
+                mapping2[i] = mapping[i];
+        }
+
+        trees.push_back(LocalTreeSpr(tree2, it->spr, it->blocklen, mapping2));
+    }
+}
+
+
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
                                   LocalTrees::iterator it, int it_start)
 {
@@ -688,6 +719,7 @@ void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
 
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        int start = end;
         end += it->blocklen;
         LocalTree *tree = it->tree;
 
@@ -695,7 +727,7 @@ void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
         for (int i=0; i<nnodes; i++)
             snprintf(nodeids[i], 10, "%d", total_mapping[i]);
 
-        fprintf(out, "TREE\t");
+        fprintf(out, "TREE\t%d\t%d", start, end);
         write_newick_tree(out, tree, NULL, times, 0, true);
         fprintf(out, "\n");
 
@@ -1013,7 +1045,15 @@ LocalTrees *arghmm_new_trees(
     int ntrees, int nnodes)
 {
     // setup model, local trees, sequences
-    return  new LocalTrees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+    return new LocalTrees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
+}
+
+
+LocalTrees *arghmm_copy_trees(LocalTrees *trees)
+{
+    LocalTrees *trees2 = new LocalTrees();
+    trees2->copy(*trees);
+    return trees2;
 }
 
 

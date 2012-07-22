@@ -70,8 +70,13 @@ ARGHMM_SRC = \
     src/Tree.cpp \
     src/t2exp.cpp
 
+ALL_SRC = \
+    $(ARGHMM_SRC) \
+    src/argsample.cpp
+
 
 ARGHMM_OBJS = $(ARGHMM_SRC:.cpp=.o)
+ALL_OBJS = $(ALL_SRC:.cpp=.o) 
 
 LIBS =
 # `gsl-config --libs`
@@ -139,7 +144,7 @@ $(LIBARGHMM_SHARED_INSTALL): $(LIBARGHMM_SHARED)
 #=============================================================================
 # basic rules
 
-$(ARGHMM_OBJS): %.o: %.cpp
+$(ALL_OBJS): %.o: %.cpp
 	$(CXX) -c $(CFLAGS) -o $@ $<
 
 

@@ -653,6 +653,38 @@ class Basic (unittest.TestCase):
 
 
 
+    def test_emit_parsimony(self):
+        """
+        Calculate emission probabilities with parsimony
+        """
+        
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(100e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+
+        x = []; y = []
+        for i in range(20):
+            print i
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            muts = arghmm.sample_arg_mutations(arg, mu, times)
+            seqs = arghmm.make_alignment(arg, muts)
+
+            x.append(arghmm.calc_likelihood(
+                arg, seqs, mu=mu, times=times, delete_arg=False))
+            y.append(arghmm.calc_likelihood_parsimony(
+                arg, seqs, mu=mu, times=times, delete_arg=False))
+
+        p = plot(x, y, xlab="true likelihood", ylab="parsimony likelihood")
+        p.plot([min(x), max(x)], [min(x), max(x)], style="lines")
+        pause()
+            
+
+
+
     def test_trans_c(self):
 
         k = 10
