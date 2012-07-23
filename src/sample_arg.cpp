@@ -87,17 +87,16 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
     const int maxtime = model->ntimes + 1;
     int *removal_path = new int [trees->get_num_trees()];
     
-    // ramdomly choose a removal path
-    int node = irand(trees->nnodes);
-    int pos = irand(trees->start_coord, trees->end_coord);
-    //sample_arg_removal_path(trees, node, pos, removal_path);
-
-    //int node = irand(trees->nnodes);
-    //sample_arg_removal_path(trees, node, removal_path);
+    if (frand() < 1.0) {
+        int node = irand(trees->get_num_leaves());
+        sample_arg_removal_leaf_path(trees, node, removal_path);
+    } else {
+        // ramdomly choose a removal path
+        int node = irand(trees->nnodes);
+        int pos = irand(trees->start_coord, trees->end_coord);
+        sample_arg_removal_path(trees, node, pos, removal_path);
+    }
     
-    //int node = irand(trees->get_num_leaves());
-    sample_arg_removal_leaf_path(trees, node, removal_path);
-
     remove_arg_thread_path(trees, removal_path, maxtime);
     sample_arg_thread_internal(model, sequences, trees);
     
@@ -108,22 +107,39 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 
 // resample the threading of an internal branch
 void resample_arg_climb(ArgModel *model, Sequences *sequences, 
-                        LocalTrees *trees, int nclimb)
+                        LocalTrees *trees, double recomb_preference)
 {
     const int maxtime = model->ntimes + 1;
     int *removal_path = new int [trees->get_num_trees()];
-
-    printf("CLIMB\n");
-
-    // ramdomly choose a removal path weighted by recombinations
-    double preference = 0.5;
-    //sample_arg_removal_path_recomb(trees, preference, removal_path);
-    sample_arg_removal_path(trees, preference, removal_path);
     
+    if (true) { //frand() < .5) {
+        // ramdomly choose a removal path weighted by recombinations
+        sample_arg_removal_path_recomb(trees, recomb_preference, removal_path);
+
+    } else {
+        int node = irand(trees->get_num_leaves());
+        sample_arg_removal_leaf_path(trees, node, removal_path);        
+    }
+
     remove_arg_thread_path(trees, removal_path, maxtime);
     sample_arg_thread_internal(model, sequences, trees);
     
-    //sample_arg_thread_internal_climb(model, sequences, trees, nclimb);
+    delete [] removal_path;
+}
+
+
+
+// resample the threading of an internal branch with preference for recombs
+void resample_arg_recomb(ArgModel *model, Sequences *sequences, 
+                         LocalTrees *trees, double recomb_preference)
+{
+    const int maxtime = model->ntimes + 1;
+    int *removal_path = new int [trees->get_num_trees()];
+    
+    // ramdomly choose a removal path weighted by recombinations
+    sample_arg_removal_path_recomb(trees, recomb_preference, removal_path);
+    remove_arg_thread_path(trees, removal_path, maxtime);
+    sample_arg_thread_internal(model, sequences, trees);
     
     delete [] removal_path;
 }
@@ -399,7 +415,7 @@ LocalTrees *arghmm_resample_all_arg(
 LocalTrees *arghmm_resample_climb_arg(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, int niters, int nclimb)
+    char **seqs, int nseqs, int seqlen, int niters, double recomb_preference)
 {
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
@@ -411,11 +427,10 @@ LocalTrees *arghmm_resample_climb_arg(
 
     // gibbs sample
     for (int i=0; i<niters; i++)
-        resample_arg_climb(&model, &sequences, trees, nclimb);
+        resample_arg_climb(&model, &sequences, trees, recomb_preference);
     
     return trees;
 }
-
 
 
 // remax an ARG with viterbi

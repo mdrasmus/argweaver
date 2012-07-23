@@ -679,6 +679,8 @@ void get_all_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
             // no second transition
             next_nodes[node][1] = -1;
         }
+
+        assert(next_nodes[node][0] != next_nodes[node][1]);
     }
 }
 
@@ -707,7 +709,7 @@ void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
 
         // get optional second transition
         int sib = tree1->get_sibling(spr2.recomb_node);
-        if (mapping2[sib] == node && sib == spr2.coal_node) {
+        if (sib == spr2.coal_node) {
             prev_nodes[1] = tree1->nodes[sib].parent;
         } else
             prev_nodes[1] = -1;
@@ -715,7 +717,7 @@ void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
         // get optional second transition
         int sib = tree1->get_sibling(spr2.recomb_node);
         if (mapping2[sib] == node && sib != spr2.coal_node) {
-            prev_nodes[1] = sib;
+            prev_nodes[1] = tree1->nodes[sib].parent;
         } else
             prev_nodes[1] = -1;
     }
@@ -746,7 +748,7 @@ void get_all_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
             
             // get optional second transition
             int sib = tree1->get_sibling(spr2.recomb_node);
-            if (mapping2[sib] == node && sib == spr2.coal_node) {
+            if (sib == spr2.coal_node) {
                 prev_nodes[node][1] = tree1->nodes[sib].parent;
             } else
                 prev_nodes[node][1] = -1;
@@ -754,10 +756,12 @@ void get_all_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
             // get optional second transition
             int sib = tree1->get_sibling(spr2.recomb_node);
             if (mapping2[sib] == node && sib != spr2.coal_node) {
-                prev_nodes[node][1] = sib;
+                prev_nodes[node][1] = tree1->nodes[sib].parent;
             } else
                 prev_nodes[node][1] = -1;
         }
+        
+        assert(prev_nodes[node][0] != prev_nodes[node][1]);
     }
 }
 
@@ -883,7 +887,7 @@ void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path)
 
 
 // sample a removal path that perfers recombination baring branches
-void sample_arg_removal_path_recomb(LocalTrees *trees, float recomb_preference,
+void sample_arg_removal_path_recomb(LocalTrees *trees, double recomb_preference,
                                     int *path)
 {
     const int ntrees = trees->get_num_trees();
@@ -912,6 +916,15 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, float recomb_preference,
         get_all_prev_removal_nodes(last_tree, tree, it->spr, mapping,
                                    backptrs[i]);
 
+        next_row *prev_nodes = backptrs[i];
+        for (int j=0; j<nnodes; j++) {
+            int k = next_nodes[j][0];
+            assert(prev_nodes[k][0] == j || prev_nodes[k][1] == j);
+            k = next_nodes[j][1];
+            if (k != -1)
+                assert(prev_nodes[k][0] == j || prev_nodes[k][1] == j);
+        }
+
         // get next spr
         LocalTrees::iterator it2 = it;
         it2++;
@@ -932,9 +945,14 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, float recomb_preference,
                 sum += trans[i][j] * forward[i-1][k];
             }
             
-            double emit = (!spr2.is_null() && spr2.recomb_node == j ?
+            double emit = ((!spr2.is_null() && spr2.recomb_node == j) ?
                            recomb_preference : 1.0 - recomb_preference);
             forward[i][j] = sum * emit;
+
+            //printf("forward[%d][%d] = %f, %f, %f (%f)\n", i, j, forward[i][j],
+            //       emit, sum, recomb_preference);
+            assert(!isnan(forward[i][j]));
+            
             norm += forward[i][j];
         }
 
@@ -950,11 +968,15 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, float recomb_preference,
     // choose last branch
     int i = ntrees-1;
     path[i] = sample(forward[i], nnodes);
+    //for (int j=0; j<nnodes; j++)
+    //    printf("forward[%d][%d] = %f\n", i, j, forward[i][j]);
 
     // stochastic traceback
     int j = path[i];
     i--;
     for (; i>=0; i--) {
+        //printf("backptr[%d][%d] = {%d, %d}\n",
+        //       i+1, j, backptrs[i+1][j][0], backptrs[i+1][j][1]);
         if (backptrs[i+1][j][1] == -1) {
             // only one path
             j = path[i] = backptrs[i+1][j][0];
@@ -974,6 +996,7 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, float recomb_preference,
     delete_matrix<next_row>(backptrs, ntrees);
     delete_matrix<double>(trans, ntrees);
 
+    /*
     // DEBUG
     int nrecomb = 0;
     it = trees->begin();
@@ -982,6 +1005,7 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, float recomb_preference,
             nrecomb++;
     }
     printf("nrecomb resampled = %d\n", nrecomb);
+    */
 
 }
 
@@ -1086,6 +1110,14 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
         if (y == spr->coal_node)
             y = last_nodes[x].child[1];
         mapping[last_newcoal] = nodes[mapping[y]].parent;
+    }
+
+
+    // DEBUG
+    if (last_tree->nodes[spr->recomb_node].parent == -1) {
+        printf("newcoal = %d, last_newcoal = %d, recoal = %d\n",
+               newcoal, last_newcoal, recoal);
+        assert(false);
     }
 
     assert(assert_spr(last_tree, tree, spr, mapping));
@@ -1482,6 +1514,13 @@ void arghmm_sample_arg_removal_leaf_path(LocalTrees *trees, int node,
 {
     sample_arg_removal_leaf_path(trees, node, path);
 }
+
+void arghmm_sample_arg_removal_path_recomb(LocalTrees *trees, 
+                                           double recomb_preference, int *path)
+{
+    sample_arg_removal_path_recomb(trees, recomb_preference, path);
+}
+
 
 void arghmm_remove_arg_thread_path(LocalTrees *trees, int *removal_path, 
                                    int maxtime)

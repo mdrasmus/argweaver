@@ -225,6 +225,27 @@ class Basic (unittest.TestCase):
             treelib.draw_tree_names(tree.get_tree(), minlen=5, scale=4e-4)
 
 
+    def test_plot_thread(self):
+        """
+        Test thread retrieval
+        """
+        
+        k = 60
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(1000e3) / 20
+        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
+
+        node = arg.leaves().next()
+        x = range(length)
+        y = cget(arghmm.iter_chrom_thread(arg, node, by_block=False), 1)
+        
+        p = plot(x, y, style='lines')
+
+        pause()
+
+
 
     def test_prior(self):
         """

@@ -204,7 +204,9 @@ class Sample (unittest.TestCase):
 
         seqs.write("test/data/sample_mut.fa")
         
-        
+
+    #------------------------------------------
+
 
     def test_sample_thread(self):
         """
@@ -1057,7 +1059,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 12
+        k = 40
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho 
@@ -1084,13 +1086,13 @@ class Sample (unittest.TestCase):
         y = []
         
         util.tic("sample ARG")
-        #arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
-        #                         refine=10)
-        arg2 = arghmm.sample_arg(seqs.get(seqs.keys()[:6]),
-                                 rho=rho, mu=mu, times=times,
-                                 refine=10, carg=True)
-        arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu,
-                                   times=times, refine=10, carg=True)
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                 refine=0, carg=True)
+        #arg2 = arghmm.sample_arg(seqs.get(seqs.keys()[:6]),
+        #                         rho=rho, mu=mu, times=times,
+        #                         refine=10, carg=True)
+        #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu,
+        #                           times=times, refine=10, carg=True)
         util.toc()
         #arg2 = arg
 
@@ -1112,7 +1114,7 @@ class Sample (unittest.TestCase):
             #nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
             nrecombs2 = arghmm.get_local_trees_ntrees(arg2[0]) - 1
             y.append(nrecombs2)
-            print nrecombs2
+            print nrecombs2, nrecombs
 
             if write:
                 arglib.write_arg("test/data/sample_arg_recomb2/%d.arg" % i,
@@ -1236,11 +1238,11 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 8
+        k = 12
         n = 1e4
-        rho = 1.5e-8
-        mu = 2.5e-8
-        length = int(20e3)
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
         arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
@@ -1263,12 +1265,22 @@ class Sample (unittest.TestCase):
 
         for i in range(50):
             util.tic("resample ARG %d" % i)
-            arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-                                       refine=10)
+            arg2 = arghmm.resample_climb_arg(arg2, seqs, rho=rho, mu=mu,
+                                             times=times, refine=0)
             util.toc()
             arglen2 = arglib.arglen(arg2)
             y.append(arglen2)
-            print "%e" % arglen2
+            print "%e %e" % (arglen2, arglen)
+
+
+        for i in range(300):
+            util.tic("resample ARG %d" % i)
+            arg2 = arghmm.resample_all_arg(arg2, seqs, rho=rho, mu=mu,
+                                           times=times, refine=0)
+            util.toc()
+            arglen2 = arglib.arglen(arg2)
+            y.append(arglen2)
+            print "%e %e" % (arglen2, arglen)
 
         
         p = plot(y)
@@ -1583,7 +1595,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 6
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -1599,7 +1611,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(40):
+        for i in range(20):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1614,9 +1626,11 @@ class Sample (unittest.TestCase):
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
                 arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                                         refine=10, carg=True)
-                #arg2 = arghmm.remax_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-                #                         refine=5)
+                                         refine=0, carg=True)
+                arg2 = arghmm.resample_climb_arg(arg2,
+                    seqs, rho=rho, mu=mu, times=times, popsizes=n,
+                    refine=200, recomb_pref=.9, carg=True)
+
                 #arg2 = arghmm.resample_arg(arg2,
                 #    seqs, rho=rho, mu=mu, times=times, popsizes=n,
                 #    refine=40, carg=True)
@@ -1628,6 +1642,7 @@ class Sample (unittest.TestCase):
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
                                              times=times)
+                print lk, lk2
                 rx.append(lk)
                 ry.append(lk2)
                 names.append([i, j])
@@ -1853,11 +1868,11 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 6
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(500e3) / 20
+        length = int(100e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1; refine = 12 * 20
         write = False
@@ -1881,7 +1896,7 @@ class Sample (unittest.TestCase):
         core_seqs = seqs.get(seqs.keys()[:6])
 
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                                 popsizes=n, refine=5, carg=True)
+                                 popsizes=n, refine=0, carg=True)
         
         #arg2 = arghmm.sample_arg(core_seqs, rho=rho, mu=mu, times=times,
         #                         popsizes=n, refine=0, carg=True)
@@ -1891,20 +1906,29 @@ class Sample (unittest.TestCase):
         #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
         #                           popsizes=n, refine=10, carg=True)
         util.toc()
-        arg2 = arg
+        #arg2 = arg
         
-        #lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho, times=times,
-        #                             popsizes=n, delete_arg=False)
-        #y.append(lk2)
+        lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho, times=times,
+                                     popsizes=n, delete_arg=False)
+        y.append(lk2)
+
+        for i in range(200):
+            util.tic("climb ARG %d" % i)
+            arg2 = arghmm.resample_climb_arg(
+                arg2, seqs, rho=rho, mu=mu, times=times,
+                popsizes=n, refine=1, carg=True)
+            util.toc()
+            nrecombs2 = arghmm.get_local_trees_ntrees(arg2[0]) - 1
+            lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
+                                         times=times, popsizes=n,
+                                         delete_arg=False)
+            y.append(lk2)
+            print lk2, lk
+            print nrecombs2, nrecombs
         
-        for i in range(300):
+        for i in range(1000):
             util.tic("resample ARG %d" % i)
             #arg2 = arghmm.resample_arg(
-            #    arg2, seqs, rho=rho, mu=mu, times=times,
-            #    popsizes=n, refine=1, carg=True)
-
-            
-            #arg2 = arghmm.resample_climb_arg(
             #    arg2, seqs, rho=rho, mu=mu, times=times,
             #    popsizes=n, refine=1, carg=True)
 
@@ -1920,7 +1944,7 @@ class Sample (unittest.TestCase):
             print lk2, lk
             print nrecombs2, nrecombs
         
-        p = plot(y)
+        p = plot(y, style='lines')
         makedirs("data/sample_arg_joint2/")
         write_list("data/sample_arg_joint2/joint.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
@@ -1934,7 +1958,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 6
+        k = 30
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -1959,55 +1983,27 @@ class Sample (unittest.TestCase):
         y = []
         
         util.tic("sample ARG")
-        core_seqs = seqs.get(seqs.keys()[:6])
+        core_seqs = seqs.get(seqs.keys()[:20])
         
         arg2 = arghmm.sample_arg(core_seqs, rho=rho, mu=mu, times=times,
                                  popsizes=n, refine=0, carg=True)
-        #arg2 = arghmm.sample_arg_seq_gibbs(
-        #            seqs, rho=rho, mu=mu, times=times,
-        #            seqiters=2, gibbsiters=1, carg=True)
-        #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
-        #                           popsizes=n, refine=10, carg=True)
-        #arg2 = arghmm.resample_climb_arg(
-        #    arg2, seqs, rho=rho, mu=mu, times=times,
-        #    popsizes=n, refine=100, nclimb=10, carg=True)
-        
-        #arg2 = arghmm.remax_arg(arg2, seqs, rho=rho, mu=mu,
-        #                        times=times, popsizes=n, refine=5)
         util.toc()
         
-        #lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho, times=times,
-        #                             popsizes=n, delete_arg=False)
-        #y.append(lk2)
-
-        #for i in range(10):
-        #    util.tic("resample ARG %d" % i)
-        #    arg2 = arghmm.resample_arg(
-        #        arg2, seqs, rho=rho, mu=mu, times=times,
-        #        popsizes=n, refine=1, carg=True)
-        #    util.toc()
-        #    lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
-        #                                 times=times, popsizes=n,
-        #                                 delete_arg=False)
-        #    y.append(lk2)
-        #    print lk2, lk
-
-        #for i in range(200):
-        #    util.tic("resample ARG %d" % i)
-        #    arg2 = arghmm.resample_climb_arg(
-        #        arg2, seqs, rho=rho, mu=mu, times=times,
-        #        popsizes=n, refine=1, nclimb=10, carg=True)
-        #    util.toc()
-        #    lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
-        #                                 times=times, popsizes=n,
-        #                                 delete_arg=False)
-        #    y.append(lk2)
-        #    print lk2, lk
+        for i in range(50):
+            util.tic("resample ARG %d" % i)
+            arg2 = arghmm.resample_climb_arg(
+                arg2, core_seqs, rho=rho, mu=mu, times=times,
+                popsizes=n, refine=1, nclimb=10, carg=True)
+            util.toc()
+            lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
+                                         times=times, popsizes=n,
+                                         delete_arg=False)
+            y.append(lk2)
+            print lk2, lk
 
         for i in range(500):
             util.tic("resample ARG %d" % i)
-
-            print arg2[1], core_seqs.keys()            
+            
             arg2 = arghmm.resample_all_arg(
                 arg2, core_seqs, rho=rho, mu=mu, times=times,
                 popsizes=n, refine=1, carg=True)
@@ -2015,7 +2011,7 @@ class Sample (unittest.TestCase):
             trees = arghmm.arghmm_copy_trees(arg2[0])
             arg3 = (trees, arg2[1])
             arg3 = arghmm.resample_arg(arg3, seqs, rho=rho, mu=mu, times=times,
-                                       popsizes=n, refine=1, carg=True)
+                                       popsizes=n, refine=0, carg=True)
             
             
             util.toc()
@@ -2812,7 +2808,7 @@ class Sample (unittest.TestCase):
 
         x = []
         y = []
-        for i in range(500):
+        for i in range(2):
             path = [0] * ntrees
             node = random.randint(0, nnodes - 1)
             arghmm.arghmm_sample_arg_removal_path(trees, node, path)
@@ -2851,10 +2847,11 @@ class Sample (unittest.TestCase):
 
         x = []
         y = []
-        for i in range(500):
+        for i in range(3):
             path = [0] * ntrees
             node = random.randint(0, nnodes - 1)
-            pos = random.randint(0, length)
+            #pos = random.randint(0, length)
+            pos = length - 1
             arghmm.arghmm_sample_arg_removal_path2(trees, node, pos, path)
 
             for j in xrange(ntrees):
@@ -2866,6 +2863,45 @@ class Sample (unittest.TestCase):
         p = plot(dither(x, .4), dither(y, .4))
 
         pause()
+
+
+    def test_sample_removal_path_recomb(self):
+        """
+        Test the sampling of a branch removal path
+        """
+
+        k = 12
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(500e3) / 20
+        times = arghmm.get_time_points(ntimes=20)
+
+        util.tic("sim")
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        trees, names = arghmm.arg2ctrees(arg,times)
+        nnodes = 2*k - 1
+        ntrees = arghmm.get_local_trees_ntrees(trees)
+        print ntrees, nnodes
+        util.toc()
+
+        x = []
+        y = []
+        for i in range(1):
+            path = [0] * ntrees
+            arghmm.arghmm_sample_arg_removal_path_recomb(trees, .5, path)
+
+            for j in xrange(ntrees):
+                x.append(j)
+                y.append(path[j])
+        
+        arghmm.delete_local_trees(trees)
+
+        p = plot(dither(x, .4), dither(y, .4))
+
+        pause()
+
 
 
 

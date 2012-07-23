@@ -139,7 +139,7 @@ protected:
 };
 
 
-
+Sequences *read_fasta(FILE *infile);
 Sequences *read_fasta(const char *filename);
 bool write_fasta(const char *filename, Sequences *seqs);
 void write_fasta(FILE *stream, Sequences *seqs);

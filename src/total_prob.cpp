@@ -222,6 +222,7 @@ double calc_arg_prior(ArgModel *model, LocalTrees *trees)
     double lnl = 0.0;
     LineageCounts lineages(model->ntimes);
 
+    // TODO: fix this before re-enabling
     // first tree prior
     //lnl += calc_tree_prior(model, trees->front().tree, lineages);
 

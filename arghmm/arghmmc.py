@@ -153,7 +153,7 @@ if arghmmclib:
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_int, "niters", c_int, "nclimb"])
+            c_int, "niters", c_double, "recomb_preference"])
     export(arghmmclib, "arghmm_remax_arg", c_void_p,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -202,6 +202,9 @@ if arghmmclib:
            [c_void_p, "trees", c_int, "node", c_out(c_int_list), "path"])
     export(arghmmclib, "arghmm_sample_arg_removal_path2", c_int,
            [c_void_p, "trees", c_int, "node", c_int, "pos",
+            c_out(c_int_list), "path"])
+    export(arghmmclib, "arghmm_sample_arg_removal_path_recomb", c_int,
+           [c_void_p, "trees", c_double, "recomb_preference",
             c_out(c_int_list), "path"])
     export(arghmmclib, "arghmm_remove_arg_thread_path", c_int,
            [c_void_p, "trees", c_int_list, "path", c_int, "maxtime"])
@@ -801,7 +804,7 @@ def resample_all_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
 
 def resample_climb_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8,
-                       popsizes=1e4, refine=1, nclimb=10,
+                       popsizes=1e4, refine=1, recomb_pref=.7,
                        times=None, verbose=False, carg=False):
     """
     Sample ARG for sequences
@@ -832,7 +835,7 @@ def resample_climb_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8,
     # resample arg
     trees = arghmm_resample_climb_arg(
         trees, times, len(times),
-        popsizes, rho, mu, seqs2, nseqs, seqlen, refine, nclimb)
+        popsizes, rho, mu, seqs2, nseqs, seqlen, refine, recomb_pref)
     
     if carg:
         arg = (trees, names)

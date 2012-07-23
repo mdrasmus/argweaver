@@ -10,7 +10,10 @@
 namespace arghmm {
 
 
-Sequences *read_fasta(const char *filename)
+//=============================================================================
+// input/output: FASTA
+
+Sequences *read_fasta(FILE *infile)
 {
     // store lines until they are ready to discard
     class Discard : public vector<char*> {
@@ -22,13 +25,6 @@ Sequences *read_fasta(const char *filename)
         }
     };
 
-
-    FILE *infile = NULL;
-    
-    if ((infile = fopen(filename, "r")) == NULL) {
-        printError("cannot read file '%s'", filename);
-        return NULL;
-    }
     
     char *line;
     
@@ -57,8 +53,6 @@ Sequences *read_fasta(const char *filename)
             discard.push_back(line);
         }
     }
-
-    fclose(infile);
     
     // add last sequence
     if (seq.size() > 0) {
@@ -68,12 +62,28 @@ Sequences *read_fasta(const char *filename)
 
     // set sequence length
     if (seqs->set_length() < 0) {
-        printError("sequences are not the same length '%s'", filename);
+        printError("sequences are not the same length");
         return NULL;
     }
     
     return seqs;
 }
+
+
+Sequences *read_fasta(const char *filename)
+{
+    FILE *infile = NULL;    
+    if ((infile = fopen(filename, "r")) == NULL) {
+        printError("cannot read file '%s'", filename);
+        return NULL;
+    }
+    
+    Sequences *seqs = read_fasta(infile);
+    fclose(infile);
+    
+    return seqs;
+}
+
 
 
 bool write_fasta(const char *filename, Sequences *seqs)
@@ -99,6 +109,55 @@ void write_fasta(FILE *stream, Sequences *seqs)
     }
 }
 
+
+
+//=============================================================================
+// input/output: sites file format
+
+
+Sequences *read_sites(FILE *infile)
+{
+    const char *delim = "\t";
+    char *line;
+    
+    Sequences *seqs = new Sequences();
+    seqs->set_owned(true);
+
+    string key;
+    vector<char*> seq;
+    
+    vector<string> seq_names;
+
+    while ((line = fgetline(infile))) {
+        chomp(line);
+
+        if (strncmp(line, "NAMES\t", 6) == 0) {
+            seq_names = split(&line[6], delim, false);
+        }
+    }
+
+    return seqs;
+}
+
+
+
+Sequences *read_sites(const char *filename)
+{
+    FILE *infile = NULL;    
+    if ((infile = fopen(filename, "r")) == NULL) {
+        printError("cannot read file '%s'", filename);
+        return NULL;
+    }
+    
+    Sequences *seqs = read_sites(infile);
+    fclose(infile);
+    
+    return seqs;    
+}
+
+
+//=============================================================================
+// assert functions
 
 bool check_sequences(Sequences *seqs)
 {
@@ -199,6 +258,9 @@ bool check_seq_name(const char *name)
     return true;
 }
 
+
+//=============================================================================
+// Misc
 
 void resample_align(Sequences *aln, Sequences *aln2)
 {
