@@ -383,7 +383,7 @@ double calc_recomb_recoal(
     const LocalTree *last_tree, const ArgModel *model, 
     const LineageCounts *lineages, 
     const Spr &spr, const State state1, 
-    const int recomb_parent_age,
+    const int recomb_parent_age, double last_treelen,
     const bool internal=false)
 {
     const int *nbranches = lineages->nbranches;
@@ -394,7 +394,7 @@ double calc_recomb_recoal(
     const int k = spr.recomb_time;
     const int j = spr.coal_time;
 
-    double last_treelen, last_treelen_b;
+    double last_treelen_b;
 
 
     int root_age;
@@ -439,11 +439,8 @@ double calc_recomb_recoal(
                 ptr = last_tree->nodes[ptr].parent;
             }
         }
-
-
-
-        last_treelen = get_treelen_internal(
-            last_tree, model->times, model->ntimes);
+        
+        
         last_treelen += model->times[a] - 
             model->times[last_tree->nodes[subtree_root].age];
 
@@ -458,14 +455,10 @@ double calc_recomb_recoal(
             last_treelen_b = last_treelen + model->time_steps[root_age];
         }
     } else {
-        //double last_treelen = get_treelen_branch(
-        //    last_tree, model->times, model->ntimes,
-        //    state1.node, state2.time, -1, false);
-
         root_age = last_tree->nodes[last_tree->root].age;
         last_treelen = get_treelen_branch(
             last_tree, model->times, model->ntimes,
-            state1.node, state1.time, -1, false);
+            state1.node, state1.time, last_treelen, false);
         last_treelen_b = last_treelen + get_basal_branch(
             last_tree, model->times, model->ntimes,
             state1.node, state1.time);
@@ -511,10 +504,6 @@ double calc_recomb_recoal(
     if (j < model->ntimes - 2)
         p *= 1.0 - exp(-model->time_steps[j] * nbranches_j / 
                        (2.0*model->popsizes[j]));
-    
-    //printf("treelen %f %f\n", last_treelen, last_treelen_b);
-    //printf("ncoals_j %d %d %d\n", ncoals_j, nbranches_k, nrecombs_k);
-    //printf("  %d %d %d %d\n", lineages->nrecombs[k], a, k, root_age);
 
     if (ncoals_j <= 0 || nbranches_j <= 0 || 
         nrecombs_k <= 0 || nbranches_k <= 0) {
@@ -543,8 +532,9 @@ void calc_transition_probs_switch(
     
     assert(assert_spr(last_tree, tree, &spr, mapping));
 
-    //printf(">> calc treelen %f\n", 
-    //       get_treelen(last_tree, model->times, model->ntimes, false));
+    double last_treelen = get_treelen(
+            last_tree, model->times, model->ntimes, false);
+    
 
     // get deterministic transitions
     get_deterministic_transitions(tree, last_tree, spr, mapping,
@@ -562,7 +552,7 @@ void calc_transition_probs_switch(
             //printf("det %d %d\n", i, j);
             transmat_switch->determprob[i] = log(calc_recomb_recoal(
               last_tree, model, lineages, spr, 
-              states1[i], recomb_parent_age));
+              states1[i], recomb_parent_age, last_treelen));
         }
     }
     
@@ -601,14 +591,14 @@ void calc_transition_probs_switch(
             last_tree->nodes[spr.recomb_node].parent].age;
         transmat_switch->recombrow[j] = log(calc_recomb_recoal(
             last_tree, model, lineages, spr, states1[recombsrc], 
-            recomb_parent_age));
+            recomb_parent_age, last_treelen));
         
         // escape case (recomb below)
         j = recomb_next_states[1];
         recomb_parent_age = states1[recombsrc].time;
         transmat_switch->recombrow[j] = log(calc_recomb_recoal(
             last_tree, model, lineages, spr, states1[recombsrc], 
-            recomb_parent_age));
+            recomb_parent_age, last_treelen));
     }
     
 
@@ -647,7 +637,7 @@ void calc_transition_probs_switch(
         spr2.coal_time = time2;
         transmat_switch->recoalrow[j] = log(calc_recomb_recoal(
             last_tree, model, lineages, spr2, states1[recoalsrc],
-            recomb_parent_age));
+            recomb_parent_age, last_treelen));
     }
 }
 
@@ -690,6 +680,10 @@ void calc_transition_probs_switch_internal(
         assert(false);
     }
 
+    double last_treelen = get_treelen_internal(
+            last_tree, model->times, model->ntimes);
+
+
     // fall off the top case
     if (nstates2 == 0) {
         fill(transmat_switch->determ, transmat_switch->determ + nstates1, 0.0);
@@ -704,7 +698,7 @@ void calc_transition_probs_switch_internal(
                 
             transmat_switch->determprob[i] = log(calc_recomb_recoal(
                 last_tree, model, lineages, spr, 
-                states1[i], recomb_parent_age, true));
+                states1[i], recomb_parent_age, last_treelen, true));
         }
 
         transmat_switch->recoalsrc = -1;
@@ -729,7 +723,7 @@ void calc_transition_probs_switch_internal(
 
             transmat_switch->determprob[i] = log(calc_recomb_recoal(
               last_tree, model, lineages, spr, 
-              states1[i], recomb_parent_age, true));
+              states1[i], recomb_parent_age, last_treelen, true));
         }
     }
 
@@ -767,7 +761,7 @@ void calc_transition_probs_switch_internal(
                 last_tree->nodes[spr.recomb_node].parent].age;
             transmat_switch->recombrow[j] = log(calc_recomb_recoal(
                 last_tree, model, lineages, spr, states1[recombsrc],
-                recomb_parent_age, true));
+                recomb_parent_age, last_treelen, true));
             assert(!isnan(transmat_switch->recombrow[j]));
         }
 
@@ -777,7 +771,7 @@ void calc_transition_probs_switch_internal(
             recomb_parent_age = states1[recombsrc].time;
             transmat_switch->recombrow[j] = log(calc_recomb_recoal(
                 last_tree, model, lineages, spr, states1[recombsrc],
-                recomb_parent_age, true));
+                recomb_parent_age, last_treelen, true));
             assert(!isnan(transmat_switch->recombrow[j]));
         }
     }
@@ -824,7 +818,7 @@ void calc_transition_probs_switch_internal(
         spr2.coal_time = time2;
         transmat_switch->recoalrow[j] = log(calc_recomb_recoal(
             last_tree, model, lineages, spr2, states1[recoalsrc],
-            recomb_parent_age, true));
+            recomb_parent_age, last_treelen, true));
     }
 }
 
@@ -1465,10 +1459,6 @@ double calc_recomb_recoal(
     const int k = spr.recomb_time;
     const int j = spr.coal_time;
     
-    //double last_treelen = get_treelen_branch(
-    //    last_tree, model->times, model->ntimes,
-    //    state1.node, state2.time, -1, false);
-
     double last_treelen = get_treelen_branch(
         last_tree, model->times, model->ntimes,
         state1.node, state1.time, -1, false);

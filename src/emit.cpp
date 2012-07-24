@@ -220,7 +220,6 @@ void likelihood_sites(const LocalTree *tree, const ArgModel *model,
     }
 
     // calculate invariant_lk
-    //double treelen = get_treelen(tree, model->times, model->ntimes, false);
     double invariant_lk = .25 * exp(- model->mu * max(treelen, mintime));
     //double invariant_lk = -1;
 

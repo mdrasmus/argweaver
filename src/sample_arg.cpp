@@ -87,15 +87,10 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees)
     const int maxtime = model->ntimes + 1;
     int *removal_path = new int [trees->get_num_trees()];
     
-    if (frand() < 1.0) {
-        int node = irand(trees->get_num_leaves());
-        sample_arg_removal_leaf_path(trees, node, removal_path);
-    } else {
-        // ramdomly choose a removal path
-        int node = irand(trees->nnodes);
-        int pos = irand(trees->start_coord, trees->end_coord);
-        sample_arg_removal_path(trees, node, pos, removal_path);
-    }
+    // ramdomly choose a removal path
+    int node = irand(trees->nnodes);
+    int pos = irand(trees->start_coord, trees->end_coord);
+    sample_arg_removal_path(trees, node, pos, removal_path);
     
     remove_arg_thread_path(trees, removal_path, maxtime);
     sample_arg_thread_internal(model, sequences, trees);

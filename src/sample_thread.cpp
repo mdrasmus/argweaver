@@ -528,7 +528,7 @@ double sample_hmm_posterior(int n, const LocalTree *tree, const States &states,
         for (int j=0; j<nstates; j++)
             A[j] = fw[i][j] * trans[j];
         path[i] = sample(A, nstates);
-        lnl += log(A[path[i]]);
+        //lnl += log(A[path[i]]);
 
         // DEBUG
         assert(trans[path[i]] != 0.0);

@@ -23,6 +23,11 @@ void sample_arg_seq(ArgModel *model, Sequences *sequences, LocalTrees *trees);
 void resample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                   int nremove=1);
 
+void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees);
+
+void resample_arg_climb(ArgModel *model, Sequences *sequences, 
+                        LocalTrees *trees, double recomb_preference);
+
 void remax_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                int nremove=1);
 

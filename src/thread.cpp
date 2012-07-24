@@ -769,7 +769,8 @@ void get_all_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
 
 // sample a removal path forward along an ARG
 void sample_arg_removal_path_forward(LocalTrees *trees, LocalTrees::iterator it,
-                                     int node, int *path, int i)
+                                     int node, int *path, int i, 
+                                     double prob_switch=.5)
 {
     path[i++] = node;
     LocalTree *last_tree = NULL;
@@ -783,7 +784,11 @@ void sample_arg_removal_path_forward(LocalTrees *trees, LocalTrees::iterator it,
             int *mapping = it->mapping;
             get_next_removal_nodes(last_tree, tree, *spr, mapping,
                                    path[i-1], next_nodes);
-            int j = (next_nodes[1] != -1 ? irand(2) : 0);
+            int j;
+            if (next_nodes[1] == -1)
+                j = 0;
+            else 
+                j = int(rand() < prob_switch);
             path[i++] = next_nodes[j];
             
             // ensure that a removal path re-enters the local tree correctly
@@ -799,7 +804,8 @@ void sample_arg_removal_path_forward(LocalTrees *trees, LocalTrees::iterator it,
 
 // sample a removal path backward along an ARG
 void sample_arg_removal_path_backward(
-    LocalTrees *trees, LocalTrees::iterator it, int node, int *path, int i)
+    LocalTrees *trees, LocalTrees::iterator it, int node, int *path, int i,
+    double prob_switch=.5)
 {
     path[i--] = node;
     
@@ -814,8 +820,12 @@ void sample_arg_removal_path_backward(
         assert(!spr2->is_null());
 
         get_prev_removal_nodes(tree1, tree2, *spr2, mapping2, 
-                               path[i+1], prev_nodes);        
-        int j = (prev_nodes[1] != -1 ? irand(2) : 0);
+                               path[i+1], prev_nodes);
+        int j;
+        if (prev_nodes[1] == -1)
+            j = 0;
+        else 
+            j = int(rand() < prob_switch);
         path[i--] = prev_nodes[j];
 
         spr2 = &it->spr;
@@ -827,7 +837,8 @@ void sample_arg_removal_path_backward(
 
 // sample a removal path that goes through a particular node and position
 // in the ARG
-void sample_arg_removal_path(LocalTrees *trees, int node, int pos, int *path)
+void sample_arg_removal_path(LocalTrees *trees, int node, int pos, int *path,
+                             double prob_switch)
 {
     // search for block with pos
     LocalTrees::iterator it = trees->begin();
@@ -841,8 +852,8 @@ void sample_arg_removal_path(LocalTrees *trees, int node, int pos, int *path)
     }
     
     // search forward
-    sample_arg_removal_path_forward(trees, it, node, path, i);
-    sample_arg_removal_path_backward(trees, it, node, path, i);
+    sample_arg_removal_path_forward(trees, it, node, path, i, prob_switch);
+    sample_arg_removal_path_backward(trees, it, node, path, i, prob_switch);
 }
 
 
@@ -949,8 +960,6 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, double recomb_preference,
                            recomb_preference : 1.0 - recomb_preference);
             forward[i][j] = sum * emit;
 
-            //printf("forward[%d][%d] = %f, %f, %f (%f)\n", i, j, forward[i][j],
-            //       emit, sum, recomb_preference);
             assert(!isnan(forward[i][j]));
             
             norm += forward[i][j];
@@ -968,8 +977,6 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, double recomb_preference,
     // choose last branch
     int i = ntrees-1;
     path[i] = sample(forward[i], nnodes);
-    //for (int j=0; j<nnodes; j++)
-    //    printf("forward[%d][%d] = %f\n", i, j, forward[i][j]);
 
     // stochastic traceback
     int j = path[i];

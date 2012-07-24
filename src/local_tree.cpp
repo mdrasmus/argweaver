@@ -173,11 +173,8 @@ double get_treelen_branch(const LocalTree *tree, const double *times,
     double root_time;
     int rooti = tree->nodes[tree->root].age;
 
-    if (treelen < 0.0) {
+    if (treelen < 0.0)
         treelen = get_treelen(tree, times, ntimes, false);
-    } else {
-        treelen -= times[rooti+1] - times[rooti]; // discount root time
-    }
     
     double blen = times[time];
     double treelen2 = treelen + blen;

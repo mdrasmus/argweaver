@@ -147,11 +147,17 @@ int main(int argc, char **argv)
         return 1;
     }
     
-    // sample arg
+    // sample arg initial arg
     LocalTrees *trees = new LocalTrees();
     sample_arg_seq(&model, sequences, trees);
     printf("length %d\n", sequences->length());
     printf("ntrees %d\n", trees->get_num_trees());
+
+    // climb sampling
+    double recomb_preference = .9;
+    for (int i=0; i<40; i++)
+        resample_arg_climb(&model, sequences, trees, recomb_preference);
+    
     
     write_local_trees(c.out_argfile.c_str(), trees, *sequences, model.times);
 
