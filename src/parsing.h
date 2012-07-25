@@ -92,9 +92,7 @@ inline char *trim(string &word)
 }
 
 
-
-vector<string> split(const char *str, const char *delim, 
-                     bool multiDelim = true);
+void split(const char *str, const char *delim, vector<string> &tokens);
 
 char *concat_strs(char **strs, int nstrs);
 

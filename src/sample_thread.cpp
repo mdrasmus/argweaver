@@ -727,7 +727,7 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     Timer time;
     arghmm_forward_alg_fast(trees, model, sequences, &matrix_iter, &forward);
     int nstates = get_num_coal_states(trees->front().tree, model->ntimes);
-    printTimerLog(time, LOG_QUIET, 
+    printTimerLog(time, LOG_LOW, 
                   "forward (%3d states, %6d blocks):", 
                   nstates, trees->get_num_trees());
 
@@ -736,7 +736,7 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
     double **fw = forward.get_table();
     ArgHmmMatrixIter matrix_iter2(model, NULL, trees, new_chrom);
     stochastic_traceback_fast(trees, model, &matrix_iter2, fw, thread_path);
-    printTimerLog(time, LOG_QUIET, 
+    printTimerLog(time, LOG_LOW, 
                   "trace:                              ");
 
     time.start();
@@ -752,7 +752,7 @@ void sample_arg_thread(ArgModel *model, Sequences *sequences,
                    recomb_pos, recombs);
 
     //printf("add thread:  %e s\n", time.time());
-    printTimerLog(time, LOG_QUIET, 
+    printTimerLog(time, LOG_LOW, 
                   "add thread:                         ");
 
     // clean up
@@ -782,7 +782,7 @@ void sample_arg_thread_internal(ArgModel *model, Sequences *sequences,
                             false, internal);
     int nstates = get_num_coal_states_internal(
         trees->front().tree, model->ntimes);
-    printTimerLog(time, LOG_QUIET, 
+    printTimerLog(time, LOG_LOW, 
                   "forward (%3d states, %6d blocks):", 
                   nstates, trees->get_num_trees());
 
@@ -793,7 +793,7 @@ void sample_arg_thread_internal(ArgModel *model, Sequences *sequences,
     matrix_iter2.set_internal(internal);
     stochastic_traceback_fast(trees, model, &matrix_iter2, fw, thread_path,
                               false, internal);
-    printTimerLog(time, LOG_QUIET, 
+    printTimerLog(time, LOG_LOW, 
                   "trace:                              ");
 
     // sample recombination points
@@ -806,7 +806,7 @@ void sample_arg_thread_internal(ArgModel *model, Sequences *sequences,
     // add thread to ARG
     add_arg_thread_path(trees, model->ntimes, thread_path,
                         recomb_pos, recombs);
-    printTimerLog(time, LOG_QUIET, 
+    printTimerLog(time, LOG_LOW, 
                   "add thread:                         ");
 
     // clean up
@@ -839,7 +839,7 @@ void sample_arg_thread_internal_climb(ArgModel *model, Sequences *sequences,
                             false, internal);
     int nstates = get_num_coal_states_internal(
         trees->front().tree, model->ntimes);
-    printTimerLog(time, LOG_QUIET, 
+    printTimerLog(time, LOG_LOW, 
                   "forward (%3d states, %6d blocks):", 
                   nstates, trees->get_num_trees());
 
@@ -865,7 +865,7 @@ void sample_arg_thread_internal_climb(ArgModel *model, Sequences *sequences,
                  thread_path_alloc);
         }
     }
-    printTimerLog(time, LOG_QUIET, 
+    printTimerLog(time, LOG_LOW, 
                   "trace:                              ");
 
     // sample recombination points
@@ -878,7 +878,7 @@ void sample_arg_thread_internal_climb(ArgModel *model, Sequences *sequences,
     // add thread to ARG
     add_arg_thread_path(trees, model->ntimes, thread_path,
                         recomb_pos, recombs);
-    printTimerLog(time, LOG_QUIET, 
+    printTimerLog(time, LOG_LOW, 
                   "add thread:                         ");
 
     // clean up

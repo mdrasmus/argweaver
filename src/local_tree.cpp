@@ -693,10 +693,6 @@ void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
 {
     const int nnodes = trees->nnodes;
 
-    // print header
-    fprintf(out, "ARG\tstart=%d\tend=%d\n", 
-            trees->start_coord, trees->end_coord);
-
     // print names
     if (names) {
         fprintf(out, "NAMES");
@@ -704,6 +700,9 @@ void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
             fprintf(out, "\t%s", names[trees->seqids[i]]);
         fprintf(out, "\n");
     }
+
+    // print range
+    fprintf(out, "RANGE\t%d\t%d\n", trees->start_coord, trees->end_coord);
 
     
     // setup nodeids
@@ -724,7 +723,7 @@ void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
         for (int i=0; i<nnodes; i++)
             snprintf(nodeids[i], 10, "%d", total_mapping[i]);
 
-        fprintf(out, "TREE\t%d\t%d", start, end);
+        fprintf(out, "TREE\t%d\t%d\t", start, end);
         write_newick_tree(out, tree, NULL, times, 0, true);
         fprintf(out, "\n");
 

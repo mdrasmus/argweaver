@@ -1521,6 +1521,36 @@ class Basic (unittest.TestCase):
         pause()
 
 
+    def test_compress_align(self):
+        """Test the compression of sequence alignments"""
+
+        k = 12
+        n = 1e4
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = 200e3
+        times = arghmm.get_time_points(ntimes=20, maxtime=200e3)
+        compress = 20
+        
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times)
+        seqs = arglib.make_alignment(arg, muts)
+
+        seqs2, cols = arghmm.compress_align(seqs, compress)
+        print seqs2.alignlen(), length / compress
+        delta = [cols[i] - cols[i-1] for i in range(1, len(cols))]
+        
+        plot(cols)
+        plothist(delta, width=1)
+        
+        variant = [arghmm.is_variant(seqs, i) for i in range(seqs.alignlen())]
+        print histtab(variant)
+        print histtab(mget(variant, cols))
+        
+        pause()
+        
+
 #=============================================================================
 if __name__ == "__main__":
 

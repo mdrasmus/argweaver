@@ -12,7 +12,7 @@ from collections import defaultdict
 # rasmus combio libs
 from rasmus import hmm, util, stats, treelib
 from rasmus.stats import logadd
-from compbio import arglib, fasta, phylo
+from compbio import arglib, alignlib, fasta, phylo
 
 # arghmm libs
 from arghmmc import *
@@ -493,7 +493,168 @@ def make_alignment(arg, mutations):
     return aln
 
 
+
+#=============================================================================
+# compression
+
+def is_variant(seqs, pos):
+    """Returns True if site 'pos' in align 'seqs' is polymorphic"""
+    seqs = seqs.values()
+    c = seqs[0][pos]
+    for i in xrange(1, len(seqs)):
+        if seqs[i][pos] != c:
+            return True
+    return False
+
+
+def compress_align_cols(seqs, compress):
+    """Compress an alignment 'seqs' by a factor of 'compress'"""
     
+    cols_used = []
+    seen_variant = False
+    next_block = compress - 1
+    for i in range(seqs.alignlen()):
+        if i % compress == 0:
+            seen_variant = False
+            
+        if i == next_block:
+            if not seen_variant:
+                # choose invariant site
+                cols_used.append(i-1)
+            seen_variant = False
+            next_block += compress
+            
+        if is_variant(seqs, i):
+            seen_variant = True
+            cols_used.append(i)
+            next_block += compress
+
+    return cols_used
+
+
+def compress_align(seqs, compress):
+    """Compress an alignment 'seqs' by a factor of 'compress'"""
+    
+    cols_used = compress_align_cols(seqs, compress)
+    return alignlib.subalign(seqs, cols_used), cols_used
+
+
+#=============================================================================
+# sites
+
+class Sites (object):
+    def __init__(self, names=None, range=None):
+        if names:
+            self.names = names
+        else:
+            self.names = []
+
+        if range:
+            self.range = range
+        else:
+            self.range = [0, 0]
+        
+        self.cols = []
+        self._bases = {}
+
+
+    def append(self, col, bases):
+        self.cols.append(col)
+        self._bases[col] = bases
+
+
+    def get(self, col):
+        return self._bases[col]
+
+    def set(self, col, bases):
+        self._bases[col] = bases
+
+    def has_col(self, col):
+        return col in self._bases
+
+    def remove(self, col):
+        del self._bases[col]
+
+    def __iter__(self):
+        def func():
+            for i in self.cols:
+                yield i, self._bases[i]
+        return func()
+
+        
+
+def iter_sites(filename):
+    infile = util.open_stream(filename)
+
+    header = {}
+
+    for line in infile:
+        line = line.rstrip()
+
+        if line and line[0].isdigit():
+            break
+        
+        if line.startswith("NAMES"):
+            header["names"] = line.split("\t")[1:]
+
+        elif line.startswith("RANGE"):
+            header["range"] = map(int, line.split("\t")[1:])
+
+    yield header
+
+    if line:
+        for line in chain([line], infile):
+            line = line.rstrip()
+            tokens = line.split("\t")
+            print tokens
+            col = int(tokens[0])
+            bases = tokens[1]
+
+            yield col, bases
+    
+    infile.close()
+
+
+def read_sites(filename):
+
+    reader = iter_sites(filename)
+    header = reader.next()
+
+    sites = Sites(names=header["names"], range=header["range"])
+
+    for col, bases in reader:
+        sites.append(col, bases)
+
+    return sites
+
+
+def write_sites(filename, sites):
+
+    out = util.open_stream(filename, "w")
+
+    util.print_row("NAMES", *sites.names, out=out)
+    util.print_row("RANGE", *sites.range, out=out)
+
+    for col, bases in sites:
+        util.print_row(col, bases, out=out)
+
+    out.close()
+
+
+def seqs2sites(seqs, range=None):
+
+    if range is None:
+        range = [0, seqs.alignlen()]
+
+    sites = Sites(names=seqs.keys(), range=range)
+
+    for i in xrange(0, seqs.alignlen()):
+        if is_variant(seqs, i):
+            bases = "".join(seqs[name][i] for name in seqs.names)
+            sites.append(i, bases)
+
+    return sites
+
 
 #=============================================================================
 # recombination

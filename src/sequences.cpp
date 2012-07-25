@@ -115,33 +115,76 @@ void write_fasta(FILE *stream, Sequences *seqs)
 // input/output: sites file format
 
 
-Sequences *read_sites(FILE *infile)
+Sites *read_sites(FILE *infile)
 {
     const char *delim = "\t";
     char *line;
     
-    Sequences *seqs = new Sequences();
-    seqs->set_owned(true);
-
-    string key;
-    vector<char*> seq;
+    Sites *sites = new Sites();
+    bool error = false;
     
-    vector<string> seq_names;
-
-    while ((line = fgetline(infile))) {
+    // parse lines
+    int lineno = 0;    
+    while (!error && (line = fgetline(infile))) {
         chomp(line);
+        lineno++;
 
         if (strncmp(line, "NAMES\t", 6) == 0) {
-            seq_names = split(&line[6], delim, false);
-        }
-    }
+            // parse NAMES line
+            split(&line[6], delim, sites->names);
+        } else if (strncmp(line, "RANGE\t", 6) == 0) {
+            // parse RANGE line
+            if (sscanf(line, "RANGE\t%d\t%d", 
+                       &sites->start_coord, &sites->end_coord) != 2) {
+                printError("bad RANGE format");
+                delete [] line;
+                delete sites;
+                return NULL;
+            }
+        } else {
+            // parse a site line
+            
+            // parse site
+            int position;
+            if (sscanf(line, "%d\t", &position) != 1) {
+                printError("first column is not an integer (line %d)", lineno);
+                delete [] line;
+                delete sites;
+                return NULL;        
+            }
+            int i=0;
+            for (; line[i] != '\t'; i++) {}
+            i++;
 
-    return seqs;
+            if (position < sites->start_coord ||
+                position >= sites->end_coord) {
+                printError("site %d is not within range [%d,%d)",
+                           position, sites->start_coord, sites->end_coord);
+                delete [] line;
+                delete sites;
+                return NULL;
+            }
+
+            unsigned int len = strlen(&line[i]);
+            if (len != sites->names.size()) {
+                printError("not enough bases given (line %d)", lineno);
+                delete [] line;
+                delete sites;
+                return NULL;
+            }
+
+            sites->append(position, &line[i], true);
+        }
+        
+        delete [] line;
+    }
+    
+    return sites;
 }
 
 
 
-Sequences *read_sites(const char *filename)
+Sites *read_sites(const char *filename)
 {
     FILE *infile = NULL;    
     if ((infile = fopen(filename, "r")) == NULL) {
@@ -149,10 +192,39 @@ Sequences *read_sites(const char *filename)
         return NULL;
     }
     
-    Sequences *seqs = read_sites(infile);
+    Sites *sites = read_sites(infile);
     fclose(infile);
     
-    return seqs;    
+    return sites;
+}
+
+
+Sequences *make_sequences_from_sites(Sites *sites, char default_char)
+{
+    int nseqs = sites->names.size();
+    int seqlen = sites->length();
+    int start = sites->start_coord;
+    
+    Sequences *sequences = new Sequences((char**) NULL, 0, seqlen);
+    sequences->set_owned(true);
+    
+    for (int i=0; i<nseqs; i++) {
+        char *seq = new char [seqlen];
+        
+        int col = 0;
+        for (int j=0; j<seqlen; j++) {
+            if (start+j == sites->positions[col]) {
+                // variant site
+                seq[j] = sites->cols[col++][i];
+            } else {
+                seq[j] = default_char;
+            }
+        }
+
+        sequences->append(sites->names[i], seq);
+    }
+    
+    return sequences;
 }
 
 

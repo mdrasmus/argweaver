@@ -28,7 +28,13 @@ void sample_arg_seq(ArgModel *model, Sequences *sequences, LocalTrees *trees)
 
     // initialize ARG as trunk
     const int capacity = 2 * sequences->get_nseqs() - 1;
-    trees->make_trunk(0, seqlen, capacity);
+    int start = trees->start_coord;
+    int end = trees->end_coord;
+    if (end != seqlen) {
+        start = 0;
+        end = seqlen;
+    }
+    trees->make_trunk(start, end, capacity);
     
     // add more chromosomes one by one
     for (int nchroms=2; nchroms<=sequences->get_nseqs(); nchroms++) {

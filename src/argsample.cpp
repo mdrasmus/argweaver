@@ -31,8 +31,11 @@ public:
 
         // input/output
 	config.add(new ConfigParam<string>
-		   ("-a", "--align", "<alignment fasta>", &alignfile, 
+		   ("-f", "--fasta", "<fasta alignment>", &fastafile, 
 		    "sequence alignment in fasta format"));
+	config.add(new ConfigParam<string>
+		   ("-s", "--sites", "<sites alignment>", &sitesfile, 
+		    "sequence alignment in sites format"));
 	config.add(new ConfigParam<double>
 		   ("-N", "--popsize", "<population size>", &popsize, 1e4,
                     "effective population size (default=1e4)"));
@@ -55,6 +58,16 @@ public:
 		   ("-o", "--out-arg", "<ARG output file>", &out_argfile, 
                     "arghmm.smc",
                     "output file for the sampled ARG (default='arghmm.sprs')"));
+
+
+        // search
+	config.add(new ConfigParamComment("Search"));
+	config.add(new ConfigParam<int>
+		   ("", "--climb", "<# of climb iterations>", &nclimb, 50,
+                    "(default=50)"));
+	config.add(new ConfigParam<int>
+		   ("-n", "--iters", "<# of iterations>", &niters, 1000,
+                    "(default=1000)"));
 
 
         // help information
@@ -100,7 +113,8 @@ public:
     ConfigParser config;
 
     // input/output
-    string alignfile;
+    string fastafile;
+    string sitesfile;
     string out_argfile;
 
     // parameters
@@ -110,6 +124,10 @@ public:
     int ntimes;
     double maxtime;
     double compress;
+
+    // search
+    int nclimb;
+    int niters;
     
     // help/information
     int verbose;
@@ -121,6 +139,33 @@ public:
 
 
 
+void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
+                int nclimb, int niters)
+{
+    printLog(LOG_LOW, "sequentially sample initial ARG\n");
+    sample_arg_seq(model, sequences, trees);
+    printLog(LOG_LOW, "\n");
+    
+    // climb sampling
+    double recomb_preference = .9;
+    for (int i=0; i<nclimb; i++) {
+        printLog(LOG_LOW, "climb %d\n", i+1);
+        resample_arg_climb(model, sequences, trees, recomb_preference);
+    }
+    printLog(LOG_LOW, "\n");
+
+    for (int i=0; i<niters; i++) {
+        printLog(LOG_LOW, "sample %d\n", i+1);
+        resample_arg_all(model, sequences, trees);
+    }
+    printLog(LOG_LOW, "\n");
+
+    // final stats
+    int nrecombs = trees->get_num_trees() - 1;
+    printLog(LOG_LOW, "nrecombs %d\n", nrecombs);
+}
+
+
 
 int main(int argc, char **argv)
 {
@@ -128,6 +173,9 @@ int main(int argc, char **argv)
     int ret = c.parse_args(argc, argv);
     if (ret)
 	return ret;
+
+    // setup logging
+    setLogLevel(c.verbose);
 
 
     // setup model
@@ -137,29 +185,43 @@ int main(int argc, char **argv)
 
 
     // read sequences
-    if (c.alignfile == "") {
-        printError("alignment file is required (--align)");
+    if (c.fastafile == "" && c.sitesfile == "") {
+        printError("alignment file is required (--fasta or --sites)");
         return 1;
     }
-    Sequences *sequences = read_fasta(c.alignfile.c_str());
+    
+    Sequences *sequences = NULL;
+    Sites *sites = NULL;
+    if (c.fastafile != "") {
+        sequences = read_fasta(c.fastafile.c_str());
+    }
+    else if (c.sitesfile != "") {
+        sites = read_sites(c.sitesfile.c_str());
+        if (sites)
+            sequences = make_sequences_from_sites(sites);
+    }
+
     if (!sequences) {
         printError("could not read alignment file");
         return 1;
     }
     
-    // sample arg initial arg
-    LocalTrees *trees = new LocalTrees();
-    sample_arg_seq(&model, sequences, trees);
-    printf("length %d\n", sequences->length());
-    printf("ntrees %d\n", trees->get_num_trees());
+    // init ARG and sequences for correct range
+    int start = 0;
+    int end = sequences->length();
+    if (sites) {
+        start = sites->start_coord;
+        end = sites->end_coord;
+    }
+    LocalTrees *trees = new LocalTrees(start, end);
+    Sequences sequences2(sequences, -1, start + sequences->length(), -start);
 
-    // climb sampling
-    double recomb_preference = .9;
-    for (int i=0; i<40; i++)
-        resample_arg_climb(&model, sequences, trees, recomb_preference);
     
+    // sample ARG
+    sample_arg(&model, &sequences2, trees, c.nclimb, c.niters);
     
-    write_local_trees(c.out_argfile.c_str(), trees, *sequences, model.times);
+    // output
+    write_local_trees(c.out_argfile.c_str(), trees, sequences2, model.times);
 
 
     delete trees;

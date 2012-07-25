@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+
+from rasmus.common import *
+import arghmm
+
+seqs = read_fasta(sys.stdin)
+sites = arghmm.seqs2sites(seqs)
+arghmm.write_sites(sys.stdout, sites)

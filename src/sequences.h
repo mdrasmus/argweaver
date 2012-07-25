@@ -34,8 +34,9 @@ public:
     }
 
     // initialize from a subset of another Sequences alignment
-    Sequences(Sequences *sequences, int nseqs=-1, int seqlen=-1) :
-        seqlen(seqlen), owned(false)
+    Sequences(Sequences *sequences, int nseqs=-1, int _seqlen=-1, 
+              int offset=0) :
+        seqlen(_seqlen), owned(false)
     {
         // use same nseqs and/or seqlen by default
         if (nseqs == -1)
@@ -44,7 +45,7 @@ public:
             seqlen = sequences->length();
         
         for (int i=0; i<nseqs; i++)
-            seqs.push_back(sequences->seqs[i]);
+            seqs.push_back(&sequences->seqs[i][offset]);
     }
 
     ~Sequences()
@@ -129,7 +130,7 @@ public:
         names.clear();
     }
 
-    
+
     vector <char*> seqs;
     vector <string> names;
 
@@ -139,15 +140,72 @@ protected:
 };
 
 
+class Sites
+{
+public:
+    Sites(int start_coord=0, int end_coord=0) :
+        start_coord(start_coord),
+        end_coord(end_coord)
+    {}
+    ~Sites()
+    {
+        clear();
+    }
+
+    void append(int position, char* col, bool copy=false) {
+        positions.push_back(position);
+        if (copy) {
+            unsigned int len = strlen(col);
+            assert(len == names.size());
+            char *col2 = new char [len];
+            strcpy(col2, col);
+            cols.push_back(col2);
+        } else {
+            cols.push_back(col);
+        }
+    }
+
+    void clear()
+    {
+        for (unsigned int i=0; i<cols.size(); i++)
+            delete [] cols[i];
+        names.clear();
+        positions.clear();
+        cols.clear();
+    }
+
+    inline int length()
+    {
+        return end_coord - start_coord;
+    }
+    
+    
+    
+    int start_coord;
+    int end_coord;
+    vector<string> names;
+    vector<int> positions;
+    vector<char*> cols;
+};
+
+
+// sequences functions
 Sequences *read_fasta(FILE *infile);
 Sequences *read_fasta(const char *filename);
 bool write_fasta(const char *filename, Sequences *seqs);
 void write_fasta(FILE *stream, Sequences *seqs);
+
 bool check_sequences(Sequences *seqs);
 bool check_sequences(int nseqs, int seqlen, char **seqs);
 bool check_seq_names(Sequences *seqs);
 bool check_seq_name(const char *name);
 void resample_align(Sequences *aln, Sequences *aln2);
+
+// sites functions
+Sites *read_sites(FILE *infile);
+Sites *read_sites(const char *filename);
+
+Sequences *make_sequences_from_sites(Sites *sites, char default_char='A');
 
 
 } // namespace arghmm

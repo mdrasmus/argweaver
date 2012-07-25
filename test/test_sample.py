@@ -1194,9 +1194,8 @@ class Sample (unittest.TestCase):
         k = 12
         n = 1e4
         rho = 1.5e-8 * 20
-        rho2 = rho
         mu = 2.5e-8 * 20
-        length = 10000
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0
 
@@ -1205,18 +1204,21 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(50):
+        for i in range(40):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
-            seqs = arglib.make_alignment(arg, muts)
+            seqs = arghmm.make_alignment(arg, muts)
             
             arglen = arglib.arglen(arg)
 
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
-                arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
-                                         refine=refine)
+                arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                         carg=True)
+                arg2 = arghmm.resample_climb_arg(arg2, seqs,
+                                                 rho=rho, mu=mu, times=times,
+                                                 refine=200)
                 util.toc()
                 
                 rx.append(arglen)
@@ -1245,11 +1247,11 @@ class Sample (unittest.TestCase):
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
 
-        arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
         arg.set_ancestral()
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-        #arghmm.discretize_arg(arg, times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times)
+        seqs = arghmm.make_alignment(arg, muts)
             
         arglen = arglib.arglen(arg)
         print "real # arglen %e" % arglen
@@ -1264,9 +1266,9 @@ class Sample (unittest.TestCase):
         y.append(arglen2)
 
         for i in range(50):
-            util.tic("resample ARG %d" % i)
+            util.tic("climb ARG %d" % i)
             arg2 = arghmm.resample_climb_arg(arg2, seqs, rho=rho, mu=mu,
-                                             times=times, refine=0)
+                                             times=times)
             util.toc()
             arglen2 = arglib.arglen(arg2)
             y.append(arglen2)
@@ -1276,7 +1278,7 @@ class Sample (unittest.TestCase):
         for i in range(300):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_all_arg(arg2, seqs, rho=rho, mu=mu,
-                                           times=times, refine=0)
+                                           times=times)
             util.toc()
             arglen2 = arglib.arglen(arg2)
             y.append(arglen2)
@@ -1869,7 +1871,7 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 30
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -1949,8 +1951,18 @@ class Sample (unittest.TestCase):
         makedirs("data/sample_arg_joint2/")
         write_list("data/sample_arg_joint2/joint.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
-        
-        
+
+
+        arg2 = arghmm.resample_all_arg(
+                arg2, seqs, rho=rho, mu=mu, times=times,
+                popsizes=n)
+
+        # plot block starts
+        x = [start for (start, end), tree in arglib.iter_tree_tracks(arg)]
+        x2 = [start for (start, end), tree in arglib.iter_tree_tracks(arg2)]
+        q = plot(x)
+        q.plot(x2)
+
         pause()
 
 
@@ -2340,7 +2352,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 8
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -2366,9 +2378,9 @@ class Sample (unittest.TestCase):
                 args = []
                 for l in range(30):
                     arg2 = arghmm.sample_arg(
-                        seqs, rho=rho, mu=mu, times=times, refine=10)
-                    arg2 = arghmm.resample_all_arg(arg2,
-                        seqs, rho=rho, mu=mu, times=times, refine=20)
+                        seqs, rho=rho, mu=mu, times=times, carg=True)
+                    arg2 = arghmm.resample_climb_arg(arg2, 
+                        seqs, rho=rho, mu=mu, times=times, refine=200)
                     args.append(arg2)
                 util.toc()
 
@@ -2390,28 +2402,21 @@ class Sample (unittest.TestCase):
         
         k = 12
         n = 1e4
-        rho = 1.5e-8 * 20
-        rho2 = rho
+        rho = 1.5e-8 * 20  / 4
         mu = 2.5e-8 * 20
-        length = 30000
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
 
         arg1 = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                     times=times)
+                                      times=times)
         muts = arghmm.sample_arg_mutations(arg1, mu, times=times)
-        seqs = arglib.make_alignment(arg1, muts)
+        seqs = arghmm.make_alignment(arg1, muts)
 
         # make core
-        util.tic("sample core ARG")
-        names = seqs.keys()[:6]
-        random.shuffle(names)
-        core_seqs = seqs.get(names)
-        core_arg = arghmm.sample_arg(core_seqs, rho=rho, mu=mu, times=times,
-                                     refine=6)
-        util.toc()
-                
         util.tic("sample ARG")
-        arg2 = arghmm.resample_arg(core_arg, seqs, rho=rho, mu=mu, times=times)
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
+        arg2 = arghmm.resample_climb_arg(arg2, seqs, rho=rho, mu=mu,
+                                         times=times, refine=200)
         util.toc()
 
         
@@ -2508,6 +2513,40 @@ class Sample (unittest.TestCase):
 
         print "avg", mean(x)
         p = plot(sorted(x))
+        pause()
+
+
+    def test_branch_correct2(self):
+        
+        k = 12
+        n = 1e4
+        rho = 1.5e-8 * 20 / 4
+        mu = 2.5e-8 * 20
+        length = int(200e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+
+        coords = range(0, length, 50)
+        x = []
+
+        arg1 = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                      times=times)
+        muts = arghmm.sample_arg_mutations(arg1, mu, times=times)
+        seqs = arghmm.make_alignment(arg1, muts)
+
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
+
+        for i in range(40):
+            util.tic("sample ARG %d" % i)
+            arg2 = arghmm.resample_climb_arg(arg2, seqs,
+                                             rho=rho, mu=mu, times=times,
+                                             refine=5)
+            
+            x.append(mean([get_branch_correct(arg1, arg2, pos)
+                           for pos in coords]))
+            print x[-1]
+            util.toc()
+            
+        p = plot(x)
         pause()
 
 
