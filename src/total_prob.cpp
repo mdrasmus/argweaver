@@ -15,8 +15,8 @@ using namespace std;
 namespace arghmm {
 
 
-double calc_arg_likelihood(ArgModel *model, Sequences *sequences, 
-                            LocalTrees *trees)
+double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences, 
+                           LocalTrees *trees)
 {
     double lnl = 0.0;
     int nseqs = sequences->get_nseqs();
@@ -217,7 +217,7 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
 
 
 // calculate the probability of an ARG given the model parameters
-double calc_arg_prior(ArgModel *model, LocalTrees *trees)
+double calc_arg_prior(const ArgModel *model, LocalTrees *trees)
 {
     double lnl = 0.0;
     LineageCounts lineages(model->ntimes);
@@ -260,7 +260,7 @@ double calc_arg_prior(ArgModel *model, LocalTrees *trees)
 
 
 // calculate the probability of the sequences given an ARG
-double calc_arg_joint_prob(ArgModel *model, Sequences *sequences, 
+double calc_arg_joint_prob(const ArgModel *model, const Sequences *sequences, 
                            LocalTrees *trees)
 {
     return calc_arg_likelihood(model, sequences, trees) +

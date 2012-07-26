@@ -174,11 +174,15 @@ public:
         cols.clear();
     }
 
-    inline int length()
+    inline int length() const
     {
         return end_coord - start_coord;
     }
     
+    inline int get_num_sites() const
+    {
+        return positions.size();
+    }
     
     
     int start_coord;
@@ -186,6 +190,34 @@ public:
     vector<string> names;
     vector<int> positions;
     vector<char*> cols;
+};
+
+
+
+class SitesMapping 
+{
+public:
+    SitesMapping() {}
+    ~SitesMapping() {}
+
+    void init(const Sites *sites)
+    {
+        old_start = sites->start_coord;
+        old_end = sites->end_coord;
+        nsites = sites->get_num_sites();
+        seqlen = sites->length();
+    }
+
+    int old_start;
+    int old_end;
+    int new_start;
+    int new_end;
+    int nsites;
+    int seqlen;
+
+    vector<int> old_sites;
+    vector<int> new_sites;
+    vector<int> all_sites;
 };
 
 
@@ -206,6 +238,10 @@ Sites *read_sites(FILE *infile);
 Sites *read_sites(const char *filename);
 
 Sequences *make_sequences_from_sites(Sites *sites, char default_char='A');
+
+void find_compress_cols(const Sites *sites, int compress, 
+                        SitesMapping *sites_mapping);
+void compress_sites(Sites *sites, const SitesMapping *sites_mapping);
 
 
 } // namespace arghmm

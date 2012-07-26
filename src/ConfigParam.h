@@ -10,9 +10,11 @@
 #ifndef SPIDIR_CONFIG_PARAM_H
 #define SPIDIR_CONFIG_PARAM_H
 
+#include <assert.h>
 #include <libgen.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <string>
 #include <vector>
 

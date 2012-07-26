@@ -591,6 +591,78 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
 }
 
 
+
+void uncompress_local_trees(LocalTrees *trees, 
+                            const SitesMapping *sites_mapping)
+{
+    assert(trees->start_coord == 0);
+    const int *all_sites = &sites_mapping->all_sites[0];
+    int cur = sites_mapping->old_start;
+
+    int end = trees->start_coord;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        end += it->blocklen;
+        
+        if (end < trees->end_coord) {
+            int cur2 = (all_sites[end-1] + all_sites[end]) / 2;
+            it->blocklen = cur2 - cur;
+            cur = cur2;
+        } else {
+            it->blocklen = sites_mapping->old_end - cur;            
+        }
+    }
+
+    trees->start_coord = sites_mapping->old_start;
+    trees->end_coord = sites_mapping->old_end;
+
+    assert_trees(trees);
+}
+
+
+void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping)
+{
+    const int *all_sites = &sites_mapping->all_sites[0];
+    int cur = 0;
+
+    int end = trees->start_coord;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+        end += it->blocklen;
+        
+        if (end < trees->end_coord) {
+            int cur2 = cur;
+            for (; cur2 < sites_mapping->seqlen && all_sites[cur2] <= end; 
+                 cur2++) {}
+            it->blocklen = cur2 - cur;
+            cur = cur2;
+        } else {
+            it->blocklen = sites_mapping->new_end - cur;
+        }
+    }
+
+    trees->start_coord = sites_mapping->new_start;
+    trees->end_coord = sites_mapping->new_end;
+
+    assert_trees(trees);
+}
+
+
+void assert_uncompress_local_trees(LocalTrees *trees, 
+                                   const SitesMapping *sites_mapping)
+{
+    vector<int> blocklens;
+    
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it)
+        blocklens.push_back(it->blocklen);
+
+    uncompress_local_trees(trees, sites_mapping);
+    compress_local_trees(trees, sites_mapping);
+
+    int i = 0;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, i++)
+        assert(blocklens[i] == it->blocklen);
+}
+
+
 //=============================================================================
 // local tree newick output
 

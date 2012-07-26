@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <assert.h>
 #include <algorithm>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "t2exp.h"
 

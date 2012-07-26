@@ -228,6 +228,53 @@ Sequences *make_sequences_from_sites(Sites *sites, char default_char)
 }
 
 
+// compress the sites by a factor of 'compress'
+void find_compress_cols(const Sites *sites, int compress, 
+                        SitesMapping *sites_mapping)
+{
+    const int ncols = sites->get_num_sites();
+
+    int blocki = 0;
+    int next_block = sites->start_coord + compress;
+    int half_block = compress / 2;
+    
+    // record old coords
+    sites_mapping->init(sites);
+    
+    for (int i=0; i<ncols; i++) {
+        int col = sites->positions[i];
+
+        while (col >= next_block) {
+            sites_mapping->all_sites.push_back(next_block - half_block);
+            next_block += compress;
+            blocki++;
+        }
+
+        sites_mapping->old_sites.push_back(col);
+        sites_mapping->new_sites.push_back(blocki);
+        sites_mapping->all_sites.push_back(col);
+        next_block += compress;
+        blocki++;
+    }
+
+    // record new coords
+    sites_mapping->new_start = 0;
+    int new_end = sites->length() / compress;
+    sites_mapping->new_end = max(sites_mapping->new_sites[ncols-1]+1, new_end);
+}
+
+
+void compress_sites(Sites *sites, const SitesMapping *sites_mapping)
+{
+    const int ncols = sites->cols.size();
+    sites->start_coord = sites_mapping->new_start;
+    sites->end_coord = sites_mapping->new_end;
+    
+    for (int i=0; i<ncols; i++)
+        sites->positions[i] = sites_mapping->new_sites[i];
+}
+
+
 //=============================================================================
 // assert functions
 

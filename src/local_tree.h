@@ -587,6 +587,13 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos);
 void append_local_trees(LocalTrees *trees, LocalTrees *trees2);
 
+void uncompress_local_trees(LocalTrees *trees, 
+                            const SitesMapping *sites_mapping);
+void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping);
+void assert_uncompress_local_trees(LocalTrees *trees, 
+                                   const SitesMapping *sites_mapping);
+
+
 //=============================================================================
 // tree functions
 

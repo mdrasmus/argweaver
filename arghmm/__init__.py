@@ -554,31 +554,31 @@ class Sites (object):
         else:
             self.range = [0, 0]
         
-        self.cols = []
-        self._bases = {}
+        self.positions = []
+        self._cols = {}
 
 
-    def append(self, col, bases):
-        self.cols.append(col)
-        self._bases[col] = bases
+    def append(self, pos, col):
+        self.positions.append(pos)
+        self._cols[pos] = col
 
 
-    def get(self, col):
-        return self._bases[col]
+    def get(self, pos):
+        return self._cols[pos]
 
-    def set(self, col, bases):
-        self._bases[col] = bases
+    def set(self, pos, col):
+        self._cols[pos] = col
 
-    def has_col(self, col):
-        return col in self._bases
+    def has_col(self, pos):
+        return pos in self._cols
 
-    def remove(self, col):
-        del self._bases[col]
+    def remove(self, pos):
+        del self._cols[pos]
 
     def __iter__(self):
         def func():
-            for i in self.cols:
-                yield i, self._bases[i]
+            for i in self.positions:
+                yield i, self._cols[i]
         return func()
 
         
@@ -606,11 +606,10 @@ def iter_sites(filename):
         for line in chain([line], infile):
             line = line.rstrip()
             tokens = line.split("\t")
-            print tokens
-            col = int(tokens[0])
-            bases = tokens[1]
+            pos = int(tokens[0])
+            col = tokens[1]
 
-            yield col, bases
+            yield pos, col
     
     infile.close()
 
@@ -622,8 +621,8 @@ def read_sites(filename):
 
     sites = Sites(names=header["names"], range=header["range"])
 
-    for col, bases in reader:
-        sites.append(col, bases)
+    for pos, col in reader:
+        sites.append(pos, col)
 
     return sites
 
@@ -635,8 +634,8 @@ def write_sites(filename, sites):
     util.print_row("NAMES", *sites.names, out=out)
     util.print_row("RANGE", *sites.range, out=out)
 
-    for col, bases in sites:
-        util.print_row(col, bases, out=out)
+    for pos, col in sites:
+        util.print_row(pos, col, out=out)
 
     out.close()
 
@@ -650,8 +649,8 @@ def seqs2sites(seqs, range=None):
 
     for i in xrange(0, seqs.alignlen()):
         if is_variant(seqs, i):
-            bases = "".join(seqs[name][i] for name in seqs.names)
-            sites.append(i, bases)
+            col = "".join(seqs[name][i] for name in seqs.names)
+            sites.append(i, col)
 
     return sites
 
