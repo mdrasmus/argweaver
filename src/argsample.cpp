@@ -177,6 +177,8 @@ void log_local_trees(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     snprintf(iterstr, 10, ".%d", iter);
     string out_argfile = config->out_prefix + iterstr + SMC_SUFFIX;
 
+    //assert_uncompress_local_trees(trees, sites_mapping);
+
     uncompress_local_trees(trees, sites_mapping);
     write_local_trees(out_argfile.c_str(), trees, sequences, model->times);    
     compress_local_trees(trees, sites_mapping);
@@ -287,11 +289,12 @@ int main(int argc, char **argv)
     }
     LocalTrees *trees = new LocalTrees(start, end);
     Sequences sequences2(sequences, -1, start + sequences->length(), -start);
-
+    
+    //for (unsigned int i=0; i<sequences2.names.size(); i++)
+    //    printf(">> %s\n", sequences2.names[i].c_str());
     
     // sample ARG
     sample_arg(&model, &sequences2, trees, sites_mapping, &c);
-        
     
 
 

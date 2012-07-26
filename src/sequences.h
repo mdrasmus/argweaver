@@ -45,7 +45,7 @@ public:
             seqlen = sequences->length();
         
         for (int i=0; i<nseqs; i++)
-            seqs.push_back(&sequences->seqs[i][offset]);
+            append(sequences->names[i], &sequences->seqs[i][offset]);
     }
 
     ~Sequences()

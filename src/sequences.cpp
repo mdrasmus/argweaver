@@ -257,6 +257,14 @@ void find_compress_cols(const Sites *sites, int compress,
         blocki++;
     }
 
+    // record non-variants at end of alignment
+    while (sites->end_coord >= next_block) {
+        sites_mapping->all_sites.push_back(next_block - half_block);
+        next_block += compress;
+        blocki++;
+    }
+
+
     // record new coords
     sites_mapping->new_start = 0;
     int new_end = sites->length() / compress;

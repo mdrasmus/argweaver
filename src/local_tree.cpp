@@ -604,11 +604,13 @@ void uncompress_local_trees(LocalTrees *trees,
         end += it->blocklen;
         
         if (end < trees->end_coord) {
-            int cur2 = (all_sites[end-1] + all_sites[end]) / 2;
+            int cur2 = (all_sites[end-1] + 1 + all_sites[end]) / 2;
             it->blocklen = cur2 - cur;
+            assert(cur2 > cur);
             cur = cur2;
         } else {
-            it->blocklen = sites_mapping->old_end - cur;            
+            it->blocklen = sites_mapping->old_end - cur;
+            assert(sites_mapping->old_end > cur);
         }
     }
 
@@ -623,6 +625,7 @@ void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping)
 {
     const int *all_sites = &sites_mapping->all_sites[0];
     int cur = 0;
+    int new_seqlen = sites_mapping->new_end - sites_mapping->new_start;
 
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
@@ -630,12 +633,14 @@ void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping)
         
         if (end < trees->end_coord) {
             int cur2 = cur;
-            for (; cur2 < sites_mapping->seqlen && all_sites[cur2] <= end; 
+            for (; cur2 < new_seqlen && all_sites[cur2] < end; 
                  cur2++) {}
             it->blocklen = cur2 - cur;
+            assert(cur2 > cur);
             cur = cur2;
         } else {
             it->blocklen = sites_mapping->new_end - cur;
+            assert(sites_mapping->new_end > cur);
         }
     }
 
@@ -658,8 +663,12 @@ void assert_uncompress_local_trees(LocalTrees *trees,
     compress_local_trees(trees, sites_mapping);
 
     int i = 0;
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, i++)
-        assert(blocklens[i] == it->blocklen);
+    int pos = 0;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, i++){
+        int blocklen = it->blocklen;
+        assert(blocklens[i] == blocklen);
+        pos += blocklen;
+    }
 }
 
 
