@@ -110,14 +110,16 @@ void est_popsize_trees(const ArgModel *model, const LocalTree *const *trees,
 }
 
 
-void est_popsize_trees(const ArgModel *model, LocalTrees *trees,
+void est_popsize_trees(const ArgModel *model, const LocalTrees *trees,
                        int step, double *popsizes)
 {
     vector<LocalTree*> indep_trees;
     
     int end = trees->start_coord;
     int pos = end;
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+    for (LocalTrees::const_iterator it=trees->begin(); 
+         it != trees->end(); ++it) 
+    {
         int start = end;
         end += it->blocklen;
         

@@ -149,10 +149,10 @@ $(ALL_OBJS): %.o: %.cpp
 
 
 clean:
-	rm -f $(ARGHMM_OBJS) $(LIBARGHMM) $(LIBARGHMM_SHARED)
+	rm -f $(ALL_OBJS) $(LIBARGHMM) $(LIBARGHMM_SHARED)
 
 clean-obj:
-	rm -f $(ARGHMM_OBJS)
+	rm -f $(ALL_OBJS)
 
 
 #=============================================================================

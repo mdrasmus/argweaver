@@ -406,7 +406,7 @@ LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
 
 
 // Copy tree structure from another tree
-void LocalTrees::copy(LocalTrees &other)
+void LocalTrees::copy(const LocalTrees &other)
 {
     // clear previous data
     clear();
@@ -418,7 +418,7 @@ void LocalTrees::copy(LocalTrees &other)
     seqids = other.seqids;
 
     // copy local trees
-    for (iterator it=other.begin(); it != other.end(); ++it) {
+    for (const_iterator it=other.begin(); it != other.end(); ++it) {
         const int nnodes = it->tree->nnodes;
         LocalTree *tree2 = new LocalTree();
         tree2->copy(*it->tree);
@@ -769,8 +769,8 @@ bool write_newick_tree(const char *filename, const LocalTree *tree,
 //=============================================================================
 // output ARG as local trees
 
-void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
-                       const double *times)
+void write_local_trees(FILE *out, const LocalTrees *trees, 
+                       const char *const *names, const double *times)
 {
     const int nnodes = trees->nnodes;
 
@@ -795,7 +795,9 @@ void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
     }
 
     int end = trees->start_coord;
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+    for (LocalTrees::const_iterator it=trees->begin(); 
+         it != trees->end(); ++it)
+    {
         int start = end;
         end += it->blocklen;
         LocalTree *tree = it->tree;
@@ -808,10 +810,10 @@ void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
         write_newick_tree(out, tree, NULL, times, 0, true);
         fprintf(out, "\n");
 
-        LocalTrees::iterator it2 = it;
+        LocalTrees::const_iterator it2 = it;
         ++it2;
         if (it2 != trees->end()) {
-            Spr &spr = it2->spr;
+            const Spr &spr = it2->spr;
             fprintf(out, "SPR\t%d\t%d\t%f\t%d\t%f\n", end,
                     spr.recomb_node, times[spr.recomb_time],
                     spr.coal_node, times[spr.coal_time]);
@@ -830,7 +832,7 @@ void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
 }
 
 
-bool write_local_trees(const char *filename, LocalTrees *trees, 
+bool write_local_trees(const char *filename, const LocalTrees *trees, 
                        const char *const *names, const double *times)
 {
     FILE *out = NULL;
@@ -846,7 +848,8 @@ bool write_local_trees(const char *filename, LocalTrees *trees,
 }
 
 
-void write_local_trees(FILE *out, LocalTrees *trees, const Sequences &seqs,
+void write_local_trees(FILE *out, const LocalTrees *trees, 
+                       const Sequences &seqs,
                        const double *times)
 {
     // setup names
@@ -874,7 +877,7 @@ void write_local_trees(FILE *out, LocalTrees *trees, const Sequences &seqs,
 }
 
 
-bool write_local_trees(const char *filename, LocalTrees *trees, 
+bool write_local_trees(const char *filename, const LocalTrees *trees, 
                        const Sequences &seqs, const double *times)
 {
     FILE *out = NULL;
@@ -907,10 +910,12 @@ void print_local_tree(const LocalTree *tree, FILE *out)
 
 
 // dump raw information about a set of local trees
-void print_local_trees(LocalTrees *trees, FILE *out)
+void print_local_trees(const LocalTrees *trees, FILE *out)
 {
     int end = trees->start_coord;
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+    for (LocalTrees::const_iterator it=trees->begin(); 
+         it != trees->end(); ++it)
+    {
         int start = end;
         end += it->blocklen;
         LocalTree *tree = it->tree;
@@ -918,10 +923,10 @@ void print_local_trees(LocalTrees *trees, FILE *out)
         fprintf(out, "%d-%d\n", start, end);
         print_local_tree(tree, out);
 
-        LocalTrees::iterator it2 = it;
+        LocalTrees::const_iterator it2 = it;
         ++it2;
         if (it2 != trees->end()) {
-            Spr &spr = it2->spr;
+            const Spr &spr = it2->spr;
             fprintf(out, "spr: r=(%d, %d), c=(%d, %d)\n\n",
                     spr.recomb_node, spr.recomb_time,
                     spr.coal_node, spr.coal_time);
@@ -1063,7 +1068,7 @@ bool assert_spr(const LocalTree *last_tree, const LocalTree *tree,
 
 
 // add a thread to an ARG
-bool assert_trees(LocalTrees *trees)
+bool assert_trees(const LocalTrees *trees)
 {
     LocalTree *last_tree = NULL;
     int seqlen = 0;
@@ -1075,10 +1080,12 @@ bool assert_trees(LocalTrees *trees)
     }
 
     // loop through blocks
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+    for (LocalTrees::const_iterator it=trees->begin(); 
+         it != trees->end(); ++it) 
+    {
         LocalTree *tree = it->tree;
-        Spr *spr = &it->spr;
-        int *mapping = it->mapping;
+        const Spr *spr = &it->spr;
+        const int *mapping = it->mapping;
         seqlen += it->blocklen;
         
         assert(it->blocklen >= 0);

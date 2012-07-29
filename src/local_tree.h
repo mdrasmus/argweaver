@@ -56,7 +56,7 @@ public:
         coal_time = -1;
     }
 
-    bool is_null()
+    bool is_null() const
     {
         return recomb_node == -1;
     }
@@ -459,6 +459,8 @@ public:
     // iterator for the local trees
     typedef list<LocalTreeSpr>::iterator iterator;
     typedef list<LocalTreeSpr>::reverse_iterator reverse_iterator;
+    typedef list<LocalTreeSpr>::const_iterator const_iterator;
+    typedef list<LocalTreeSpr>::const_reverse_iterator const_reverse_iterator;
 
 
     // Returns iterator for first local tree
@@ -466,10 +468,20 @@ public:
     reverse_iterator rbegin() { return trees.rbegin(); }
     LocalTreeSpr &front() { return trees.front(); }
 
+    const_iterator begin() const { return trees.begin(); }
+    const_reverse_iterator rbegin() const { return trees.rbegin(); }
+    const LocalTreeSpr &front() const { return trees.front(); }
+
+
     // Returns the ending iterator
     iterator end() { return trees.end(); }
     reverse_iterator rend() { return trees.rend(); }
     LocalTreeSpr &back() { return trees.back(); }
+
+    const_iterator end() const { return trees.end(); }
+    const_reverse_iterator rend() const { return trees.rend(); }
+    const LocalTreeSpr &back() const { return trees.back(); }
+
 
     // Returns number of leaves
     inline int get_num_leaves() const
@@ -488,7 +500,7 @@ public:
     }
 
     // Copy tree structure from another tree
-    void copy(LocalTrees &other);
+    void copy(const LocalTrees &other);
 
     // deallocate local trees
     void clear()
@@ -620,7 +632,7 @@ inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
 }
 
 void print_local_tree(const LocalTree *tree, FILE *out=stdout);
-void print_local_trees(LocalTrees *trees, FILE *out=stdout);
+void print_local_trees(const LocalTrees *trees, FILE *out=stdout);
 
 //=============================================================================
 // input and output
@@ -631,14 +643,14 @@ void write_newick_tree(FILE *out, const LocalTree *tree,
 bool write_newick_tree(const char *filename, const LocalTree *tree, 
                        const char *const *names, const double *times, 
                        bool oneline);
-void write_local_trees(FILE *out, LocalTrees *trees, const char *const *names,
-                       const double *times);
-bool write_local_trees(const char *filename, LocalTrees *trees, 
+void write_local_trees(FILE *out, const LocalTrees *trees, 
+                       const char *const *names, const double *times);
+bool write_local_trees(const char *filename, const LocalTrees *trees, 
                        const char *const *names, const double *times);
 
-void write_local_trees(FILE *out, LocalTrees *trees, const Sequences &seqs,
-                       const double *times);
-bool write_local_trees(const char *filename, LocalTrees *trees, 
+void write_local_trees(FILE *out, const LocalTrees *trees, 
+                       const Sequences &seqs, const double *times);
+bool write_local_trees(const char *filename, const LocalTrees *trees, 
                        const Sequences &seqs, const double *times);
 
 
@@ -649,7 +661,7 @@ bool assert_tree_postorder(const LocalTree *tree, const int *order);
 bool assert_tree(const LocalTree *tree);
 bool assert_spr(const LocalTree *last_tree, const LocalTree *tree, 
                 const Spr *spr, const int *mapping);
-bool assert_trees(LocalTrees *trees);
+bool assert_trees(const LocalTrees *trees);
 
 
 

@@ -1,5 +1,6 @@
 
 #include "ConfigParam.h"
+#include "emit.h"
 #include "logging.h"
 #include "sample_arg.h"
 #include "sequences.h"
@@ -19,7 +20,7 @@ Gibbs sampler for ancestral recombination graphs\n\
 
 // file extensions
 const char *SMC_SUFFIX = ".smc";
-const char *LOG_SUFFIX = ".log";
+const char *STATS_SUFFIX = ".stats";
 
 
 
@@ -144,31 +145,50 @@ public:
     bool help;
 
     // logging
-    FILE *logfile;
+    FILE *stats_file;
 
 };
 
 
 //=============================================================================
+// statistics output
 
-void print_log_header(FILE *logfile)
+void print_stats_header(FILE *stats_file)
 {
-    fprintf(logfile, "prior\tlikelihood\tjoint\trecombs\n");
+    fprintf(stats_file, "prior\tlikelihood\tjoint\trecombs\tnoncompats\n");
 }
 
 
-void print_log_iter(FILE *logfile, ArgModel *model, Sequences *sequences, 
-                    LocalTrees *trees)
+void print_stats(FILE *stats_file, ArgModel *model, Sequences *sequences, 
+                 LocalTrees *trees)
 {
     double prior = calc_arg_prior(model, trees);
     double likelihood = calc_arg_likelihood(model, sequences, trees);
     double joint = prior + likelihood;
     int nrecombs = trees->get_num_trees() - 1;
+
+    int nseqs = sequences->get_nseqs();
+    char *seqs[nseqs];
+    for (int i=0; i<nseqs; i++)
+        seqs[i] = sequences->seqs[trees->seqids[i]];
     
-    fprintf(logfile, "%f\t%f\t%f\t%d\n",
-            prior, likelihood, joint, nrecombs);
+    int noncompats = count_noncompat(trees, seqs, nseqs, sequences->length());
+
+
+    fprintf(stats_file, "%f\t%f\t%f\t%d\t%d\n",
+            prior, likelihood, joint, nrecombs, noncompats);
+
+    printLog(LOG_LOW, "\n"
+             "prior:      %f\n"
+             "likelihood: %f\n"
+             "joint:      %f\n"
+             "nrecombs:   %d\n"
+             "noncompats: %d\n\n",
+             prior, likelihood, joint, nrecombs, noncompats);
 }
 
+//=============================================================================
+// sample output
 
 void log_local_trees(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                      SitesMapping* sites_mapping, Config *config, int iter)
@@ -179,22 +199,27 @@ void log_local_trees(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 
     //assert_uncompress_local_trees(trees, sites_mapping);
 
-    uncompress_local_trees(trees, sites_mapping);
+    if (sites_mapping)
+        uncompress_local_trees(trees, sites_mapping);
     write_local_trees(out_argfile.c_str(), trees, sequences, model->times);    
-    compress_local_trees(trees, sites_mapping);
+    if (sites_mapping)
+        compress_local_trees(trees, sites_mapping);
 }
 
+
+//=============================================================================
+// sampling method
 
 void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                 SitesMapping* sites_mapping, Config *config)
 {
 
     // build initial arg by sequential sampling
-    print_log_header(config->logfile);
+    print_stats_header(config->stats_file);
     printLog(LOG_LOW, "sequentially sample initial ARG\n");
     sample_arg_seq(model, sequences, trees);
     printLog(LOG_LOW, "\n");
-    print_log_iter(config->logfile, model, sequences, trees);
+    print_stats(config->stats_file, model, sequences, trees);
     
 
     // climb sampling
@@ -202,10 +227,22 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     for (int i=0; i<config->nclimb; i++) {
         printLog(LOG_LOW, "climb %d\n", i+1);
         resample_arg_climb(model, sequences, trees, recomb_preference);
-        print_log_iter(config->logfile, model, sequences, trees);
+        print_stats(config->stats_file, model, sequences, trees);
     }
     printLog(LOG_LOW, "\n");
-    
+
+    /*
+    // resample leaves
+    for (int i=0; i<config->niters; i++) {
+        printLog(LOG_LOW, "sample leaves %d\n", i+1);
+        resample_arg(model, sequences, trees);
+
+        // logging
+        print_log_iter(config->stats_file, model, sequences, trees);
+        log_local_trees(model, sequences, trees, sites_mapping, config, i);
+    }
+    printLog(LOG_LOW, "\n");
+    */
 
     // resample all branches
     for (int i=0; i<config->niters; i++) {
@@ -213,7 +250,7 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         resample_arg_all(model, sequences, trees);
 
         // logging
-        print_log_iter(config->logfile, model, sequences, trees);
+        print_stats(config->stats_file, model, sequences, trees);
         log_local_trees(model, sequences, trees, sites_mapping, config, i);
     }
     printLog(LOG_LOW, "\n");
@@ -237,9 +274,17 @@ int main(int argc, char **argv)
 
     // setup logging
     setLogLevel(c.verbose);
-    string logfilename = c.out_prefix + LOG_SUFFIX;
-    if (!(c.logfile = fopen(logfilename.c_str(), "w"))) {
-        printError("could not open log file '%s'", logfilename.c_str());
+    /*
+    string log_filename = c.out_prefix + LOG_SUFFIX;
+    if (!(c.stats_file = fopen(stats_filename.c_str(), "w"))) {
+        printError("could not open stats file '%s'", stats_filename.c_str());
+        return 1;
+    }
+    */
+
+    string stats_filename = c.out_prefix + STATS_SUFFIX;
+    if (!(c.stats_file = fopen(stats_filename.c_str(), "w"))) {
+        printError("could not open stats file '%s'", stats_filename.c_str());
         return 1;
     }
 
@@ -299,7 +344,7 @@ int main(int argc, char **argv)
 
 
     // clean up
-    fclose(c.logfile);
+    fclose(c.stats_file);
     
     if (sites_mapping)
         delete sites_mapping;

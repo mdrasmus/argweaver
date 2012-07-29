@@ -581,6 +581,9 @@ class Sites (object):
                 yield i, self._cols[i]
         return func()
 
+    def write(self, filename):
+        write_sites(filename, self)
+
         
 
 def iter_sites(filename):
@@ -653,6 +656,43 @@ def seqs2sites(seqs, range=None):
             sites.append(i, col)
 
     return sites
+
+
+#=============================================================================
+# SMC input/output
+
+def iter_smc_file(filename):
+
+    infile = util.open_stream(filename)
+
+    for line in infile:
+        line = line.rstrip()
+        tokens = line.split("\t")
+        
+        if tokens[0] == "NAMES":
+            yield {"tag": "names", "names": tokens[1:]}
+        
+        elif tokens[0] == "RANGE":
+            yield {"tag": "range",
+                   "start": int(tokens[1]), "end": int(tokens[2])}
+            
+        elif tokens[0] == "TREE":
+            yield {"tag": "tree",
+                   "start": int(tokens[1]),
+                   "end": int(tokens[2]),
+                   "tree": tokens[3]}
+
+        elif tokens[0] == "SPR":
+            yield {"tag": "spr",
+                   "pos": int(tokens[1]),
+                   "recomb_node": int(tokens[2]),
+                   "recomb_time": float(tokens[3]),
+                   "coal_node": int(tokens[4]),
+                   "coal_time": float(tokens[5])}
+
+    infile.close()
+
+
 
 
 #=============================================================================

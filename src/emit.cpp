@@ -461,6 +461,109 @@ void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs,
 }
 
 
+int parsimony_cost_seq(const LocalTree *tree, const char * const *seqs, 
+                        int nseqs, int pos, int *postorder) 
+{
+    const int nnodes = tree->nnodes;
+    const LocalNode *nodes = tree->nodes;
+    const int maxcost = 100000;
+    int costs[nnodes][4];    
+    
+    // do unweighted parsimony by postorder traversal
+    int postorder2[nnodes];
+    if (!postorder) {
+        tree->get_postorder(postorder2);
+        postorder = postorder2;
+    }
+    for (int i=0; i<nnodes; i++) {
+        int node = postorder[i];
+        if (tree->nodes[node].is_leaf()) {
+            for (int a=0; a<4; a++)
+                costs[node][a] = maxcost;
+            costs[node][dna2int[(int)seqs[node][pos]]] = 0;
+        } else {
+            int *left_costs = costs[nodes[node].child[0]];
+            int *right_costs = costs[nodes[node].child[1]];
+
+            for (int a=0; a<4; a++) {
+                int left_min = maxcost;
+                int right_min = maxcost;
+                for (int b=0; b<4; b++) {
+                    left_min = min(left_min, int(a != b) + left_costs[b]);
+                    right_min = min(right_min, int(a != b) + right_costs[b]);
+                }
+                costs[node][a] = left_min + right_min;
+            }
+        }
+    }
+
+    int root_min = maxcost;
+    for (int a=0; a<4; a++)
+        root_min = min(root_min, costs[tree->root][a]);
+
+    return root_min;
+}
+
+
+int count_noncompat(const LocalTree *tree, const char * const *seqs, 
+                    int nseqs, int seqlen, int *postorder) 
+{
+    // get postorder
+    int postorder2[tree->nnodes];
+    if (!postorder) {
+        tree->get_postorder(postorder2);
+        postorder = postorder2;
+    }
+    
+    int noncompat = 0;
+    for (int i=0; i<seqlen; i++) {
+        noncompat += int(parsimony_cost_seq(tree, seqs, 
+                                            nseqs, i, postorder) > 1);
+        /*
+        if (noncompat > 0) {
+            double times[1000];
+            fill(times, times+1000, 0.0);
+            write_newick_tree(stdout, tree, NULL, times, 0, false);
+
+            for (int j=0; j<nseqs; j++) {
+                printf(">%d %c\n", j, seqs[j][i]);
+            }
+
+            assert(false);
+        }
+        */
+    }
+    
+    //printf("> %d %d\n", noncompat, seqlen);
+
+    return noncompat;
+}
+
+
+int count_noncompat(const LocalTrees *trees, const char * const *seqs, 
+                    int nseqs, int seqlen)
+{
+    int noncompat = 0;
+    
+    int end = trees->start_coord;
+    for (LocalTrees::const_iterator it=trees->begin(); 
+         it != trees->end(); ++it) 
+    {
+        int start = end;
+        end += it->blocklen;
+        LocalTree *tree = it->tree;
+        int blocklen = it->blocklen;
+
+        // get subsequence block
+        char const* subseqs[nseqs];
+        for (int i=0; i<nseqs; i++)
+            subseqs[i] = &seqs[i][start];
+        
+        noncompat += count_noncompat(tree, subseqs, nseqs, blocklen, NULL);
+    }
+
+    return noncompat;
+}
 
 
 
