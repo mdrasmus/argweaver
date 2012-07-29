@@ -1,0 +1,33 @@
+#!/usr/bin/env python-i
+# Mon Oct  3 10:48:37 EDT 2011
+
+
+import sys
+import optparse
+
+from compbio import arglib
+from compbio.vis import argvis
+
+o = optparse.OptionParser()
+o.add_option("-m", "--mutations")
+
+#=============================================================================
+
+
+
+#=============================================================================
+
+conf, args = o.parse_args()
+
+treesfile = args[0]
+
+tree_track = arglib.read_tree_tracks(treesfile)
+
+if conf.mutations:
+    mut = arglib.read_mutations(conf.mutations)
+else:
+    mut = None
+
+argvis.show_tree_track(tree_track, mut=mut, show_labels=False)
+
+

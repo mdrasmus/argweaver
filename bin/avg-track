@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+
+
+from rasmus.common import *
+from rasmus import intervals
+import arghmm
+
+
+def iter_track(filename):
+    for row in DelimReader(filename):
+        yield int(row[0]), int(row[1]), float(row[2])
+
+#=============================================================================
+
+filenames = sys.argv[1:]
+
+tracks = []
+for filename in filenames:
+    tracks.extend(iter_track(filename))
+tracks.sort()
+
+for start, end, group in intervals.iter_intersections(tracks):
+    vals = cget(group, 2)
+    print_row(start, end, mean(vals),
+              percentile(vals, .025), percentile(vals, .975))
+
+

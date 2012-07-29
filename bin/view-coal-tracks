@@ -1,0 +1,23 @@
+#!/usr/bin/env python-i
+# Tue Oct 18 10:34:26 EDT 2011
+
+
+import sys
+from compbio import arglib
+from compbio.vis import argvis
+
+
+treesfile = sys.argv[1]
+
+tree_track = arglib.read_tree_tracks(treesfile)
+
+argvis.show_coal_track(tree_track)
+
+'''
+print "reading trees..."
+arg = arglib.read_arg(argfile)
+
+print "drawing arg..."
+argvis.show_coal_tracks(arg)
+'''
+

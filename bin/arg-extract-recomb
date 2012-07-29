@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+
+
+from rasmus.common import *
+from rasmus import intervals, stats
+import arghmm
+
+
+def iter_recombs(filename):
+    for item in arghmm.iter_smc_file(filename):
+        if item["tag"] == "spr":
+            yield item["pos"]
+
+
+#=============================================================================
+
+window = int(sys.argv[1])
+filenames = sys.argv[2:]
+
+nsamples = len(filenames)
+recombs = []
+for filename in filenames:
+    recombs.extend(iter_recombs(filename))
+recombs.sort()
+
+
+x, y = transpose(list(stats.iter_window(recombs, window, len)))
+
+for i in range(1, len(x)):
+    print_row(x[i-1], x[i], y[i] / float(nsamples))
+
+

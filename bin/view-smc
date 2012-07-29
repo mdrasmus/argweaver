@@ -1,0 +1,14 @@
+#!/usr/bin/env python-i
+# Tue Oct 18 10:34:26 EDT 2011
+
+
+import sys
+from compbio import arglib
+from compbio.vis import argvis
+import arghmm
+
+smcfile = sys.argv[1]
+
+smc = list(arghmm.iter_smc_file(smcfile))
+
+#argvis.show_coal_track(tree_track)

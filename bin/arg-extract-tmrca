@@ -1,0 +1,31 @@
+#!/usr/bin/env python
+
+
+from rasmus.common import *
+from rasmus import intervals
+import arghmm
+
+
+def iter_tmrcas(filename):
+    for item in arghmm.iter_smc_file(filename):
+        if item["tag"] == "tree":
+            tree = treelib.parse_newick(item["tree"])
+            times = treelib.get_tree_timestamps(tree)
+            yield item["start"], item["end"], times[tree.root]
+
+
+#=============================================================================
+
+filenames = sys.argv[1:]
+
+tmrcas = []
+for filename in filenames:
+    tmrcas.extend(iter_tmrcas(filename))
+tmrcas.sort()
+
+for start, end, group in intervals.iter_intersections(tmrcas):
+    vals = cget(group, 2)
+    print_row(start, end, mean(vals),
+              percentile(vals, .025), percentile(vals, .975))
+
+

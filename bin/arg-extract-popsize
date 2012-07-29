@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+
+from rasmus.common import *
+from compbio import coal
+from rasmus import intervals
+import arghmm
+
+
+def mle_popsize_coal_times(k, times, mintime):
+    s = 0
+    i = k
+    last = 0
+    for t in times:
+        s += i*(i-1) * max(t - last, mintime)
+        i -= 1
+        last = t
+    return s / float(2 * k - 2)
+
+
+def iter_popsize(filename, mintime):
+    for item in arghmm.iter_smc_file(filename):
+        if item["tag"] == "tree":
+            tree = treelib.parse_newick(item["tree"])
+            ages = treelib.get_tree_timestamps(tree)
+            times = sorted([0.0] + [ages[x] for x in tree if not x.is_leaf()])
+            popsize = mle_popsize_coal_times(len(tree.leaves()), times, mintime)
+            yield item["start"], item["end"], popsize
+
+
+#=============================================================================
+
+filenames = sys.argv[1:]
+mintime = 10
+
+popsizes = []
+for filename in filenames:
+    popsizes.extend(iter_popsize(filename, mintime))
+popsizes.sort()
+
+for start, end, group in intervals.iter_intersections(popsizes):
+    vals = cget(group, 2)
+    print_row(start, end, mean(vals),
+              percentile(vals, .025), percentile(vals, .975))
+
+
