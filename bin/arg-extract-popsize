@@ -20,7 +20,7 @@ def mle_popsize_coal_times(k, times, mintime):
 
 def iter_popsize(filename, mintime):
     for item in arghmm.iter_smc_file(filename):
-        if item["tag"] == "tree":
+        if item["tag"] == "TREE":
             tree = treelib.parse_newick(item["tree"])
             ages = treelib.get_tree_timestamps(tree)
             times = sorted([0.0] + [ages[x] for x in tree if not x.is_leaf()])

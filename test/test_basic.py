@@ -1549,6 +1549,67 @@ class Basic (unittest.TestCase):
         print histtab(mget(variant, cols))
         
         pause()
+
+
+    #------------------------------------
+    # LD
+
+    def test_ld(self):
+
+        col1 = "AAAAAACCCCCCCCC"
+        col2 = "AAAACCCCCCCCCCC"
+
+        self.assertEqual(arghmm.find_high_freq_allele(col1), "C")
+        self.assertEqual(arghmm.find_high_freq_allele(col2), "C")
+
+        print_dict(arghmm.find_pair_allele_freqs(col1, col2))
+
+        print arghmm.calc_ld_D(col1, col2)
+        print arghmm.calc_ld_Dp(col1, col2)
+        print arghmm.calc_ld_r2(col1, col2)
+
+
+        # case 2
+        col1 = "AAAAAACCCCCCCCC"
+        col2 = "AAAACCACCCCCCCC"
+
+        self.assertEqual(arghmm.find_high_freq_allele(col1), "C")
+        self.assertEqual(arghmm.find_high_freq_allele(col2), "C")
+
+        print_dict(arghmm.find_pair_allele_freqs(col1, col2))
+
+        print arghmm.calc_ld_D(col1, col2)
+        print arghmm.calc_ld_Dp(col1, col2)
+        print arghmm.calc_ld_r2(col1, col2)
+
+
+
+    def test_ld_block(self):
+
+        k = 30
+        n = 1e4
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = 200e3
+        times = arghmm.get_time_points(ntimes=20, maxtime=200e3)
+        compress = 20
+        
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times)
+        seqs = arghmm.make_alignment(arg, muts)
+        sites = arghmm.seqs2sites(seqs)
+
+        #cols = transpose(seqs.values())[::10000]
+        cols = mget(sites, sites.positions)
+        cols = cols[:1000]
+
+        ld = arghmm.calc_ld_matrix(cols, arghmm.calc_ld_Dp)
+        
+        heatmap(ld, width=2, height=2)
+        pause()
+
+        
         
 
 #=============================================================================

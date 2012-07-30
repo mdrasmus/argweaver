@@ -8,7 +8,7 @@ import arghmm
 
 def iter_tmrcas(filename):
     for item in arghmm.iter_smc_file(filename):
-        if item["tag"] == "tree":
+        if item["tag"] == "TREE":
             tree = treelib.parse_newick(item["tree"])
             times = treelib.get_tree_timestamps(tree)
             yield item["start"], item["end"], times[tree.root]

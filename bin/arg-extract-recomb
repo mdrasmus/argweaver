@@ -8,7 +8,7 @@ import arghmm
 
 def iter_recombs(filename):
     for item in arghmm.iter_smc_file(filename):
-        if item["tag"] == "spr":
+        if item["tag"] == "SPR":
             yield item["pos"]
 
 

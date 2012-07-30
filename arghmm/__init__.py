@@ -572,14 +572,33 @@ class Sites (object):
     def has_col(self, pos):
         return pos in self._cols
 
+    def get_cols(self):
+        return [self._cols[pos] for pos in self.positions]
+
     def remove(self, pos):
         del self._cols[pos]
+        self.positions.remove(pos)
 
     def __iter__(self):
         def func():
             for i in self.positions:
                 yield i, self._cols[i]
         return func()
+
+    def __getitem__(self, pos):
+        return self._cols[pos]
+
+    def __setitem__(self, pos, col):
+        self._cols[pos] = col
+        self.positions.append(pos)
+        self.positions.sort()
+
+    def __delitem__(self, pos):
+        del self._cols[pos]
+        self.positions.remove(pos)        
+
+    def __contains__(self, pos):
+        return pos in self._cols
 
     def write(self, filename):
         write_sites(filename, self)
@@ -670,20 +689,20 @@ def iter_smc_file(filename):
         tokens = line.split("\t")
         
         if tokens[0] == "NAMES":
-            yield {"tag": "names", "names": tokens[1:]}
+            yield {"tag": "NAMES", "names": tokens[1:]}
         
         elif tokens[0] == "RANGE":
-            yield {"tag": "range",
+            yield {"tag": "RANGE",
                    "start": int(tokens[1]), "end": int(tokens[2])}
             
         elif tokens[0] == "TREE":
-            yield {"tag": "tree",
+            yield {"tag": "TREE",
                    "start": int(tokens[1]),
                    "end": int(tokens[2]),
                    "tree": tokens[3]}
 
         elif tokens[0] == "SPR":
-            yield {"tag": "spr",
+            yield {"tag": "SPR",
                    "pos": int(tokens[1]),
                    "recomb_node": int(tokens[2]),
                    "recomb_time": float(tokens[3]),
@@ -691,6 +710,99 @@ def iter_smc_file(filename):
                    "coal_time": float(tokens[5])}
 
     infile.close()
+
+
+
+#=============================================================================
+# simple LD functions
+
+def find_high_freq_allele(col):
+    counts = defaultdict(lambda: 0)
+    for a in col:
+        counts[a] += 1
+    return max(counts.keys(), key=lambda x: counts[x])
+
+
+def find_pair_allele_freqs(col1, col2):
+    A1 = find_high_freq_allele(col1)
+    B1 = find_high_freq_allele(col2)
+    
+    x = {}
+    x[(0,0)] = 0
+    x[(0,1)] = 0
+    x[(1,0)] = 0
+    x[(1,1)] = 0
+    
+    for i in range(len(col1)):
+        a = int(col1[i] == A1)
+        b = int(col2[i] == B1)
+        x[(a,b)] += 1
+    
+    n = float(len(col1))
+    for k, v in x.items():
+        x[k] = v / n
+    
+    return x
+
+
+def calc_ld_D(col1, col2, x=None):
+    if x is None:
+        x = find_pair_allele_freqs(col1, col2)
+    
+    # D = x_11 - p_1 * q_1
+    p1 = x[(0,0)] + x[(0,1)]
+    q1 = x[(0,0)] + x[(1,0)]
+    D = x[(0,0)] - p1 * q1
+    return D
+
+
+def calc_ld_Dp(col1, col2, x=None):
+    if x is None:
+        x = find_pair_allele_freqs(col1, col2)
+
+    # D = x_11 - p_1 * q_1
+    p1 = x[(0,0)] + x[(0,1)]
+    q1 = x[(0,0)] + x[(1,0)]
+    D = x[(0,0)] - p1 * q1
+
+    p2 = 1.0 - p1
+    q2 = 1.0 - q1
+
+    if D == 0:
+        return abs(D)
+    elif D < 0:
+        Dmax = min(p1 * q1, p2 * q2)
+    else:
+        Dmax = min(p1 * q2, p2 * q1)
+    
+    return D / Dmax
+
+
+def calc_ld_r2(col1, col2, x=None):
+    if x is None:
+        x = find_pair_allele_freqs(col1, col2)
+
+    # D = x_11 - p_1 * q_1
+    p1 = x[(0,0)] + x[(0,1)]
+    q1 = x[(0,0)] + x[(1,0)]
+    D = x[(0,0)] - p1 * q1
+
+    p2 = 1.0 - p1
+    q2 = 1.0 - q1
+
+    return D / sqrt(p1*p2*q1*q2)
+
+
+def calc_ld_matrix(cols, func):
+
+    ncols = len(cols)
+    ld = util.make_matrix(ncols, ncols, 0.0)
+
+    for i in range(ncols):
+        for j in range(i):
+            ld[i][j] = ld[j][i] = func(cols[i], cols[j])
+
+    return ld
 
 
 

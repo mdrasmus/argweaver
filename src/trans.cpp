@@ -686,7 +686,7 @@ void calc_transition_probs_switch_internal(
 
     // fall off the top case
     if (nstates2 == 0) {
-        fill(transmat_switch->determ, transmat_switch->determ + nstates1, 0.0);
+        fill(transmat_switch->determ, transmat_switch->determ + nstates1, 0);
 
         for (int i=0; i<nstates1; i++) {
             if (states1[i].node == spr.recomb_node && 
