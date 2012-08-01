@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+
+from rasmus.common import *
+from arghmm.bottle import request, get, HTTPResponse, static_file, run
+import arghmm
+import json
+
+
+@get('/tree/:pos')
+def get_tree(pos=0):
+    pos = int(pos)
+
+    callback = request.query.get("callback", "jsonp_callback")
+    
+    for item in smc:
+        if item["tag"] == "TREE":
+            if item["start"] <= pos < item["end"]:
+                print item
+                return callback + "('" + item["tree"] + "');"
+    
+    return ""
+
+@get('/trees/:region')
+def get_trees(region=""):
+    tokens = region.split("-")
+    if len(tokens) != 2:
+        raise HTTPResponse(status=404)
+
+    start = int(tokens[0])
+    end = int(tokens[1])
+
+    callback = request.query.get("callback", "jsonp_callback")
+
+    result = []
+    
+    for item in smc:
+        if item["tag"] == "TREE":
+            if util.overlap(start, end, item["start"], item["end"]):
+                print item
+                result.append(item)
+        elif item["tag"] == "SPR":
+            if start <= item["pos"] < end:
+                print item
+                result.append(item)
+
+    return callback + "('" + json.dumps(result) + "');"
+
+
+@get('/sprs/:region')
+def get_trees(region=""):
+    tokens = region.split("-")
+    if len(tokens) != 2:
+        raise HTTPResponse(status=404)
+
+    start = int(tokens[0])
+    end = int(tokens[1])
+
+    callback = request.query.get("callback", "jsonp_callback")
+
+    result = []
+    
+    for item in smc:
+        if item["tag"] == "SPR":
+            if start <= item["pos"] < end:
+                print item
+                result.append(item)
+
+    return callback + "('" + json.dumps(result) + "');"
+
+
+#=============================================================================
+
+smc_file = sys.argv[1]
+
+print "reading...",
+smc = list(arghmm.iter_smc_file(smc_file))
+print "done"
+
+
+run(host='localhost', port=8080)
+

@@ -3,11 +3,12 @@
 #
 
 # python libs
+from collections import defaultdict
+import heapq
 from math import exp, log
 import random
+import StringIO
 from itertools import chain, izip
-import heapq
-from collections import defaultdict
 
 # rasmus combio libs
 from rasmus import hmm, util, stats, treelib
@@ -680,7 +681,7 @@ def seqs2sites(seqs, range=None):
 #=============================================================================
 # SMC input/output
 
-def iter_smc_file(filename):
+def iter_smc_file(filename, parse_trees=False):
 
     infile = util.open_stream(filename)
 
@@ -696,10 +697,14 @@ def iter_smc_file(filename):
                    "start": int(tokens[1]), "end": int(tokens[2])}
             
         elif tokens[0] == "TREE":
+            tree = tokens[3]
+            if parse_trees:
+                tree = parse_tree(tree)
+            
             yield {"tag": "TREE",
                    "start": int(tokens[1]),
                    "end": int(tokens[2]),
-                   "tree": tokens[3]}
+                   "tree": tree}
 
         elif tokens[0] == "SPR":
             yield {"tag": "SPR",
@@ -711,6 +716,33 @@ def iter_smc_file(filename):
 
     infile.close()
 
+
+def parse_tree_data(node, data):
+    """Default data reader: reads optional bootstrap and branch length"""
+
+    if ":" in data:
+        name, dist = data.split(":")
+        node.dist = float(dist)
+
+        if len(name) > 0:
+            node.name = int(name)
+    else:
+        data = data.strip()
+
+        # treat as name
+        if data:
+            node.name = int(data)
+
+
+def parse_tree(text):
+    tree = treelib.Tree()
+    stream = StringIO.StringIO(text)
+    tree.read_newick(stream, readData=parse_tree_data)
+
+    for node in tree:
+        if node.is_leaf():
+            tree.rename(node.name, int(node.name))
+    return tree
 
 
 #=============================================================================

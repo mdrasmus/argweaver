@@ -9,6 +9,6 @@ import arghmm
 
 smcfile = sys.argv[1]
 
-smc = list(arghmm.iter_smc_file(smcfile))
+smc = arghmm.iter_smc_file(smcfile, parse_trees=True)
 
-#argvis.show_coal_track(tree_track)
+viewer = argvis.show_smc(smc, show_labels=True)
