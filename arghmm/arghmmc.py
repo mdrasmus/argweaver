@@ -246,7 +246,7 @@ if arghmmclib:
 
 # by default use a random seed
 if arghmmclib:
-    arghmmclib.srand(int(time.time()*1000))
+    arghmmclib.srand(int((time.time() * 1000) % 1e9))
 
 def set_random_seed(num):
     """Set the C random number generator seed"""
