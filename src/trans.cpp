@@ -1415,7 +1415,7 @@ bool arghmm_assert_transmat_switch_internal(
     LocalTree *last_tree = NULL;
     for (matrix_iter.begin(); matrix_iter.more(); matrix_iter.next()) {
         matrix_iter.get_matrices(&matrices);
-        LocalTrees::iterator it = matrix_iter.get_tree_iter();
+        LocalTrees::const_iterator it = matrix_iter.get_tree_iter();
         LocalTree *tree = it->tree;
 
         if (matrices.transmat_switch) {

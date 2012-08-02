@@ -123,7 +123,8 @@ public:
 class ArgHmmMatrixIter
 {
 public:
-    ArgHmmMatrixIter(ArgModel *model, Sequences *seqs, LocalTrees *trees, 
+    ArgHmmMatrixIter(const ArgModel *model, const Sequences *seqs, 
+                     const LocalTrees *trees, 
                      int _new_chrom=-1, bool calc_full=false) :
         model(model),
         seqs(seqs),
@@ -149,7 +150,7 @@ public:
         begin(trees->begin(), trees->start_coord);
     }
     
-    virtual void begin(LocalTrees::iterator start, int start_coord)
+    virtual void begin(LocalTrees::const_iterator start, int start_coord)
     {
         tree_iter = start;
         pos = start_coord;
@@ -161,7 +162,7 @@ public:
             last_states = NULL;
             states = &states1;
         } else {
-            LocalTrees::iterator tree_iter2 = tree_iter;
+            LocalTrees::const_iterator tree_iter2 = tree_iter;
             --tree_iter2;
             last_states = &states2;
             last_tree = tree_iter2->tree;
@@ -177,11 +178,11 @@ public:
     
     virtual void rbegin()
     {
-        LocalTrees::iterator it = --trees->end();
+        LocalTrees::const_iterator it = --trees->end();
         rbegin(it, trees->end_coord - it->blocklen);
     }
     
-    virtual void rbegin(LocalTrees::iterator start, int start_coord)
+    virtual void rbegin(LocalTrees::const_iterator start, int start_coord)
     {
         begin(start, start_coord);
     }
@@ -204,7 +205,7 @@ public:
     virtual bool prev()
     {
         --tree_iter;
-        LocalTrees::iterator it = tree_iter;
+        LocalTrees::const_iterator it = tree_iter;
         --it;
 
         if (it != trees->end()) {
@@ -240,7 +241,7 @@ public:
         *matrices = mat;
     }
 
-    LocalTrees::iterator get_tree_iter()
+    LocalTrees::const_iterator get_tree_iter()
     {
         return tree_iter;
     }
@@ -409,16 +410,16 @@ public:
     
 
 protected:
-    ArgModel *model;
-    Sequences *seqs;
-    LocalTrees *trees;
+    const ArgModel *model;
+    const Sequences *seqs;
+    const LocalTrees *trees;
     int new_chrom;
     bool calc_full;
     bool internal;
 
     ArgHmmMatrices mat;
     int pos;
-    LocalTrees::iterator tree_iter;
+    LocalTrees::const_iterator tree_iter;
     LineageCounts lineages;
     States states1;
     States states2;
@@ -431,7 +432,8 @@ protected:
 class ArgHmmMatrixList : public ArgHmmMatrixIter
 {
 public:
-    ArgHmmMatrixList(ArgModel *model, Sequences *seqs, LocalTrees *trees, 
+    ArgHmmMatrixList(const ArgModel *model, const Sequences *seqs, 
+                     const LocalTrees *trees, 
                      int new_chrom=-1, bool calc_full=false) :
         ArgHmmMatrixIter(model, seqs, trees, 
                          new_chrom, calc_full)
@@ -448,7 +450,7 @@ public:
     }
 
     // precompute all matrices
-    void setup(LocalTrees::iterator start, LocalTrees::iterator end)
+    void setup(LocalTrees::const_iterator start, LocalTrees::const_iterator end)
     {
         for (begin(); more(); next()) {
             matrices.push_back(ArgHmmMatrices());

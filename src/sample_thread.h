@@ -127,29 +127,28 @@ public:
 //=============================================================================
 // Forward algorithm for thread path
 
-void arghmm_forward_alg_fast(LocalTrees *trees, ArgModel *model,
-    Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
+void arghmm_forward_alg_fast(const LocalTrees *trees, const ArgModel *model,
+    const Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
     ArgHmmForwardTable *forward, bool prior_given=false, bool internal=false);
 
-void arghmm_forward_alg(LocalTrees *trees, ArgModel *model,
-    Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
+void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
+    const Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
     ArgHmmForwardTable *forward, bool prior_given=false);
 
 
 //=============================================================================
 // thread path sampling
 
-double stochastic_traceback_fast(LocalTrees *trees, ArgModel *model, 
-                                 ArgHmmMatrixIter *matrix_iter, 
-                                 double **fw, int *path, 
-                                 bool last_state_given=false,
-                                 bool internal=false);
+double stochastic_traceback_fast(
+    const LocalTrees *trees, const ArgModel *model, 
+    ArgHmmMatrixIter *matrix_iter, 
+    double **fw, int *path, bool last_state_given=false, bool internal=false);
 
 void stochastic_traceback(ArgHmmMatrixIter *matrix_iter, 
                           double **fw, int *path, 
                           bool last_state_given=false);
 
-void max_traceback_fast(LocalTrees *trees, ArgModel *model, 
+void max_traceback_fast(const LocalTrees *trees, const ArgModel *model, 
                         ArgHmmMatrixIter *matrix_iter, 
                         double **fw, int *path, 
                         bool last_state_given=false,
@@ -158,24 +157,30 @@ void max_traceback_fast(LocalTrees *trees, ArgModel *model,
 //=============================================================================
 // ARG thread sampling
 
-void sample_arg_thread(ArgModel *model, Sequences *sequences, 
-                       LocalTrees *trees, int new_chrom);
+void sample_arg_thread(
+    const ArgModel *model, const Sequences *sequences, LocalTrees *trees, 
+    int new_chrom);
 
-void sample_arg_thread_internal(ArgModel *model, Sequences *sequences, 
-                                LocalTrees *trees);
+void sample_arg_thread_internal(
+    const ArgModel *model, const Sequences *sequences, LocalTrees *trees);
 
-void sample_arg_thread_internal_climb(ArgModel *model, Sequences *sequences, 
-                                      LocalTrees *trees, int nsamples);
+//void sample_arg_thread_internal_climb(ArgModel *model, Sequences *sequences, 
+//                                      LocalTrees *trees, int nsamples);
 
-void resample_arg_thread(ArgModel *model, Sequences *sequences, 
-                         LocalTrees *trees, int chrom);
+void resample_arg_thread(const ArgModel *model, const Sequences *sequences, 
+    LocalTrees *trees, int chrom);
 
-void max_arg_thread(ArgModel *model, Sequences *sequences, 
+void max_arg_thread(const ArgModel *model, const Sequences *sequences, 
                     LocalTrees *trees, int new_chrom);
 
-void cond_sample_arg_thread(ArgModel *model, Sequences *sequences, 
+void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences, 
                             LocalTrees *trees, int new_chrom,
                             State start_state, State end_state);
+
+void cond_sample_arg_thread_internal(
+    const ArgModel *model, const Sequences *sequences, 
+    LocalTrees *trees, int new_chrom,
+    State start_state, State end_state);
 
 
 } // namespace arghmm

@@ -516,25 +516,9 @@ int count_noncompat(const LocalTree *tree, const char * const *seqs,
     }
     
     int noncompat = 0;
-    for (int i=0; i<seqlen; i++) {
+    for (int i=0; i<seqlen; i++)
         noncompat += int(parsimony_cost_seq(tree, seqs, 
                                             nseqs, i, postorder) > 1);
-        /*
-        if (noncompat > 0) {
-            double times[1000];
-            fill(times, times+1000, 0.0);
-            write_newick_tree(stdout, tree, NULL, times, 0, false);
-
-            for (int j=0; j<nseqs; j++) {
-                printf(">%d %c\n", j, seqs[j][i]);
-            }
-
-            assert(false);
-        }
-        */
-    }
-    
-    //printf("> %d %d\n", noncompat, seqlen);
 
     return noncompat;
 }

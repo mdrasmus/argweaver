@@ -11,7 +11,7 @@ using namespace std;
 // Sample recombinations
 
 
-double recomb_prob_unnormalized(ArgModel *model, LocalTree *tree, 
+double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree, 
                                 const LineageCounts &lineages, 
                                 const State &last_state, 
                                 const State &state,
@@ -48,7 +48,8 @@ double recomb_prob_unnormalized(ArgModel *model, LocalTree *tree,
 
 
 void sample_recombinations(
-    LocalTrees *trees, ArgModel *model, ArgHmmMatrixIter *matrix_iter,
+    const LocalTrees *trees, const ArgModel *model, 
+    ArgHmmMatrixIter *matrix_iter,
     int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs,
     bool internal)
 {
@@ -153,7 +154,8 @@ void sample_recombinations(
 
 
 void max_recombinations(
-    LocalTrees *trees, ArgModel *model, ArgHmmMatrixIter *matrix_iter,
+    const LocalTrees *trees, const ArgModel *model, 
+    ArgHmmMatrixIter *matrix_iter,
     int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs)
 {
     States states;
