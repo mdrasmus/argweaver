@@ -234,6 +234,10 @@ if arghmmclib:
             c_out(c_int_matrix), "sprs", c_out(c_int_list), "blocklens"])
     export(arghmmclib, "delete_local_trees", c_int,
            [c_void_p, "trees"])
+    export(arghmmclib, "write_local_trees", c_int,
+           [c_char_p, "filename", c_void_p, "trees", c_char_p_list, "names",
+            c_double_list, "times", c_int, "ntimes"])
+
 
     # thread data structures
     export(arghmmclib, "delete_path", c_int,
@@ -921,19 +925,17 @@ def resample_arg_region(arg, seqs, region_start, region_end,
 
     # get sequences in same order    
     # and add all other sequences not in arg yet
-    seqs2 = [seqs[name] for name in names]
     leaves = set(names)
     for name, seq in seqs.items():
         if name not in leaves:
             names.append(name)
-            seqs2.append(seq)
-
+    seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
+    
     # resample arg
     seqlen = len(seqs[names[0]])
     trees = arghmm_resample_arg_region(
         trees, times, len(times),
-        popsizes, rho, mu,
-        (c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen,
+        popsizes, rho, mu, seqs2, nseqs, seqlen,
         region_start, region_end)
 
     # convert arg back to python

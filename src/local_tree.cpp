@@ -683,7 +683,8 @@ void write_newick_node(FILE *out, const LocalTree *tree,
     if (tree->nodes[node].is_leaf()) {
         if (!oneline)
             for (int i=0; i<depth; i++) fprintf(out, "  ");
-        fprintf(out, "%s:%f", names[node], tree->get_dist(node, times));
+        fprintf(out, "%s:%f[&NHX:age=%f]", names[node], 
+                tree->get_dist(node, times), times[tree->nodes[node].age]);
     } else {
         // indent
         if (oneline) {
@@ -709,9 +710,12 @@ void write_newick_node(FILE *out, const LocalTree *tree,
         fprintf(out, ")");
         
         if (depth > 0)
-            fprintf(out, "%s:%f", names[node], tree->get_dist(node, times));
+            fprintf(out, "%s:%f[&NHX:age=%f]", 
+                    names[node], tree->get_dist(node, times),
+                    times[tree->nodes[node].age]);
         else
-            fprintf(out, "%s", names[node]);
+            fprintf(out, "%s[&NHX:age=%f]", names[node], 
+                    times[tree->nodes[node].age]);
     }
 }
 
@@ -1253,6 +1257,19 @@ void delete_local_trees(LocalTrees *trees)
 {
     delete trees;
 }
+
+
+void write_local_trees(char *filename, LocalTrees *trees, char **names,
+                       double *times, int ntimes)
+{
+    Sequences seqs;
+    int nleaves = trees->get_num_leaves();
+    for (int i=0; i<nleaves; i++)
+        seqs.append(names[i], (char*) "");
+
+    write_local_trees(filename, trees, seqs, times);
+}
+
 
 
 } // extern C

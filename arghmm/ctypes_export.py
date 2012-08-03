@@ -45,12 +45,15 @@ c_char_p_p = POINTER(c_char_p)
 # basic auto conversion list and matrix types
 c_bool_list = (c_int_p, lambda x: c_list(c_bool, x))
 c_bool_matrix = (c_int_p_p, lambda x: c_matrix(c_bool, x))
+c_char_list = (c_char_p, lambda x: c_list(c_char, x))
+c_char_matrix = (c_char_p_p, lambda x: c_matrix(c_char, x))
 c_int_list = (c_int_p, lambda x: c_list(c_int, x))
 c_int_matrix = (c_int_p_p, lambda x: c_matrix(c_int, x))
 c_float_list = (c_float_p, lambda x: c_list(c_float, x))
 c_float_matrix = (c_float_p_p, lambda x: c_matrix(c_float, x))
 c_double_list = (c_double_p, lambda x: c_list(c_double, x))
 c_double_matrix = (c_double_p_p, lambda x: c_matrix(c_double, x))
+c_char_p_list = (c_char_p_p, lambda x: c_list(c_char_p, x))
 
 
 class Exporter (object):

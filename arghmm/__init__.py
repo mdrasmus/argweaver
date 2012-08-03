@@ -563,6 +563,11 @@ class Sites (object):
         self.positions.append(pos)
         self._cols[pos] = col
 
+    def length(self):
+        return self.range[1] - self.range[0]
+
+    def nseqs(self):
+        return len(self._cols[self.positions[0]])
 
     def get(self, pos):
         return self._cols[pos]
@@ -600,6 +605,7 @@ class Sites (object):
 
     def __contains__(self, pos):
         return pos in self._cols
+
 
     def write(self, filename):
         write_sites(filename, self)
@@ -678,6 +684,29 @@ def seqs2sites(seqs, range=None):
     return sites
 
 
+def sites2seqs(sites, default_char="A"):
+
+    seqlen = sites.length()
+
+    # create blank alignment
+    seqs2 = []
+    for i in range(sites.nseqs()):
+        seqs2.append([default_char] * seqlen)
+
+    # fill in sites
+    for pos in sites.positions:
+        for i, c in enumerate(sites[pos]):
+            seqs2[i][pos - sites.range[0]] = c
+
+    # make seqs dict
+    seqs = fasta.FastaDict()
+    for i, seq in enumerate(seqs2):
+        seqs[sites.names[i]] = "".join(seq)
+
+    return seqs
+
+
+
 #=============================================================================
 # SMC input/output
 
@@ -720,6 +749,9 @@ def iter_smc_file(filename, parse_trees=False):
 def parse_tree_data(node, data):
     """Default data reader: reads optional bootstrap and branch length"""
 
+    # detect comments
+    data = treelib.read_nhx_data(node, data)
+    
     if ":" in data:
         name, dist = data.split(":")
         node.dist = float(dist)
@@ -739,10 +771,87 @@ def parse_tree(text):
     stream = StringIO.StringIO(text)
     tree.read_newick(stream, readData=parse_tree_data)
 
-    for node in tree:
+    for node in list(tree):
         if node.is_leaf():
             tree.rename(node.name, int(node.name))
     return tree
+
+
+def format_tree(tree):
+    def write_data(node):
+        if node.is_leaf():
+            return ":%f%s" % (node.dist, treelib.format_nhx_comment(node.data))
+        else:
+            return "%d:%f%s" % (node.name, node.dist,
+                                treelib.format_nhx_comment(node.data))
+
+    stream = StringIO.StringIO()
+    tree.write(stream, writeData=write_data, oneline=True, rootData=True)
+    return stream.getvalue()
+
+
+def smc2sprs(smc):
+
+    names = None
+    region = None
+    init_tree = None
+    tree = None
+    sprs = []
+    
+    for item in smc:
+        if item["tag"] == "NAMES":
+            names = item["names"]
+            
+        elif item["tag"] == "RANGE":
+            region = [item["start"], item["end"]]
+            
+        elif item["tag"] == "TREE":
+            tree = item["tree"]
+            if isinstance(tree, basestring):
+                tree = parse_tree(tree)
+                
+            if not init_tree:
+                init_tree = tree.copy()
+
+                # rename leaves
+                for i, name in enumerate(names):
+                    init_tree.rename(i, name)
+
+                if "age" in init_tree.root.data:
+                    times = dict((node, float(node.data["age"]))
+                                 for node in init_tree)
+                else:
+                    times = None
+                
+                arg = arglib.make_arg_from_tree(init_tree, times)
+                
+                arg.start = region[0]
+                arg.end = region[1]
+                yield arg
+                
+        elif item["tag"] == "SPR":
+            print item["pos"]
+            rleaves = [names[i] for i in
+                       tree.leaf_names(tree[item["recomb_node"]])]
+            cleaves = [names[i] for i in
+                       tree.leaf_names(tree[item["coal_node"]])]
+
+            yield (item["pos"], (rleaves, item["recomb_time"]),
+                   (cleaves, item["coal_time"]))
+
+
+def smc2arg(smc):
+
+    it = smc2sprs(smc)
+    tree = it.next()
+    arg = arglib.make_arg_from_sprs(tree, it)
+
+    return arg
+
+
+def arg2smc(arg):
+    raise Exception("not implemented yet")
+    
 
 
 #=============================================================================

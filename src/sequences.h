@@ -34,7 +34,7 @@ public:
     }
 
     // initialize from a subset of another Sequences alignment
-    Sequences(Sequences *sequences, int nseqs=-1, int _seqlen=-1, 
+    Sequences(const Sequences *sequences, int nseqs=-1, int _seqlen=-1, 
               int offset=0) :
         seqlen(_seqlen), owned(false)
     {
