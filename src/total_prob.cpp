@@ -19,7 +19,7 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
                            LocalTrees *trees)
 {
     double lnl = 0.0;
-    int nseqs = sequences->get_nseqs();
+    int nseqs = sequences->get_num_seqs();
 
     if (trees->nnodes < 3)
         return lnl += log(.25) * sequences->length();
@@ -48,7 +48,7 @@ double calc_arg_likelihood_parsimony(ArgModel *model, Sequences *sequences,
                                      LocalTrees *trees)
 {
     double lnl = 0.0;
-    int nseqs = sequences->get_nseqs();
+    int nseqs = sequences->get_num_seqs();
     double minlen = model->times[1];
     const double log25 = log(.25);
     const double *times = model->times;

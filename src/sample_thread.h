@@ -179,8 +179,7 @@ void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences,
 
 void cond_sample_arg_thread_internal(
     const ArgModel *model, const Sequences *sequences, 
-    LocalTrees *trees, int new_chrom,
-    State start_state, State end_state);
+    LocalTrees *trees, State start_state, State end_state);
 
 
 } // namespace arghmm

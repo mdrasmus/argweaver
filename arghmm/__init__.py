@@ -746,6 +746,36 @@ def iter_smc_file(filename, parse_trees=False):
     infile.close()
 
 
+def read_smc(filename, parse_tree=False):
+    return list(iter_smc_file(filename, parse_tree=parse_tree))
+
+
+def write_smc(filename, smc):
+
+    out = util.open_stream(filename, "w")
+
+    for item in smc:
+        if item["tag"] == "NAMES":
+            util.print_row("NAMES", *item["names"], out=out)
+        
+        elif item["tag"] == "RANGE":
+            util.print_row("NAMES", item["start"], item["end"], out=out)
+            
+        elif item["tag"] == "TREE":
+            if not isinstance(item["tree"], basestring):
+                tree = format_tree(item["tree"])
+            else:
+                tree = item["tree"]
+
+            util.print_row("TREE", item["start"], item["end"], tree, out=out)
+
+        elif item["tag"] == "SPR":
+            util.print_row("SPR", item["pos"],
+                           item["recomb_node"], item["recomb_time"],
+                           item["coal_node"], item["coal_time"], out=out)
+    out.close()
+
+
 def parse_tree_data(node, data):
     """Default data reader: reads optional bootstrap and branch length"""
 

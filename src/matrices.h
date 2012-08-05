@@ -272,7 +272,7 @@ public:
         
         // calculate emissions
         if (seqs) {
-            char *subseqs[seqs->get_nseqs()];
+            char *subseqs[seqs->get_num_seqs()];
             for (int i=0; i<nleaves; i++)
                 subseqs[i] = &seqs->seqs[trees->seqids[i]][pos];
             subseqs[nleaves] = &seqs->seqs[new_chrom][pos];

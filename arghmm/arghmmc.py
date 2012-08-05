@@ -164,6 +164,11 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "region_start", c_int, "region_end"])
+    export(arghmmclib, "arghmm_resample_arg_all_region", c_void_p,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "region_start", c_int, "region_end", c_int, "niters"])
     export(arghmmclib, "arghmm_sample_arg_seq_gibbs", c_void_p,
            [c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -221,7 +226,7 @@ if arghmmclib:
     export(arghmmclib, "arghmm_new_trees", c_void_p,
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
             c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes"])
+            c_int, "ntrees", c_int, "nnodes", c_int, "start_coord"])
     export(arghmmclib, "arghmm_copy_trees", c_void_p,
            [c_void_p, "trees"])
     export(arghmmclib, "get_local_trees_ntrees", c_int,
@@ -247,10 +252,13 @@ if arghmmclib:
     export(arghmmclib, "delete_state_spaces", c_int,
            [POINTER(POINTER(c_int * 2)), "all_states", c_int, "ntrees"])
 
+    export(arghmmclib, "setLogLevel", c_int,
+           [c_int, "level"])
 
 # by default use a random seed
 if arghmmclib:
     arghmmclib.srand(int((time.time() * 1000) % 1e9))
+    arghmmclib.setLogLevel(1)
 
 def set_random_seed(num):
     """Set the C random number generator seed"""
@@ -904,7 +912,7 @@ def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 def resample_arg_region(arg, seqs, region_start, region_end,
                         ntimes=20, rho=1.5e-8, mu=2.5e-8,
                         popsizes=1e4, times=None, carg=False,
-                        verbose=False):
+                        refine=1, verbose=False):
     """
     Sample ARG for sequences
     """
@@ -933,10 +941,16 @@ def resample_arg_region(arg, seqs, region_start, region_end,
     
     # resample arg
     seqlen = len(seqs[names[0]])
-    trees = arghmm_resample_arg_region(
+
+    trees = arghmm_resample_arg_all_region(
         trees, times, len(times),
         popsizes, rho, mu, seqs2, nseqs, seqlen,
-        region_start, region_end)
+        region_start, region_end, refine)
+    
+    #trees = arghmm_resample_arg_region(
+    #    trees, times, len(times),
+    #    popsizes, rho, mu, seqs2, nseqs, seqlen,
+    #    region_start, region_end)
 
     # convert arg back to python
     if carg:
@@ -1198,7 +1212,7 @@ def arg2ctrees(arg, times):
             
     trees = arghmm_new_trees(
         ptrees, ages, sprs, blocklens,
-        len(ptrees), len(ptrees[0]))
+        len(ptrees), len(ptrees[0]), arg.start)
 
     return trees, names
 
@@ -1273,7 +1287,7 @@ def iter_arg_sprs(arg, start=None, end=None):
         start = arg.start
     if end is None:
         end = arg.end
-
+    
     last_tree_full = None
     last_tree = None
     for block, tree_full in arglib.iter_tree_tracks(arg, start, end):
@@ -1289,8 +1303,8 @@ def iter_arg_sprs(arg, start=None, end=None):
 
         # convert block to our system
         a, b = block
-        if a == 0:
-            a = -1
+        if a == start:
+            a -= 1
         if b == end:
             b -= 1
         block = [a+1, b+1]

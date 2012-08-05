@@ -41,6 +41,11 @@ void cond_sample_arg_seq(const ArgModel *model, const Sequences *sequences,
 void sample_arg_seq_region(const ArgModel *model, const Sequences *sequences, 
                            LocalTrees *trees, int region_start, int region_end);
 
+void resample_arg_all_region(
+    const ArgModel *model, const Sequences *sequences, 
+    LocalTrees *trees, int region_start, int region_end, int niters);
+
+
 } // namespace arghmm
 
 #endif // ARGHMM_SAMPLE_ARG_H

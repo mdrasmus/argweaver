@@ -480,10 +480,10 @@ void remove_arg_thread(LocalTrees *trees, int remove_seqid)
     // special case for trunk genealogy
     if (nnodes == 3) {
         assert(remove_leaf == 0 || remove_leaf == 1);
+        int seqid = trees->seqids[1-remove_leaf];
         trees->make_trunk(trees->start_coord, trees->end_coord,
                           trees->begin()->tree->capacity);
-        trees->seqids[0] = trees->seqids[1-remove_leaf];
-        trees->seqids.resize(1);
+        trees->seqids[0] = seqid;
         return;
     }
 
@@ -594,27 +594,6 @@ void remove_arg_thread(LocalTrees *trees, int remove_seqid)
 
 //=============================================================================
 // internal branch threading operations
-
-
-// find recoal node, it is the node with no inward mappings
-int get_recoal_node(const LocalTree *tree, 
-                    const Spr &spr, const int *mapping)
-{
-    const int nnodes = tree->nnodes;
-    bool mapped[nnodes];
-    fill(mapped, mapped + nnodes, false);
-
-    for (int i=0; i<nnodes; i++)
-        if (mapping[i] != -1)
-            mapped[mapping[i]] = true;
-    
-    for (int i=0; i<nnodes; i++)
-        if (!mapped[i])
-            return i;
-
-    assert(false);
-    return -1;
-}
 
 
 // find the next possible branches in a removal path

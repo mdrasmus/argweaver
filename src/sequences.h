@@ -25,7 +25,9 @@ using namespace std;
 class Sequences
 {
 public:
-    Sequences() : owned(false) {}
+    explicit Sequences(int seqlen=0) :
+        seqlen(seqlen), owned(false)
+    {}
 
     Sequences(char **_seqs, int nseqs, int seqlen) :
         seqlen(seqlen), owned(false)
@@ -40,7 +42,7 @@ public:
     {
         // use same nseqs and/or seqlen by default
         if (nseqs == -1)
-            nseqs = sequences->get_nseqs();
+            nseqs = sequences->get_num_seqs();
         if (seqlen == -1)
             seqlen = sequences->length();
         
@@ -53,7 +55,7 @@ public:
         clear();
     }
     
-    inline int get_nseqs() const
+    inline int get_num_seqs() const
     {
         return seqs.size();
     }
@@ -122,7 +124,7 @@ public:
     void clear()
     {
         if (owned) {
-            const int nseqs = get_nseqs();
+            const int nseqs = get_num_seqs();
             for (int i=0; i<nseqs; i++)
                 delete [] seqs[i];
         }
@@ -157,7 +159,7 @@ public:
         if (copy) {
             unsigned int len = strlen(col);
             assert(len == names.size());
-            char *col2 = new char [len];
+            char *col2 = new char [len + 1];
             strcpy(col2, col);
             cols.push_back(col2);
         } else {
@@ -222,8 +224,8 @@ public:
 
 
 // sequences functions
-Sequences *read_fasta(FILE *infile);
-Sequences *read_fasta(const char *filename);
+bool read_fasta(FILE *infile, Sequences *seqs);
+bool read_fasta(const char *filename, Sequences *seqs);
 bool write_fasta(const char *filename, Sequences *seqs);
 void write_fasta(FILE *stream, Sequences *seqs);
 
@@ -234,10 +236,12 @@ bool check_seq_name(const char *name);
 void resample_align(Sequences *aln, Sequences *aln2);
 
 // sites functions
-Sites *read_sites(FILE *infile);
-Sites *read_sites(const char *filename);
+bool read_sites(FILE *infile, Sites *sites);
+bool read_sites(const char *filename, Sites *sites);
 
-Sequences *make_sequences_from_sites(Sites *sites, char default_char='A');
+void make_sequences_from_sites(const Sites *sites, Sequences *sequencess, 
+                               char default_char='A');
+    //Sequences *make_sequences_from_sites(Sites *sites, char default_char='A');
 
 void find_compress_cols(const Sites *sites, int compress, 
                         SitesMapping *sites_mapping);

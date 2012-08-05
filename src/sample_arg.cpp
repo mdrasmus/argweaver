@@ -28,7 +28,7 @@ void sample_arg_seq(const ArgModel *model, const Sequences *sequences,
     const int seqlen = sequences->length();
 
     // initialize ARG as trunk
-    const int capacity = 2 * sequences->get_nseqs() - 1;
+    const int capacity = 2 * sequences->get_num_seqs() - 1;
     int start = trees->start_coord;
     int end = trees->end_coord;
     if (end != seqlen) {
@@ -38,7 +38,7 @@ void sample_arg_seq(const ArgModel *model, const Sequences *sequences,
     trees->make_trunk(start, end, capacity);
     
     // add more chromosomes one by one
-    for (int nchroms=2; nchroms<=sequences->get_nseqs(); nchroms++) {
+    for (int nchroms=2; nchroms<=sequences->get_num_seqs(); nchroms++) {
         // use first nchroms sequences
         Sequences sequences2(sequences, nchroms);
         int new_chrom = nchroms - 1;
@@ -155,7 +155,7 @@ void resample_arg_recomb(const ArgModel *model, const Sequences *sequences,
 void sample_arg_seq_gibbs(const ArgModel *model, const Sequences *sequences, 
                           LocalTrees *trees, int seqiters, int gibbsiters)
 {
-    const int nseqs = sequences->get_nseqs();
+    const int nseqs = sequences->get_num_seqs();
     const int seqlen = sequences->length();
     const int minseqs = 3;
 
@@ -265,6 +265,7 @@ State find_state_sub_tree(
 }
 
 
+
 // sequentially sample an ARG from scratch
 // sequences are sampled in the order given
 void cond_sample_arg_seq(const ArgModel *model, const Sequences *sequences, 
@@ -273,11 +274,11 @@ void cond_sample_arg_seq(const ArgModel *model, const Sequences *sequences,
                          const vector<int> &full_seqids)
 {
     // initialize ARG as trunk
-    const int capacity = 2 * sequences->get_nseqs() - 1;
+    const int capacity = 2 * sequences->get_num_seqs() - 1;
     trees->make_trunk(trees->start_coord, trees->end_coord, capacity);
     
     // add more chromosomes one by one
-    for (int nchroms=2; nchroms<=sequences->get_nseqs(); nchroms++) {
+    for (int nchroms=2; nchroms<=sequences->get_num_seqs(); nchroms++) {
         // use first nchroms sequences
         Sequences sequences2(sequences, nchroms);
         int new_chrom = nchroms - 1;
@@ -329,13 +330,31 @@ void sample_arg_seq_region(const ArgModel *model, const Sequences *sequences,
 }
 
 
-/*
+State find_state_sub_tree_internal(
+    const LocalTree *full_tree, const LocalTree *partial_tree, int maxtime)
+{
+    if (partial_tree->nodes[partial_tree->root].age < maxtime) {
+        // fully specified tree
+        return State(-1, -1);
+    }
+
+    int subtree_root = partial_tree->nodes[partial_tree->root].child[0];
+    int sib = full_tree->get_sibling(subtree_root);
+    int parent = full_tree->nodes[subtree_root].parent;
+
+    return State(sib, full_tree->nodes[parent].age);
+}
+
+
 // resample an ARG only for a given region
 // all branches are possible to resample
 void resample_arg_all_region(
     const ArgModel *model, const Sequences *sequences, 
-    LocalTrees *trees, int region_start, int region_end)
+    LocalTrees *trees, int region_start, int region_end, int niters)
 {
+    const int maxtime = model->ntimes + 1;
+    const double recomb_preference = .7;
+
     assert(region_start > trees->start_coord);
     assert(region_end < trees->end_coord);
     assert(region_start < region_end);
@@ -349,28 +368,38 @@ void resample_arg_all_region(
     LocalTree *start_tree = trees->back().tree;
     LocalTree *end_tree = trees3->front().tree;
 
-    // TODO: write find_state_sub_tree for internal branch case
-    // determine start and end states from given trees
-    LocalTree *first_tree = trees->front().tree;
-    LocalTree *last_tree = trees->back().tree;
-    State start_state = find_state_sub_tree(
-        start_tree, full_seqids, first_tree, trees->seqids, new_chrom);
-    State end_state = find_state_sub_tree(
-        end_tree, full_seqids, last_tree, trees->seqids, new_chrom);
-    
-    
-    cond_sample_arg_thread_internal(model, sequences, trees2,
-                                    start_state, end_state);
+    // remove internal branch from trees2
+    // ramdomly choose a removal path weighted by recombinations
+    int *removal_path = new int [trees2->get_num_trees()];
+
+    for (int i=0; i<niters; i++) {
+        sample_arg_removal_path_recomb(trees2, recomb_preference, removal_path);
+        remove_arg_thread_path(trees2, removal_path, maxtime);
+
+        // determine start and end states from given trees
+        LocalTree *first_tree = trees2->front().tree;
+        LocalTree *last_tree = trees2->back().tree;
+        State start_state = find_state_sub_tree_internal(
+            start_tree, first_tree, maxtime);
+        State end_state = find_state_sub_tree_internal(
+            end_tree, last_tree, maxtime);
+
+        cond_sample_arg_thread_internal(model, sequences, trees2,
+                                        start_state, end_state);
+    }
     
     // rejoin trees
     append_local_trees(trees, trees2);
     append_local_trees(trees, trees3);
     
+    printf("clean up\n");
     // clean up
+    delete [] removal_path;
     delete trees2;
     delete trees3;
+
+    printf("done\n");
 }
-*/
 
 
 //=============================================================================
@@ -504,7 +533,6 @@ LocalTrees *arghmm_remax_arg(
 }
 
 
-// resample an ARG with gibbs
 LocalTrees *arghmm_resample_arg_region(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
@@ -518,6 +546,23 @@ LocalTrees *arghmm_resample_arg_region(
     
     return trees;
 }
+
+LocalTrees *arghmm_resample_arg_all_region(
+    LocalTrees *trees, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, 
+    int region_start, int region_end, int niters)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+
+    resample_arg_all_region(&model, &sequences, trees, 
+                            region_start, region_end, niters);
+    
+    return trees;
+}
+
 
 
 LocalTrees *arghmm_sample_arg_seq_gibbs(double *times, int ntimes,

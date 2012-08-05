@@ -189,8 +189,8 @@ inline void closeLogFile()
 inline FILE *getLogFile()
 { return g_logger.getLogFile(); }
 
-inline void setLogLevel(int level)
-{ return g_logger.setLogLevel(level); }
+//inline void setLogLevel(int level)
+//{ return g_logger.setLogLevel(level); }
 
 inline bool isLogLevel(int level)
 { return g_logger.isLogLevel(level);
@@ -205,8 +205,11 @@ void printError(const char *fmt, va_list ap);
 void printError(const char *fmt, ...);
 
 
+extern "C" {
 
+void setLogLevel(int level);
 
+} // extern "C"
 
 
 } // namespace arghmm

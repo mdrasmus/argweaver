@@ -95,5 +95,14 @@ void printError(const char *fmt, ...)
 }
 
 
+//=============================================================================
+// C interface
+
+extern "C" {
+
+void setLogLevel(int level)
+{ return g_logger.setLogLevel(level); }
+
+} // extern "C"
     
 } // namespace spidir

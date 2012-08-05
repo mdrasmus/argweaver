@@ -703,16 +703,16 @@ class Sample (unittest.TestCase):
         
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                                 refine=refine, verbose=True)
+                                 refine=refine, carg=True, verbose=True)
         util.toc()
-        print ilen(x for x in arg2 if x.event == "recomb")
+        #print ilen(x for x in arg2 if x.event == "recomb")
 
         util.tic("sample ARG region")
         arg2 = arghmm.resample_arg_region(arg2, seqs, region[0], region[1],
                                           rho=rho, mu=mu, times=times,
-                                          verbose=True)
+                                          refine=10, verbose=True)
         util.toc()
-        print ilen(x for x in arg2 if x.event == "recomb")
+        #print ilen(x for x in arg2 if x.event == "recomb")
         #arg2.write("test/data/sample_arg2_out.arg")
 
 
@@ -1597,14 +1597,13 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 12
+        k = 2
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=180000)
-        refine = 6*10; nremove = 1
-        #refine = 0;
+        climb = 0; refine = 2;
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
@@ -1632,15 +1631,15 @@ class Sample (unittest.TestCase):
                                          refine=0, carg=True)
                 arg2 = arghmm.resample_climb_arg(arg2,
                     seqs, rho=rho, mu=mu, times=times, popsizes=n,
-                    refine=200, recomb_pref=.9, carg=True)
+                    refine=climb, recomb_pref=.9, carg=True)
 
-                #arg2 = arghmm.resample_arg(arg2,
-                #    seqs, rho=rho, mu=mu, times=times, popsizes=n,
-                #    refine=40, carg=True)
-
-                arg2 = arghmm.resample_all_arg(arg2,
+                arg2 = arghmm.resample_arg(arg2,
                     seqs, rho=rho, mu=mu, times=times, popsizes=n,
-                    refine=200, carg=True)
+                    refine=refine, carg=True)
+
+                #arg2 = arghmm.resample_all_arg(arg2,
+                #    seqs, rho=rho, mu=mu, times=times, popsizes=n,
+                #    refine=refine, carg=True)
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,

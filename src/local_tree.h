@@ -321,6 +321,14 @@ public:
     }
 
 
+    // clear nodes
+    inline void clear()
+    {
+        nnodes = 0;
+        root = -1;
+    }
+    
+
     // Copy tree structure from another tree
     inline void copy(const LocalTree &other)
     {
@@ -456,7 +464,7 @@ public:
         clear();
     }
 
-    // iterator for the local trees
+    // iterators for the local trees
     typedef list<LocalTreeSpr>::iterator iterator;
     typedef list<LocalTreeSpr>::reverse_iterator reverse_iterator;
     typedef list<LocalTreeSpr>::const_iterator const_iterator;
@@ -489,11 +497,13 @@ public:
         return (nnodes + 1) / 2;
     }
 
+    // Returns sequence length
     inline int length() const
     {
         return end_coord - start_coord;
     }
 
+    // Returns number of local trees
     inline int get_num_trees() const
     {
         return trees.size();
@@ -513,12 +523,12 @@ public:
     // make trunk genealogy
     void make_trunk(int start, int end, int capacity=-1)
     {
-        nnodes = 1;
-        start_coord = start;
-        end_coord = end;
-
         clear();
 
+        start_coord = start;
+        end_coord = end;
+        nnodes = 1;
+        
         int ptree[] = {-1};
         int ages[] = {0};
         LocalTree *tree = new LocalTree(ptree, 1, ages, capacity);
@@ -535,12 +545,27 @@ public:
             seqids.push_back(i);
     }
 
+    /*
+    inline int get_seqid(int i) const {
+        return seqids[i];
+    }
+
+    inline const int* get_seqids() const {
+        return &seqids[0];
+    }
+
+    void remove_seq(int i) {        
+    }
+    */
+
 
     int start_coord;           // start coordinate of whole tree list
     int end_coord;             // end coordinate of whole tree list
     int nnodes;                // number of nodes in each tree
     list<LocalTreeSpr> trees;  // linked list of local trees
+
     vector<int> seqids;        // mapping from tree leaves to sequence ids
+    //vector<string> names;      // optional sequence names
 };
 
 
@@ -584,6 +609,21 @@ public:
     int *ncoals;     // number of coalescing points per time slice
 };
 
+
+//=============================================================================
+// tree functions
+
+void apply_spr(LocalTree *tree, const Spr &spr);
+double get_treelen(const LocalTree *tree, const double *times, int ntimes,
+                    bool use_basal=true);
+double get_treelen_internal(const LocalTree *tree, const double *times, 
+                            int ntimes);
+double get_treelen_branch(const LocalTree *tree, const double *times, 
+                          int ntimes, int node, int time, double treelen=-1.0, 
+                          bool use_basal=true);
+double get_basal_branch(const LocalTree *tree, const double *times, 
+                        int ntimes, int node, int time);
+
 //=============================================================================
 // trees functions
 
@@ -604,21 +644,8 @@ void uncompress_local_trees(LocalTrees *trees,
 void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping);
 void assert_uncompress_local_trees(LocalTrees *trees, 
                                    const SitesMapping *sites_mapping);
+int get_recoal_node(const LocalTree *tree, const Spr &spr, const int *mapping);
 
-
-//=============================================================================
-// tree functions
-
-void apply_spr(LocalTree *tree, const Spr &spr);
-double get_treelen(const LocalTree *tree, const double *times, int ntimes,
-                    bool use_basal=true);
-double get_treelen_internal(const LocalTree *tree, const double *times, 
-                            int ntimes);
-double get_treelen_branch(const LocalTree *tree, const double *times, 
-                          int ntimes, int node, int time, double treelen=-1.0, 
-                          bool use_basal=true);
-double get_basal_branch(const LocalTree *tree, const double *times, 
-                        int ntimes, int node, int time);
 
 inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node, 
                               int *mapping)
@@ -652,6 +679,12 @@ void write_local_trees(FILE *out, const LocalTrees *trees,
                        const Sequences &seqs, const double *times);
 bool write_local_trees(const char *filename, const LocalTrees *trees, 
                        const Sequences &seqs, const double *times);
+
+
+bool read_local_trees(FILE *infile, const double *times, int ntimes,
+                      LocalTrees *trees, vector<string> &seqnames);
+bool read_local_trees(const char *filename, const double *times, int ntimes,
+                      LocalTrees *trees, vector<string> &seqnames);
 
 
 //=============================================================================

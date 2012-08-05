@@ -13,7 +13,7 @@ namespace arghmm {
 //=============================================================================
 // input/output: FASTA
 
-Sequences *read_fasta(FILE *infile)
+bool read_fasta(FILE *infile, Sequences *seqs)
 {
     // store lines until they are ready to discard
     class Discard : public vector<char*> {
@@ -24,12 +24,13 @@ Sequences *read_fasta(FILE *infile)
             clear();
         }
     };
-
     
-    char *line;
     
-    Sequences *seqs = new Sequences();
+    // init sequences
+    seqs->clear();
     seqs->set_owned(true);
+
+    char *line;    
     string key;
     vector<char*> seq;
     Discard discard;
@@ -38,7 +39,7 @@ Sequences *read_fasta(FILE *infile)
         chomp(line);
         
         if (line[0] == '>') {
-            if (seq.size() > 0) {  
+            if (seq.size() > 0) {
                 // add new sequence
                 seqs->append(key, concat_strs(&seq[0], seq.size()));
                 seq.clear();
@@ -63,14 +64,14 @@ Sequences *read_fasta(FILE *infile)
     // set sequence length
     if (seqs->set_length() < 0) {
         printError("sequences are not the same length");
-        return NULL;
+        return false;
     }
     
-    return seqs;
+    return true;
 }
 
 
-Sequences *read_fasta(const char *filename)
+bool read_fasta(const char *filename, Sequences *seqs)
 {
     FILE *infile = NULL;    
     if ((infile = fopen(filename, "r")) == NULL) {
@@ -78,10 +79,10 @@ Sequences *read_fasta(const char *filename)
         return NULL;
     }
     
-    Sequences *seqs = read_fasta(infile);
+    bool result = read_fasta(infile, seqs);
     fclose(infile);
     
-    return seqs;
+    return result;
 }
 
 
@@ -103,7 +104,7 @@ bool write_fasta(const char *filename, Sequences *seqs)
 
 void write_fasta(FILE *stream, Sequences *seqs)
 {
-    for (int i=0; i<seqs->get_nseqs(); i++) {
+    for (int i=0; i<seqs->get_num_seqs(); i++) {
         fprintf(stream, ">%s\n", seqs->names[i].c_str());
         fprintf(stream, "%s\n", seqs->seqs[i]);
     }
@@ -115,12 +116,12 @@ void write_fasta(FILE *stream, Sequences *seqs)
 // input/output: sites file format
 
 
-Sites *read_sites(FILE *infile)
+bool read_sites(FILE *infile, Sites *sites)
 {
     const char *delim = "\t";
     char *line;
     
-    Sites *sites = new Sites();
+    sites->clear();
     bool error = false;
     
     // parse lines
@@ -138,8 +139,7 @@ Sites *read_sites(FILE *infile)
                        &sites->start_coord, &sites->end_coord) != 2) {
                 printError("bad RANGE format");
                 delete [] line;
-                delete sites;
-                return NULL;
+                return false;
             }
         } else {
             // parse a site line
@@ -149,8 +149,7 @@ Sites *read_sites(FILE *infile)
             if (sscanf(line, "%d\t", &position) != 1) {
                 printError("first column is not an integer (line %d)", lineno);
                 delete [] line;
-                delete sites;
-                return NULL;        
+                return false;
             }
             int i=0;
             for (; line[i] != '\t'; i++) {}
@@ -161,16 +160,14 @@ Sites *read_sites(FILE *infile)
                 printError("site %d is not within range [%d,%d)",
                            position, sites->start_coord, sites->end_coord);
                 delete [] line;
-                delete sites;
-                return NULL;
+                return false;
             }
 
             unsigned int len = strlen(&line[i]);
             if (len != sites->names.size()) {
                 printError("not enough bases given (line %d)", lineno);
                 delete [] line;
-                delete sites;
-                return NULL;
+                return false;
             }
 
             sites->append(position, &line[i], true);
@@ -179,12 +176,12 @@ Sites *read_sites(FILE *infile)
         delete [] line;
     }
     
-    return sites;
+    return true;
 }
 
 
 
-Sites *read_sites(const char *filename)
+bool read_sites(const char *filename, Sites *sites)
 {
     FILE *infile = NULL;    
     if ((infile = fopen(filename, "r")) == NULL) {
@@ -192,20 +189,23 @@ Sites *read_sites(const char *filename)
         return NULL;
     }
     
-    Sites *sites = read_sites(infile);
+    bool result = read_sites(infile, sites);
     fclose(infile);
     
-    return sites;
+    return result;
 }
 
 
-Sequences *make_sequences_from_sites(Sites *sites, char default_char)
+void make_sequences_from_sites(const Sites *sites, Sequences *sequences, 
+                               char default_char)
 {
     int nseqs = sites->names.size();
     int seqlen = sites->length();
     int start = sites->start_coord;
+    int nsites = sites->get_num_sites();
     
-    Sequences *sequences = new Sequences((char**) NULL, 0, seqlen);
+    //Sequences *sequences = new Sequences(seqlen);
+    sequences->clear();
     sequences->set_owned(true);
     
     for (int i=0; i<nseqs; i++) {
@@ -213,7 +213,8 @@ Sequences *make_sequences_from_sites(Sites *sites, char default_char)
         
         int col = 0;
         for (int j=0; j<seqlen; j++) {
-            if (start+j == sites->positions[col]) {
+            //printf(">> %d %d %d\n", start, j, col);
+            if (col < nsites && start+j == sites->positions[col]) {
                 // variant site
                 seq[j] = sites->cols[col++][i];
             } else {
@@ -223,8 +224,8 @@ Sequences *make_sequences_from_sites(Sites *sites, char default_char)
 
         sequences->append(sites->names[i], seq);
     }
-    
-    return sequences;
+
+    sequences->set_length();
 }
 
 
@@ -289,7 +290,7 @@ void compress_sites(Sites *sites, const SitesMapping *sites_mapping)
 bool check_sequences(Sequences *seqs)
 {
     return check_sequences(
-        seqs->get_nseqs(), seqs->length(), seqs->get_seqs()) &&
+        seqs->get_num_seqs(), seqs->length(), seqs->get_seqs()) &&
         check_seq_names(seqs);
 }
 
@@ -391,7 +392,7 @@ bool check_seq_name(const char *name)
 
 void resample_align(Sequences *aln, Sequences *aln2)
 {
-    assert(aln->get_nseqs() == aln2->get_nseqs());
+    assert(aln->get_num_seqs() == aln2->get_num_seqs());
     char **seqs = aln->get_seqs();
     char **seqs2 = aln2->get_seqs();
 
@@ -400,7 +401,7 @@ void resample_align(Sequences *aln, Sequences *aln2)
         int col = irand(aln->length());
         
         // copy column
-        for (int i=0; i<aln2->get_nseqs(); i++) {
+        for (int i=0; i<aln2->get_num_seqs(); i++) {
             seqs2[i][j] = seqs[i][col];
         }
     }

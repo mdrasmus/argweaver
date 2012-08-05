@@ -52,6 +52,9 @@ public:
 	config.add(new ConfigParam<int>
 		   ("-c", "--compress", "<compression>", &compress, 1,
                     "alignment compression factor (default=1)"));
+        config.add(new ConfigParam<string>
+                   ("-a", "--arg", "<SMC file>", &argfile, "",
+                    "initial ARG file (*.smc) for resampling (optional)"));
 
         // model parameters
 	config.add(new ConfigParamComment("Model parameters"));
@@ -79,6 +82,9 @@ public:
 	config.add(new ConfigParam<int>
 		   ("-n", "--iters", "<# of iterations>", &niters, 1000,
                     "(default=1000)"));
+        config.add(new ConfigParam<string>
+                   ("", "--region", "<start>-<end>", &region_str, "",
+                    "region to resample (optional)"));
 
         // help information
 	config.add(new ConfigParamComment("Information"));
@@ -126,6 +132,7 @@ public:
     string fastafile;
     string sitesfile;
     string out_prefix;
+    string argfile;
 
     // parameters
     double popsize;
@@ -138,6 +145,7 @@ public:
     // search
     int nclimb;
     int niters;
+    string region_str;
     
     // help/information
     int verbose;
@@ -148,6 +156,13 @@ public:
     FILE *stats_file;
 
 };
+
+
+
+bool parse_region(const char *region, int *start, int *end)
+{
+    return sscanf(region, "%d-%d", start, end) == 2;
+}
 
 
 //=============================================================================
@@ -167,7 +182,7 @@ void print_stats(FILE *stats_file, ArgModel *model, Sequences *sequences,
     double joint = prior + likelihood;
     int nrecombs = trees->get_num_trees() - 1;
 
-    int nseqs = sequences->get_nseqs();
+    int nseqs = sequences->get_num_seqs();
     char *seqs[nseqs];
     for (int i=0; i<nseqs; i++)
         seqs[i] = sequences->seqs[trees->seqids[i]];
@@ -296,48 +311,90 @@ int main(int argc, char **argv)
 
 
     // read sequences
-    if (c.fastafile == "" && c.sitesfile == "") {
-        printError("alignment file is required (--fasta or --sites)");
-        return 1;
-    }
-    
     Sequences *sequences = NULL;
     Sites *sites = NULL;
     SitesMapping *sites_mapping = NULL;
     if (c.fastafile != "") {
-        sequences = read_fasta(c.fastafile.c_str());
+        sequences = new Sequences();
+        if (!read_fasta(c.fastafile.c_str(), sequences)) {
+            delete sequences;
+            sequences = NULL;
+            printError("could not read fasta file");
+            return 1;
+        }
     }
     else if (c.sitesfile != "") {
-        sites = read_sites(c.sitesfile.c_str());
-        if (sites) {
+        sites = new Sites();
+        if (read_sites(c.sitesfile.c_str(), sites)) {
             if (c.compress > 1) {
                 sites_mapping = new SitesMapping();
                 find_compress_cols(sites, c.compress, sites_mapping);
                 compress_sites(sites, sites_mapping);
             }
             
-            sequences = make_sequences_from_sites(sites);
-        }
-    }
+            sequences = new Sequences();
+            make_sequences_from_sites(sites, sequences);
+        } else {
+            printError("could not read sites file");
+            delete sites;
+            sites = NULL;
+            return 1;
 
-    if (!sequences) {
-        printError("could not read alignment file");
+        }
+    } else {
+        printError("must specify sequences (use --fasta or --sites)");
         return 1;
     }
-    
-    // init ARG and sequences for correct range
+
+
+    // get coordinates
     int start = 0;
     int end = sequences->length();
     if (sites) {
         start = sites->start_coord;
         end = sites->end_coord;
     }
-    LocalTrees *trees = new LocalTrees(start, end);
+    
+    // setup init ARG
+    LocalTrees *trees = NULL;
+    
+
+    // init ARG from file
+    if (c.argfile != "") {
+        trees = new LocalTrees();
+        vector<string> seqnames;
+        if (!read_local_trees(c.argfile.c_str(), model.times, model.ntimes,
+                              trees, seqnames)) {
+            printError("could not read ARG");
+            return 1;
+        }
+
+        if (trees->start_coord != start || trees->end_coord != end) {
+            printError("trees range does not match sites");
+            return 1;
+        }
+
+        string out_argfile = c.out_prefix + SMC_SUFFIX;
+        write_local_trees(out_argfile.c_str(), trees, *sequences, model.times);
+        return 0;
+
+    } else {
+        trees = new LocalTrees(start, end);
+    }
+
+    // setup coordinates for sequences
     Sequences sequences2(sequences, -1, start + sequences->length(), -start);
-    
-    //for (unsigned int i=0; i<sequences2.names.size(); i++)
-    //    printf(">> %s\n", sequences2.names[i].c_str());
-    
+
+
+    // check for region sample
+    if (c.region_str != "") {
+        int start, end;
+        if (!parse_region(c.region_str.c_str(), &start, &end)) {
+            printError("region is not specified as 'start-end'");
+            return 1;
+        }
+    }
+
     // sample ARG
     sample_arg(&model, &sequences2, trees, sites_mapping, &c);
     
@@ -346,6 +403,8 @@ int main(int argc, char **argv)
     // clean up
     fclose(c.stats_file);
     
+    if (sites)
+        delete sites;
     if (sites_mapping)
         delete sites_mapping;
     delete trees;

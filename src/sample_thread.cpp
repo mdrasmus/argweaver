@@ -887,21 +887,27 @@ void cond_sample_arg_thread_internal(
     get_coal_states_internal(tree, model->ntimes, states);
     forward.new_block(trees->start_coord, trees->start_coord + 
                       trees->begin()->blocklen, states.size());
-    bool found = false;
-    for (unsigned int j=0; j<states.size(); j++) {
-        if (states[j] == start_state) {
-            fw[trees->start_coord][j] = 1.0;
-            found = true;
-        } else {
-            fw[trees->start_coord][j] = 0.0;
+
+    if (states.size() > 0) {
+        bool found = false;
+        for (unsigned int j=0; j<states.size(); j++) {
+            if (states[j] == start_state) {
+                fw[trees->start_coord][j] = 1.0;
+                found = true;
+            } else {
+                fw[trees->start_coord][j] = 0.0;
+            }
         }
+        assert(found);
+    } else {
+        // fully specified tree
+        fw[trees->start_coord][0] = 1.0;
     }
-    assert(found);    
     
     // compute forward table
     Timer time;
     arghmm_forward_alg_fast(trees, model, sequences, &matrix_iter, &forward,
-                            false, internal);
+                            true, internal);
     int nstates = get_num_coal_states_internal(
         trees->front().tree, model->ntimes);
     printTimerLog(time, LOG_LOW, 
@@ -912,15 +918,20 @@ void cond_sample_arg_thread_internal(
     matrix_iter.rbegin();
     tree = matrix_iter.get_tree_iter()->tree;
     get_coal_states_internal(tree, model->ntimes, states);
-    thread_path[trees->end_coord-1] = find_vector(states, end_state);
-    assert(thread_path[trees->end_coord-1] != -1); 
+    if (states.size() > 0) {
+        thread_path[trees->end_coord-1] = find_vector(states, end_state);
+        assert(thread_path[trees->end_coord-1] != -1); 
+    } else {
+        // fully specified tree
+        thread_path[trees->end_coord-1] = 0;
+    }
 
     // traceback
     time.start();
     ArgHmmMatrixIter matrix_iter2(model, NULL, trees);
     matrix_iter2.set_internal(internal);
     stochastic_traceback_fast(trees, model, &matrix_iter2, fw, thread_path,
-                              false, internal);
+                              true, internal);
     printTimerLog(time, LOG_LOW, 
                   "trace:                              ");
     assert(fw[trees->start_coord][thread_path[trees->start_coord]] == 1.0);
