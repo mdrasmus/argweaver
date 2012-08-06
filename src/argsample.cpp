@@ -85,6 +85,10 @@ public:
         config.add(new ConfigParam<string>
                    ("", "--region", "<start>-<end>", &region_str, "",
                     "region to resample (optional)"));
+        config.add(new ConfigParam<int>
+                   ("-x", "--randseed", "<random seed>", &randseed, 0,
+                    "seed for random number generator (default: time)"));
+
 
         // help information
 	config.add(new ConfigParamComment("Information"));
@@ -146,6 +150,8 @@ public:
     int nclimb;
     int niters;
     string region_str;
+    int region[2];
+    int randseed;
     
     // help/information
     int verbose;
@@ -164,6 +170,18 @@ bool parse_region(const char *region, int *start, int *end)
     return sscanf(region, "%d-%d", start, end) == 2;
 }
 
+//=============================================================================
+// logging
+
+void logProgCommands(int level, int argc, char **argv)
+{
+    printLog(level, "command:");
+    for (int i=0; i<argc; i++) {
+        printLog(level, " %s", argv[i]);
+    }
+    printLog(level, "\n");
+}
+
 
 //=============================================================================
 // statistics output
@@ -174,8 +192,8 @@ void print_stats_header(FILE *stats_file)
 }
 
 
-void print_stats(FILE *stats_file, ArgModel *model, Sequences *sequences, 
-                 LocalTrees *trees)
+void print_stats(FILE *stats_file, const ArgModel *model, 
+                 const Sequences *sequences, const LocalTrees *trees)
 {
     double prior = calc_arg_prior(model, trees);
     double likelihood = calc_arg_likelihood(model, sequences, trees);
@@ -205,15 +223,15 @@ void print_stats(FILE *stats_file, ArgModel *model, Sequences *sequences,
 //=============================================================================
 // sample output
 
-void log_local_trees(ArgModel *model, Sequences *sequences, LocalTrees *trees,
-                     SitesMapping* sites_mapping, Config *config, int iter)
+void log_local_trees(
+    const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
+    const SitesMapping* sites_mapping, const Config *config, int iter)
 {
     char iterstr[10];
     snprintf(iterstr, 10, ".%d", iter);
     string out_argfile = config->out_prefix + iterstr + SMC_SUFFIX;
-
-    //assert_uncompress_local_trees(trees, sites_mapping);
-
+    
+    // write local trees uncompressed
     if (sites_mapping)
         uncompress_local_trees(trees, sites_mapping);
     write_local_trees(out_argfile.c_str(), trees, sequences, model->times);    
@@ -223,21 +241,27 @@ void log_local_trees(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 
 
 //=============================================================================
-// sampling method
+// sampling methods
 
-void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
-                SitesMapping* sites_mapping, Config *config)
+// build initial arg by sequential sampling
+void seq_sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
+                    SitesMapping* sites_mapping, Config *config)
 {
+    if (trees->get_num_leaves() < sequences->get_num_seqs()) {
+        printLog(LOG_LOW, "Sequentially Sample Initial ARG (%d sequences)\n",
+                 sequences->get_num_seqs());
+        printLog(LOG_LOW, "------------------------------------------------\n");
+        sample_arg_seq(model, sequences, trees);
+        print_stats(config->stats_file, model, sequences, trees);
+    }
+}
 
-    // build initial arg by sequential sampling
-    print_stats_header(config->stats_file);
-    printLog(LOG_LOW, "sequentially sample initial ARG\n");
-    sample_arg_seq(model, sequences, trees);
-    printLog(LOG_LOW, "\n");
-    print_stats(config->stats_file, model, sequences, trees);
-    
 
-    // climb sampling
+void climb_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
+               SitesMapping* sites_mapping, Config *config)
+{
+    printLog(LOG_LOW, "Climb Search (%d iterations)\n", config->nclimb);
+    printLog(LOG_LOW, "-----------------------------\n");
     double recomb_preference = .9;
     for (int i=0; i<config->nclimb; i++) {
         printLog(LOG_LOW, "climb %d\n", i+1);
@@ -245,21 +269,15 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         print_stats(config->stats_file, model, sequences, trees);
     }
     printLog(LOG_LOW, "\n");
+}
 
-    /*
-    // resample leaves
-    for (int i=0; i<config->niters; i++) {
-        printLog(LOG_LOW, "sample leaves %d\n", i+1);
-        resample_arg(model, sequences, trees);
 
-        // logging
-        print_log_iter(config->stats_file, model, sequences, trees);
-        log_local_trees(model, sequences, trees, sites_mapping, config, i);
-    }
-    printLog(LOG_LOW, "\n");
-    */
-
-    // resample all branches
+void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
+                      SitesMapping* sites_mapping, Config *config)
+{
+    printLog(LOG_LOW, "Resample All Branches (%d iterations)\n", 
+             config->niters);
+    printLog(LOG_LOW, "--------------------------------------\n");
     for (int i=0; i<config->niters; i++) {
         printLog(LOG_LOW, "sample %d\n", i+1);
         resample_arg_all(model, sequences, trees);
@@ -269,6 +287,36 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         log_local_trees(model, sequences, trees, sites_mapping, config, i);
     }
     printLog(LOG_LOW, "\n");
+}
+
+
+void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
+                SitesMapping* sites_mapping, Config *config)
+{
+    print_stats_header(config->stats_file);
+
+    // build initial arg by sequential sampling
+    seq_sample_arg(model, sequences, trees, sites_mapping, config);
+    
+    if (config->region[0] != -1) {
+        // region sampling
+        printLog(LOG_LOW, "Resample Region (%d-%d, %d iterations)\n",
+                 config->region[0], config->region[1], config->niters);
+        printLog(LOG_LOW, "--------------------------------------------\n");
+        resample_arg_all_region(model, sequences, trees, 
+                                config->region[0], config->region[1], 
+                                config->niters);
+
+        // logging
+        print_stats(config->stats_file, model, sequences, trees);
+        log_local_trees(model, sequences, trees, sites_mapping, config, 0);
+        
+    } else{
+        // climb sampling
+        climb_arg(model, sequences, trees, sites_mapping, config);    
+        // resample all branches
+        resample_arg_all(model, sequences, trees, sites_mapping, config);
+    }
     
     
     // final stats
@@ -294,14 +342,22 @@ int main(int argc, char **argv)
     if (!(c.stats_file = fopen(stats_filename.c_str(), "w"))) {
         printError("could not open stats file '%s'", stats_filename.c_str());
         return 1;
-    }
+    }    
     */
+    logProgCommands(LOG_LOW, argc, argv);
 
+    // init stats file
     string stats_filename = c.out_prefix + STATS_SUFFIX;
     if (!(c.stats_file = fopen(stats_filename.c_str(), "w"))) {
         printError("could not open stats file '%s'", stats_filename.c_str());
         return 1;
     }
+
+    // init random number generator
+    if (c.randseed == 0)
+        c.randseed = time(NULL);
+    srand(c.randseed);
+    printLog(LOG_LOW, "random seed: %d\n\n", c.randseed);
 
 
     // setup model
@@ -346,6 +402,9 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    printLog(LOG_LOW, "read input sequences (nseqs=%d, length=%d)\n",
+             sequences->get_num_seqs(), sequences->length());
+
 
     // get coordinates
     int start = 0;
@@ -357,10 +416,9 @@ int main(int argc, char **argv)
     
     // setup init ARG
     LocalTrees *trees = NULL;
-    
-
-    // init ARG from file
     if (c.argfile != "") {
+        // init ARG from file
+        
         trees = new LocalTrees();
         vector<string> seqnames;
         if (!read_local_trees(c.argfile.c_str(), model.times, model.ntimes,
@@ -369,33 +427,44 @@ int main(int argc, char **argv)
             return 1;
         }
 
+        // may need to adjust start and end
+        // check ARG matches sites/sequences
         if (trees->start_coord != start || trees->end_coord != end) {
-            printError("trees range does not match sites");
+            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d)", trees->start_coord, trees->end_coord, start, end);
             return 1;
         }
 
-        string out_argfile = c.out_prefix + SMC_SUFFIX;
-        write_local_trees(out_argfile.c_str(), trees, *sequences, model.times);
-        return 0;
+        if (!trees->set_seqids(seqnames, sequences->names)) {
+            printError("input ARG's sequence names do not match input sequences");
+            return 1;
+        }
+        
+        printLog(LOG_LOW, "read input ARG (nseqs=%d, start=%d, end=%d)\n",
+                 trees->start_coord, trees->end_coord, trees->get_num_leaves());
 
     } else {
+        // create new init ARG
         trees = new LocalTrees(start, end);
     }
-
+    
+    
     // setup coordinates for sequences
     Sequences sequences2(sequences, -1, start + sequences->length(), -start);
 
 
     // check for region sample
     if (c.region_str != "") {
-        int start, end;
-        if (!parse_region(c.region_str.c_str(), &start, &end)) {
+        if (!parse_region(c.region_str.c_str(), &c.region[0], &c.region[1])) {
             printError("region is not specified as 'start-end'");
             return 1;
         }
+    } else {
+        c.region[0] = -1;
+        c.region[1] = -1;
     }
 
     // sample ARG
+    printLog(LOG_LOW, "\n");
     sample_arg(&model, &sequences2, trees, sites_mapping, &c);
     
 

@@ -747,9 +747,9 @@ void get_all_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
 
 
 // sample a removal path forward along an ARG
-void sample_arg_removal_path_forward(LocalTrees *trees, LocalTrees::iterator it,
-                                     int node, int *path, int i, 
-                                     double prob_switch=.5)
+void sample_arg_removal_path_forward(
+    const LocalTrees *trees, LocalTrees::const_iterator it,
+    int node, int *path, int i, double prob_switch=.5)
 {
     path[i++] = node;
     LocalTree *last_tree = NULL;
@@ -759,8 +759,8 @@ void sample_arg_removal_path_forward(LocalTrees *trees, LocalTrees::iterator it,
 
         if (last_tree) {
             int next_nodes[2];
-            Spr *spr = &it->spr;
-            int *mapping = it->mapping;
+            const Spr *spr = &it->spr;
+            const int *mapping = it->mapping;
             get_next_removal_nodes(last_tree, tree, *spr, mapping,
                                    path[i-1], next_nodes);
             int j;
@@ -783,14 +783,14 @@ void sample_arg_removal_path_forward(LocalTrees *trees, LocalTrees::iterator it,
 
 // sample a removal path backward along an ARG
 void sample_arg_removal_path_backward(
-    LocalTrees *trees, LocalTrees::iterator it, int node, int *path, int i,
-    double prob_switch=.5)
+    const LocalTrees *trees, LocalTrees::const_iterator it, 
+    int node, int *path, int i, double prob_switch=.5)
 {
     path[i--] = node;
     
-    LocalTree *tree2 = it->tree;
-    Spr *spr2 = &it->spr;
-    int *mapping2 = it->mapping;
+    const LocalTree *tree2 = it->tree;
+    const Spr *spr2 = &it->spr;
+    const int *mapping2 = it->mapping;
     --it;
 
     for (; it != trees->end(); --it) {
@@ -816,11 +816,11 @@ void sample_arg_removal_path_backward(
 
 // sample a removal path that goes through a particular node and position
 // in the ARG
-void sample_arg_removal_path(LocalTrees *trees, int node, int pos, int *path,
-                             double prob_switch)
+void sample_arg_removal_path(const LocalTrees *trees, int node, int pos, 
+                             int *path, double prob_switch)
 {
     // search for block with pos
-    LocalTrees::iterator it = trees->begin();
+    LocalTrees::const_iterator it = trees->begin();
     int end = trees->start_coord;
     int i = 0;
     for (; it != trees->end(); ++it, i++) {
@@ -837,29 +837,31 @@ void sample_arg_removal_path(LocalTrees *trees, int node, int pos, int *path,
 
 
 // sample a removal path that starts at a particular node in the ARG
-void sample_arg_removal_path(LocalTrees *trees, int node, int *path)
+void sample_arg_removal_path(const LocalTrees *trees, int node, int *path)
 {
     // search for block with pos
-    LocalTrees::iterator it = trees->begin();
+    LocalTrees::const_iterator it = trees->begin();
     sample_arg_removal_path_forward(trees, it, node, path, 0);
 }
 
 
 // sample a removal path that only contains leaves
 // TODO: this could be simplified, calculating leaf path are easy
-void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path)
+void sample_arg_removal_leaf_path(const LocalTrees *trees, int node, int *path)
 {
     int i = 0;
     path[i++] = node;
     LocalTree *last_tree = NULL;
 
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
+    for (LocalTrees::const_iterator it=trees->begin(); 
+         it != trees->end(); ++it) 
+    {
         LocalTree *tree = it->tree;
 
         if (last_tree) {
             int next_nodes[2];
-            Spr *spr = &it->spr;
-            int *mapping = it->mapping;
+            const Spr *spr = &it->spr;
+            const int *mapping = it->mapping;
             get_next_removal_nodes(last_tree, tree, *spr, mapping,
                                    path[i-1], next_nodes);
             path[i++] = next_nodes[0];
@@ -877,8 +879,8 @@ void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path)
 
 
 // sample a removal path that perfers recombination baring branches
-void sample_arg_removal_path_recomb(LocalTrees *trees, double recomb_preference,
-                                    int *path)
+void sample_arg_removal_path_recomb(
+    const LocalTrees *trees, double recomb_preference, int *path)
 {
     const int ntrees = trees->get_num_trees();
     const int nnodes = trees->nnodes;
@@ -894,19 +896,22 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, double recomb_preference,
     fill(forward[0], forward[0] + nnodes, 1.0 / nnodes);
 
     // compute forward table
-    LocalTrees::iterator it=trees->begin();
-    LocalTree *last_tree = it->tree;
+    LocalTrees::const_iterator it= trees->begin();
+    LocalTree const *last_tree = it->tree;
     int next_nodes[nnodes][2];
     ++it;
     for (int i=1; i<ntrees; i++, ++it) {
-        LocalTree *tree = it->tree;
-        int *mapping = it->mapping;
+        LocalTree const *tree = it->tree;
+        const int *mapping = it->mapping;
+        next_row *prev_nodes = backptrs[i];
+
+        // get next and previous transitions
         get_all_next_removal_nodes(last_tree, tree, it->spr, mapping,
                                    next_nodes);
         get_all_prev_removal_nodes(last_tree, tree, it->spr, mapping,
-                                   backptrs[i]);
+                                   prev_nodes);
 
-        next_row *prev_nodes = backptrs[i];
+        // assert transitions
         for (int j=0; j<nnodes; j++) {
             int k = next_nodes[j][0];
             assert(prev_nodes[k][0] == j || prev_nodes[k][1] == j);
@@ -916,13 +921,13 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, double recomb_preference,
         }
 
         // get next spr
-        LocalTrees::iterator it2 = it;
+        LocalTrees::const_iterator it2 = it;
         it2++;
-        Spr &spr2 = it->spr;
+        const Spr &spr2 = it->spr;
         
         // calc transition probs
         for (int j=0; j<nnodes; j++)
-            trans[i][j] = (next_nodes[j][1] != -1 ? .5 : 1.0);
+            trans[i-1][j] = (next_nodes[j][1] != -1 ? .5 : 1.0);
 
         // calc forward column
         double norm = 0.0;
@@ -932,7 +937,7 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, double recomb_preference,
                 int k = backptrs[i][j][ki];
                 if (k == -1)
                     continue;
-                sum += trans[i][j] * forward[i-1][k];
+                sum += trans[i-1][j] * forward[i-1][k];
             }
             
             double emit = ((!spr2.is_null() && spr2.recomb_node == j) ?
@@ -956,6 +961,7 @@ void sample_arg_removal_path_recomb(LocalTrees *trees, double recomb_preference,
     // choose last branch
     int i = ntrees-1;
     path[i] = sample(forward[i], nnodes);
+    //if (ntrees == 5) assert(false);
 
     // stochastic traceback
     int j = path[i];
@@ -1112,7 +1118,7 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
 
 
 // Add a branch to a partial ARG
-void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path, 
+void add_arg_thread_path(LocalTrees *trees, int ntimes, const int *thread_path, 
                          vector<int> &recomb_pos, vector<NodePoint> &recombs)
 {
     States states;
@@ -1297,7 +1303,7 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
     }
 
     
-    int i=0;
+    int i = 0;
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, i++) 
     {

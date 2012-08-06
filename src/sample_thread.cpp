@@ -308,7 +308,7 @@ void arghmm_forward_block(const LocalTree *tree, const ArgModel *model,
         ages1[i] = max(nodes[i].age, minage);
         indexes[i] = state_lookup.lookup(i, ages1[i]);
         if (internal)
-            ages2[i] = (i == maintree_root) ? 
+            ages2[i] = (i == maintree_root || i == tree->root) ? 
                 maxtime : nodes[nodes[i].parent].age;
         else
             ages2[i] = (i == tree->root) ? maxtime : nodes[nodes[i].parent].age;
@@ -436,10 +436,11 @@ void arghmm_forward_alg_fast(const LocalTrees *trees, const ArgModel *model,
         matrix_iter->get_matrices(&matrices);
         int pos = matrix_iter->get_position();
         LocalTree *tree = it->tree;
-
+        
         // allocate the forward table
         if (pos > trees->start_coord || !prior_given)
-            forward->new_block(pos, pos+matrices.blocklen, matrices.nstates2);
+            forward->new_block(pos, pos+matrices.blocklen, 
+                               max(matrices.nstates2, 1));
         
         if (internal)
             get_coal_states_internal(it->tree, model->ntimes, states);
@@ -886,7 +887,7 @@ void cond_sample_arg_thread_internal(
     tree = matrix_iter.get_tree_iter()->tree;
     get_coal_states_internal(tree, model->ntimes, states);
     forward.new_block(trees->start_coord, trees->start_coord + 
-                      trees->begin()->blocklen, states.size());
+                      trees->begin()->blocklen, max((int) states.size(), 1));
 
     if (states.size() > 0) {
         bool found = false;

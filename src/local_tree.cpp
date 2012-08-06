@@ -471,7 +471,9 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
     }
     trees->end_coord = pos;
 
-    // modify first tree of trees2 
+    // modify first tree of trees2
+    if (it2->mapping)
+        delete [] it2->mapping;
     it2->mapping = NULL;
     it2->spr.set_null();
     it2->blocklen -= pos - it_start;
@@ -479,7 +481,7 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
 
     assert_trees(trees);
     assert_trees(trees2);
-
+    
     return trees2;
 }
 
@@ -1257,9 +1259,7 @@ bool read_local_trees(FILE *infile, const double *times, int ntimes,
     // set trees info
     if (trees->get_num_trees() > 0) {
         trees->nnodes = trees->front().tree->nnodes;
-        // TODO: set seqids correctly
-        for (int i=0; i<trees->nnodes; i++)
-            trees->seqids.push_back(i);
+        trees->set_default_seqids();
     }
 
     assert_trees(trees);

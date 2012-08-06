@@ -349,7 +349,7 @@ public:
             char *subseqs[nleaves];
             for (int i=0; i<nleaves; i++)
                 subseqs[i] = &seqs->seqs[trees->seqids[i]][pos];
-            matrices->emit = new_matrix<double>(blocklen, nstates);
+            matrices->emit = new_matrix<double>(blocklen, max(nstates, 1));
             calc_emissions_internal(*states, tree, subseqs, nleaves, 
                                     blocklen, model, matrices->emit);
         } else {
@@ -379,11 +379,12 @@ public:
                 matrices->transmat_switch);
 
             if (calc_full) {
+                assert(false);
                 // TODO: need to make a internal branch version
-                matrices->transprobs_switch = new_matrix<double>(
-                    matrices->nstates1, matrices->nstates2);
-                get_transition_probs_switch(matrices->transmat_switch,
-                                            matrices->transprobs_switch);
+                //matrices->transprobs_switch = new_matrix<double>(
+                //    matrices->nstates1, matrices->nstates2);
+                //get_transition_probs_switch(matrices->transmat_switch,
+                //                            matrices->transprobs_switch);
             } else {
                 matrices->transprobs_switch = NULL;
             }
@@ -398,10 +399,11 @@ public:
                                        matrices->transmat);
         
         if (calc_full) {
+            assert(false);
             // TODO: need to make a internal branch version
-            matrices->transprobs = new_matrix<double>(nstates, nstates);
-            get_transition_probs(tree, model, *states, &lineages,
-                matrices->transmat, matrices->transprobs);
+            //matrices->transprobs = new_matrix<double>(nstates, nstates);
+            //get_transition_probs(tree, model, *states, &lineages,
+            //    matrices->transmat, matrices->transprobs);
         } else {
             matrices->transprobs = NULL;
         }

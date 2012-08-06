@@ -65,21 +65,9 @@ public:
         return seqlen;
     }
 
-    inline int set_length()
+    inline void set_length(int _seqlen)
     {
-        seqlen = -1;
-        for (unsigned int i=0; i<seqs.size(); i++) {
-            int len = strlen(seqs[0]);
-            if (seqlen == -1)
-                seqlen = len;
-            else if (seqlen != len) {
-                // error, sequences are not all the same length
-                seqlen = -1;
-                break;
-            }
-        }
-
-        return seqlen;
+        seqlen = _seqlen;
     }
 
     inline char **get_seqs()
@@ -108,17 +96,21 @@ public:
             names.push_back(_names[i]);
         }
     }
-
-    void append(char *seq)
+    
+    bool append(string name, char *seq, int new_seqlen=-1)
     {
-        seqs.push_back(seq);
-        names.push_back("");
-    }
-
-    void append(string name, char *seq)
-    {
+        // check sequence length
+        if (new_seqlen > 0) {
+            if (seqs.size() > 0) {
+                if (new_seqlen != seqlen)
+                    return false;
+            } else 
+                seqlen = new_seqlen;
+        }
+        
         seqs.push_back(seq);
         names.push_back(name);
+        return true;
     }
 
     void clear()

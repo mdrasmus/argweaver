@@ -41,20 +41,23 @@ void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
                             const Spr &spr2, const int *mapping2,
                             int node, int prev_nodes[2]);
 
+// sample removal paths
+void sample_arg_removal_path(const LocalTrees *trees, int node, int *path);
+void sample_arg_removal_path(
+    const LocalTrees *trees, int node, int pos, int *path, 
+    double prob_switch=.1);
+void sample_arg_removal_leaf_path(const LocalTrees *trees, int node, int *path);
+
+void sample_arg_removal_path_recomb(
+    const LocalTrees *trees, double recomb_preference, int *path);
 
 // Add a branch to a partial ARG
-void add_arg_thread_path(LocalTrees *trees, int ntimes, int *thread_path, 
+void add_arg_thread_path(LocalTrees *trees, int ntimes, const int *thread_path, 
                          vector<int> &recomb_pos, vector<NodePoint> &recombs);
 // Removes a thread path from an ARG and returns a partial ARG
 void remove_arg_thread_path(LocalTrees *trees, const int *removal_path, 
                             int maxtime, int *original_thread=NULL);
-void sample_arg_removal_path(LocalTrees *trees, int node, int *path);
-void sample_arg_removal_path(LocalTrees *trees, int node, int pos, int *path,
-                             double prob_switch=.1);
-void sample_arg_removal_leaf_path(LocalTrees *trees, int node, int *path);
 
-void sample_arg_removal_path_recomb(LocalTrees *trees, double recomb_preference,
-                                    int *path);
 
 
 

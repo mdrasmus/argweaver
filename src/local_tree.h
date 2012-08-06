@@ -545,19 +545,36 @@ public:
             seqids.push_back(i);
     }
 
-    /*
-    inline int get_seqid(int i) const {
-        return seqids[i];
-    }
 
-    inline const int* get_seqids() const {
-        return &seqids[0];
-    }
+    bool set_seqids(const vector<string> &names, 
+                    const vector<string> &new_order)
+    {
+        const int nnames = names.size();
+        
+        // ensure names are the same number as seqids
+        if (names.size() != seqids.size())
+            return false;
 
-    void remove_seq(int i) {        
-    }
-    */
+        int new_seqids[nnames];
+        for (int i=0; i<nnames; i++) {
+            new_seqids[i] = -1;
+            for (unsigned int j=0; j<new_order.size(); j++) {
+                if (names[i] == new_order[j]) {
+                    new_seqids[i] = j;
+                    break;
+                }
+            }
+            if (new_seqids[i] == -1)
+                // name was not found
+                return false;
+        }
 
+        // set seqids
+        for (int i=0; i<nnames; i++)
+            seqids[i] = new_seqids[i];
+
+        return true;
+    }
 
     int start_coord;           // start coordinate of whole tree list
     int end_coord;             // end coordinate of whole tree list
@@ -565,7 +582,6 @@ public:
     list<LocalTreeSpr> trees;  // linked list of local trees
 
     vector<int> seqids;        // mapping from tree leaves to sequence ids
-    //vector<string> names;      // optional sequence names
 };
 
 

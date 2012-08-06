@@ -1059,12 +1059,12 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 40
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho 
         mu = 2.5e-8 * 20
-        length = int(400e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         write = False
         #nremove = 1; refine = 1
@@ -1108,7 +1108,7 @@ class Sample (unittest.TestCase):
             #arg2 = arghmm.resample_all_arg(arg2, seqs, rho=rho, mu=mu,
             #                               times=times, refine=1, carg=True)
             arg2 = arghmm.resample_climb_arg(arg2, seqs, rho=rho, mu=mu,
-                                             times=times, refine=1, nclimb=10,
+                                             times=times, refine=1,
                                              carg=True)
             util.toc()
             #nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
@@ -1121,7 +1121,7 @@ class Sample (unittest.TestCase):
                                  arg2)
 
         
-        p = plot(y)
+        p = plot(y, style='lines')
         p.plot([0, len(y)], [nrecombs, nrecombs], style="lines")
         
         pause()
@@ -1597,13 +1597,13 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 2
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=180000)
-        climb = 0; refine = 2;
+        climb = 200; refine = 0;
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
@@ -1633,13 +1633,13 @@ class Sample (unittest.TestCase):
                     seqs, rho=rho, mu=mu, times=times, popsizes=n,
                     refine=climb, recomb_pref=.9, carg=True)
 
-                arg2 = arghmm.resample_arg(arg2,
-                    seqs, rho=rho, mu=mu, times=times, popsizes=n,
-                    refine=refine, carg=True)
-
-                #arg2 = arghmm.resample_all_arg(arg2,
+                #arg2 = arghmm.resample_arg(arg2,
                 #    seqs, rho=rho, mu=mu, times=times, popsizes=n,
                 #    refine=refine, carg=True)
+
+                arg2 = arghmm.resample_all_arg(arg2,
+                    seqs, rho=rho, mu=mu, times=times, popsizes=n,
+                    refine=refine, carg=True)
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
@@ -1895,7 +1895,7 @@ class Sample (unittest.TestCase):
         y = []
         
         util.tic("sample ARG")
-        core_seqs = seqs.get(seqs.keys()[:6])
+        #core_seqs = seqs.get(seqs.keys()[:6])
 
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                  popsizes=n, refine=0, carg=True)

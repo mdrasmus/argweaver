@@ -18,6 +18,7 @@ bool read_fasta(FILE *infile, Sequences *seqs)
     // store lines until they are ready to discard
     class Discard : public vector<char*> {
     public:
+        ~Discard() { clean(); }
         void clean() {
             for (unsigned int i=0; i<size(); i++)
                 delete [] at(i);
@@ -39,9 +40,18 @@ bool read_fasta(FILE *infile, Sequences *seqs)
         chomp(line);
         
         if (line[0] == '>') {
+            // parse key line
+
             if (seq.size() > 0) {
                 // add new sequence
-                seqs->append(key, concat_strs(&seq[0], seq.size()));
+                char *full_seq = concat_strs(&seq[0], seq.size());
+                int seqlen2 = strlen(full_seq);
+                if (!seqs->append(key, full_seq, seqlen2)) {
+                    printError("sequences are not the same length: %d != %d",
+                               seqs->length(), seqlen2);
+                    delete [] full_seq;
+                    return false;
+                }
                 seq.clear();
                 discard.clean();
             }
@@ -50,6 +60,8 @@ bool read_fasta(FILE *infile, Sequences *seqs)
             key = string(&line[1]);
             delete [] line;
         } else {
+            // parse sequence line
+
             seq.push_back(trim(line));
             discard.push_back(line);
         }
@@ -57,15 +69,19 @@ bool read_fasta(FILE *infile, Sequences *seqs)
     
     // add last sequence
     if (seq.size() > 0) {
-        seqs->append(concat_strs(&seq[0], seq.size()));
+        char *full_seq = concat_strs(&seq[0], seq.size());
+        int seqlen2 = strlen(full_seq);
+        if (!seqs->append(key, full_seq, seqlen2)) {
+            printError("sequences are not the same length: %d != %d",
+                       seqs->length(), seqlen2);
+            delete [] full_seq;
+            return false;
+        }
         discard.clean();
     }
 
     // set sequence length
-    if (seqs->set_length() < 0) {
-        printError("sequences are not the same length");
-        return false;
-    }
+    //seqs->set_length(seqlen);
     
     return true;
 }
@@ -225,7 +241,7 @@ void make_sequences_from_sites(const Sites *sites, Sequences *sequences,
         sequences->append(sites->names[i], seq);
     }
 
-    sequences->set_length();
+    sequences->set_length(seqlen);
 }
 
 

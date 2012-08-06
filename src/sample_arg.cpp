@@ -368,11 +368,12 @@ void resample_arg_all_region(
     LocalTree *start_tree = trees->back().tree;
     LocalTree *end_tree = trees3->front().tree;
 
-    // remove internal branch from trees2
-    // ramdomly choose a removal path weighted by recombinations
+    // perform several iterations of resampling
     int *removal_path = new int [trees2->get_num_trees()];
-
     for (int i=0; i<niters; i++) {
+        // remove internal branch from trees2
+        // ramdomly choose a removal path weighted by recombinations
+
         sample_arg_removal_path_recomb(trees2, recomb_preference, removal_path);
         remove_arg_thread_path(trees2, removal_path, maxtime);
 
@@ -386,19 +387,18 @@ void resample_arg_all_region(
 
         cond_sample_arg_thread_internal(model, sequences, trees2,
                                         start_state, end_state);
+
+        assert_trees(trees2);
     }
     
     // rejoin trees
     append_local_trees(trees, trees2);
     append_local_trees(trees, trees3);
     
-    printf("clean up\n");
     // clean up
     delete [] removal_path;
     delete trees2;
     delete trees3;
-
-    printf("done\n");
 }
 
 
