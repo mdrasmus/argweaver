@@ -656,7 +656,7 @@ def read_sites(filename):
     header = reader.next()
 
     sites = Sites(names=header["names"], chrom=header["chrom"],
-                  region=header["range"])
+                  region=header["region"])
 
     for pos, col in reader:
         sites.append(pos, col)
