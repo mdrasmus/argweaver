@@ -544,16 +544,17 @@ def compress_align(seqs, compress):
 # sites
 
 class Sites (object):
-    def __init__(self, names=None, range=None):
+    def __init__(self, names=None, chrom="chr", region=None):
         if names:
             self.names = names
         else:
             self.names = []
 
-        if range:
-            self.range = range
+        self.chrom = chrom
+        if region:
+            self.region = region
         else:
-            self.range = [0, 0]
+            self.region = [0, 0]
         
         self.positions = []
         self._cols = {}
@@ -564,7 +565,7 @@ class Sites (object):
         self._cols[pos] = col
 
     def length(self):
-        return self.range[1] - self.range[0]
+        return self.region[1] - self.region[0]
 
     def nseqs(self):
         return len(self._cols[self.positions[0]])
@@ -626,8 +627,14 @@ def iter_sites(filename):
         if line.startswith("NAMES"):
             header["names"] = line.split("\t")[1:]
 
+        elif line.startswith("REGION"):
+            tokens = line.split("\t")
+            header["chrom"] = tokens[1]
+            header["region"] = map(int, tokens[2:])
+
         elif line.startswith("RANGE"):
-            header["range"] = map(int, line.split("\t")[1:])
+            raise Exception("deprecated RANGE line, use REGION instead")
+
 
     yield header
 
@@ -648,7 +655,8 @@ def read_sites(filename):
     reader = iter_sites(filename)
     header = reader.next()
 
-    sites = Sites(names=header["names"], range=header["range"])
+    sites = Sites(names=header["names"], chrom=header["chrom"],
+                  region=header["range"])
 
     for pos, col in reader:
         sites.append(pos, col)
@@ -661,7 +669,7 @@ def write_sites(filename, sites):
     out = util.open_stream(filename, "w")
 
     util.print_row("NAMES", *sites.names, out=out)
-    util.print_row("RANGE", *sites.range, out=out)
+    util.print_row("REGION", sites.chrom, *sites.region, out=out)
 
     for pos, col in sites:
         util.print_row(pos, col, out=out)
@@ -669,17 +677,19 @@ def write_sites(filename, sites):
     out.close()
 
 
-def seqs2sites(seqs, range=None):
+def seqs2sites(seqs, chrom=None, region=None, start=None):
 
-    if range is None:
-        range = [0, seqs.alignlen()]
+    if start is None:
+        start = 0
+    if region is None:
+        region = [start, start + seqs.alignlen()]
 
-    sites = Sites(names=seqs.keys(), range=range)
+    sites = Sites(names=seqs.keys(), chrom=chrom, region=region)
 
     for i in xrange(0, seqs.alignlen()):
         if is_variant(seqs, i):
             col = "".join(seqs[name][i] for name in seqs.names)
-            sites.append(i, col)
+            sites.append(start + i, col)
 
     return sites
 
@@ -696,7 +706,7 @@ def sites2seqs(sites, default_char="A"):
     # fill in sites
     for pos in sites.positions:
         for i, c in enumerate(sites[pos]):
-            seqs2[i][pos - sites.range[0]] = c
+            seqs2[i][pos - sites.region[0]] = c
 
     # make seqs dict
     seqs = fasta.FastaDict()
@@ -720,10 +730,19 @@ def iter_smc_file(filename, parse_trees=False):
         
         if tokens[0] == "NAMES":
             yield {"tag": "NAMES", "names": tokens[1:]}
+
+        elif tokens[0] == "REGION":
+            yield {"tag": "REGION",
+                   "chrom": tokens[1],
+                   "start": int(tokens[2]),
+                   "end": int(tokens[3])}
         
+        #elif tokens[0] == "RANGE":
+        #    yield {"tag": "RANGE",
+        #           "start": int(tokens[1]), "end": int(tokens[2])}
+
         elif tokens[0] == "RANGE":
-            yield {"tag": "RANGE",
-                   "start": int(tokens[1]), "end": int(tokens[2])}
+            raise Exception("deprecated RANGE line, use REGION instead")
             
         elif tokens[0] == "TREE":
             tree = tokens[3]
@@ -758,8 +777,9 @@ def write_smc(filename, smc):
         if item["tag"] == "NAMES":
             util.print_row("NAMES", *item["names"], out=out)
         
-        elif item["tag"] == "RANGE":
-            util.print_row("NAMES", item["start"], item["end"], out=out)
+        elif item["tag"] == "REGION":
+            util.print_row("REGION",
+                           item["chrom"], item["start"], item["end"], out=out)
             
         elif item["tag"] == "TREE":
             if not isinstance(item["tree"], basestring):
@@ -832,7 +852,8 @@ def smc2sprs(smc):
         if item["tag"] == "NAMES":
             names = item["names"]
             
-        elif item["tag"] == "RANGE":
+        elif item["tag"] == "REGION":
+            chrom = item["chrom"]
             region = [item["start"], item["end"]]
             
         elif item["tag"] == "TREE":

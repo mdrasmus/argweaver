@@ -29,9 +29,12 @@ class Config
 {
 public:
 
-    Config() 
+    Config()
     {
         make_parser();
+
+        resample_region[0] = -1;
+        resample_region[1] = -1;
     }
 
     void make_parser()
@@ -83,7 +86,8 @@ public:
 		   ("-n", "--iters", "<# of iterations>", &niters, 1000,
                     "(default=1000)"));
         config.add(new ConfigParam<string>
-                   ("", "--region", "<start>-<end>", &region_str, "",
+                   ("", "--resample_region", "<start>-<end>", 
+                    &resample_region_str, "",
                     "region to resample (optional)"));
         config.add(new ConfigParam<int>
                    ("-x", "--randseed", "<random seed>", &randseed, 0,
@@ -149,8 +153,8 @@ public:
     // search
     int nclimb;
     int niters;
-    string region_str;
-    int region[2];
+    string resample_region_str;
+    int resample_region[2];
     int randseed;
     
     // help/information
@@ -298,13 +302,15 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     // build initial arg by sequential sampling
     seq_sample_arg(model, sequences, trees, sites_mapping, config);
     
-    if (config->region[0] != -1) {
+    if (config->resample_region[0] != -1) {
         // region sampling
         printLog(LOG_LOW, "Resample Region (%d-%d, %d iterations)\n",
-                 config->region[0], config->region[1], config->niters);
+                 config->resample_region[0], config->resample_region[1], 
+                 config->niters);
         printLog(LOG_LOW, "--------------------------------------------\n");
         resample_arg_all_region(model, sequences, trees, 
-                                config->region[0], config->region[1], 
+                                config->resample_region[0], 
+                                config->resample_region[1], 
                                 config->niters);
 
         // logging
@@ -317,11 +323,6 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         // resample all branches
         resample_arg_all(model, sequences, trees, sites_mapping, config);
     }
-    
-    
-    // final stats
-    int nrecombs = trees->get_num_trees() - 1;
-    printLog(LOG_LOW, "nrecombs %d\n", nrecombs);
 }
 
 
@@ -381,15 +382,15 @@ int main(int argc, char **argv)
 
         printLog(LOG_LOW, 
                  "read input sequences (nseqs=%d, length=%d)\n",
-                 sites->get_num_seqs(), sites->length(), 
-                 sites->get_num_sites());
+                 sequences->get_num_seqs(), sequences->length());
     }
     else if (c.sitesfile != "") {
         sites = new Sites();
         if (read_sites(c.sitesfile.c_str(), sites)) {
             printLog(LOG_LOW, 
-                     "read input sites (nseqs=%d, length=%d, nsites=%d)\n",
-                     sites->get_num_seqs(), sites->length(), 
+                     "read input sites (chrom=%s, start=%d, end=%d, length=%d, nseqs=%d, nsites=%d)\n",
+                     sites->chrom.c_str(), sites->start_coord, sites->end_coord,
+                     sites->length(), sites->get_num_seqs(),
                      sites->get_num_sites());
 
             if (c.compress > 1) {
@@ -440,8 +441,9 @@ int main(int argc, char **argv)
             return 1;
         }
         
-        printLog(LOG_LOW, "read input ARG (start=%d, end=%d, nseqs=%d)\n",
-                 trees->start_coord, trees->end_coord, trees->get_num_leaves());
+        printLog(LOG_LOW, "read input ARG (chrom=%s, start=%d, end=%d, nseqs=%d)\n",
+                 trees->chrom.c_str(), trees->start_coord, trees->end_coord, 
+                 trees->get_num_leaves());
 
         // compress input tree if compression is requested
         if (sites_mapping) {
@@ -451,7 +453,7 @@ int main(int argc, char **argv)
         // TODO: may need to adjust start and end
         // check ARG matches sites/sequences
         if (trees->start_coord != start || trees->end_coord != end) {
-            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d)", trees->start_coord, trees->end_coord, start, end);
+            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d) [compressed coordinates]", trees->start_coord, trees->end_coord, start, end);
             return 1;
         }
     } else {
@@ -459,26 +461,28 @@ int main(int argc, char **argv)
         trees = new LocalTrees(start, end);
     }
     
+    // set chromosome name
+    if (sites)
+        trees->chrom = sites->chrom;
+    
     
     // setup coordinates for sequences
     Sequences sequences2(sequences, -1, start + sequences->length(), -start);
 
 
     // check for region sample
-    if (c.region_str != "") {
-        if (!parse_region(c.region_str.c_str(), &c.region[0], &c.region[1])) {
+    if (c.resample_region_str != "") {
+        if (!parse_region(c.resample_region_str.c_str(), 
+                          &c.resample_region[0], &c.resample_region[1])) {
             printError("region is not specified as 'start-end'");
             return 1;
         }
 
         if (sites_mapping) {
-            c.region[0] = sites_mapping->compress(c.region[0]);
-            c.region[1] = sites_mapping->compress(c.region[1]);
+            c.resample_region[0] = sites_mapping->compress(c.resample_region[0]);
+            c.resample_region[1] = sites_mapping->compress(c.resample_region[1]);
         }
         
-    } else {
-        c.region[0] = -1;
-        c.region[1] = -1;
     }
 
     // sample ARG

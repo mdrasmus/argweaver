@@ -417,6 +417,7 @@ void LocalTrees::copy(const LocalTrees &other)
     clear();
 
     // copy over information
+    chrom = other.chrom;
     start_coord = other.start_coord;
     end_coord = other.end_coord;
     nnodes = other.nnodes;
@@ -1045,8 +1046,9 @@ void write_local_trees(FILE *out, const LocalTrees *trees,
         fprintf(out, "\n");
     }
 
-    // print range
-    fprintf(out, "RANGE\t%d\t%d\n", trees->start_coord, trees->end_coord);
+    // print region
+    fprintf(out, "REGION\t%s\t%d\t%d\n", 
+            trees->chrom.c_str(), trees->start_coord, trees->end_coord);
 
     
     // setup nodeids
@@ -1195,6 +1197,7 @@ bool read_local_trees(FILE *infile, const double *times, int ntimes,
             split(&line[6], delim, seqnames);
             nnodes = 2 * seqnames.size() - 1;
 
+            /*
         } else if (strncmp(line, "RANGE", 5) == 0) {
             // parse range
             if (sscanf(&line[6], "%d\t%d", 
@@ -1203,6 +1206,25 @@ bool read_local_trees(FILE *infile, const double *times, int ntimes,
                 delete [] line;
                 return false;
             }
+            */
+
+        } else if (strncmp(line, "RANGE", 5) == 0) {
+            // parse range
+            printError("deprecated RANGE line detected, use REGION instead (line %d)", lineno);
+            delete [] line;
+            return false;
+
+        } else if (strncmp(line, "REGION\t", 7) == 0) {
+            // parse range
+            char chrom[51];
+            if (sscanf(&line[7], "%50s\t%d\t%d", 
+                       chrom,
+                       &trees->start_coord, &trees->end_coord) != 3) {
+                printError("bad REGION line (line %d)", lineno);
+                delete [] line;
+                return false;
+            }
+            trees->chrom = chrom;
 
         } else if (strncmp(line, "TREE", 4) == 0) {
             // parse tree

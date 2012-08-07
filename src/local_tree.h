@@ -454,6 +454,7 @@ class LocalTrees
 {
 public:
     LocalTrees(int start_coord=0, int end_coord=0, int nnodes=0) :
+        chrom("chr"),
         start_coord(start_coord),
         end_coord(end_coord),
         nnodes(nnodes) {}
@@ -576,6 +577,7 @@ public:
         return true;
     }
 
+    string chrom;              // chromosome name of region
     int start_coord;           // start coordinate of whole tree list
     int end_coord;             // end coordinate of whole tree list
     int nnodes;                // number of nodes in each tree
