@@ -199,13 +199,12 @@ void likelihood_sites(const LocalTree *tree, const ArgModel *model,
     const double *times = model->times;
     const LocalNode *nodes = tree->nodes;
     const double mintime = times[1];
-    //double invariant_lk = -1;
 
     // get postorder
     int order[tree->nnodes];
     tree->get_postorder(order);
 
-    // get mutation probabilities
+    // get mutation probabilities and treelen
     double muts[tree->nnodes];
     double nomuts[tree->nnodes];
     double treelen = 0.0;
@@ -221,8 +220,7 @@ void likelihood_sites(const LocalTree *tree, const ArgModel *model,
 
     // calculate invariant_lk
     double invariant_lk = .25 * exp(- model->mu * max(treelen, mintime));
-    //double invariant_lk = -1;
-
+    
     // calculate emissions for tree at each site
     for (int i=0; i<seqlen; i++) {
         if (invariant && invariant[i] && invariant_lk > 0)
@@ -346,8 +344,6 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
     const int subtree_root = tree->nodes[tree->root].child[0];
     const int subtree_root_age = tree->nodes[subtree_root].age;
     const int maxtime = model->ntimes + 1;
-    bool *invariant = new bool [seqlen];
-    LikelihoodTable table(seqlen, tree->nnodes+2);
 
     // ignore fully specified local tree
     if (nstates == 0) {
@@ -355,6 +351,9 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
             emit[i][0] = 1.0;
         return;
     }
+
+    bool *invariant = new bool [seqlen];
+    LikelihoodTable table(seqlen, tree->nnodes+2);
 
     // create local tree we can edit
     LocalTree tree2(tree->nnodes, tree->nnodes + 2);
@@ -377,6 +376,7 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
         apply_spr(&tree2, remove_spr);
     }
 
+    // clean up
     delete [] invariant;
 }
 

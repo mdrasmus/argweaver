@@ -340,6 +340,7 @@ State find_state_sub_tree_internal(
 
     int subtree_root = partial_tree->nodes[partial_tree->root].child[0];
     int sib = full_tree->get_sibling(subtree_root);
+    assert(sib != -1);
     int parent = full_tree->nodes[subtree_root].parent;
 
     return State(sib, full_tree->nodes[parent].age);
@@ -369,14 +370,16 @@ void resample_arg_all_region(
     LocalTree *end_tree = trees3->front().tree;
 
     // perform several iterations of resampling
-    int *removal_path = new int [trees2->get_num_trees()];
     for (int i=0; i<niters; i++) {
+        // TODO: there could be a recombination separating start_tree and first_tree?  maybe move region_start and region_end to avoid this.
+
         // remove internal branch from trees2
         // ramdomly choose a removal path weighted by recombinations
-
+        int *removal_path = new int [trees2->get_num_trees()];
         sample_arg_removal_path_recomb(trees2, recomb_preference, removal_path);
         remove_arg_thread_path(trees2, removal_path, maxtime);
-
+        delete [] removal_path;
+        
         // determine start and end states from given trees
         LocalTree *first_tree = trees2->front().tree;
         LocalTree *last_tree = trees2->back().tree;
@@ -384,10 +387,9 @@ void resample_arg_all_region(
             start_tree, first_tree, maxtime);
         State end_state = find_state_sub_tree_internal(
             end_tree, last_tree, maxtime);
-
+        
         cond_sample_arg_thread_internal(model, sequences, trees2,
                                         start_state, end_state);
-
         assert_trees(trees2);
     }
     
@@ -396,7 +398,6 @@ void resample_arg_all_region(
     append_local_trees(trees, trees3);
     
     // clean up
-    delete [] removal_path;
     delete trees2;
     delete trees3;
 }

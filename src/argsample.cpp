@@ -378,10 +378,20 @@ int main(int argc, char **argv)
             printError("could not read fasta file");
             return 1;
         }
+
+        printLog(LOG_LOW, 
+                 "read input sequences (nseqs=%d, length=%d)\n",
+                 sites->get_num_seqs(), sites->length(), 
+                 sites->get_num_sites());
     }
     else if (c.sitesfile != "") {
         sites = new Sites();
         if (read_sites(c.sitesfile.c_str(), sites)) {
+            printLog(LOG_LOW, 
+                     "read input sites (nseqs=%d, length=%d, nsites=%d)\n",
+                     sites->get_num_seqs(), sites->length(), 
+                     sites->get_num_sites());
+
             if (c.compress > 1) {
                 sites_mapping = new SitesMapping();
                 find_compress_cols(sites, c.compress, sites_mapping);
@@ -402,8 +412,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    printLog(LOG_LOW, "read input sequences (nseqs=%d, length=%d)\n",
-             sequences->get_num_seqs(), sequences->length());
 
 
     // get coordinates
@@ -427,21 +435,25 @@ int main(int argc, char **argv)
             return 1;
         }
 
-        // may need to adjust start and end
-        // check ARG matches sites/sequences
-        if (trees->start_coord != start || trees->end_coord != end) {
-            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d)", trees->start_coord, trees->end_coord, start, end);
-            return 1;
-        }
-
         if (!trees->set_seqids(seqnames, sequences->names)) {
             printError("input ARG's sequence names do not match input sequences");
             return 1;
         }
         
-        printLog(LOG_LOW, "read input ARG (nseqs=%d, start=%d, end=%d)\n",
+        printLog(LOG_LOW, "read input ARG (start=%d, end=%d, nseqs=%d)\n",
                  trees->start_coord, trees->end_coord, trees->get_num_leaves());
 
+        // compress input tree if compression is requested
+        if (sites_mapping) {
+            compress_local_trees(trees, sites_mapping, true);
+        }
+
+        // TODO: may need to adjust start and end
+        // check ARG matches sites/sequences
+        if (trees->start_coord != start || trees->end_coord != end) {
+            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d)", trees->start_coord, trees->end_coord, start, end);
+            return 1;
+        }
     } else {
         // create new init ARG
         trees = new LocalTrees(start, end);
@@ -458,6 +470,12 @@ int main(int argc, char **argv)
             printError("region is not specified as 'start-end'");
             return 1;
         }
+
+        if (sites_mapping) {
+            c.region[0] = sites_mapping->compress(c.region[0]);
+            c.region[1] = sites_mapping->compress(c.region[1]);
+        }
+        
     } else {
         c.region[0] = -1;
         c.region[1] = -1;

@@ -137,7 +137,8 @@ protected:
 class Sites
 {
 public:
-    Sites(int start_coord=0, int end_coord=0) :
+    Sites(string chrom="", int start_coord=0, int end_coord=0) :
+        chrom(chrom),
         start_coord(start_coord),
         end_coord(end_coord)
     {}
@@ -177,8 +178,14 @@ public:
     {
         return positions.size();
     }
+
+    inline int get_num_seqs() const
+    {
+        return names.size();
+    }
     
     
+    string chrom;
     int start_coord;
     int end_coord;
     vector<string> names;
@@ -200,6 +207,15 @@ public:
         old_end = sites->end_coord;
         nsites = sites->get_num_sites();
         seqlen = sites->length();
+    }
+
+    int compress(int pos) {
+        const int n = all_sites.size();
+        for (int pos2 = 0; pos2<n; pos2++) {
+            if (all_sites[pos2] > pos)
+                return pos2;
+        }
+        return n - 1;
     }
 
     int old_start;

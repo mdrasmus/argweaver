@@ -628,7 +628,8 @@ void uncompress_local_trees(LocalTrees *trees,
 }
 
 
-void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping)
+void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping,
+                          bool fuzzy)
 {
     const int *all_sites = &sites_mapping->all_sites[0];
     int cur = 0;
@@ -642,8 +643,13 @@ void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping)
             int cur2 = cur;
             for (; cur2 < new_seqlen && all_sites[cur2] < end; 
                  cur2++) {}
-            it->blocklen = cur2 - cur;
+
+            // ensure block are not zero length
+            if (fuzzy && cur2 == cur)
+                cur2++;
             assert(cur2 > cur);
+
+            it->blocklen = cur2 - cur;
             cur = cur2;
         } else {
             it->blocklen = sites_mapping->new_end - cur;
@@ -848,8 +854,9 @@ bool iter_nhx_ney_values(char *text, char *end,
 bool parse_node_age(char* text, char *end, double *age)
 {
     // ensure comment begins with "&&NHX:"
-    if (strncmp(text, "&&NHX:", 6) != 0)
+    if (strncmp(text, "&&NHX:", 6) != 0) {
         return false;
+    }
 
     text += 6;
     //printf(">> %s\n", text);
@@ -933,6 +940,7 @@ bool parse_local_tree(const char* newick, LocalTree *tree,
                 i = j;
             } else {
                 // error, quit early
+                printError("bad newick: malformed NHX comment");
                 i = len;
             }            
             } break;
@@ -952,9 +960,11 @@ bool parse_local_tree(const char* newick, LocalTree *tree,
             
             if (last == ')' || last == '(' || last == ',') {
                 // name
-                if (sscanf(&newick[i], "%d", &names[node]) != 1)
+                if (sscanf(&newick[i], "%d", &names[node]) != 1) {
                     // error, quit early
+                    printError("bad newick: node name is not an integer");
                     i = len;
+                }
 
                 //printf("NAME: %s", &newick[i]);
                 //printf("name[%d] = %d, %d\n", node, names[node],
@@ -1211,6 +1221,7 @@ bool read_local_trees(FILE *infile, const double *times, int ntimes,
 
             LocalTree *tree = new LocalTree(nnodes);
             if (!parse_local_tree(newick, tree, times, ntimes)) {
+                printError("bad newick format (line %d)", lineno);
                 delete tree;
                 delete [] line;
                 return false;

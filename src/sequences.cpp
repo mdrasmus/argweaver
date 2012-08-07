@@ -149,6 +149,7 @@ bool read_sites(FILE *infile, Sites *sites)
         if (strncmp(line, "NAMES\t", 6) == 0) {
             // parse NAMES line
             split(&line[6], delim, sites->names);
+
         } else if (strncmp(line, "RANGE\t", 6) == 0) {
             // parse RANGE line
             if (sscanf(line, "RANGE\t%d\t%d", 
@@ -157,6 +158,28 @@ bool read_sites(FILE *infile, Sites *sites)
                 delete [] line;
                 return false;
             }
+
+        /*
+        } else if (strncmp(line, "REGION\t", 7) == 0) {
+            // parse RANGE line
+            char chrom[51];
+            if (sscanf(line, "REGION\t%50s\t%d\t%d", 
+                       &chrom,
+                       &sites->start_coord, &sites->end_coord) != 2) {
+                printError("bad REGION format");
+                delete [] line;
+                return false;
+            }
+            sites->chrom = chrom;
+        */
+
+        } else if (strncmp(line, "RANGE\t", 6) == 0) {
+            // parse RANGE line
+            
+            printError("deprecated RANGE line detected (use REGION instead)");
+            delete [] line;
+            return false;
+
         } else {
             // parse a site line
             

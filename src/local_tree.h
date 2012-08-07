@@ -657,7 +657,8 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2);
 
 void uncompress_local_trees(LocalTrees *trees, 
                             const SitesMapping *sites_mapping);
-void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping);
+void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping,
+                          bool fuzzy=false);
 void assert_uncompress_local_trees(LocalTrees *trees, 
                                    const SitesMapping *sites_mapping);
 int get_recoal_node(const LocalTree *tree, const Spr &spr, const int *mapping);

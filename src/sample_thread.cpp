@@ -439,8 +439,7 @@ void arghmm_forward_alg_fast(const LocalTrees *trees, const ArgModel *model,
         
         // allocate the forward table
         if (pos > trees->start_coord || !prior_given)
-            forward->new_block(pos, pos+matrices.blocklen, 
-                               max(matrices.nstates2, 1));
+            forward->new_block(pos, pos+matrices.blocklen, matrices.nstates2);
         
         if (internal)
             get_coal_states_internal(it->tree, model->ntimes, states);
@@ -887,7 +886,7 @@ void cond_sample_arg_thread_internal(
     tree = matrix_iter.get_tree_iter()->tree;
     get_coal_states_internal(tree, model->ntimes, states);
     forward.new_block(trees->start_coord, trees->start_coord + 
-                      trees->begin()->blocklen, max((int) states.size(), 1));
+                      trees->begin()->blocklen, states.size());
 
     if (states.size() > 0) {
         bool found = false;

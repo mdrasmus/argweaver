@@ -1323,7 +1323,7 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
             // record thread
             if (original_states) {
                 for (int j=start; j<end; j++) {
-                    original_states[j].set(-1, -1) ;
+                    original_states[j-trees->start_coord].set(-1, -1) ;
                 }
             }
 
@@ -1361,7 +1361,8 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         // record thread
         if (original_states) {
             for (int j=start; j<end; j++)
-                original_states[j].set(broken_child, coal_time);
+                original_states[j-trees->start_coord].set(
+                    broken_child, coal_time);
         }
 
 
@@ -1463,13 +1464,13 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
 
             for (int i=start; i<end; i++) {
                 if (nstates == 0) {
-                    original_thread[i] = 0;
+                    original_thread[i-trees->start_coord] = 0;
                 } else {
                     int statei = lookup.lookup(
-                        nodes_lookup[original_states[i].node],
-                        original_states[i].time);
+                        nodes_lookup[original_states[i-trees->start_coord].node],
+                        original_states[i-trees->start_coord].time);
                     assert(statei != -1);
-                    original_thread[i] = statei;
+                    original_thread[i-trees->start_coord] = statei;
                 }
             }
         }
