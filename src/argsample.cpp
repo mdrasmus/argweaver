@@ -1,6 +1,7 @@
 
 #include <time.h>
 
+#include "compress.h"
 #include "ConfigParam.h"
 #include "emit.h"
 #include "logging.h"
@@ -54,15 +55,9 @@ public:
 		   ("-o", "--out", "<output prefix>", &out_prefix, 
                     "arghmm",
                     "prefix for all output filenames (default='arghmm')"));
-	config.add(new ConfigParam<int>
-		   ("-c", "--compress", "<compression>", &compress, 1,
-                    "alignment compression factor (default=1)"));
         config.add(new ConfigParam<string>
                    ("-a", "--arg", "<SMC file>", &argfile, "",
                     "initial ARG file (*.smc) for resampling (optional)"));
-        config.add(new ConfigParam<int>
-		   ("", "--sample-step", "<sample step size>", &sample_step, 
-                    10, "number of iterations between steps (default=10)"));
 
         // model parameters
 	config.add(new ConfigParamComment("Model parameters"));
@@ -94,10 +89,23 @@ public:
                    ("", "--resample-region", "<start>-<end>", 
                     &resample_region_str, "",
                     "region to resample (optional)"));
+
+
+        // misc
+	config.add(new ConfigParamComment("Miscellaneous"));
+ 	config.add(new ConfigParam<int>
+		   ("-c", "--compress-seq", "<compression factor>", 
+                    &compress_seq, 1,
+                    "alignment compression factor (default=1)"));
+        config.add(new ConfigParam<int>
+		   ("", "--sample-step", "<sample step size>", &sample_step, 
+                    10, "number of iterations between steps (default=10)"));
+ 	config.add(new ConfigSwitch
+		   ("", "--no-compress-output", &no_compress_output, 
+                    "do not use compressed output"));
         config.add(new ConfigParam<int>
                    ("-x", "--randseed", "<random seed>", &randseed, 0,
                     "seed for random number generator (default: time)"));
-
 
         // help information
 	config.add(new ConfigParamComment("Information"));
@@ -152,14 +160,17 @@ public:
     double rho;
     int ntimes;
     double maxtime;
-    int compress;
 
     // search
     int nclimb;
     int niters;
     string resample_region_str;
     int resample_region[2];
+
+    // misc
+    int compress_seq;
     int sample_step;
+    bool no_compress_output;
     int randseed;
     
     // help/information
@@ -243,7 +254,8 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
 //=============================================================================
 // sample output
 
-void log_local_trees(
+
+bool log_local_trees(
     const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
     const SitesMapping* sites_mapping, const Config *config, int iter)
 {
@@ -254,9 +266,29 @@ void log_local_trees(
     // write local trees uncompressed
     if (sites_mapping)
         uncompress_local_trees(trees, sites_mapping);
-    write_local_trees(out_argfile.c_str(), trees, sequences, model->times);    
+
+    // setup output stream
+    FILE *out = NULL;
+    if (config->no_compress_output)
+        out = fopen(out_argfile.c_str(), "w");
+    else
+        out = open_compress((out_argfile + ".gz").c_str(), "w");
+    if (!out) {
+        printError("could not open '%s' for output", out_argfile.c_str());
+        return false;
+    }
+
+    write_local_trees(out, trees, sequences, model->times);
+    
     if (sites_mapping)
         compress_local_trees(trees, sites_mapping);
+
+    if (config->no_compress_output)
+        fclose(out);
+    else
+        close_compress(out);
+
+    return true;
 }
 
 
@@ -392,8 +424,8 @@ int main(int argc, char **argv)
 
 
     // setup model
-    c.rho *= c.compress;
-    c.mu *= c.compress;
+    c.rho *= c.compress_seq;
+    c.mu *= c.compress_seq;
     ArgModel model(c.ntimes, c.maxtime, c.popsize, c.rho, c.mu);
 
 
@@ -423,9 +455,9 @@ int main(int argc, char **argv)
                      sites->length(), sites->get_num_seqs(),
                      sites->get_num_sites());
 
-            if (c.compress > 1) {
+            if (c.compress_seq > 1) {
                 sites_mapping = new SitesMapping();
-                find_compress_cols(sites, c.compress, sites_mapping);
+                find_compress_cols(sites, c.compress_seq, sites_mapping);
                 compress_sites(sites, sites_mapping);
             }
             

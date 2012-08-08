@@ -49,6 +49,7 @@ PROGS = bin/argsample
 BINARIES = $(PROGS) $(SCRIPTS)
 
 ARGHMM_SRC = \
+    src/compress.cpp \
     src/emit.cpp \
     src/est_popsize.cpp \
     src/hmm.cpp \
