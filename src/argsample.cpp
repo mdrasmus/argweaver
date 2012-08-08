@@ -1,4 +1,6 @@
 
+#include <time.h>
+
 #include "ConfigParam.h"
 #include "emit.h"
 #include "logging.h"
@@ -21,7 +23,7 @@ Gibbs sampler for ancestral recombination graphs\n\
 // file extensions
 const char *SMC_SUFFIX = ".smc";
 const char *STATS_SUFFIX = ".stats";
-
+const char *LOG_SUFFIX = ".log";
 
 
 // parsing command-line options
@@ -58,6 +60,9 @@ public:
         config.add(new ConfigParam<string>
                    ("-a", "--arg", "<SMC file>", &argfile, "",
                     "initial ARG file (*.smc) for resampling (optional)"));
+        config.add(new ConfigParam<int>
+		   ("", "--sample-step", "<sample step size>", &sample_step, 
+                    10, "number of iterations between steps (default=10)"));
 
         // model parameters
 	config.add(new ConfigParamComment("Model parameters"));
@@ -86,7 +91,7 @@ public:
 		   ("-n", "--iters", "<# of iterations>", &niters, 1000,
                     "(default=1000)"));
         config.add(new ConfigParam<string>
-                   ("", "--resample_region", "<start>-<end>", 
+                   ("", "--resample-region", "<start>-<end>", 
                     &resample_region_str, "",
                     "region to resample (optional)"));
         config.add(new ConfigParam<int>
@@ -100,9 +105,8 @@ public:
 		   ("-V", "--verbose", "<verbosity level>", 
 		    &verbose, LOG_LOW, 
 		    "verbosity level 0=quiet, 1=low, 2=medium, 3=high"));
-	//config.add(new ConfigParam<string>
-	//	   ("", "--log", "<log filename>", &logfile, "", 
-	//	    "log filename.  Use '-' to display on stdout."));
+	config.add(new ConfigSwitch
+		   ("-q", "--quiet", &quiet, "suppress logging to stderr"));
 	config.add(new ConfigSwitch
 		   ("-v", "--version", &version, "display version information"));
 	config.add(new ConfigSwitch
@@ -155,9 +159,11 @@ public:
     int niters;
     string resample_region_str;
     int resample_region[2];
+    int sample_step;
     int randseed;
     
     // help/information
+    bool quiet;
     int verbose;
     bool version;
     bool help;
@@ -177,7 +183,15 @@ bool parse_region(const char *region, int *start, int *end)
 //=============================================================================
 // logging
 
-void logProgCommands(int level, int argc, char **argv)
+void log_intro(int level)
+{
+    time_t t = time(NULL);
+    
+    printLog(level, "argsample " VERSION_TEXT "\n");
+    printLog(level, "start time: %s\n", ctime(&t));
+}
+
+void log_prog_commands(int level, int argc, char **argv)
 {
     printLog(level, "command:");
     for (int i=0; i<argc; i++) {
@@ -192,11 +206,12 @@ void logProgCommands(int level, int argc, char **argv)
 
 void print_stats_header(FILE *stats_file)
 {
-    fprintf(stats_file, "prior\tlikelihood\tjoint\trecombs\tnoncompats\n");
+    fprintf(stats_file, "stage\titer\tprior\tlikelihood\tjoint\trecombs\tnoncompats\n");
 }
 
 
-void print_stats(FILE *stats_file, const ArgModel *model, 
+void print_stats(FILE *stats_file, const char *stage, int iter,
+                 const ArgModel *model, 
                  const Sequences *sequences, const LocalTrees *trees)
 {
     double prior = calc_arg_prior(model, trees);
@@ -212,7 +227,8 @@ void print_stats(FILE *stats_file, const ArgModel *model,
     int noncompats = count_noncompat(trees, seqs, nseqs, sequences->length());
 
 
-    fprintf(stats_file, "%f\t%f\t%f\t%d\t%d\n",
+    fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\n",
+            stage, iter,
             prior, likelihood, joint, nrecombs, noncompats);
 
     printLog(LOG_LOW, "\n"
@@ -256,7 +272,8 @@ void seq_sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                  sequences->get_num_seqs());
         printLog(LOG_LOW, "------------------------------------------------\n");
         sample_arg_seq(model, sequences, trees);
-        print_stats(config->stats_file, model, sequences, trees);
+        print_stats(config->stats_file, "seq", trees->get_num_leaves(),
+                    model, sequences, trees);
     }
 }
 
@@ -270,7 +287,7 @@ void climb_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     for (int i=0; i<config->nclimb; i++) {
         printLog(LOG_LOW, "climb %d\n", i+1);
         resample_arg_climb(model, sequences, trees, recomb_preference);
-        print_stats(config->stats_file, model, sequences, trees);
+        print_stats(config->stats_file, "climb", i, model, sequences, trees);
     }
     printLog(LOG_LOW, "\n");
 }
@@ -287,8 +304,11 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         resample_arg_all(model, sequences, trees);
 
         // logging
-        print_stats(config->stats_file, model, sequences, trees);
-        log_local_trees(model, sequences, trees, sites_mapping, config, i);
+        print_stats(config->stats_file, "resample", i, model, sequences, trees);
+
+        // sample saving
+        if (i % config->sample_step == 0)
+            log_local_trees(model, sequences, trees, sites_mapping, config, i);
     }
     printLog(LOG_LOW, "\n");
 }
@@ -308,13 +328,18 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                  config->resample_region[0], config->resample_region[1], 
                  config->niters);
         printLog(LOG_LOW, "--------------------------------------------\n");
+
+        print_stats(config->stats_file, "resample_region", 0, 
+                    model, sequences, trees);
+
         resample_arg_all_region(model, sequences, trees, 
                                 config->resample_region[0], 
                                 config->resample_region[1], 
                                 config->niters);
 
         // logging
-        print_stats(config->stats_file, model, sequences, trees);
+        print_stats(config->stats_file, "resample_region", config->niters,
+                    model, sequences, trees);
         log_local_trees(model, sequences, trees, sites_mapping, config, 0);
         
     } else{
@@ -338,21 +363,26 @@ int main(int argc, char **argv)
 
     // setup logging
     setLogLevel(c.verbose);
-    /*
     string log_filename = c.out_prefix + LOG_SUFFIX;
-    if (!(c.stats_file = fopen(stats_filename.c_str(), "w"))) {
-        printError("could not open stats file '%s'", stats_filename.c_str());
-        return 1;
-    }    
-    */
-    logProgCommands(LOG_LOW, argc, argv);
+    Logger *logger;
+    if (c.quiet)
+        logger = &g_logger;
+    else
+        logger = new Logger(NULL, c.verbose);
 
-    // init stats file
-    string stats_filename = c.out_prefix + STATS_SUFFIX;
-    if (!(c.stats_file = fopen(stats_filename.c_str(), "w"))) {
-        printError("could not open stats file '%s'", stats_filename.c_str());
+    if (!logger->openLogFile(log_filename.c_str())) {
+        printError("could not open log file '%s'", log_filename.c_str());
         return 1;
     }
+    if (!c.quiet)
+        g_logger.setChain(logger);
+    
+    
+    // log intro
+    log_intro(LOG_LOW);
+    log_prog_commands(LOG_LOW, argc, argv);
+    Timer timer;
+
 
     // init random number generator
     if (c.randseed == 0)
@@ -484,12 +514,20 @@ int main(int argc, char **argv)
         }
         
     }
+    
+    
+    // init stats file
+    string stats_filename = c.out_prefix + STATS_SUFFIX;
+    if (!(c.stats_file = fopen(stats_filename.c_str(), "w"))) {
+        printError("could not open stats file '%s'", stats_filename.c_str());
+        return 1;
+    }
 
     // sample ARG
     printLog(LOG_LOW, "\n");
     sample_arg(&model, &sequences2, trees, sites_mapping, &c);
     
-
+    printTimerLog(timer, LOG_LOW, "sampling time: ");
 
     // clean up
     fclose(c.stats_file);

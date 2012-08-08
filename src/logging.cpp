@@ -19,10 +19,17 @@ Logger g_logger(stderr, LOG_QUIET);
 
 void Logger::printTimerLog(const Timer &timer, int level, const char *fmt, ...)
 {
+    va_list ap;
+
     if (level <= loglevel) {
-        va_list ap;
         va_start(ap, fmt);
         printTimerLog(timer, level, fmt, ap);
+        va_end(ap);
+    }
+
+    if (chain) {
+        va_start(ap, fmt);
+        chain->printTimerLog(timer, level, fmt, ap);
         va_end(ap);
     }
 }
@@ -56,10 +63,18 @@ void Logger::printTimerLog(const Timer &timer, int level, const char *fmt,
 
 void printLog(int level, const char *fmt, ...)
 {
+    va_list ap;
+
     if (g_logger.isLogLevel(level)) {
-        va_list ap;
         va_start(ap, fmt);
         g_logger.printLog(level, fmt, ap);
+        va_end(ap);
+    }
+
+    Logger *logger = g_logger.getChain();
+    if (logger && logger->isLogLevel(level)) {
+        va_start(ap, fmt);
+        logger->printLog(level, fmt, ap);
         va_end(ap);
     }
 }
@@ -67,10 +82,18 @@ void printLog(int level, const char *fmt, ...)
 
 void printTimerLog(const Timer &timer, int level, const char *fmt, ...)
 {
+    va_list ap;
+
     if (g_logger.isLogLevel(level)) {
-        va_list ap;
         va_start(ap, fmt);
         g_logger.printTimerLog(timer, level, fmt, ap);
+        va_end(ap);
+    }
+
+    Logger *logger = g_logger.getChain();
+    if (logger && logger->isLogLevel(level)) {
+        va_start(ap, fmt);
+        logger->printTimerLog(timer, level, fmt, ap);
         va_end(ap);
     }
 }

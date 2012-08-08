@@ -94,20 +94,33 @@ public:
 class Logger 
 {
 public:
- Logger(FILE *stream, int level):
+    Logger(FILE *stream, int level):
         logstream(stream),
-        loglevel(level)
+        loglevel(level),
+        chain(NULL)
     {}
+
+    ~Logger() {
+        if (chain)
+            delete chain;
+    }
 
     
     void printLog(int level, const char *fmt, ...)
     {
+        va_list ap;   
+
         if (level <= loglevel) {
-            va_list ap;   
             va_start(ap, fmt);
             vfprintf(logstream, fmt, ap);
-            va_end(ap);
             fflush(logstream);
+            va_end(ap);
+        }
+        
+        if (chain && chain->isLogLevel(level)) {
+            va_start(ap, fmt);
+            chain->printLog(level, fmt, ap);
+            va_end(ap);
         }
     }
 
@@ -165,10 +178,21 @@ public:
     }
 
 
+    void setChain(Logger *logger)
+    {
+        chain = logger;
+    }
+
+    Logger *getChain()
+    {
+        return chain;
+    }
+
 protected:
 
     FILE *logstream;
     int loglevel;
+    Logger *chain;
 };
 
 

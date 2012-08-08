@@ -560,15 +560,19 @@ class Sites (object):
         self._cols = {}
 
 
-    def append(self, pos, col):
-        self.positions.append(pos)
-        self._cols[pos] = col
-
     def length(self):
         return self.region[1] - self.region[0]
 
     def nseqs(self):
         return len(self._cols[self.positions[0]])
+
+    def nsites(self):
+        return len(self._cols)
+    
+
+    def append(self, pos, col):
+        self.positions.append(pos)
+        self._cols[pos] = col
 
     def get(self, pos):
         return self._cols[pos]
