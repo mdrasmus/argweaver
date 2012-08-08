@@ -13,6 +13,7 @@ import json
 # get one tree
 @get('/tree/:pos')
 def get_tree(pos=0):
+    chrom, pos = pos.split(":")
     pos = int(pos)
 
     callback = request.query.get("callback", "jsonp_callback")
@@ -29,6 +30,7 @@ def get_tree(pos=0):
 # get one tree and spr
 @get('/tree-spr/:pos')
 def get_tree(pos=0):
+    chrom, pos = pos.split(":")
     pos = int(pos)
 
     callback = request.query.get("callback", "jsonp_callback")
@@ -51,6 +53,7 @@ def get_tree(pos=0):
 # get a region of trees and sprs
 @get('/trees/:region')
 def get_trees(region=""):
+    chrom, region = region.split(":")
     tokens = region.split("-")
     if len(tokens) != 2:
         raise HTTPResponse(status=404)
@@ -78,6 +81,7 @@ def get_trees(region=""):
 # get a region of sprs
 @get('/sprs/:region')
 def get_trees(region=""):
+    chrom, region = region.split(":")
     tokens = region.split("-")
     if len(tokens) != 2:
         raise HTTPResponse(status=404)
@@ -101,6 +105,7 @@ def get_trees(region=""):
 # get a region of sprs
 @get('/sites/:region')
 def get_sites(region=""):
+    chrom, region = region.split(":")
     tokens = region.split("-")
     if len(tokens) != 2:
         raise HTTPResponse(status=404)
