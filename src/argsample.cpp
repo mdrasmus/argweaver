@@ -293,6 +293,37 @@ bool log_local_trees(
 
 
 //=============================================================================
+
+bool read_init_arg(const char *argfile, const ArgModel *model, 
+                   LocalTrees *trees, vector<string> &seqnames)
+{
+    int len = strlen(argfile);
+    bool compress = false;
+    FILE *infile;
+    if (len > 3 && strcmp(&argfile[len - 3], ".gz") == 0) {
+        compress = true;
+        infile = read_compress(argfile);
+    } else {
+        infile = fopen(argfile, "r");
+    }
+    if (!infile)
+        return false;
+
+
+    bool result = read_local_trees(infile, model->times, model->ntimes,
+                                   trees, seqnames);
+
+    if (compress)
+        close_compress(infile);
+    else
+        fclose(infile);
+
+    return result;
+}
+
+
+
+//=============================================================================
 // sampling methods
 
 // build initial arg by sequential sampling
@@ -492,8 +523,7 @@ int main(int argc, char **argv)
         
         trees = new LocalTrees();
         vector<string> seqnames;
-        if (!read_local_trees(c.argfile.c_str(), model.times, model.ntimes,
-                              trees, seqnames)) {
+        if (!read_init_arg(c.argfile.c_str(), &model, trees, seqnames)) {
             printError("could not read ARG");
             return 1;
         }
@@ -515,7 +545,8 @@ int main(int argc, char **argv)
         // TODO: may need to adjust start and end
         // check ARG matches sites/sequences
         if (trees->start_coord != start || trees->end_coord != end) {
-            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d) [compressed coordinates]", trees->start_coord, trees->end_coord, start, end);
+            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d) [compressed coordinates]", 
+                       trees->start_coord, trees->end_coord, start, end);
             return 1;
         }
     } else {

@@ -8,26 +8,51 @@ using namespace std;
 
 string quote_arg(string text)
 {
-    char text2[text.size() * 2 + 1];
+    int j = 0; 
+    char text2[text.size() * 4 + 3];
+    text2[j++] = '\'';
 
-    int j = 0;
     for (unsigned int i=0; i<text.size(); i++) {
-        if (text[i] == '\'')
+        if (text[i] == '\'') {
+            text2[j++] = '\'';
             text2[j++] = '\\';
-        text2[j++] = text[i];
+            text2[j++] = '\'';
+            text2[j++] = '\'';
+        } else
+            text2[j++] = text[i];
     }
 
     // terminate string
+    text2[j++] = '\'';
     text2[j++] = '\0';
-
+    
     return string(text2);
+}
+
+
+FILE *read_compress(const char *filename, const char *command)
+{
+    string cmd = string(command) + " < " + quote_arg(filename);
+    return popen(cmd.c_str(), "r");
+}
+
+
+FILE *write_compress(const char *filename, const char *command)
+{
+    string cmd = string(command) + " > " + quote_arg(filename);
+    return popen(cmd.c_str(), "w");
 }
 
 
 FILE *open_compress(const char *filename, const char *mode, 
                     const char *command)
 {
-    string cmd = string(command) + " > '" + quote_arg(filename) + "'";
+    string cmd;
+    if (mode[0] == 'w')
+        cmd = string(command) + " > " + quote_arg(filename);
+    else if (mode[0] == 'r')
+        cmd = string(command) + " < " + quote_arg(filename);
+
     return popen(cmd.c_str(), mode);
 }
 
