@@ -132,7 +132,8 @@ void write_fasta(FILE *stream, Sequences *seqs)
 // input/output: sites file format
 
 
-bool read_sites(FILE *infile, Sites *sites)
+bool read_sites(FILE *infile, Sites *sites, 
+                int subregion_start, int subregion_end)
 {
     const char *delim = "\t";
     char *line;
@@ -150,17 +151,6 @@ bool read_sites(FILE *infile, Sites *sites)
             // parse NAMES line
             split(&line[6], delim, sites->names);
 
-        /*
-        } else if (strncmp(line, "RANGE\t", 6) == 0) {
-            // parse RANGE line
-            if (sscanf(line, "RANGE\t%d\t%d", 
-                       &sites->start_coord, &sites->end_coord) != 2) {
-                printError("bad RANGE format");
-                delete [] line;
-                return false;
-            }
-        */
-
         } else if (strncmp(line, "REGION\t", 7) == 0) {
             // parse RANGE line
             char chrom[51];
@@ -172,6 +162,13 @@ bool read_sites(FILE *infile, Sites *sites)
                 return false;
             }
             sites->chrom = chrom;
+
+            // set region by subregion if specified
+            if (subregion_start != -1)
+                sites->start_coord = subregion_start;
+            if (subregion_end != -1)
+                sites->end_coord = subregion_end;
+            
 
         } else if (strncmp(line, "RANGE\t", 6) == 0) {
             // parse RANGE line
@@ -196,10 +193,9 @@ bool read_sites(FILE *infile, Sites *sites)
 
             if (position < sites->start_coord ||
                 position >= sites->end_coord) {
-                printError("site %d is not within range [%d,%d)",
-                           position, sites->start_coord, sites->end_coord);
+                // skip site if not in region
                 delete [] line;
-                return false;
+                continue;
             }
 
             unsigned int len = strlen(&line[i]);
@@ -220,7 +216,8 @@ bool read_sites(FILE *infile, Sites *sites)
 
 
 
-bool read_sites(const char *filename, Sites *sites)
+bool read_sites(const char *filename, Sites *sites, 
+                int subregion_start, int subregion_end)
 {
     FILE *infile = NULL;    
     if ((infile = fopen(filename, "r")) == NULL) {
@@ -228,7 +225,7 @@ bool read_sites(const char *filename, Sites *sites)
         return NULL;
     }
     
-    bool result = read_sites(infile, sites);
+    bool result = read_sites(infile, sites, subregion_start, subregion_end);
     fclose(infile);
     
     return result;

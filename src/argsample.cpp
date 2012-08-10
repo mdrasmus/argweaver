@@ -1,6 +1,10 @@
 
-#include <time.h>
 
+// C/C++ includes
+#include <time.h>
+#include <memory>
+
+// arghmm includes
 #include "compress.h"
 #include "ConfigParam.h"
 #include "emit.h"
@@ -58,6 +62,10 @@ public:
         config.add(new ConfigParam<string>
                    ("-a", "--arg", "<SMC file>", &argfile, "",
                     "initial ARG file (*.smc) for resampling (optional)"));
+        config.add(new ConfigParam<string>
+                   ("", "--subregion", "<start>-<end>", 
+                    &subregion_str, "",
+                    "sample only a subregion of the sites (optional)"));
 
         // model parameters
 	config.add(new ConfigParamComment("Model parameters"));
@@ -89,8 +97,7 @@ public:
                    ("", "--resample-region", "<start>-<end>", 
                     &resample_region_str, "",
                     "region to resample (optional)"));
-
-
+        
         // misc
 	config.add(new ConfigParamComment("Miscellaneous"));
  	config.add(new ConfigParam<int>
@@ -153,6 +160,7 @@ public:
     string sitesfile;
     string out_prefix;
     string argfile;
+    string subregion_str;
 
     // parameters
     double popsize;
@@ -461,47 +469,63 @@ int main(int argc, char **argv)
 
 
     // read sequences
-    Sequences *sequences = NULL;
+    Sequences sequences;
     Sites *sites = NULL;
+    auto_ptr<Sites> sites_ptr;
     SitesMapping *sites_mapping = NULL;
+    auto_ptr<SitesMapping> sites_mapping_ptr;
+    
     if (c.fastafile != "") {
-        sequences = new Sequences();
-        if (!read_fasta(c.fastafile.c_str(), sequences)) {
-            delete sequences;
-            sequences = NULL;
+        // read FASTA file
+        
+        if (!read_fasta(c.fastafile.c_str(), &sequences)) {
             printError("could not read fasta file");
             return 1;
         }
 
         printLog(LOG_LOW, 
                  "read input sequences (nseqs=%d, length=%d)\n",
-                 sequences->get_num_seqs(), sequences->length());
+                 sequences.get_num_seqs(), sequences.length());
     }
     else if (c.sitesfile != "") {
-        sites = new Sites();
-        if (read_sites(c.sitesfile.c_str(), sites)) {
-            printLog(LOG_LOW, 
-                     "read input sites (chrom=%s, start=%d, end=%d, length=%d, nseqs=%d, nsites=%d)\n",
-                     sites->chrom.c_str(), sites->start_coord, sites->end_coord,
-                     sites->length(), sites->get_num_seqs(),
-                     sites->get_num_sites());
-
-            if (c.compress_seq > 1) {
-                sites_mapping = new SitesMapping();
-                find_compress_cols(sites, c.compress_seq, sites_mapping);
-                compress_sites(sites, sites_mapping);
+        // read sites file
+        
+        int subregion[2] = {-1, -1};
+        if (c.subregion_str != "") {
+            if (!parse_region(c.subregion_str.c_str(), 
+                              &subregion[0], &subregion[1])) {
+                printError("subregion is not specified as 'start-end'");
+                return 1;
             }
-            
-            sequences = new Sequences();
-            make_sequences_from_sites(sites, sequences);
-        } else {
-            printError("could not read sites file");
-            delete sites;
-            sites = NULL;
-            return 1;
-
         }
+
+
+        sites = new Sites();
+        sites_ptr = auto_ptr<Sites>(sites);
+        if (!read_sites(c.sitesfile.c_str(), sites, 
+                        subregion[0], subregion[1])) {
+            printError("could not read sites file");
+            return 1;
+        }
+
+        printLog(LOG_LOW, 
+                 "read input sites (chrom=%s, start=%d, end=%d, length=%d, nseqs=%d, nsites=%d)\n",
+                 sites->chrom.c_str(), sites->start_coord, sites->end_coord,
+                 sites->length(), sites->get_num_seqs(),
+                 sites->get_num_sites());
+
+        if (c.compress_seq > 1) {
+            // sequence compress requested
+            sites_mapping = new SitesMapping();
+            sites_mapping_ptr = auto_ptr<SitesMapping>(sites_mapping);
+            find_compress_cols(sites, c.compress_seq, sites_mapping);
+            compress_sites(sites, sites_mapping);
+        }
+            
+        make_sequences_from_sites(sites, &sequences);
+            
     } else {
+        // no input sequence specified
         printError("must specify sequences (use --fasta or --sites)");
         return 1;
     }
@@ -510,7 +534,7 @@ int main(int argc, char **argv)
 
     // get coordinates
     int start = 0;
-    int end = sequences->length();
+    int end = sequences.length();
     if (sites) {
         start = sites->start_coord;
         end = sites->end_coord;
@@ -518,17 +542,19 @@ int main(int argc, char **argv)
     
     // setup init ARG
     LocalTrees *trees = NULL;
+    auto_ptr<LocalTrees> trees_ptr;
     if (c.argfile != "") {
         // init ARG from file
         
         trees = new LocalTrees();
+        trees_ptr = auto_ptr<LocalTrees>(trees);
         vector<string> seqnames;
         if (!read_init_arg(c.argfile.c_str(), &model, trees, seqnames)) {
             printError("could not read ARG");
             return 1;
         }
 
-        if (!trees->set_seqids(seqnames, sequences->names)) {
+        if (!trees->set_seqids(seqnames, sequences.names)) {
             printError("input ARG's sequence names do not match input sequences");
             return 1;
         }
@@ -538,9 +564,8 @@ int main(int argc, char **argv)
                  trees->get_num_leaves());
 
         // compress input tree if compression is requested
-        if (sites_mapping) {
+        if (sites_mapping)
             compress_local_trees(trees, sites_mapping, true);
-        }
 
         // TODO: may need to adjust start and end
         // check ARG matches sites/sequences
@@ -552,6 +577,7 @@ int main(int argc, char **argv)
     } else {
         // create new init ARG
         trees = new LocalTrees(start, end);
+        trees_ptr = auto_ptr<LocalTrees>(trees);
     }
     
     // set chromosome name
@@ -560,7 +586,7 @@ int main(int argc, char **argv)
     
     
     // setup coordinates for sequences
-    Sequences sequences2(sequences, -1, start + sequences->length(), -start);
+    Sequences sequences2(&sequences, -1, start + sequences.length(), -start);
 
 
     // check for region sample
@@ -595,12 +621,6 @@ int main(int argc, char **argv)
     // clean up
     fclose(c.stats_file);
     
-    if (sites)
-        delete sites;
-    if (sites_mapping)
-        delete sites_mapping;
-    delete trees;
-    delete sequences;
-
+    
     return 0;
 }

@@ -244,13 +244,15 @@ bool check_seq_name(const char *name);
 void resample_align(Sequences *aln, Sequences *aln2);
 
 // sites functions
-bool read_sites(FILE *infile, Sites *sites);
-bool read_sites(const char *filename, Sites *sites);
+bool read_sites(FILE *infile, Sites *sites, 
+                 int subregion_start=-1, int subregion_end=-1);
+bool read_sites(const char *filename, Sites *sites,
+                 int subregion_start=-1, int subregion_end=-1);
 
 void make_sequences_from_sites(const Sites *sites, Sequences *sequencess, 
                                char default_char='A');
-    //Sequences *make_sequences_from_sites(Sites *sites, char default_char='A');
 
+// sequence compression
 void find_compress_cols(const Sites *sites, int compress, 
                         SitesMapping *sites_mapping);
 void compress_sites(Sites *sites, const SitesMapping *sites_mapping);
