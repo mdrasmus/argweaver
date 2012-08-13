@@ -189,6 +189,9 @@ int ConfigParam<double>::parse(int argc, const char **argv)
     }
 }
 
+
+//=============================================================================
+
 class ConfigParser
 {
 public:
@@ -197,7 +200,7 @@ public:
     
     ~ConfigParser()
     {
-        deleteRules();
+        clear();
     }
     
     
@@ -292,15 +295,8 @@ public:
     // remove all rules
     void clear()
     {
-        deleteRules();
-        rules.clear();
-    }
-
-    void deleteRules()
-    {
-        for (unsigned int i=0; i<rules.size(); i++) {
+        for (unsigned int i=0; i<rules.size(); i++)
             delete rules[i];
-        }
     }
     
     string prog;

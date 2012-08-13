@@ -50,22 +50,22 @@ public:
 
         // input/output
 	config.add(new ConfigParam<string>
-		   ("-f", "--fasta", "<fasta alignment>", &fastafile, 
-		    "sequence alignment in fasta format"));
-	config.add(new ConfigParam<string>
 		   ("-s", "--sites", "<sites alignment>", &sitesfile, 
 		    "sequence alignment in sites format"));
 	config.add(new ConfigParam<string>
+		   ("-f", "--fasta", "<fasta alignment>", &fastafile, 
+		    "sequence alignment in FASTA format"));
+	config.add(new ConfigParam<string>
 		   ("-o", "--out", "<output prefix>", &out_prefix, 
-                    "arghmm",
-                    "prefix for all output filenames (default='arghmm')"));
+                    "arg-sample",
+                    "prefix for all output filenames (default='arg-sample')"));
         config.add(new ConfigParam<string>
                    ("-a", "--arg", "<SMC file>", &argfile, "",
                     "initial ARG file (*.smc) for resampling (optional)"));
         config.add(new ConfigParam<string>
-                   ("", "--subregion", "<start>-<end>", 
+                   ("", "--region", "<start>-<end>", 
                     &subregion_str, "",
-                    "sample only a subregion of the sites (optional)"));
+                    "sample ARG for only a region of the sites (optional)"));
 
         // model parameters
 	config.add(new ConfigParamComment("Model parameters"));
@@ -73,10 +73,10 @@ public:
 		   ("-N", "--popsize", "<population size>", &popsize, 1e4,
                     "effective population size (default=1e4)"));
 	config.add(new ConfigParam<double>
-		   ("-m", "--mu", "<mutation rate>", &mu, 2.5e-8,
+		   ("-m", "--mutrate", "<mutation rate>", &mu, 2.5e-8,
                     "mutations per site per generation (default=2.5e-8)"));
 	config.add(new ConfigParam<double>
-		   ("-r", "--rho", "<recombination rate>", &rho, 1.5e-8,
+		   ("-r", "--recombrate", "<recombination rate>", &rho, 1.5e-8,
                     "recombination per site per generation (default=1.5e-8)"));
 	config.add(new ConfigParam<int>
 		   ("-t", "--ntimes", "<ntimes>", &ntimes, 20,
@@ -96,7 +96,7 @@ public:
         config.add(new ConfigParam<string>
                    ("", "--resample-region", "<start>-<end>", 
                     &resample_region_str, "",
-                    "region to resample (optional)"));
+                    "region to resample of input ARG (optional)"));
         
         // misc
 	config.add(new ConfigParamComment("Miscellaneous"));
@@ -112,7 +112,7 @@ public:
                     "do not use compressed output"));
         config.add(new ConfigParam<int>
                    ("-x", "--randseed", "<random seed>", &randseed, 0,
-                    "seed for random number generator (default: time)"));
+                    "seed for random number generator (default: current time)"));
 
         // help information
 	config.add(new ConfigParamComment("Information"));

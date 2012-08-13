@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+
+import optparse
+
+from compbio import fasta, arglib
+import arghmm
+
+
+o = optparse.OptionParser()
+o.add_option("-k", "--nseqs", type="int")
+o.add_option("-N", "--popsize", type="float", default=1e4)
+o.add_option("-r", "--recombrate", type="float", default=1.5e-8)
+o.add_option("-m", "--mutrate", type="float", default=2.5e-8)
+o.add_option("-L", "--seqlen", type="int", default=int(200e3))
+o.add_option("-c", "--chrom", default="chr")
+o.add_option("-o", "--output", default="out")
+o.add_option("", "--ntimes", type="int", default=20)
+o.add_option("", "--maxtime", type="float", default=180e3)
+o.add_option("", "--model", default="dsmc",
+             help="simulation model: dsmc, smc, coal_recomb (default=dsmc)")
+
+conf, args = o.parse_args()
+
+#=============================================================================
+
+# log model parameters
+print "model parameters:"
+print "  nseqs =", conf.nseqs
+print "  seqlen =", conf.seqlen
+print "  mutation rate =", conf.mutrate
+print "  recombination rate =", conf.recombrate
+print "  population size =", conf.popsize
+print
+
+if conf.model == "dsmc":
+    print "simulating using the DSMC model..."
+    
+    times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+    arg = arghmm.sample_arg_dsmc(conf.nseqs, 2*conf.popsize, conf.recombrate,
+                                 start=0, end=conf.seqlen,
+                                 times=times)
+    muts = arghmm.sample_arg_mutations(arg, conf.mutrate, times=times)
+
+else:
+    print >>sys.stderr, "unknown simulation model:", conf.model
+
+# simulate sequence
+seqs = arghmm.make_alignment(arg, muts)
+sites = arghmm.seqs2sites(seqs)
+sites.chrom = conf.chrom
+
+# write output
+print "writing output: ", conf.output + ".{fa,sites,arg}"
+seqs.write(conf.output + ".fa")
+sites.write(conf.output + ".sites")
+arglib.write_arg(conf.output + ".arg", arg)
+
+
+
+

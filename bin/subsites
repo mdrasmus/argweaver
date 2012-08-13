@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+
+import optparse
+
+from rasmus.common import *
+import arghmm
+
+
+o = optparse.OptionParser()
+o.add_option("-s", "--sites", metavar="SITES_FILE", default="-")
+o.add_option("-o", "--output", metavar="OUTPUT_FILE", default="-")
+o.add_option("-r", "--region", metavar="START-END")
+o.add_option("-n", "--nseqs", metavar="NUMBER_OF_SEQS", type="int",
+             help="use a random subsst of sequences")
+o.add_option("-k", "--keep-invariant", action="store_true",
+             help="keep invariant sites")
+
+conf, args = o.parse_args()
+
+#=============================================================================
+
+def is_variant(col):
+    c = col[0]
+    for i in xrange(1, len(col)):
+        if col[i] != c:
+            return True
+    return False
+
+
+# read data
+sites = arghmm.read_sites(conf.sites)
+
+
+# get individuals
+ind = range(sites.nseqs())
+if conf.nseqs:    
+    random.shuffle(ind)
+    ind = ind[:20]
+
+
+if conf.region:
+    region = map(int, conf.region.split("-"))
+else:
+    region = sites.region
+
+# make subset
+sites2 = arghmm.Sites(names=mget(sites.names, ind), chrom=sites.chrom,
+                      region=region)
+
+for i, bases in sites:
+    if region[0] <= i < region[1]:
+        bases = "".join(mget(bases, ind))
+        if is_variant(bases) or conf.keep_invariant:
+            sites2.append(i, bases)
+
+# write new sites
+arghmm.write_sites(conf.output, sites2)
+    

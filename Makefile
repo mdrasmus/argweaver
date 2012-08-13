@@ -45,7 +45,7 @@ PKG_DIR=dist/$(PKG_NAME)-$(PKG_VERSION)
 
 # program files
 SCRIPTS =  
-PROGS = bin/argsample
+PROGS = bin/arg-sample
 BINARIES = $(PROGS) $(SCRIPTS)
 
 ARGHMM_SRC = \
@@ -73,7 +73,7 @@ ARGHMM_SRC = \
 
 ALL_SRC = \
     $(ARGHMM_SRC) \
-    src/argsample.cpp
+    src/arg-sample.cpp
 
 
 ARGHMM_OBJS = $(ARGHMM_SRC:.cpp=.o)
@@ -99,8 +99,8 @@ LIBARGHMM_OBJS = $(ARGHMM_OBJS)
 # default targets
 all: $(PROGS) $(LIBARGHMM) $(LIBARGHMM_SHARED)
 
-bin/argsample: src/argsample.o $(LIBARGHMM)
-	$(CXX) $(CFLAGS) -o bin/argsample src/argsample.o $(LIBARGHMM)
+bin/arg-sample: src/arg-sample.o $(LIBARGHMM)
+	$(CXX) $(CFLAGS) -o bin/arg-sample src/arg-sample.o $(LIBARGHMM)
 
 
 #-----------------------------
