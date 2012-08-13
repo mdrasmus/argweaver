@@ -40,6 +40,8 @@ if conf.nseqs:
 elif conf.ind:
     names2 = set(util.read_strings(conf.ind))
     ind = [i for i in ind if sites.names[i] in names2]
+    for name in names2:
+        assert name in sites.names, name
 
 if conf.region:
     region = map(int, conf.region.split("-"))

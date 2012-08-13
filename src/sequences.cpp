@@ -1,5 +1,6 @@
 
 #include "common.h"
+#include "compress.h"
 #include "logging.h"
 #include "parsing.h"
 #include "seq.h"
@@ -92,7 +93,7 @@ bool read_fasta(const char *filename, Sequences *seqs)
     FILE *infile = NULL;    
     if ((infile = fopen(filename, "r")) == NULL) {
         printError("cannot read file '%s'", filename);
-        return NULL;
+        return false;
     }
     
     bool result = read_fasta(infile, seqs);
@@ -219,14 +220,33 @@ bool read_sites(FILE *infile, Sites *sites,
 bool read_sites(const char *filename, Sites *sites, 
                 int subregion_start, int subregion_end)
 {
-    FILE *infile = NULL;    
+    int len = strlen(filename);
+    bool compress = false;
+    FILE *infile;
+    if (len > 3 && strcmp(&filename[len - 3], ".gz") == 0) {
+        compress = true;
+        infile = read_compress(filename);
+    } else {
+        infile = fopen(filename, "r");
+    }
+    if (!infile) {
+        printError("cannot read file '%s'", filename);
+        return false;
+    }
+
+    /*
     if ((infile = fopen(filename, "r")) == NULL) {
         printError("cannot read file '%s'", filename);
         return NULL;
     }
+    */
     
     bool result = read_sites(infile, sites, subregion_start, subregion_end);
-    fclose(infile);
+
+    if (compress)
+        close_compress(infile);
+    else
+        fclose(infile);
     
     return result;
 }
