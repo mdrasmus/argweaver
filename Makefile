@@ -56,6 +56,7 @@ ARGHMM_SRC = \
     src/itree.cpp \
     src/local_tree.cpp \
     src/logging.cpp \
+    src/mem.cpp \
     src/newick.cpp \
     src/parsing.cpp \
     src/ptree.cpp \

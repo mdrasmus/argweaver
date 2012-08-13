@@ -9,6 +9,7 @@
 #include "ConfigParam.h"
 #include "emit.h"
 #include "logging.h"
+#include "mem.h"
 #include "sample_arg.h"
 #include "sequences.h"
 #include "total_prob.h"
@@ -245,6 +246,9 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     
     int noncompats = count_noncompat(trees, seqs, nseqs, sequences->length());
 
+    // get memory usage in MB
+    double maxrss = get_max_memory_usage() / 1000.0;
+    
 
     fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\n",
             stage, iter,
@@ -255,8 +259,10 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
              "likelihood: %f\n"
              "joint:      %f\n"
              "nrecombs:   %d\n"
-             "noncompats: %d\n\n",
-             prior, likelihood, joint, nrecombs, noncompats);
+             "noncompats: %d\n"
+             "max memory: %.1f MB\n\n",
+             prior, likelihood, joint, nrecombs, noncompats,
+             maxrss);
 }
 
 //=============================================================================
@@ -616,7 +622,9 @@ int main(int argc, char **argv)
     printLog(LOG_LOW, "\n");
     sample_arg(&model, &sequences2, trees, sites_mapping, &c);
     
+    double maxrss = get_max_memory_usage() / 1000.0;
     printTimerLog(timer, LOG_LOW, "sampling time: ");
+    printLog(LOG_LOW, "max memory usage: %.1f MB\n", maxrss);
 
     // clean up
     fclose(c.stats_file);
