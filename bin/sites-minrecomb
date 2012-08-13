@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+# infer parsimonious blocks from sites
+
+
+import sys, os, optparse
+from itertools import izip
+from collections import defaultdict
+
+from rasmus import util, treelib
+from compbio import coal, arglib, fasta, phylo
+
+import arghmm
+from arghmm import splitlib
+
+
+#=============================================================================
+# find mutations and splits
+
+sites = arghmm.read_sites(sys.argv[1])
+
+start, end = sites.region
+
+splits = []
+mut_pos = []
+for pos, col in sites:
+    freq = util.hist_dict(col)
+    if len(freq) == 1:
+        continue
+    low = min(freq.keys(), key=lambda x: freq[x])
+    split = sorted(i for i in range(len(col))
+                         if col[i] == low)
+    if len(split) > 1:
+        mut_pos.append(pos)
+        splits.append(split)
+    #print pos, low, col, splits[-1]
+
+
+# process conflicts in order of their ends
+nrecombs = 0
+n = len(splits)
+j = 1
+start = 0
+while j < n:
+    i = start
+    while i < j:
+        if not arglib.is_split_compatible(splits[i], splits[j]):
+            print i, j #, splits[i], splits[j]
+            nrecombs += 1
+            start = j
+            break
+        i += 1
+    j += 1
+
+print "nrecombs:", nrecombs
+
+'''
+# get conflict edges
+conflicts, left, right = splitlib.get_unique_conflicts(splits)
+
+# find max parsimonious break points 
+breaks = splitlib.find_break_points(conflicts)
+
+for b in breaks:
+    print int(splitlib.mutindex2pos(b, start, end, mut_pos))
+
+
+# determine split tracks
+tracks = splitlib.get_split_tracks(conflicts, left, right, breaks)
+
+for i, (split, track) in enumerate(izip(splits, tracks)):
+    print "\t".join(
+        map(str, 
+            (mut_pos[i],
+             track[0], track[1], 
+             int(splitlib.mutindex2pos(track[0], start, end, mut_pos)),
+             int(splitlib.mutindex2pos(track[1], start, end, mut_pos)),
+             ",".join(map(str, split)))))
+'''

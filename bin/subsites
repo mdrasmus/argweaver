@@ -14,6 +14,7 @@ o.add_option("-n", "--nseqs", metavar="NUMBER_OF_SEQS", type="int",
              help="use a random subsst of sequences")
 o.add_option("-k", "--keep-invariant", action="store_true",
              help="keep invariant sites")
+o.add_option("-i", "--ind", metavar="INDIVIDUALS")
 
 conf, args = o.parse_args()
 
@@ -35,8 +36,10 @@ sites = arghmm.read_sites(conf.sites)
 ind = range(sites.nseqs())
 if conf.nseqs:    
     random.shuffle(ind)
-    ind = ind[:20]
-
+    ind = ind[:conf.nseqs]
+elif conf.ind:
+    names2 = set(util.read_strings(conf.ind))
+    ind = [i for i in ind if sites.names[i] in names2]
 
 if conf.region:
     region = map(int, conf.region.split("-"))
