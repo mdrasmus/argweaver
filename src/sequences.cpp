@@ -325,7 +325,11 @@ void find_compress_cols(const Sites *sites, int compress,
     // record new coords
     sites_mapping->new_start = 0;
     int new_end = sites->length() / compress;
-    sites_mapping->new_end = max(sites_mapping->new_sites[ncols-1]+1, new_end);
+    if (ncols > 0)
+        sites_mapping->new_end = max(sites_mapping->new_sites[ncols-1]+1, 
+                                     new_end);
+    else
+        sites_mapping->new_end = new_end;
 }
 
 

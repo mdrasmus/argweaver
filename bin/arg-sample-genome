@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+# generate arg-sample commands for genome-wide analysis
+#
+
+import os
+import optparse
+import sys
+
+import arghmm
+
+o = optparse.OptionParser()
+o.add_option("-s", "--start", metavar="START_COORD", type="int")
+o.add_option("-e", "--end", metavar="END_COORD", type="int")
+o.add_option("", "--find-start", dest="find_start", action="store_true")
+o.add_option("-d", "--step", metavar="STEP_SIZE", type="int",
+             default=int(1e6))
+o.add_option("", "--dont-align-step", dest="dont_align_step",
+             action="store_true")
+o.add_option("", "--sites", metavar="SITES_FILE")
+o.add_option("-o", "--output", default="%d.arg/out")
+conf, args = o.parse_args()
+
+#=============================================================================
+
+# read sites file
+sites_file = conf.sites
+if sites_file.endswith(".gz"):
+    sites_file = os.popen("zcat %s" % sites_file)
+sites_iter = arghmm.iter_sites(sites_file)
+header = sites_iter.next()
+first_pos, first_col = sites_iter.next()
+
+# determine sequence start
+if conf.start:
+    start = conf.start
+elif conf.find_start:
+    start = first_pos
+else:
+    start = header["region"][0]
+
+# determine sequence end
+if conf.end:
+    end = conf.end
+else:
+    end = header["region"][1]
+
+# determine step
+step = conf.step
+if conf.dont_align_step:
+    reg_start = start
+else:
+    reg_start = 0
+    while reg_start + step < start:
+        reg_start += step
+
+# output commands
+while reg_start < end:
+    start2 = max(reg_start, start)
+    end2 = min(reg_start + step, end)
+    outprefix = conf.output % reg_start
+
+    outdir = os.path.dirname(outprefix)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    
+    args2 = args + ["--sites", conf.sites,
+                    "--region", "%d-%d" % (start2, end2),
+                    "--output", outprefix]
+    print " ".join(args2)
+    reg_start += step
+
+
+
+

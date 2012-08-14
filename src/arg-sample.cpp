@@ -496,6 +496,7 @@ int main(int argc, char **argv)
     else if (c.sitesfile != "") {
         // read sites file
         
+        // parse subregion if given
         int subregion[2] = {-1, -1};
         if (c.subregion_str != "") {
             if (!parse_region(c.subregion_str.c_str(), 
@@ -505,7 +506,7 @@ int main(int argc, char **argv)
             }
         }
 
-
+        // read sites
         sites = new Sites();
         sites_ptr = auto_ptr<Sites>(sites);
         if (!read_sites(c.sitesfile.c_str(), sites, 
@@ -513,12 +514,17 @@ int main(int argc, char **argv)
             printError("could not read sites file");
             return 1;
         }
-
         printLog(LOG_LOW, 
                  "read input sites (chrom=%s, start=%d, end=%d, length=%d, nseqs=%d, nsites=%d)\n",
                  sites->chrom.c_str(), sites->start_coord, sites->end_coord,
                  sites->length(), sites->get_num_seqs(),
                  sites->get_num_sites());
+
+        // sanity check for sites
+        if (sites->get_num_sites() == 0) {
+            printLog(LOG_LOW, "no sites given.  terminating");
+            return 1;
+        }
 
         if (c.compress_seq > 1) {
             // sequence compress requested
