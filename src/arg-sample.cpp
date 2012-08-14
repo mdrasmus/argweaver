@@ -57,7 +57,7 @@ public:
 		   ("-f", "--fasta", "<fasta alignment>", &fastafile, 
 		    "sequence alignment in FASTA format"));
 	config.add(new ConfigParam<string>
-		   ("-o", "--out", "<output prefix>", &out_prefix, 
+		   ("-o", "--output", "<output prefix>", &out_prefix, 
                     "arg-sample",
                     "prefix for all output filenames (default='arg-sample')"));
         config.add(new ConfigParam<string>
