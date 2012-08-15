@@ -8,6 +8,7 @@ import heapq
 from math import exp, log
 import random
 import StringIO
+import subprocess
 from itertools import chain, izip
 
 # rasmus combio libs
@@ -293,7 +294,6 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         nbranches, nrecombs, ncoals = get_nlineages_recomb_coal(tree, times)
         probs = [nbranches[k] * time_steps[k]
                  for k in range(root_age_index+1)]
-        #assert sum(probs) == get_treelen(tree, times)
         recomb_time_index = stats.sample(probs)
         recomb_time = times[recomb_time_index]
 
@@ -301,9 +301,7 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         branches = [x for x in states if x[1] == recomb_time_index and
                     x[0] != tree.root.name]
         recomb_node = tree[random.sample(branches, 1)[0][0]]
-
-        #treelib.draw_tree_names(tree.get_tree(), minlen=5, maxlen=5)
-
+        
         # choose coal time
         j = recomb_time_index
         while j < ntimes - 1:
@@ -337,12 +335,7 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         # yield SPR
         rleaves = list(tree.leaf_names(recomb_node))
         cleaves = list(tree.leaf_names(coal_node))
-
-        #print
-        #treelib.draw_tree(tree.get_tree(), maxlen=5)
-        #print rleaves, recomb_time
-        #print cleaves, coal_time
-
+        
         yield pos, (rleaves, recomb_time), (cleaves, coal_time)        
 
         # apply SPR to local tree
@@ -372,8 +365,6 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         del tree.nodes[broken.name]
         tree.set_root()
 
-        #print root_age_index == times.index(tree.root.age)
-
 
 def sample_arg_dsmc(k, popsize, rho, start=0.0, end=0.0, times=None, 
                     init_tree=None,
@@ -402,7 +393,6 @@ def sample_arg_dsmc(k, popsize, rho, start=0.0, end=0.0, times=None,
         init_tree=init_tree, names=names, make_names=make_names)
     tree = it.next()
     arg = arglib.make_arg_from_sprs(tree, it)
-    #discretize_arg(arg, times, ignore_top=True)
     
     return arg
 
@@ -541,6 +531,26 @@ def compress_align(seqs, compress):
 
 
 #=============================================================================
+# input/output
+
+def open_stream(filename, mode="r"):
+    """Open a stream and auto-detect whether file is compressed (*.gz)"""
+    
+    if isinstance(filename, basestring):
+        if filename.endswith(".gz"):
+            if mode == "r":
+                return subprocess.Popen(["zcat", filename],
+                                        stdout=subprocess.PIPE).stdout
+            elif mode == "w":
+                return subprocess.Popen(["gzip", "-"],
+                                        stdin=subprocess.PIPE).stdin
+            else:
+                raise Exception("unknown mode '%s'" % mode)
+    else:
+        return util.open_stream(filename, mode)
+
+
+#=============================================================================
 # sites
 
 class Sites (object):
@@ -618,7 +628,8 @@ class Sites (object):
         
 
 def iter_sites(filename):
-    infile = util.open_stream(filename)
+    """Iterate through a *.sites file"""
+    infile = open_stream(filename)
 
     header = {}
 
@@ -655,6 +666,7 @@ def iter_sites(filename):
 
 
 def read_sites(filename):
+    """Read a *.sites file"""
 
     reader = iter_sites(filename)
     header = reader.next()
@@ -669,8 +681,9 @@ def read_sites(filename):
 
 
 def write_sites(filename, sites):
+    """Write a sites file"""
 
-    out = util.open_stream(filename, "w")
+    out = open_stream(filename, "w")
 
     util.print_row("NAMES", *sites.names, out=out)
     util.print_row("REGION", sites.chrom, *sites.region, out=out)
@@ -724,9 +737,12 @@ def sites2seqs(sites, default_char="A"):
 #=============================================================================
 # SMC input/output
 
-def iter_smc_file(filename, parse_trees=False):
+def iter_smc_file(filename, parse_trees=False, apply_spr=False):
+    """Iterates through a *.smc file"""
 
-    infile = util.open_stream(filename)
+    infile = open_stream(filename)
+    spr = None
+    tree = None
 
     for line in infile:
         line = line.rstrip()
@@ -741,17 +757,18 @@ def iter_smc_file(filename, parse_trees=False):
                    "start": int(tokens[2]),
                    "end": int(tokens[3])}
         
-        #elif tokens[0] == "RANGE":
-        #    yield {"tag": "RANGE",
-        #           "start": int(tokens[1]), "end": int(tokens[2])}
-
         elif tokens[0] == "RANGE":
             raise Exception("deprecated RANGE line, use REGION instead")
             
         elif tokens[0] == "TREE":
-            tree = tokens[3]
+            tree_text = tokens[3]
             if parse_trees:
-                tree = parse_tree(tree)
+                if apply_spr and tree is not None and spr is not None:
+                    smc_apply_spr(tree, spr)
+                else:
+                    tree = parse_tree(tree_text)
+            else:
+                tree = text_text
             
             yield {"tag": "TREE",
                    "start": int(tokens[1]),
@@ -759,12 +776,13 @@ def iter_smc_file(filename, parse_trees=False):
                    "tree": tree}
 
         elif tokens[0] == "SPR":
-            yield {"tag": "SPR",
+            spr = {"tag": "SPR",
                    "pos": int(tokens[1]),
                    "recomb_node": int(tokens[2]),
                    "recomb_time": float(tokens[3]),
                    "coal_node": int(tokens[4]),
                    "coal_time": float(tokens[5])}
+            yield spr
 
     infile.close()
 
@@ -773,9 +791,57 @@ def read_smc(filename, parse_tree=False):
     return list(iter_smc_file(filename, parse_tree=parse_tree))
 
 
-def write_smc(filename, smc):
+def smc_apply_spr(tree, spr):
 
-    out = util.open_stream(filename, "w")
+    recomb = tree[spr["recomb_node"]]
+    coal = tree[spr["coal_node"]]
+    broken = recomb.parent
+    broken_dist = broken.dist
+    assert broken is not None
+
+    # remove recomb subtree from its parent
+    broken.children.remove(recomb)
+
+    # adjust recoal if coal branch and broken are the same
+    if coal == broken:
+        coal = broken.children[0]
+
+    # remove broken from tree
+    broken_child = broken.children[0]
+    broken_child.parent = broken.parent
+    if broken.parent:
+        util.replace(broken.parent.children, broken, broken_child)
+    broken_child.dist += broken_dist
+
+    # reuse broken node as new coal node
+    new_node = broken
+    new_node.data["age"] = spr["coal_time"]
+    new_node.children = [recomb, coal]
+    new_node.parent = coal.parent
+    if new_node.parent:
+        new_node.dist = new_node.parent.data["age"] - new_node.data["age"]
+    else:
+        new_node.dist = 0.0
+    recomb.parent = new_node
+    recomb.dist = new_node.data["age"] - recomb.data["age"]
+    coal.parent = new_node
+    coal.dist = new_node.data["age"] - coal.data["age"]
+    if new_node.parent:
+        if coal in new_node.parent.children:
+            util.replace(new_node.parent.children, coal, new_node)
+        else:
+            assert new_node in new_node.parent.children
+
+
+    # change root
+    while tree.root.parent is not None:
+        tree.root = tree.root.parent
+
+
+def write_smc(filename, smc):
+    """Writes an *.smc file"""
+
+    out = open_stream(filename, "w")
 
     for item in smc:
         if item["tag"] == "NAMES":
@@ -805,7 +871,12 @@ def parse_tree_data(node, data):
 
     # detect comments
     data = treelib.read_nhx_data(node, data)
-    
+
+    # parse age
+    if "age" in node.data:
+        node.data["age"] = float(node.data["age"])
+
+    # parse name and dist
     if ":" in data:
         name, dist = data.split(":")
         node.dist = float(dist)

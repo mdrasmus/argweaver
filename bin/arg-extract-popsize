@@ -1,11 +1,21 @@
 #!/usr/bin/env python
 
+import optparse
 
 from rasmus.common import *
 from compbio import coal
 from rasmus import intervals
 import arghmm
 
+o = optparse.OptionParser()
+o.add_option("-s", "--start", default=0, type="int")
+o.add_option("-e", "--end", default=5000, type="int")
+o.add_option("-d", "--step", default=1, type="int")
+
+conf, args = o.parse_args()
+
+
+#=============================================================================
 
 def mle_popsize_coal_times(k, times, mintime):
     s = 0
@@ -19,18 +29,35 @@ def mle_popsize_coal_times(k, times, mintime):
 
 
 def iter_popsize(filename, mintime):
-    for item in arghmm.iter_smc_file(filename):
+    chrom = "chr"
+    
+    for item in arghmm.iter_smc_file(filename, parse_trees=True,
+                                     apply_spr=True):
+        if item["tag"] == "REGION":
+            chrom = item["chrom"]
         if item["tag"] == "TREE":
-            tree = treelib.parse_newick(item["tree"])
-            ages = treelib.get_tree_timestamps(tree)
-            times = sorted([0.0] + [ages[x] for x in tree if not x.is_leaf()])
-            popsize = mle_popsize_coal_times(len(tree.leaves()), times, mintime)
-            yield item["start"], item["end"], popsize
+            tree = item["tree"]
+            times = sorted([0.0] + [x.data["age"] for x in tree
+                                    if not x.is_leaf()])
+            popsize = mle_popsize_coal_times(len(tree.leaves()),
+                                             times, mintime)
+            yield item["start"], item["end"], chrom, popsize
 
 
 #=============================================================================
 
-filenames = sys.argv[1:]
+filename = args[0]
+
+if "%d" in filename:
+    filenames = []
+    for i in range(conf.start, conf.end, conf.step):
+        fn = filename % i
+        if os.path.exists(fn):
+            filenames.append(fn)
+else:
+    filenames = args
+
+
 mintime = 10
 
 popsizes = []
@@ -39,8 +66,9 @@ for filename in filenames:
 popsizes.sort()
 
 for start, end, group in intervals.iter_intersections(popsizes):
-    vals = cget(group, 2)
-    print_row(start, end, mean(vals),
+    chrom = group[0][2]
+    vals = cget(group, 3)
+    print_row(chrom, start, end, mean(vals),
               percentile(vals, .025), percentile(vals, .975))
 
 
