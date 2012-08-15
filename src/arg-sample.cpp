@@ -8,6 +8,7 @@
 #include "compress.h"
 #include "ConfigParam.h"
 #include "emit.h"
+#include "fs.h"
 #include "logging.h"
 #include "mem.h"
 #include "sample_arg.h"
@@ -438,6 +439,16 @@ int main(int argc, char **argv)
     if (ret)
 	return ret;
 
+    // ensure output dir
+    char *path = strdup(c.out_prefix.c_str());
+    char *dir = dirname(path);
+    if (!makedirs(dir)) {
+        printError("could not make directory for output files '%s'",
+                   dir);
+        return 1;
+    }
+    free(path);
+    
     // setup logging
     setLogLevel(c.verbose);
     string log_filename = c.out_prefix + LOG_SUFFIX;

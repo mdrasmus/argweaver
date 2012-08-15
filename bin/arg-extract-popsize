@@ -17,7 +17,7 @@ conf, args = o.parse_args()
 
 #=============================================================================
 
-def mle_popsize_coal_times(k, times, mintime):
+def mle_popsize_coal_times(k, times, mintime=0):
     s = 0
     i = k
     last = 0
@@ -25,10 +25,14 @@ def mle_popsize_coal_times(k, times, mintime):
         s += i*(i-1) * max(t - last, mintime)
         i -= 1
         last = t
-    return s / float(2 * k - 2)
+    return s / float(4 * k - 4)
+
+def mle_popsize_tree(tree, mintime=0):
+    times = sorted([x.data["age"] for x in tree if not x.is_leaf()])
+    return mle_popsize_coal_times(len(tree.leaves()), times, mintime)
 
 
-def iter_popsize(filename, mintime):
+def iter_popsize(filename, mintime=0):
     chrom = "chr"
     
     for item in arghmm.iter_smc_file(filename, parse_trees=True,
@@ -37,10 +41,7 @@ def iter_popsize(filename, mintime):
             chrom = item["chrom"]
         if item["tag"] == "TREE":
             tree = item["tree"]
-            times = sorted([0.0] + [x.data["age"] for x in tree
-                                    if not x.is_leaf()])
-            popsize = mle_popsize_coal_times(len(tree.leaves()),
-                                             times, mintime)
+            popsize = mle_popsize_tree(tree, mintime)
             yield item["start"], item["end"], chrom, popsize
 
 
@@ -58,7 +59,7 @@ else:
     filenames = args
 
 
-mintime = 10
+mintime = 0
 
 popsizes = []
 for filename in filenames:

@@ -52,6 +52,7 @@ ARGHMM_SRC = \
     src/compress.cpp \
     src/emit.cpp \
     src/est_popsize.cpp \
+    src/fs.cpp \
     src/hmm.cpp \
     src/itree.cpp \
     src/local_tree.cpp \

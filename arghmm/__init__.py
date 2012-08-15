@@ -768,7 +768,7 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False):
                 else:
                     tree = parse_tree(tree_text)
             else:
-                tree = text_text
+                tree = tree_text
             
             yield {"tag": "TREE",
                    "start": int(tokens[1]),
