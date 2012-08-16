@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
+import json
+
 from rasmus.common import *
 from arghmm.bottle import request, get, HTTPResponse, static_file, run
 import arghmm
-import json
+from arghmm.db import SiteDB
 
 
 
@@ -117,9 +119,8 @@ def get_sites(region=""):
 
     result = []
     
-    for pos in sites.positions:
-        if start <= pos < end:
-            result.append({"pos": pos, "col": sites[pos]})
+    for pos, col in sites.get_sites(chrom, start, end, arg_names):
+        result.append({"pos": pos, "col": sites[pos]})
 
     return callback + "('" + json.dumps(result) + "');"
 
@@ -137,8 +138,19 @@ else:
 print "reading...",
 smc = list(arghmm.iter_smc_file(smc_file))
 
+for item in smc:
+    if item["tag"] == "NAMES":
+        arg_names = item["names"]
+        break
+
 if sites_file:
-    sites = arghmm.read_sites(sites_file)
+    util.tic("reading sites...")
+    if sites_file.endswith(".db"):
+        sites_db = SitesDB().connect(sites_file)
+    else:
+        sites_db = SitesDB().connect(":memory:")
+        sites_db.add_sites_file(sites_file)
+    util.toc()
 else:
     sites = None
 print "done"

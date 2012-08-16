@@ -546,8 +546,7 @@ def open_stream(filename, mode="r"):
                                         stdin=subprocess.PIPE).stdin
             else:
                 raise Exception("unknown mode '%s'" % mode)
-    else:
-        return util.open_stream(filename, mode)
+    return util.open_stream(filename, mode)
 
 
 #=============================================================================
