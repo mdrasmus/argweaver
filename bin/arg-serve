@@ -5,7 +5,7 @@ import json
 from rasmus.common import *
 from arghmm.bottle import request, get, HTTPResponse, static_file, run
 import arghmm
-from arghmm.db import SiteDB
+from arghmm.db import SitesDB
 
 
 
@@ -119,8 +119,8 @@ def get_sites(region=""):
 
     result = []
     
-    for pos, col in sites.get_sites(chrom, start, end, arg_names):
-        result.append({"pos": pos, "col": sites[pos]})
+    for pos, col in sites_db.get_sites(chrom, start, end, arg_names):
+        result.append({"pos": pos, "col": col})
 
     return callback + "('" + json.dumps(result) + "');"
 
@@ -135,8 +135,9 @@ if len(sys.argv) > 2:
 else:
     sites_file = None
 
-print "reading...",
+util.tic("reading arg...")
 smc = list(arghmm.iter_smc_file(smc_file))
+util.toc()
 
 for item in smc:
     if item["tag"] == "NAMES":
