@@ -88,7 +88,7 @@ class SitesDB (object):
         if names is None:
             return res
         else:
-            lookup = dict((n, i) for i, n in enumerate(self.names))
+            lookup = dict((n, i) for i, n in enumerate(self.get_names()))
             ind = [lookup[n] for n in names]
             return subset_by_names(res, ind)
     
