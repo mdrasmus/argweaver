@@ -11,7 +11,10 @@ class SitesDB (object):
         self._names = None
 
     def connect(self, filename):
-        self.con = sqlite.connect(filename, isolation_level="DEFERRED")        
+        if isinstance(filename, basestring):
+            self.con = sqlite.connect(filename, isolation_level="DEFERRED")
+        else:
+            self.con = filename
         self.init_tables()
         return self
 
@@ -25,7 +28,7 @@ class SitesDB (object):
         self.con.execute(u"""CREATE INDEX IF NOT EXISTS IdxSites 
                              ON Sites (chrom, pos);""")
         
-        self.con.execute(u"""CREATE TABLE IF NOT EXISTS Sequences (
+        self.con.execute(u"""CREATE TABLE IF NOT EXISTS SitesSequences (
                              name TEXT,
                              seq_order INTEGER)""")
 
@@ -36,13 +39,13 @@ class SitesDB (object):
         if len(names2) == 0:
             # insert names
             for i, name in enumerate(names):
-                self.con.execute("INSERT INTO Sequences VALUES (?, ?)",
+                self.con.execute("INSERT INTO SitesSequences VALUES (?, ?)",
                                  (name, i))
         else:
             assert names == names2
 
     def _query_names(self):
-        res = self.con.execute("SELECT name FROM Sequences ORDER BY seq_order")
+        res = self.con.execute("SELECT name FROM SitesSequences ORDER BY seq_order")
         return [row[0] for row in res]
         
 
