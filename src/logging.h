@@ -150,9 +150,9 @@ public:
     //============================
     // log stream
 
-    bool openLogFile(const char *filename)
+    bool openLogFile(const char *filename, const char *mode="w")
     {
-        FILE *stream = fopen(filename, "w");
+        FILE *stream = fopen(filename, mode);
         
         if (stream != NULL) {
             logstream = stream;
@@ -201,8 +201,8 @@ protected:
 
 extern Logger g_logger;
 
-inline bool openLogFile(const char *filename)
-{ return g_logger.openLogFile(filename); }
+inline bool openLogFile(const char *filename, const char* mode="w")
+{ return g_logger.openLogFile(filename, mode); }
 
 inline void openLogFile(FILE *stream)
 { return g_logger.openLogFile(stream); }
@@ -212,9 +212,6 @@ inline void closeLogFile()
 
 inline FILE *getLogFile()
 { return g_logger.getLogFile(); }
-
-//inline void setLogLevel(int level)
-//{ return g_logger.setLogLevel(level); }
 
 inline bool isLogLevel(int level)
 { return g_logger.isLogLevel(level);

@@ -11,9 +11,11 @@
 #include "fs.h"
 #include "logging.h"
 #include "mem.h"
+#include "parsing.h"
 #include "sample_arg.h"
 #include "sequences.h"
 #include "total_prob.h"
+#include <sys/stat.h>
 
 
 using namespace arghmm;
@@ -99,6 +101,8 @@ public:
                    ("", "--resample-region", "<start>-<end>", 
                     &resample_region_str, "",
                     "region to resample of input ARG (optional)"));
+        config.add(new ConfigSwitch
+		   ("", "--resume", &resume, "resume a previous run"));
         
         // misc
 	config.add(new ConfigParamComment("Miscellaneous"));
@@ -176,6 +180,9 @@ public:
     int niters;
     string resample_region_str;
     int resample_region[2];
+    bool resume;
+    string resume_stage;
+    int resume_iter;
 
     // misc
     int compress_seq;
@@ -254,6 +261,7 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\n",
             stage, iter,
             prior, likelihood, joint, nrecombs, noncompats);
+    fflush(stats_file);
 
     printLog(LOG_LOW, "\n"
              "prior:      %f\n"
@@ -269,14 +277,22 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
 //=============================================================================
 // sample output
 
+string get_out_arg_file(const Config &config, int iter) 
+{
+    char iterstr[10];
+    snprintf(iterstr, 10, ".%d", iter);
+    return config.out_prefix + iterstr + SMC_SUFFIX;
+}
+
 
 bool log_local_trees(
     const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
     const SitesMapping* sites_mapping, const Config *config, int iter)
-{
-    char iterstr[10];
-    snprintf(iterstr, 10, ".%d", iter);
-    string out_argfile = config->out_prefix + iterstr + SMC_SUFFIX;
+{    
+    //char iterstr[10];
+    //snprintf(iterstr, 10, ".%d", iter);
+    //string out_argfile = config->out_prefix + iterstr + SMC_SUFFIX;
+    string out_argfile = get_out_arg_file(*config, iter);
     
     // write local trees uncompressed
     if (sites_mapping)
@@ -359,6 +375,9 @@ void seq_sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 void climb_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                SitesMapping* sites_mapping, Config *config)
 {
+    if (config->resume)
+        return;
+
     printLog(LOG_LOW, "Climb Search (%d iterations)\n", config->nclimb);
     printLog(LOG_LOW, "-----------------------------\n");
     double recomb_preference = .9;
@@ -374,10 +393,15 @@ void climb_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                       SitesMapping* sites_mapping, Config *config)
 {
+    int iter = 0;
+    if (config->resume)
+        iter = config->resume_iter;
+
+
     printLog(LOG_LOW, "Resample All Branches (%d iterations)\n", 
              config->niters);
     printLog(LOG_LOW, "--------------------------------------\n");
-    for (int i=0; i<config->niters; i++) {
+    for (int i=iter; i<config->niters; i++) {
         printLog(LOG_LOW, "sample %d\n", i+1);
         resample_arg_all(model, sequences, trees);
 
@@ -392,10 +416,12 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 }
 
 
+// overall sampling workflow
 void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                 SitesMapping* sites_mapping, Config *config)
 {
-    print_stats_header(config->stats_file);
+    if (!config->resume)
+        print_stats_header(config->stats_file);
 
     // build initial arg by sequential sampling
     seq_sample_arg(model, sequences, trees, sites_mapping, config);
@@ -422,12 +448,118 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         
     } else{
         // climb sampling
-        climb_arg(model, sequences, trees, sites_mapping, config);    
+        climb_arg(model, sequences, trees, sites_mapping, config);
         // resample all branches
         resample_arg_all(model, sequences, trees, sites_mapping, config);
     }
 }
 
+
+//=============================================================================
+
+bool parse_status_line(const char* line, const Config &config,
+                       string &stage, int &iter, string &arg_file)
+{    
+    // parse stage and last iter
+    vector<string> tokens;
+    split(line, "\t", tokens);
+    if (tokens.size() < 2) {
+        printError("incomplete line in status file");
+        return false;
+    }
+        
+    string stage2 = tokens[0];
+    int iter2;
+    if (sscanf(tokens[1].c_str(), "%d", &iter2) != 1) {
+        printError("iter column is not an integer");
+        return false;
+    }
+
+    // NOTE: only resume resample stage for now
+    if (stage2 != "resample")
+        return true;
+
+    // see if ARG file exists
+    string out_argfile = get_out_arg_file(config, iter2);
+    printf(">> %s\n", out_argfile.c_str());
+    struct stat st;
+    if (stat(out_argfile.c_str(), &st) == 0) {
+        stage = stage2;
+        iter = iter2;
+        arg_file = out_argfile;
+    }
+
+    // try compress output
+    out_argfile += ".gz";
+    if (stat(out_argfile.c_str(), &st) == 0) {
+        stage = stage2;
+        iter = iter2;
+        arg_file = out_argfile;
+    }
+
+
+    return true;
+}
+
+
+bool setup_resume(Config &config)
+{
+    if (!config.resume)
+        return true;
+
+    printLog(LOG_LOW, "Resuming previous run\n");
+
+    // open stats file    
+    string stats_filename = config.out_prefix + STATS_SUFFIX;
+    printLog(LOG_LOW, "Checking previous run from stats file: %s\n", 
+             stats_filename.c_str());
+
+    FILE *stats_file;
+    if (!(stats_file = fopen(stats_filename.c_str(), "r"))) {
+        printError("could not open stats file '%s'",
+                   stats_filename.c_str());
+        return false;
+    }
+
+    // find last line of stats file that has a written ARG
+    char *line = NULL;
+
+    // skip header line
+    line = fgetline(stats_file);
+    if (!line) {
+        printError("status file is empty");
+        return false;
+    }
+    delete [] line;
+    
+    // loop through status lines
+    string arg_file = "";
+    while ((line = fgetline(stats_file))) {
+        if (!parse_status_line(line, config, 
+                               config.resume_stage, config.resume_iter, 
+                               arg_file)) 
+        {
+            delete [] line;
+            return false;
+        }
+        delete [] line;
+    }
+
+    if (arg_file == "") {
+        printLog(LOG_LOW, "Could not find any previously writen ARG files. Try disabling resume");
+        return false;
+    }
+    config.argfile = arg_file;
+    
+    printLog(LOG_LOW, "resuming at stage=%s, iter=%d, arg=%s\n", 
+             config.resume_stage.c_str(), config.resume_iter,
+             config.argfile.c_str());
+
+    // clean up
+    fclose(stats_file);
+
+    return true;
+}
 
 
 //=============================================================================
@@ -458,7 +590,8 @@ int main(int argc, char **argv)
     else
         logger = new Logger(NULL, c.verbose);
 
-    if (!logger->openLogFile(log_filename.c_str())) {
+    const char *log_mode = (c.resume ? "a" : "w");
+    if (!logger->openLogFile(log_filename.c_str(), log_mode)) {
         printError("could not open log file '%s'", log_filename.c_str());
         return 1;
     }
@@ -477,6 +610,13 @@ int main(int argc, char **argv)
         c.randseed = time(NULL);
     srand(c.randseed);
     printLog(LOG_LOW, "random seed: %d\n\n", c.randseed);
+
+
+    // setup resuming
+    if (!setup_resume(c)) {
+        printError("resume failed.");
+        return 1;
+    }
 
 
     // setup model
@@ -533,7 +673,7 @@ int main(int argc, char **argv)
 
         // sanity check for sites
         if (sites->get_num_sites() == 0) {
-            printLog(LOG_LOW, "no sites given.  terminating");
+            printLog(LOG_LOW, "no sites given.  terminating.\n");
             return 1;
         }
 
@@ -630,7 +770,8 @@ int main(int argc, char **argv)
     
     // init stats file
     string stats_filename = c.out_prefix + STATS_SUFFIX;
-    if (!(c.stats_file = fopen(stats_filename.c_str(), "w"))) {
+    const char *stats_mode = (c.resume ? "a" : "w");
+    if (!(c.stats_file = fopen(stats_filename.c_str(), stats_mode))) {
         printError("could not open stats file '%s'", stats_filename.c_str());
         return 1;
     }
@@ -639,9 +780,11 @@ int main(int argc, char **argv)
     printLog(LOG_LOW, "\n");
     sample_arg(&model, &sequences2, trees, sites_mapping, &c);
     
+    // final log message
     double maxrss = get_max_memory_usage() / 1000.0;
     printTimerLog(timer, LOG_LOW, "sampling time: ");
     printLog(LOG_LOW, "max memory usage: %.1f MB\n", maxrss);
+    printLog(LOG_LOW, "FINISH\n");
 
     // clean up
     fclose(c.stats_file);
