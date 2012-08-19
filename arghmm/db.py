@@ -195,15 +195,17 @@ class ArgDB (object):
                WHERE sample = ? and chrom = ? and ? < end and start < ?
                ORDER BY start;""",
             (sample, chrom, start, end)):
-            yield {"start": row[0], "end": row[1], "tree": row[2]}
+            yield {"tag": "TREE",
+                   "start": row[0], "end": row[1], "tree": row[2]}
 
     def get_sprs(self, chrom, start, end, sample=0):
         for row in self.con.execute(
             """SELECT pos, recomb_node, recomb_time, coal_node, coal_time FROM ArgSprs
                WHERE sample = ? and chrom = ? and ? <= pos and pos < ?
-               ORDER BY start;""",
+               ORDER BY pos;""",
             (sample, chrom, start, end)):
-            yield {"pos": row[0],
+            yield {"tag": "SPR",
+                   "pos": row[0],
                    "recomb_node": row[1],
                    "recomb_time": row[2],
                    "coal_node": row[3],

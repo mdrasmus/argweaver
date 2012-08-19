@@ -5,7 +5,7 @@ import json
 from rasmus.common import *
 from arghmm.bottle import request, get, HTTPResponse, static_file, run
 import arghmm
-from arghmm.db import SitesDB
+from arghmm.db import ArgDB, SitesDB
 
 
 
@@ -19,24 +19,34 @@ def get_tree(pos=0):
     pos = int(pos)
 
     callback = request.query.get("callback", "jsonp_callback")
-    
+
+    return callback + "('" + \
+           json.dumps(smc_db.get_trees(chrom, pos, pos).next()) + "');"
+
+    '''
     for item in smc:
         if item["tag"] == "TREE":
             if item["start"] <= pos < item["end"]:
                 print item
                 return callback + "('" + json.dumps(item) + "');"
+    '''
     
     return ""
 
 
 # get one tree and spr
 @get('/tree-spr/:pos')
-def get_tree(pos=0):
+def get_tree_spr(pos=0):
     chrom, pos = pos.split(":")
     pos = int(pos)
 
     callback = request.query.get("callback", "jsonp_callback")
 
+    result = [smc_db.get_trees(chrom, pos, pos).next()]
+    end = result[0]["end"]
+    result.append(smc_db.get_sprs(chrom, end, end+1).next())
+
+    '''
     result = []
     spr = False
     for item in smc:
@@ -48,6 +58,7 @@ def get_tree(pos=0):
         elif item["tag"] == "SPR" and spr:
             result.append(item)
             break
+    '''
     
     return callback + "('" + json.dumps(result) + "');"
 
@@ -66,7 +77,12 @@ def get_trees(region=""):
     callback = request.query.get("callback", "jsonp_callback")
 
     result = []
-    
+    result.extend(smc_db.get_trees(chrom, start, end))
+    result.extend(smc_db.get_sprs(chrom, start, end))
+    result.sort(key=lambda x: (x["start"], 1) if "start" in x
+                else (x["pos"], 0))
+
+    '''
     for item in smc:
         if item["tag"] == "TREE":
             if util.overlap(start, end, item["start"], item["end"]):
@@ -76,13 +92,14 @@ def get_trees(region=""):
             if start <= item["pos"] < end:
                 print item
                 result.append(item)
+    '''
 
     return callback + "('" + json.dumps(result) + "');"
 
 
 # get a region of sprs
 @get('/sprs/:region')
-def get_trees(region=""):
+def get_sprs(region=""):
     chrom, region = region.split(":")
     tokens = region.split("-")
     if len(tokens) != 2:
@@ -94,12 +111,15 @@ def get_trees(region=""):
     callback = request.query.get("callback", "jsonp_callback")
 
     result = []
-    
+    result.extend(smc_db.get_sprs(chrom, start, end))
+
+    '''
     for item in smc:
         if item["tag"] == "SPR":
             if start <= item["pos"] < end:
                 print item
                 result.append(item)
+    '''
 
     return callback + "('" + json.dumps(result) + "');"
 
@@ -136,13 +156,21 @@ else:
     sites_file = None
 
 util.tic("reading arg...")
-smc = list(arghmm.iter_smc_file(smc_file))
+if smc_file.endswith(".db"):
+    smc_db = ArgDB().connect(smc_file)
+else:
+    smc_db = ArgDB().connect(":memory:")
+    smc_db.add_smc_file(smc_file)
 util.toc()
 
+arg_names = smc_db.get_names()
+
+'''
 for item in smc:
     if item["tag"] == "NAMES":
         arg_names = item["names"]
         break
+'''
 
 if sites_file:
     util.tic("reading sites...")
