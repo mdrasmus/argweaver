@@ -215,8 +215,8 @@ void log_intro(int level)
 {
     time_t t = time(NULL);
     
-    printLog(level, "argsample " VERSION_TEXT "\n");
-    printLog(level, "start time: %s\n", ctime(&t));
+    printLog(level, "arg-sample " VERSION_TEXT "\n");
+    printLog(level, "start time: %s", ctime(&t));  // newline is in ctime
 }
 
 void log_prog_commands(int level, int argc, char **argv)
@@ -481,7 +481,6 @@ bool parse_status_line(const char* line, const Config &config,
 
     // see if ARG file exists
     string out_argfile = get_out_arg_file(config, iter2);
-    printf(">> %s\n", out_argfile.c_str());
     struct stat st;
     if (stat(out_argfile.c_str(), &st) == 0) {
         stage = stage2;
@@ -597,6 +596,8 @@ int main(int argc, char **argv)
     }
     if (!c.quiet)
         g_logger.setChain(logger);
+    if (c.resume)
+        printLog(LOG_LOW, "RESUME\n");
     
     
     // log intro
