@@ -955,7 +955,6 @@ def smc2sprs(smc):
                 yield arg
                 
         elif item["tag"] == "SPR":
-            print item["pos"]
             rleaves = [names[i] for i in
                        tree.leaf_names(tree[item["recomb_node"]])]
             cleaves = [names[i] for i in

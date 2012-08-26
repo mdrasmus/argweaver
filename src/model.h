@@ -21,7 +21,7 @@ inline void get_time_points(int ntimes, double maxtime,
                             double *times, double delta=.01)
 {
     for (int i=0; i<ntimes; i++)
-        times[i] = get_time_point(i, ntimes, maxtime, delta);
+        times[i] = get_time_point(i, ntimes-1, maxtime, delta);
 }
 
 
@@ -36,9 +36,9 @@ public:
         rho(rho),
         mu(mu)
     {
-        times = new double [ntimes];
+        times = new double [ntimes+1];
         get_time_points(ntimes, maxtime, times);
-
+        
         popsizes = new double [ntimes];
         fill(popsizes, popsizes + ntimes, popsize);
 

@@ -610,7 +610,7 @@ int main(int argc, char **argv)
     if (c.randseed == 0)
         c.randseed = time(NULL);
     srand(c.randseed);
-    printLog(LOG_LOW, "random seed: %d\n\n", c.randseed);
+    printLog(LOG_LOW, "random seed: %d\n", c.randseed);
 
 
     // setup resuming
@@ -625,6 +625,13 @@ int main(int argc, char **argv)
     c.mu *= c.compress_seq;
     ArgModel model(c.ntimes, c.maxtime, c.popsize, c.rho, c.mu);
 
+    // log model
+    printLog(LOG_LOW, "times = [");
+    for (int i=0; i<model.ntimes-1; i++)
+        printLog(LOG_LOW, "%f,", model.times[i]);
+    printLog(LOG_LOW, "%f]\n", model.times[model.ntimes-1]);
+    printLog(LOG_LOW, "\n");
+    
 
     // read sequences
     Sequences sequences;

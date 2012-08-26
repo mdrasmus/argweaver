@@ -1,0 +1,17 @@
+#!/usr/bin/env python
+
+from rasmus.common import *
+from compbio import arglib
+import arghmm
+
+smc_file = sys.argv[1]
+arg_file = sys.argv[2]
+ancestral_file = sys.argv[3]
+
+smc = arghmm.iter_smc_file(smc_file)
+arg = arghmm.smc2arg(smc)
+arg.write(arg_file)
+arg.set_ancestral()
+arglib.write_ancestral(ancestral_file, arg)
+
+
