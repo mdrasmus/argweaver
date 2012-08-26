@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+
+import optparse
+import sqlite3  as sqlite
+
+from rasmus.common import *
+import arghmm
+from arghmm.db import SitesDB
+
+o = optparse.OptionParser()
+o.add_option("-d", "--db")
+o.add_option("", "--add-sites", action="append", default=[])
+
+conf, args = o.parse_args()
+
+#=============================================================================
+
+
+
+db = SitesDB().connect(conf.db)
+
+for fn in conf.add_sites:
+    util.tic("adding %s..." % fn)
+    db.add_sites_file(fn)
+    util.toc()
+
+db.commit()
+db.close()
