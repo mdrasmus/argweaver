@@ -987,18 +987,6 @@ void sample_arg_removal_path_recomb(
     delete_matrix<double>(forward, ntrees);
     delete_matrix<next_row>(backptrs, ntrees);
     delete_matrix<double>(trans, ntrees);
-
-    /*
-    // DEBUG
-    int nrecomb = 0;
-    it = trees->begin();
-    for (int i=0; i<ntrees; i++, ++it) {
-        if (path[i] == it->spr.recomb_node)
-            nrecomb++;
-    }
-    printf("nrecomb resampled = %d\n", nrecomb);
-    */
-
 }
 
 

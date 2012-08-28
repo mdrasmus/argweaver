@@ -3,6 +3,7 @@
 // C/C++ includes
 #include <time.h>
 #include <memory>
+#include <sys/stat.h>
 
 // arghmm includes
 #include "compress.h"
@@ -15,7 +16,8 @@
 #include "sample_arg.h"
 #include "sequences.h"
 #include "total_prob.h"
-#include <sys/stat.h>
+#include "track.h"
+
 
 
 using namespace arghmm;
@@ -33,6 +35,10 @@ Gibbs sampler for ancestral recombination graphs\n\
 const char *SMC_SUFFIX = ".smc";
 const char *STATS_SUFFIX = ".stats";
 const char *LOG_SUFFIX = ".log";
+
+
+// debug options level
+const int DEBUG_OPT = 1;
 
 
 // parsing command-line options
@@ -54,17 +60,17 @@ public:
 
         // input/output
 	config.add(new ConfigParam<string>
-		   ("-s", "--sites", "<sites alignment>", &sitesfile, 
+		   ("-s", "--sites", "<sites alignment>", &sites_file, 
 		    "sequence alignment in sites format"));
 	config.add(new ConfigParam<string>
-		   ("-f", "--fasta", "<fasta alignment>", &fastafile, 
+		   ("-f", "--fasta", "<fasta alignment>", &fasta_file, 
 		    "sequence alignment in FASTA format"));
 	config.add(new ConfigParam<string>
 		   ("-o", "--output", "<output prefix>", &out_prefix, 
                     "arg-sample",
                     "prefix for all output filenames (default='arg-sample')"));
         config.add(new ConfigParam<string>
-                   ("-a", "--arg", "<SMC file>", &argfile, "",
+                   ("-a", "--arg", "<SMC file>", &arg_file, "",
                     "initial ARG file (*.smc) for resampling (optional)"));
         config.add(new ConfigParam<string>
                    ("", "--region", "<start>-<end>", 
@@ -88,6 +94,13 @@ public:
 	config.add(new ConfigParam<double>
 		   ("", "--maxtime", "<maxtime>", &maxtime, 200e3,
                     "maximum time point in generations (default=200e3)"));
+        config.add(new ConfigParam<double>
+                   ("", "--time-step", "<time>", &time_step, 0,
+                    "linear time step in generations (optional)"));
+        config.add(new ConfigParam<string>
+                   ("", "--times-file", "<times filename>", &times_file, "",
+                    "file containing time points (optional)"));
+
 
         // search
 	config.add(new ConfigParamComment("Search"));
@@ -118,7 +131,13 @@ public:
                     "do not use compressed output"));
         config.add(new ConfigParam<int>
                    ("-x", "--randseed", "<random seed>", &randseed, 0,
-                    "seed for random number generator (default: current time)"));
+                    "seed for random number generator (default=current time)"));
+
+        config.add(new ConfigParamComment("Advanced Options", DEBUG_OPT));
+        config.add(new ConfigParam<double>
+                   ("", "--prob-path-switch", "<probability>", 
+                    &prob_path_switch, .1,
+                    "removal path switch (default=.1)", DEBUG_OPT));
 
         // help information
 	config.add(new ConfigParamComment("Information"));
@@ -132,7 +151,10 @@ public:
 		   ("-v", "--version", &version, "display version information"));
 	config.add(new ConfigSwitch
 		   ("-h", "--help", &help, 
-		    "display help information"));
+		    "display help information"));        
+        config.add(new ConfigSwitch
+                   ("", "--help-advanced", &help_debug, 
+                    "display help information about advanced options"));
     }
 
     int parse_args(int argc, char **argv)
@@ -149,6 +171,12 @@ public:
 	    config.printHelp();
 	    return 1;
 	}
+
+        // display debug help
+        if (help_debug) {
+            config.printHelp(stderr, DEBUG_OPT);
+            return 1;
+        }
     
 	// display version info
 	if (version) {
@@ -162,10 +190,10 @@ public:
     ConfigParser config;
 
     // input/output
-    string fastafile;
-    string sitesfile;
+    string fasta_file;
+    string sites_file;
     string out_prefix;
-    string argfile;
+    string arg_file;
     string subregion_str;
 
     // parameters
@@ -174,6 +202,8 @@ public:
     double rho;
     int ntimes;
     double maxtime;
+    double time_step;
+    string times_file;
 
     // search
     int nclimb;
@@ -189,12 +219,14 @@ public:
     int sample_step;
     bool no_compress_output;
     int randseed;
+    double prob_path_switch;
     
     // help/information
     bool quiet;
     int verbose;
     bool version;
     bool help;
+    bool help_debug;
 
     // logging
     FILE *stats_file;
@@ -291,8 +323,8 @@ bool log_local_trees(
 {    
     //char iterstr[10];
     //snprintf(iterstr, 10, ".%d", iter);
-    //string out_argfile = config->out_prefix + iterstr + SMC_SUFFIX;
-    string out_argfile = get_out_arg_file(*config, iter);
+    //string out_arg_file = config->out_prefix + iterstr + SMC_SUFFIX;
+    string out_arg_file = get_out_arg_file(*config, iter);
     
     // write local trees uncompressed
     if (sites_mapping)
@@ -301,11 +333,11 @@ bool log_local_trees(
     // setup output stream
     FILE *out = NULL;
     if (config->no_compress_output)
-        out = fopen(out_argfile.c_str(), "w");
+        out = fopen(out_arg_file.c_str(), "w");
     else
-        out = open_compress((out_argfile + ".gz").c_str(), "w");
+        out = open_compress((out_arg_file + ".gz").c_str(), "w");
     if (!out) {
-        printError("could not open '%s' for output", out_argfile.c_str());
+        printError("could not open '%s' for output", out_arg_file.c_str());
         return false;
     }
 
@@ -325,17 +357,17 @@ bool log_local_trees(
 
 //=============================================================================
 
-bool read_init_arg(const char *argfile, const ArgModel *model, 
+bool read_init_arg(const char *arg_file, const ArgModel *model, 
                    LocalTrees *trees, vector<string> &seqnames)
 {
-    int len = strlen(argfile);
+    int len = strlen(arg_file);
     bool compress = false;
     FILE *infile;
-    if (len > 3 && strcmp(&argfile[len - 3], ".gz") == 0) {
+    if (len > 3 && strcmp(&arg_file[len - 3], ".gz") == 0) {
         compress = true;
-        infile = read_compress(argfile);
+        infile = read_compress(arg_file);
     } else {
-        infile = fopen(argfile, "r");
+        infile = fopen(arg_file, "r");
     }
     if (!infile)
         return false;
@@ -403,7 +435,7 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     printLog(LOG_LOW, "--------------------------------------\n");
     for (int i=iter; i<config->niters; i++) {
         printLog(LOG_LOW, "sample %d\n", i+1);
-        resample_arg_all(model, sequences, trees);
+        resample_arg_all(model, sequences, trees, config->prob_path_switch);
 
         // logging
         print_stats(config->stats_file, "resample", i, model, sequences, trees);
@@ -480,20 +512,20 @@ bool parse_status_line(const char* line, const Config &config,
         return true;
 
     // see if ARG file exists
-    string out_argfile = get_out_arg_file(config, iter2);
+    string out_arg_file = get_out_arg_file(config, iter2);
     struct stat st;
-    if (stat(out_argfile.c_str(), &st) == 0) {
+    if (stat(out_arg_file.c_str(), &st) == 0) {
         stage = stage2;
         iter = iter2;
-        arg_file = out_argfile;
+        arg_file = out_arg_file;
     }
 
     // try compress output
-    out_argfile += ".gz";
-    if (stat(out_argfile.c_str(), &st) == 0) {
+    out_arg_file += ".gz";
+    if (stat(out_arg_file.c_str(), &st) == 0) {
         stage = stage2;
         iter = iter2;
-        arg_file = out_argfile;
+        arg_file = out_arg_file;
     }
 
 
@@ -548,11 +580,11 @@ bool setup_resume(Config &config)
         printLog(LOG_LOW, "Could not find any previously writen ARG files. Try disabling resume");
         return false;
     }
-    config.argfile = arg_file;
+    config.arg_file = arg_file;
     
     printLog(LOG_LOW, "resuming at stage=%s, iter=%d, arg=%s\n", 
              config.resume_stage.c_str(), config.resume_iter,
-             config.argfile.c_str());
+             config.arg_file.c_str());
 
     // clean up
     fclose(stats_file);
@@ -623,13 +655,30 @@ int main(int argc, char **argv)
     // setup model
     c.rho *= c.compress_seq;
     c.mu *= c.compress_seq;
-    ArgModel model(c.ntimes, c.maxtime, c.popsize, c.rho, c.mu);
+    ArgModel model(c.ntimes, c.rho, c.mu);
+    if (c.times_file != "") {
+        printError("not implemented yet");
+        return 1;
+    } else if (c.time_step)
+        model.set_linear_times(c.time_step, c.ntimes);
+    else
+        model.set_log_times(c.maxtime, c.ntimes);
+    model.set_popsizes(c.popsize, model.ntimes);
 
     // log model
-    printLog(LOG_LOW, "times = [");
+    printLog(LOG_LOW, "\n");
+    printLog(LOG_LOW, "model: \n");
+    printLog(LOG_LOW, "  mu = %f\n", model.mu);
+    printLog(LOG_LOW, "  rho = %f\n", model.rho);
+    printLog(LOG_LOW, "  ntimes = %d\n", model.ntimes);
+    printLog(LOG_LOW, "  times = [");
     for (int i=0; i<model.ntimes-1; i++)
         printLog(LOG_LOW, "%f,", model.times[i]);
     printLog(LOG_LOW, "%f]\n", model.times[model.ntimes-1]);
+    printLog(LOG_LOW, "  popsizes = [");
+    for (int i=0; i<model.ntimes-1; i++)
+        printLog(LOG_LOW, "%f,", model.popsizes[i]);
+    printLog(LOG_LOW, "%f]\n", model.popsizes[model.ntimes-1]);
     printLog(LOG_LOW, "\n");
     
 
@@ -640,10 +689,10 @@ int main(int argc, char **argv)
     SitesMapping *sites_mapping = NULL;
     auto_ptr<SitesMapping> sites_mapping_ptr;
     
-    if (c.fastafile != "") {
+    if (c.fasta_file != "") {
         // read FASTA file
         
-        if (!read_fasta(c.fastafile.c_str(), &sequences)) {
+        if (!read_fasta(c.fasta_file.c_str(), &sequences)) {
             printError("could not read fasta file");
             return 1;
         }
@@ -652,7 +701,7 @@ int main(int argc, char **argv)
                  "read input sequences (nseqs=%d, length=%d)\n",
                  sequences.get_num_seqs(), sequences.length());
     }
-    else if (c.sitesfile != "") {
+    else if (c.sites_file != "") {
         // read sites file
         
         // parse subregion if given
@@ -668,7 +717,7 @@ int main(int argc, char **argv)
         // read sites
         sites = new Sites();
         sites_ptr = auto_ptr<Sites>(sites);
-        if (!read_sites(c.sitesfile.c_str(), sites, 
+        if (!read_sites(c.sites_file.c_str(), sites, 
                         subregion[0], subregion[1])) {
             printError("could not read sites file");
             return 1;
@@ -714,13 +763,13 @@ int main(int argc, char **argv)
     // setup init ARG
     LocalTrees *trees = NULL;
     auto_ptr<LocalTrees> trees_ptr;
-    if (c.argfile != "") {
+    if (c.arg_file != "") {
         // init ARG from file
         
         trees = new LocalTrees();
         trees_ptr = auto_ptr<LocalTrees>(trees);
         vector<string> seqnames;
-        if (!read_init_arg(c.argfile.c_str(), &model, trees, seqnames)) {
+        if (!read_init_arg(c.arg_file.c_str(), &model, trees, seqnames)) {
             printError("could not read ARG");
             return 1;
         }

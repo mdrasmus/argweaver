@@ -1639,7 +1639,7 @@ class Sample (unittest.TestCase):
 
                 arg2 = arghmm.resample_all_arg(arg2,
                     seqs, rho=rho, mu=mu, times=times, popsizes=n,
-                    refine=refine, carg=True)
+                    refine=refine, carg=True, prob_path_switch=.5)
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
@@ -1936,7 +1936,7 @@ class Sample (unittest.TestCase):
 
             arg2 = arghmm.resample_all_arg(
                 arg2, seqs, rho=rho, mu=mu, times=times,
-                popsizes=n, refine=1, carg=True)
+                popsizes=n, refine=1, carg=True, prob_path_switch=.1)
             util.toc()
             nrecombs2 = arghmm.get_local_trees_ntrees(arg2[0]) - 1
             lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
@@ -1957,10 +1957,10 @@ class Sample (unittest.TestCase):
                 popsizes=n)
 
         # plot block starts
-        x = [start for (start, end), tree in arglib.iter_tree_tracks(arg)]
-        x2 = [start for (start, end), tree in arglib.iter_tree_tracks(arg2)]
-        q = plot(x)
-        q.plot(x2)
+        #x = [start for (start, end), tree in arglib.iter_tree_tracks(arg)]
+        #x2 = [start for (start, end), tree in arglib.iter_tree_tracks(arg2)]
+        #q = plot(x)
+        #q.plot(x2)
 
         pause()
 
@@ -2847,7 +2847,7 @@ class Sample (unittest.TestCase):
 
         x = []
         y = []
-        for i in range(2):
+        for i in range(20):
             path = [0] * ntrees
             node = random.randint(0, nnodes - 1)
             arghmm.arghmm_sample_arg_removal_path(trees, node, path)

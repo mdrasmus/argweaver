@@ -30,61 +30,55 @@ inline void get_time_points(int ntimes, double maxtime,
 class ArgModel 
 {
 public:
+    ArgModel(int ntimes, double rho, double mu) :
+        ntimes(ntimes),
+        times(NULL),
+        time_steps(NULL),
+        popsizes(NULL),
+        rho(rho),
+        mu(mu)
+    {}
+
     ArgModel(int ntimes, double maxtime, double popsize, 
              double rho, double mu) :
         ntimes(ntimes),
+        times(NULL),
+        time_steps(NULL),
+        popsizes(NULL),
         rho(rho),
         mu(mu)
     {
-        times = new double [ntimes+1];
-        get_time_points(ntimes, maxtime, times);
-        
-        popsizes = new double [ntimes];
-        fill(popsizes, popsizes + ntimes, popsize);
-
-        // setup time steps
-        setup_time_steps();
+        set_log_times(maxtime, ntimes);
+        set_popsizes(popsize, ntimes);
     }
 
     ArgModel(int ntimes, double maxtime, double *_popsizes, 
              double rho, double mu) :
         ntimes(ntimes),
+        times(NULL),
+        time_steps(NULL),
+        popsizes(NULL),
         rho(rho),
         mu(mu)
     {
-        times = new double [ntimes];
-        get_time_points(ntimes, maxtime, times);
-
-        if (_popsizes) {
-            popsizes = new double [ntimes];
-            copy(_popsizes, _popsizes + ntimes, popsizes);
-        } else {
-            popsizes = NULL;
-        }
-
-        // setup time steps
-        setup_time_steps();
+        set_log_times(maxtime, ntimes);
+        if (_popsizes)
+            set_popsizes(_popsizes, ntimes);
     }
 
 
     ArgModel(int ntimes, double *_times, double *_popsizes, 
              double rho, double mu) :
         ntimes(ntimes),
+        times(NULL),
+        time_steps(NULL),
+        popsizes(NULL),
         rho(rho),
         mu(mu)
     {
-        times = new double [ntimes];
-        copy(_times, _times + ntimes, times);
-
-        if (_popsizes) {
-            popsizes = new double [ntimes];
-            copy(_popsizes, _popsizes + ntimes, popsizes);
-        } else {
-            popsizes = NULL;
-        }
-
-        // setup time steps
-        setup_time_steps();
+        set_times(_times, ntimes);
+        if (_popsizes)
+            set_popsizes(_popsizes, ntimes);
     }
     ~ArgModel()
     {
@@ -94,10 +88,60 @@ public:
             delete [] popsizes;
     }
 
+    //=====================================================================
+    // setting time points and popsizes
+
+    void set_times(double *_times, int _ntimes) {
+        ntimes = _ntimes;
+        if (times)
+            delete [] times;
+        times = new double [ntimes];
+        copy(_times, _times + ntimes, times);
+        
+        setup_time_steps();
+    }
+
+    void set_log_times(int maxtime, int _ntimes) {
+        ntimes = _ntimes;
+        if (times)
+            delete [] times;
+        times = new double [ntimes];
+        get_time_points(ntimes, maxtime, times);
+        setup_time_steps();
+    }
+
+    void set_linear_times(double time_step, int _ntimes) {
+        ntimes = _ntimes;
+        if (times)
+            delete [] times;
+        times = new double [ntimes];
+        for (int i=0; i<ntimes; i++)
+            times[i] = i * time_step;
+        setup_time_steps();
+    }
+
+    void set_popsizes(double *_popsizes, int _ntimes) {
+        ntimes = _ntimes;
+        if (popsizes)
+            delete [] popsizes;
+        popsizes = new double [ntimes];
+        copy(_popsizes, _popsizes + ntimes, popsizes);
+    }
+
+    void set_popsizes(double popsize, int _ntimes) {
+        ntimes = _ntimes;
+        if (popsizes)
+            delete [] popsizes;
+        popsizes = new double [ntimes];
+        fill(popsizes, popsizes + ntimes, popsize);
+    }
+
 protected:
 
     void setup_time_steps()
     {
+        if (time_steps)
+            delete [] time_steps;
         time_steps = new double [ntimes];
         for (int i=0; i<ntimes-1; i++)
             time_steps[i] = times[i+1] - times[i];

@@ -90,7 +90,7 @@ void resample_arg(const ArgModel *model, const Sequences *sequences,
 
 // resample the threading of an internal branch
 void resample_arg_all(const ArgModel *model, const Sequences *sequences, 
-                      LocalTrees *trees)
+                      LocalTrees *trees, double prob_path_switch=.1)
 {
     const int maxtime = model->ntimes + 1;
     int *removal_path = new int [trees->get_num_trees()];
@@ -98,7 +98,7 @@ void resample_arg_all(const ArgModel *model, const Sequences *sequences,
     // ramdomly choose a removal path
     int node = irand(trees->nnodes);
     int pos = irand(trees->start_coord, trees->end_coord);
-    sample_arg_removal_path(trees, node, pos, removal_path);
+    sample_arg_removal_path(trees, node, pos, removal_path, prob_path_switch);
     
     remove_arg_thread_path(trees, removal_path, maxtime);
     sample_arg_thread_internal(model, sequences, trees);
@@ -115,15 +115,9 @@ void resample_arg_climb(const ArgModel *model, const Sequences *sequences,
     const int maxtime = model->ntimes + 1;
     int *removal_path = new int [trees->get_num_trees()];
     
-    if (true) { //frand() < .5) {
-        // ramdomly choose a removal path weighted by recombinations
-        sample_arg_removal_path_recomb(trees, recomb_preference, removal_path);
-
-    } else {
-        int node = irand(trees->get_num_leaves());
-        sample_arg_removal_leaf_path(trees, node, removal_path);        
-    }
-
+    // ramdomly choose a removal path weighted by recombinations
+    sample_arg_removal_path_recomb(trees, recomb_preference, removal_path);
+    
     remove_arg_thread_path(trees, removal_path, maxtime);
     sample_arg_thread_internal(model, sequences, trees);
     
@@ -470,7 +464,7 @@ LocalTrees *arghmm_resample_arg(
 LocalTrees *arghmm_resample_all_arg(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, int niters)
+    char **seqs, int nseqs, int seqlen, int niters, double prob_path_switch)
 {
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
@@ -482,7 +476,7 @@ LocalTrees *arghmm_resample_all_arg(
 
     // gibbs sample
     for (int i=0; i<niters; i++)
-        resample_arg_all(&model, &sequences, trees);
+        resample_arg_all(&model, &sequences, trees, prob_path_switch);
     
     return trees;
 }

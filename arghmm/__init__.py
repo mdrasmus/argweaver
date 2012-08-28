@@ -736,6 +736,21 @@ def sites2seqs(sites, default_char="A"):
 #=============================================================================
 # SMC input/output
 
+def get_smc_iter(filename):
+    if filename.endswith(".smc.gz"):
+        filename = filename[:-len(".smc.gz")]
+    elif filename.endswith(".gz"):
+        filename = filename[:-len(".gz")]
+    i = filename.rindex(".")
+    return int(filename[i+1:])
+
+
+def list_smc_files(path):
+    files = util.list_files(path, ".smc.gz")
+    files.sort(key=get_smc_iter)
+    return files
+
+
 def iter_smc_file(filename, parse_trees=False, apply_spr=False):
     """Iterates through a *.smc file"""
 

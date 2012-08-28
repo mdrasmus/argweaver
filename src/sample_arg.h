@@ -25,7 +25,7 @@ void resample_arg(const ArgModel *model, const Sequences *sequences,
                   LocalTrees *trees, int nremove=1);
 
 void resample_arg_all(const ArgModel *model, const Sequences *sequences, 
-                      LocalTrees *trees);
+                      LocalTrees *trees, double prob_path_switch);
 
 void resample_arg_climb(const ArgModel *model, const Sequences *sequences, 
                         LocalTrees *trees, double recomb_preference);
