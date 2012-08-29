@@ -761,11 +761,11 @@ int main(int argc, char **argv)
 
 
 
-    // get coordinates
+    // get coordinates (0-index)
     int start = 0;
     int end = sequences.length();
     if (sites) {
-        start = sites->start_coord - 1;
+        start = sites->start_coord;
         end = sites->end_coord;
     }
     
@@ -822,7 +822,7 @@ int main(int argc, char **argv)
     if (c.resample_region_str != "") {
         if (!parse_region(c.resample_region_str.c_str(), 
                           &c.resample_region[0], &c.resample_region[1])) {
-            printError("region is not specified as 'start-end'");
+            printError("--resample-region is not specified as 'start-end'");
             return 1;
         }
 
@@ -830,7 +830,6 @@ int main(int argc, char **argv)
             c.resample_region[0] = sites_mapping->compress(c.resample_region[0]);
             c.resample_region[1] = sites_mapping->compress(c.resample_region[1]);
         }
-        
     }
     
     
