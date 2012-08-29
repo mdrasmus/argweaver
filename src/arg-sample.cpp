@@ -100,6 +100,13 @@ public:
         config.add(new ConfigParam<string>
                    ("", "--times-file", "<times filename>", &times_file, "",
                     "file containing time points (optional)"));
+	config.add(new ConfigParam<string>
+		   ("-M", "--mutmap", "<mutation rate map file>", &mutmap, "",
+                    "mutation map file (optional)"));
+	config.add(new ConfigParam<string>
+		   ("-R", "--recombmap", "<recombination rate map file>", 
+                    &recombmap, "",
+                    "recombination map file (optional)"));
 
 
         // search
@@ -196,7 +203,7 @@ public:
     string arg_file;
     string subregion_str;
 
-    // parameters
+    // model parameters
     double popsize;
     double mu;
     double rho;
@@ -204,6 +211,8 @@ public:
     double maxtime;
     double time_step;
     string times_file;
+    string mutmap;
+    string recombmap;
 
     // search
     int nclimb;
@@ -243,6 +252,7 @@ bool parse_region(const char *region, int *start, int *end)
 //=============================================================================
 // logging
 
+// log the program version and start time
 void log_intro(int level)
 {
     time_t t = time(NULL);
@@ -251,6 +261,7 @@ void log_intro(int level)
     printLog(level, "start time: %s", ctime(&t));  // newline is in ctime
 }
 
+// log the command used
 void log_prog_commands(int level, int argc, char **argv)
 {
     printLog(level, "command:");
@@ -258,6 +269,26 @@ void log_prog_commands(int level, int argc, char **argv)
         printLog(level, " %s", argv[i]);
     }
     printLog(level, "\n");
+}
+
+
+// log the model used
+void log_model(const ArgModel &model)
+{
+    printLog(LOG_LOW, "\n");
+    printLog(LOG_LOW, "model: \n");
+    printLog(LOG_LOW, "  mu = %e\n", model.mu);
+    printLog(LOG_LOW, "  rho = %e\n", model.rho);
+    printLog(LOG_LOW, "  ntimes = %d\n", model.ntimes);
+    printLog(LOG_LOW, "  times = [");
+    for (int i=0; i<model.ntimes-1; i++)
+        printLog(LOG_LOW, "%f,", model.times[i]);
+    printLog(LOG_LOW, "%f]\n", model.times[model.ntimes-1]);
+    printLog(LOG_LOW, "  popsizes = [");
+    for (int i=0; i<model.ntimes-1; i++)
+        printLog(LOG_LOW, "%f,", model.popsizes[i]);
+    printLog(LOG_LOW, "%f]\n", model.popsizes[model.ntimes-1]);
+    printLog(LOG_LOW, "\n");
 }
 
 
@@ -309,6 +340,8 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
 //=============================================================================
 // sample output
 
+
+// Returns the iteration-specific ARG filename
 string get_out_arg_file(const Config &config, int iter) 
 {
     char iterstr[10];
@@ -321,36 +354,27 @@ bool log_local_trees(
     const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
     const SitesMapping* sites_mapping, const Config *config, int iter)
 {    
-    //char iterstr[10];
-    //snprintf(iterstr, 10, ".%d", iter);
-    //string out_arg_file = config->out_prefix + iterstr + SMC_SUFFIX;
     string out_arg_file = get_out_arg_file(*config, iter);
-    
+    if (!config->no_compress_output)
+        out_arg_file += ".gz";
+
     // write local trees uncompressed
     if (sites_mapping)
         uncompress_local_trees(trees, sites_mapping);
 
     // setup output stream
-    FILE *out = NULL;
-    if (config->no_compress_output)
-        out = fopen(out_arg_file.c_str(), "w");
-    else
-        out = open_compress((out_arg_file + ".gz").c_str(), "w");
-    if (!out) {
-        printError("could not open '%s' for output", out_arg_file.c_str());
+    CompressStream stream(out_arg_file.c_str(), "w");
+    if (!stream.stream) {
+        printError("cannot write '%s'", out_arg_file.c_str());
         return false;
     }
+        
 
-    write_local_trees(out, trees, sequences, model->times);
+    write_local_trees(stream.stream, trees, sequences, model->times);
     
     if (sites_mapping)
         compress_local_trees(trees, sites_mapping);
-
-    if (config->no_compress_output)
-        fclose(out);
-    else
-        close_compress(out);
-
+    
     return true;
 }
 
@@ -360,28 +384,14 @@ bool log_local_trees(
 bool read_init_arg(const char *arg_file, const ArgModel *model, 
                    LocalTrees *trees, vector<string> &seqnames)
 {
-    int len = strlen(arg_file);
-    bool compress = false;
-    FILE *infile;
-    if (len > 3 && strcmp(&arg_file[len - 3], ".gz") == 0) {
-        compress = true;
-        infile = read_compress(arg_file);
-    } else {
-        infile = fopen(arg_file, "r");
-    }
-    if (!infile)
+    CompressStream stream(arg_file, "r");
+    if (!stream.stream) {
+        printError("cannot read '%s'", arg_file);
         return false;
+    }
 
-
-    bool result = read_local_trees(infile, model->times, model->ntimes,
-                                   trees, seqnames);
-
-    if (compress)
-        close_compress(infile);
-    else
-        fclose(infile);
-
-    return result;
+    return read_local_trees(stream.stream, model->times, model->ntimes,
+                            trees, seqnames);
 }
 
 
@@ -664,23 +674,9 @@ int main(int argc, char **argv)
     else
         model.set_log_times(c.maxtime, c.ntimes);
     model.set_popsizes(c.popsize, model.ntimes);
-
-    // log model
-    printLog(LOG_LOW, "\n");
-    printLog(LOG_LOW, "model: \n");
-    printLog(LOG_LOW, "  mu = %f\n", model.mu);
-    printLog(LOG_LOW, "  rho = %f\n", model.rho);
-    printLog(LOG_LOW, "  ntimes = %d\n", model.ntimes);
-    printLog(LOG_LOW, "  times = [");
-    for (int i=0; i<model.ntimes-1; i++)
-        printLog(LOG_LOW, "%f,", model.times[i]);
-    printLog(LOG_LOW, "%f]\n", model.times[model.ntimes-1]);
-    printLog(LOG_LOW, "  popsizes = [");
-    for (int i=0; i<model.ntimes-1; i++)
-        printLog(LOG_LOW, "%f,", model.popsizes[i]);
-    printLog(LOG_LOW, "%f]\n", model.popsizes[model.ntimes-1]);
-    printLog(LOG_LOW, "\n");
     
+    // log model
+    log_model(model);
 
     // read sequences
     Sequences sequences;
@@ -717,11 +713,13 @@ int main(int argc, char **argv)
         // read sites
         sites = new Sites();
         sites_ptr = auto_ptr<Sites>(sites);
-        if (!read_sites(c.sites_file.c_str(), sites, 
-                        subregion[0], subregion[1])) {
+        CompressStream stream(c.sites_file.c_str());
+        if (!read_sites(stream.stream, sites, subregion[0], subregion[1])) {
             printError("could not read sites file");
             return 1;
         }
+        stream.close();
+
         printLog(LOG_LOW, 
                  "read input sites (chrom=%s, start=%d, end=%d, length=%d, nseqs=%d, nsites=%d)\n",
                  sites->chrom.c_str(), sites->start_coord, sites->end_coord,

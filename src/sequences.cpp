@@ -1,6 +1,5 @@
 
 #include "common.h"
-#include "compress.h"
 #include "logging.h"
 #include "parsing.h"
 #include "seq.h"
@@ -220,33 +219,15 @@ bool read_sites(FILE *infile, Sites *sites,
 bool read_sites(const char *filename, Sites *sites, 
                 int subregion_start, int subregion_end)
 {
-    int len = strlen(filename);
-    bool compress = false;
     FILE *infile;
-    if (len > 3 && strcmp(&filename[len - 3], ".gz") == 0) {
-        compress = true;
-        infile = read_compress(filename);
-    } else {
-        infile = fopen(filename, "r");
-    }
-    if (!infile) {
+    if ((infile = fopen(filename, "r")) == NULL) {
         printError("cannot read file '%s'", filename);
         return false;
     }
-
-    /*
-    if ((infile = fopen(filename, "r")) == NULL) {
-        printError("cannot read file '%s'", filename);
-        return NULL;
-    }
-    */
     
     bool result = read_sites(infile, sites, subregion_start, subregion_end);
 
-    if (compress)
-        close_compress(infile);
-    else
-        fclose(infile);
+    fclose(infile);
     
     return result;
 }
@@ -269,7 +250,6 @@ void make_sequences_from_sites(const Sites *sites, Sequences *sequences,
         
         int col = 0;
         for (int j=0; j<seqlen; j++) {
-            //printf(">> %d %d %d\n", start, j, col);
             if (col < nsites && start+j == sites->positions[col]) {
                 // variant site
                 seq[j] = sites->cols[col++][i];

@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "compress.h"
 #include "logging.h"
 #include "parsing.h"
 
@@ -72,18 +71,12 @@ bool Track<int>::read_track_line(const char *line)
 
 
 template <class T>
-bool read_track(const char *filename, Track<T> *track)
-{
-    CompressStream stream(filename);
-    if (!stream.stream) {
-        printError("cannot read file '%s'", filename);
-        return false;
-    }
-    
+bool read_track(FILE *infile, Track<T> *track)
+{    
     char *line = NULL;
     int linesize = 1024;
     int lineno = 0;
-    while (fgetline(&line, &linesize, stream.stream)) {
+    while (fgetline(&line, &linesize, infile)) {
         lineno++;
         if (!track->read_track_line(line)) {
             printError("could not read track line %d", lineno);
@@ -93,7 +86,24 @@ bool read_track(const char *filename, Track<T> *track)
     }
     
     delete [] line;
+    
     return true;
+}
+
+
+template <class T>
+bool read_track(const char *filename, Track<T> *track)
+{
+    FILE *infile;
+    if ((infile = fopen(filename, "r")) == NULL) {
+        printError("cannot read file '%s'", filename);
+        return false;
+    }
+    
+    bool result = read_track(infile, track);
+    
+    fclose(infile);
+    return result;
 }
 
 

@@ -32,14 +32,16 @@ string quote_arg(string text)
 
 FILE *read_compress(const char *filename, const char *command)
 {
-    string cmd = string(command) + " < " + quote_arg(filename);
+    const char *command2 = (command ? command : UNZIP_COMMAND);
+    string cmd = string(command2) + " < " + quote_arg(filename);
     return popen(cmd.c_str(), "r");
 }
 
 
 FILE *write_compress(const char *filename, const char *command)
 {
-    string cmd = string(command) + " > " + quote_arg(filename);
+    const char *command2 = (command ? command : ZIP_COMMAND);
+    string cmd = string(command2) + " > " + quote_arg(filename);
     return popen(cmd.c_str(), "w");
 }
 
