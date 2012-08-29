@@ -5,7 +5,12 @@
 #ifndef ARGHMM_MODEL_H
 #define ARGHMM_MODEL_H
 
-#include "common.h"
+// c/c++ includes
+#include <math.h>
+
+// arghmm includes
+#include "track.h"
+
 
 namespace arghmm {
 
@@ -136,6 +141,19 @@ public:
         fill(popsizes, popsizes + ntimes, popsize);
     }
 
+    //====================================================================
+    // accessors
+
+    bool has_mutmap()
+    {
+        return mutmap.size() > 0;
+    }
+
+    bool has_recombmap()
+    {
+        return recombmap.size() > 0;
+    }
+
 protected:
 
     void setup_time_steps()
@@ -158,6 +176,8 @@ public:
     double *popsizes;
     double rho;
     double mu;
+    Track<double> mutmap;
+    Track<double> recombmap;
 };
 
 

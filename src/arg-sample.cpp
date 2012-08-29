@@ -674,6 +674,13 @@ int main(int argc, char **argv)
     else
         model.set_log_times(c.maxtime, c.ntimes);
     model.set_popsizes(c.popsize, model.ntimes);
+
+    if (c.mutmap != "")
+        read_track(c.mutmap.c_str(), &model.mutmap);
+    if (c.recombmap != "")
+        read_track(c.recombmap.c_str(), &model.recombmap);
+    
+
     
     // log model
     log_model(model);

@@ -69,6 +69,7 @@ ARGHMM_SRC = \
     src/sequences.cpp \
     src/thread.cpp \
     src/total_prob.cpp \
+    src/track.cpp \
     src/trans.cpp \
     src/Tree.cpp \
     src/t2exp.cpp
