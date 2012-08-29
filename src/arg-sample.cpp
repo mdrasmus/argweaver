@@ -587,7 +587,7 @@ bool setup_resume(Config &config)
     }
 
     if (arg_file == "") {
-        printLog(LOG_LOW, "Could not find any previously writen ARG files. Try disabling resume");
+        printLog(LOG_LOW, "Could not find any previously writen ARG files. Try disabling resume\n");
         return false;
     }
     config.arg_file = arg_file;
@@ -616,8 +616,7 @@ int main(int argc, char **argv)
     char *path = strdup(c.out_prefix.c_str());
     char *dir = dirname(path);
     if (!makedirs(dir)) {
-        printError("could not make directory for output files '%s'",
-                   dir);
+        printError("could not make directory for output files '%s'", dir);
         return 1;
     }
     free(path);
@@ -626,23 +625,24 @@ int main(int argc, char **argv)
     setLogLevel(c.verbose);
     string log_filename = c.out_prefix + LOG_SUFFIX;
     Logger *logger;
-    if (c.quiet)
+    if (c.quiet) {
+        // log only to file
         logger = &g_logger;
-    else
+    } else {
+        // log to both stdout and file
         logger = new Logger(NULL, c.verbose);
-
+        g_logger.setChain(logger);
+    }
     const char *log_mode = (c.resume ? "a" : "w");
     if (!logger->openLogFile(log_filename.c_str(), log_mode)) {
         printError("could not open log file '%s'", log_filename.c_str());
         return 1;
     }
-    if (!c.quiet)
-        g_logger.setChain(logger);
-    if (c.resume)
-        printLog(LOG_LOW, "RESUME\n");
     
     
     // log intro
+    if (c.resume)
+        printLog(LOG_LOW, "RESUME\n");
     log_intro(LOG_LOW);
     log_prog_commands(LOG_LOW, argc, argv);
     Timer timer;
@@ -675,11 +675,17 @@ int main(int argc, char **argv)
         model.set_log_times(c.maxtime, c.ntimes);
     model.set_popsizes(c.popsize, model.ntimes);
 
-    if (c.mutmap != "")
+    // read model parameter maps if given
+    if (c.mutmap != "") {
         read_track(c.mutmap.c_str(), &model.mutmap);
-    if (c.recombmap != "")
+        for (unsigned int i=0; i<model.mutmap.size(); i++)
+            model.mutmap[i].value *= c.compress_seq;
+    }
+    if (c.recombmap != "") {
         read_track(c.recombmap.c_str(), &model.recombmap);
-    
+        for (unsigned int i=0; i<model.recombmap.size(); i++)
+            model.recombmap[i].value *= c.compress_seq;
+    }
 
     
     // log model
@@ -700,11 +706,10 @@ int main(int argc, char **argv)
             return 1;
         }
 
-        printLog(LOG_LOW, 
-                 "read input sequences (nseqs=%d, length=%d)\n",
+        printLog(LOG_LOW, "read input sequences (nseqs=%d, length=%d)\n",
                  sequences.get_num_seqs(), sequences.length());
-    }
-    else if (c.sites_file != "") {
+        
+    } else if (c.sites_file != "") {
         // read sites file
         
         // parse subregion if given
@@ -727,8 +732,7 @@ int main(int argc, char **argv)
         }
         stream.close();
 
-        printLog(LOG_LOW, 
-                 "read input sites (chrom=%s, start=%d, end=%d, length=%d, nseqs=%d, nsites=%d)\n",
+        printLog(LOG_LOW, "read input sites (chrom=%s, start=%d, end=%d, length=%d, nseqs=%d, nsites=%d)\n",
                  sites->chrom.c_str(), sites->start_coord, sites->end_coord,
                  sites->length(), sites->get_num_seqs(),
                  sites->get_num_sites());
@@ -761,7 +765,7 @@ int main(int argc, char **argv)
     int start = 0;
     int end = sequences.length();
     if (sites) {
-        start = sites->start_coord;
+        start = sites->start_coord - 1;
         end = sites->end_coord;
     }
     
@@ -785,7 +789,7 @@ int main(int argc, char **argv)
         }
         
         printLog(LOG_LOW, "read input ARG (chrom=%s, start=%d, end=%d, nseqs=%d)\n",
-                 trees->chrom.c_str(), trees->start_coord, trees->end_coord, 
+                 trees->chrom.c_str(), trees->start_coord+1, trees->end_coord, 
                  trees->get_num_leaves());
 
         // compress input tree if compression is requested

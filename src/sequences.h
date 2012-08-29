@@ -171,7 +171,7 @@ public:
 
     inline int length() const
     {
-        return end_coord - start_coord;
+        return end_coord - start_coord + 1;
     }
     
     inline int get_num_sites() const
