@@ -789,7 +789,7 @@ int main(int argc, char **argv)
         }
         
         printLog(LOG_LOW, "read input ARG (chrom=%s, start=%d, end=%d, nseqs=%d)\n",
-                 trees->chrom.c_str(), trees->start_coord+1, trees->end_coord, 
+                 trees->chrom.c_str(), trees->start_coord, trees->end_coord, 
                  trees->get_num_leaves());
 
         // compress input tree if compression is requested
