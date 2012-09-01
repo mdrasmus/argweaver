@@ -303,8 +303,13 @@ void print_stats_header(FILE *stats_file)
 
 void print_stats(FILE *stats_file, const char *stage, int iter,
                  const ArgModel *model, 
-                 const Sequences *sequences, const LocalTrees *trees)
+                 const Sequences *sequences, LocalTrees *trees,
+                 const SitesMapping* sites_mapping)
 {
+    // uncompressed local trees 
+    if (sites_mapping)
+        uncompress_local_trees(trees, sites_mapping);
+
     double prior = calc_arg_prior(model, trees);
     double likelihood = calc_arg_likelihood(model, sequences, trees);
     double joint = prior + likelihood;
@@ -335,6 +340,10 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
              "max memory: %.1f MB\n\n",
              prior, likelihood, joint, nrecombs, noncompats,
              maxrss);
+
+    // recompress
+    if (sites_mapping)
+        compress_local_trees(trees, sites_mapping);
 }
 
 //=============================================================================
@@ -409,7 +418,7 @@ void seq_sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "------------------------------------------------\n");
         sample_arg_seq(model, sequences, trees);
         print_stats(config->stats_file, "seq", trees->get_num_leaves(),
-                    model, sequences, trees);
+                    model, sequences, trees, sites_mapping);
     }
 }
 
@@ -426,7 +435,8 @@ void climb_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     for (int i=0; i<config->nclimb; i++) {
         printLog(LOG_LOW, "climb %d\n", i+1);
         resample_arg_climb(model, sequences, trees, recomb_preference);
-        print_stats(config->stats_file, "climb", i, model, sequences, trees);
+        print_stats(config->stats_file, "climb", i, model, sequences, trees,
+                    sites_mapping);
     }
     printLog(LOG_LOW, "\n");
 }
@@ -448,7 +458,8 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         resample_arg_all(model, sequences, trees, config->prob_path_switch);
 
         // logging
-        print_stats(config->stats_file, "resample", i, model, sequences, trees);
+        print_stats(config->stats_file, "resample", i, model, sequences, trees,
+                    sites_mapping);
 
         // sample saving
         if (i % config->sample_step == 0)
@@ -476,7 +487,7 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "--------------------------------------------\n");
 
         print_stats(config->stats_file, "resample_region", 0, 
-                    model, sequences, trees);
+                    model, sequences, trees, sites_mapping);
 
         resample_arg_all_region(model, sequences, trees, 
                                 config->resample_region[0], 
@@ -485,7 +496,7 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 
         // logging
         print_stats(config->stats_file, "resample_region", config->niters,
-                    model, sequences, trees);
+                    model, sequences, trees, sites_mapping);
         log_local_trees(model, sequences, trees, sites_mapping, config, 0);
         
     } else{
