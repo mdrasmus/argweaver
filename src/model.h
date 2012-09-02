@@ -106,7 +106,7 @@ public:
         setup_time_steps();
     }
 
-    void set_log_times(int maxtime, int _ntimes) {
+    void set_log_times(double maxtime, int _ntimes) {
         ntimes = _ntimes;
         if (times)
             delete [] times;

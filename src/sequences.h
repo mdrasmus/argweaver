@@ -256,6 +256,7 @@ void make_sequences_from_sites(const Sites *sites, Sequences *sequencess,
 void find_compress_cols(const Sites *sites, int compress, 
                         SitesMapping *sites_mapping);
 void compress_sites(Sites *sites, const SitesMapping *sites_mapping);
+void uncompress_sites(Sites *sites, const SitesMapping *sites_mapping);
 
 
 } // namespace arghmm

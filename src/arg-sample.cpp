@@ -307,8 +307,8 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
                  const SitesMapping* sites_mapping)
 {
     // uncompressed local trees 
-    if (sites_mapping)
-        uncompress_local_trees(trees, sites_mapping);
+    //if (sites_mapping)
+    //    uncompress_local_trees(trees, sites_mapping);
 
     double prior = calc_arg_prior(model, trees);
     double likelihood = calc_arg_likelihood(model, sequences, trees);
@@ -342,8 +342,8 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
              maxrss);
 
     // recompress
-    if (sites_mapping)
-        compress_local_trees(trees, sites_mapping);
+    //if (sites_mapping)
+    //    compress_local_trees(trees, sites_mapping);
 }
 
 //=============================================================================

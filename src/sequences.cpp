@@ -324,6 +324,18 @@ void compress_sites(Sites *sites, const SitesMapping *sites_mapping)
 }
 
 
+void uncompress_sites(Sites *sites, const SitesMapping *sites_mapping)
+{
+    const int ncols = sites->cols.size();
+    sites->start_coord = sites_mapping->old_start;
+    sites->end_coord = sites_mapping->old_end;
+    
+    for (int i=0; i<ncols; i++)
+        sites->positions[i] = sites_mapping->old_sites[i];
+}
+
+
+
 //=============================================================================
 // assert functions
 
