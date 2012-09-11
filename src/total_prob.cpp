@@ -73,11 +73,12 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
             seqs[j] = &matrix[j*blocklen];
 
         // find first site within this block
-        int i2 = 0;
+        unsigned int i2 = 0;
         
         // copy sites into new alignment
         for (int i=start; i<end; i++) {
-            while (sites_mapping->all_sites[i2] < i)
+            while (i2 < sites_mapping->all_sites.size() && 
+                   sites_mapping->all_sites[i2] < i)
                 i2++;
             if (i == sites_mapping->all_sites[i2]) {
                 // copy site

@@ -847,7 +847,6 @@ int main(int argc, char **argv)
             return 1;
         }
 
-
         // compress input tree if compression is requested
         if (sites_mapping)
             compress_local_trees(trees, sites_mapping, true);
@@ -889,7 +888,7 @@ int main(int argc, char **argv)
     if (c.recombmap != "") {
         read_track(c.recombmap.c_str(), &c.model.recombmap);
     }
-
+    
     // make compressed model
     ArgModel model(c.model);
     compress_model(&model, c.compress_seq);
@@ -897,11 +896,11 @@ int main(int argc, char **argv)
     
     // log model
     log_model(c.model);
-
+    
     //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
     
-
-
+    
+    
     //printf(">>> %s %d %d\n", trees->chrom.c_str(), trees->start_coord,
     //       trees->end_coord);
     //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
@@ -909,7 +908,7 @@ int main(int argc, char **argv)
     //    printf(">> %d %d %e %e\n", model.mutmap[i].start, model.mutmap[i].end,
     //           model.mutmap[i].value, model.recombmap[i].value);
     //}
-
+    
     
     
     // init stats file
