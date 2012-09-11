@@ -853,11 +853,11 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 6
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(400e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 0
         refine = 0
@@ -867,7 +867,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(20):
+        for i in range(10):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -878,16 +878,20 @@ class Sample (unittest.TestCase):
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
                 arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
-                                         refine=10)
-                arg2 = arghmm.resample_all_arg(arg, seqs, rho=rho, mu=mu,
-                                               times=times, refine=40)
+                                         carg=True)
+                arg2 = arghmm.resample_climb_arg(arg2, seqs,
+                                                 rho=rho, mu=mu, times=times,
+                                                 refine=200, carg=True)
+                #arg2 = arghmm.resample_all_arg(arg, seqs, rho=rho, mu=mu,
+                #                               times=times, refine=100)
                 #arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
                 #                             refine=refine)
                 util.toc()
-                
-                nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
+
+                nrecombs2 = arghmm.get_local_trees_ntrees(arg2[0]) - 1
                 rx.append(nrecombs)
                 ry.append(nrecombs2)
+                print rx[-1], ry[-1]
         util.toc()
 
         print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
@@ -896,6 +900,8 @@ class Sample (unittest.TestCase):
                  xlab="true # recombinations",
                  ylab="inferred # recombinations")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
+
+        
         
         pause()
 
@@ -1870,11 +1876,11 @@ class Sample (unittest.TestCase):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
-        k = 12
+        k = 20
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(200e3) / 20
+        length = int(1000e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1; refine = 12 * 20
         write = False
@@ -1928,7 +1934,7 @@ class Sample (unittest.TestCase):
             print lk2, lk
             print nrecombs2, nrecombs
         
-        for i in range(1000):
+        for i in range(2000):
             util.tic("resample ARG %d" % i)
             #arg2 = arghmm.resample_arg(
             #    arg2, seqs, rho=rho, mu=mu, times=times,
@@ -1947,14 +1953,14 @@ class Sample (unittest.TestCase):
             print nrecombs2, nrecombs
         
         p = plot(y, style='lines')
-        makedirs("data/sample_arg_joint2/")
-        write_list("data/sample_arg_joint2/joint.txt", [lk] + y)
+        makedirs("test/data/sample_arg_joint2/")
+        write_list("test/data/sample_arg_joint2/joint.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
 
 
-        arg2 = arghmm.resample_all_arg(
-                arg2, seqs, rho=rho, mu=mu, times=times,
-                popsizes=n)
+        #arg2 = arghmm.resample_all_arg(
+        #        arg2, seqs, rho=rho, mu=mu, times=times,
+        #        popsizes=n)
 
         # plot block starts
         #x = [start for (start, end), tree in arglib.iter_tree_tracks(arg)]

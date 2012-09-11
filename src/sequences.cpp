@@ -79,9 +79,6 @@ bool read_fasta(FILE *infile, Sequences *seqs)
         }
         discard.clean();
     }
-
-    // set sequence length
-    //seqs->set_length(seqlen);
     
     return true;
 }

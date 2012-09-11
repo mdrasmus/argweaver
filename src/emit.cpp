@@ -91,11 +91,18 @@ inline void likelihood_site_node(const LocalTree *tree, const int node,
     if (nodes[j].is_leaf()) {
         // leaf case
         const char c = seqs[j][pos];
-        table[j][0] = 0.0;
-        table[j][1] = 0.0;
-        table[j][2] = 0.0;
-        table[j][3] = 0.0;
-        table[j][dna2int[(int) c]] = 1.0;
+        if (c == 'N' || c == 'n') {
+            table[j][0] = 1.0;
+            table[j][1] = 1.0;
+            table[j][2] = 1.0;
+            table[j][3] = 1.0;
+        } else {
+            table[j][0] = 0.0;
+            table[j][1] = 0.0;
+            table[j][2] = 0.0;
+            table[j][3] = 0.0;
+            table[j][dna2int[(int) c]] = 1.0;
+        }
     } else {
         // internal node case
         int c1 = nodes[j].child[0];
@@ -390,7 +397,6 @@ void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs,
 {
     const int nnodes = tree->nnodes;
     const LocalNode *nodes = tree->nodes;
-    const int nleaves = tree->get_num_leaves();
     char sets[nnodes];
     int pchar;
     
@@ -406,8 +412,12 @@ void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs,
     }
     for (int i=0; i<nnodes; i++) {
         int node = postorder[i];
-        if (node < nleaves) {
-            sets[node] = 1 << dna2int[(int)seqs[node][pos]];
+        if (nodes[node].is_leaf()) {
+            char c = seqs[node][pos];
+            if (c == 'N' || c == 'n')
+                sets[node] = 1 + 2 + 4 + 8;
+            else
+                sets[node] = 1 << dna2int[(int) c];
         } else {
             char lset = sets[nodes[node].child[0]];
             char rset = sets[nodes[node].child[1]];
