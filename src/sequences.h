@@ -214,9 +214,9 @@ public:
         seqlen = sites->length();
     }
 
-    int compress(int pos) const {
+    int compress(int pos, int start=0) const {
         const int n = all_sites.size();
-        for (int pos2 = 0; pos2<n; pos2++) {
+        for (int pos2 = start; pos2<n; pos2++) {
             if (all_sites[pos2] > pos)
                 return pos2;
         }
@@ -225,6 +225,31 @@ public:
 
     int uncompress(int pos) const {
         return all_sites[pos];
+    }
+
+    // compress a series of block lengths
+    void compress_blocks(const vector<int> &blocks, vector<int> &blocks2) const
+    {
+        int cur = 0;
+        int new_seqlen = new_end - new_start;
+
+        int end = old_start;
+        for (vector<int>::const_iterator it=blocks.begin(); 
+             it != blocks.end(); ++it)
+        {
+            end += *it;
+        
+            if (end < old_end) {
+                int cur2 = cur;
+                for (; cur2 < new_seqlen && all_sites[cur2] < end; 
+                     cur2++) {}
+                
+                blocks2.push_back(cur2 - cur);
+                cur = cur2;
+            } else {
+                blocks2.push_back(new_end - cur);
+            }
+        }
     }
 
 

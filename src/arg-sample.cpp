@@ -289,6 +289,25 @@ void log_model(const ArgModel &model)
     for (int i=0; i<model.ntimes-1; i++)
         printLog(LOG_LOW, "%f,", model.popsizes[i]);
     printLog(LOG_LOW, "%f]\n", model.popsizes[model.ntimes-1]);
+
+    if (isLogLevel(LOG_HIGH)) {
+        printLog(LOG_HIGH, "mutmap = [\n");
+        for (unsigned int i=0; i<model.mutmap.size(); i++) {
+            printLog(LOG_HIGH, "%d\t%d\t%e\n", 
+                     model.mutmap[i].start, model.mutmap[i].end,
+                     model.mutmap[i].value);
+        }
+        printLog(LOG_HIGH, "]\n");
+
+        printLog(LOG_HIGH, "recombmap = [\n");
+        for (unsigned int i=0; i<model.recombmap.size(); i++) {
+            printLog(LOG_HIGH, "%d\t%d\t%e\n", 
+                     model.recombmap[i].start, model.recombmap[i].end,
+                     model.recombmap[i].value);
+        }
+        printLog(LOG_HIGH, "]\n");
+    }
+
     printLog(LOG_LOW, "\n");
 }
 
@@ -296,26 +315,53 @@ void log_model(const ArgModel &model)
 //=============================================================================
 // alignment compression
 
-void uncompress_model(ArgModel *model, double compress_seq)
+template<class T>
+void compress_track(Track<T> &track, SitesMapping *sites_mapping,
+                    double compress_seq, bool is_rate)
 {
-    model->rho /= compress_seq;
-    model->mu /= compress_seq;
+    Track<T> track2;
+    
+    if (sites_mapping) {
+        // get block lengths
+        vector<int> blocks;
+        for (unsigned int i=0; i<track.size(); i++)
+            blocks.push_back(track[i].length());
+        
+        // compress block lengths
+        vector<int> blocks2;
+        sites_mapping->compress_blocks(blocks, blocks2);
 
-    for (unsigned int i=0; i<model->mutmap.size(); i++)
-        model->mutmap[i].value /= compress_seq;
-    for (unsigned int i=0; i<model->recombmap.size(); i++)
-        model->recombmap[i].value /= compress_seq;
+        // build compress track
+        int start = sites_mapping->new_start;
+        for (unsigned int i=0; i<track.size(); i++) {
+            int end = start + blocks2[i];
+            if (end > start)
+                track2.append(track[i].chrom, start, end, track[i].value);
+            start = end;
+        }
+
+        // replace track
+        track.clear();
+        track.insert(track.begin(), track2.begin(), track2.end());
+    }
+
+
+    // compress rate
+    if (is_rate) {
+        for (unsigned int i=0; i<track.size(); i++)
+            track[i].value *= compress_seq;
+    }
 }
 
-void compress_model(ArgModel *model, double compress_seq)
+
+void compress_model(ArgModel *model, SitesMapping *sites_mapping,
+                    double compress_seq)
 {
     model->rho *= compress_seq;
     model->mu *= compress_seq;
 
-    for (unsigned int i=0; i<model->mutmap.size(); i++)
-        model->mutmap[i].value *= compress_seq;
-    for (unsigned int i=0; i<model->recombmap.size(); i++)
-        model->recombmap[i].value *= compress_seq;
+    compress_track(model->mutmap, sites_mapping, compress_seq, true);
+    compress_track(model->recombmap, sites_mapping, compress_seq, true);
 }
 
 
@@ -882,33 +928,31 @@ int main(int argc, char **argv)
 
     // read model parameter maps if given
     if (c.mutmap != "") {
-        // TODO: filter map to region
-        read_track(c.mutmap.c_str(), &c.model.mutmap);
+        if (!read_track_filter(c.mutmap.c_str(), &c.model.mutmap,
+                               seq_region.chrom, seq_region.start, 
+                               seq_region.end)) 
+        {
+            printError("cannot read mutation rate map");
+            return 1;
+        }
     }
     if (c.recombmap != "") {
-        read_track(c.recombmap.c_str(), &c.model.recombmap);
+        if (!read_track_filter(c.recombmap.c_str(), &c.model.recombmap,
+                               seq_region.chrom, seq_region.start, 
+                               seq_region.end))
+        {
+            printError("cannot read recombination rate map");
+            return 1;
+        }
     }
     
     // make compressed model
     ArgModel model(c.model);
-    compress_model(&model, c.compress_seq);
+    compress_model(&model, sites_mapping, c.compress_seq);
     model.setup_maps(trees->chrom, trees->start_coord, trees->end_coord);
     
-    // log model
-    log_model(c.model);
-    
-    //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
-    
-    
-    
-    //printf(">>> %s %d %d\n", trees->chrom.c_str(), trees->start_coord,
-    //       trees->end_coord);
-    //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
-    //for (int i=0; i<model.mutmap.size(); i++) {
-    //    printf(">> %d %d %e %e\n", model.mutmap[i].start, model.mutmap[i].end,
-    //           model.mutmap[i].value, model.recombmap[i].value);
-    //}
-    
+    // log original model
+    log_model(model);
     
     
     // init stats file

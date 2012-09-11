@@ -105,7 +105,8 @@ public:
     TrackReader() : 
         has_error(false),
         line(NULL),
-        linesize(1024)
+        linesize(1024),
+        lineno(0)
     {}
     ~TrackReader() {
         if (line)
@@ -119,6 +120,7 @@ public:
             return false;
         }
         
+        lineno = 0;
         has_error = false;
         
         return true;
@@ -131,6 +133,7 @@ public:
     }
     
     bool next(RegionValue<T> &region) {
+        lineno++;
         if (fgetline(&line, &linesize, infile)) {
             if (!read_track_line(line, region)) {
                 // error reading line
@@ -150,41 +153,68 @@ public:
         return has_error;
     }
 
+    int line_number() const {
+        return lineno;
+    }
+
 
 protected:
     bool has_error;
     FILE *infile;
     char *line;
     int linesize;
+    int lineno;
 };
-
-
-
 
 
 template <class T>
 bool read_track(FILE *infile, Track<T> *track)
-{    
-    char *line = NULL;
-    int linesize = 1024;
-    int lineno = 0;
+{
+    TrackReader<T> reader;
+    RegionValue<T> region;
+    reader.open(infile);
 
-    RegionValue<T> region; 
-
-    while (fgetline(&line, &linesize, infile)) {
-        lineno++;
-        if (!read_track_line(line, region)) {
-            printError("could not read track line %d", lineno);
-            delete [] line;
-            return false;
-        }
+    while (reader.next(region)) {
         track->push_back(region);
     }
-    
-    delete [] line;
+    if (reader.error()) {
+        printError("could not read track line %d", reader.line_number());
+        return false;
+    }
     
     return true;
 }
+
+
+template <class T>
+bool read_track_filter(FILE *infile, Track<T> *track,
+                       string chrom, int start, int end)
+{
+    TrackReader<T> reader;
+    RegionValue<T> region; 
+    reader.open(infile);
+
+    while (reader.next(region)) {
+        // only keep regions that overlap desired region
+        if (region.chrom == chrom && 
+            region.end > start && region.start < end) {
+            // trim region
+            if (region.start < start)
+                region.start = start;
+            if (region.end > end)
+                region.end = end;
+
+            track->push_back(region);
+        }
+    }
+    if (reader.error()) {
+        printError("could not read track line %d", reader.line_number());
+        return false;
+    }
+    
+    return true;
+}
+
 
 
 template <class T>
@@ -197,6 +227,23 @@ bool read_track(const char *filename, Track<T> *track)
     }
     
     bool result = read_track(infile, track);
+    
+    fclose(infile);
+    return result;
+}
+
+
+template <class T>
+bool read_track_filter(const char *filename, Track<T> *track,
+                       string chrom, int start, int end)
+{
+    FILE *infile;
+    if ((infile = fopen(filename, "r")) == NULL) {
+        printError("cannot read file '%s'", filename);
+        return false;
+    }
+    
+    bool result = read_track_filter(infile, track, chrom, start, end);
     
     fclose(infile);
     return result;

@@ -629,6 +629,7 @@ void uncompress_local_trees(LocalTrees *trees,
 }
 
 
+// TODO: use new block compression code in sites_mapping to simplify
 void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping,
                           bool fuzzy)
 {
