@@ -12,7 +12,7 @@ namespace arghmm {
 
 
 // Juke-Cantor
-inline double prob_branch(double t, double mu, bool mut)
+static inline double prob_branch(double t, double mu, bool mut)
 {
     const double f = 4. / 3.;
     if (!mut)
@@ -22,7 +22,7 @@ inline double prob_branch(double t, double mu, bool mut)
 }
 
 
-inline bool is_invariant_site(const char *const *seqs, 
+static inline bool is_invariant_site(const char *const *seqs, 
                               const int nseqs, const int pos)
 {
     const char c = seqs[0][pos];

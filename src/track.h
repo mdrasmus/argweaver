@@ -15,12 +15,42 @@ namespace arghmm {
 using namespace std;
 
 
+class Region
+{
+public:
+    Region(string chrom="", int start=0, int end=0) :
+        chrom(chrom), start(start), end(end)
+    {}
+
+    void set(const string &_chrom, int _start, int _end) {
+        chrom = _chrom;
+        start = _start;
+        end = _end;
+    }
+
+    int length() const {
+        return end - start;
+    }
+
+    string chrom;
+    int start;
+    int end;
+};
+
 template <class T>
 class RegionValue {
 public:
+    RegionValue() :
+        chrom(""), start(0), end(0)
+    {}
+
     RegionValue(string chrom, int start, int end, T value) :
         chrom(chrom), start(start), end(end), value(value)
     {}
+
+    int length() const {
+        return end - start;
+    }
 
     string chrom;
     int start;
@@ -66,12 +96,23 @@ public:
 
 
 template <class T>
+bool read_track_line(const char *line, RegionValue<T> &region);
+
+
+template <class T>
 class TrackReader {
 public:
- TrackReader() {}
+    TrackReader() : 
+        has_error(false),
+        line(NULL),
+        linesize(1024)
+    {}
+    ~TrackReader() {
+        if (line)
+            delete [] line;
+    }
 
-
-    bool read(const char *filename) {
+    bool open(const char *filename) {
         FILE *infile;
         if ((infile = fopen(filename, "r")) == NULL) {
             printError("cannot read file '%s'", filename);
@@ -83,28 +124,25 @@ public:
         return true;
     }
     
-    bool read(FILE *_infile) {
+    bool open(FILE *_infile) {
         infile = _infile;
         has_error = false;
         return true;
     }
     
     bool next(RegionValue<T> &region) {
-        char *line = NULL;
-        int linesize = 1024;
-
         if (fgetline(&line, &linesize, infile)) {
-            if (!read_track_line(line, region.chrom, 
-                                 region.start, region.end, region.value)) {
+            if (!read_track_line(line, region)) {
+                // error reading line
                 has_error = true;
                 return false;
             }
         } else {
+            // no more lines in file
             return false;
         }
-
-        delete [] line;
-
+        
+        // line has been successfully read
         return true;
     }
 
@@ -116,33 +154,31 @@ public:
 protected:
     bool has_error;
     FILE *infile;
+    char *line;
+    int linesize;
 };
 
 
-template <class T>
-bool read_track_line(const char *line, 
-                     string &chrom, int &start, int &end, T &value);
+
 
 
 template <class T>
-    bool read_track(FILE *infile, Track<T> *track)
+bool read_track(FILE *infile, Track<T> *track)
 {    
     char *line = NULL;
     int linesize = 1024;
     int lineno = 0;
 
-    string chrom;
-    int start, end;
-    T value;
+    RegionValue<T> region; 
 
     while (fgetline(&line, &linesize, infile)) {
         lineno++;
-        //if (!track->read_track_line(line)) {
-        if (!read_track_line(line, chrom, start, end, value)) {
+        if (!read_track_line(line, region)) {
             printError("could not read track line %d", lineno);
             delete [] line;
             return false;
         }
+        track->push_back(region);
     }
     
     delete [] line;

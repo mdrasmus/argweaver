@@ -35,7 +35,7 @@ inline void get_time_points(int ntimes, double maxtime,
 class ArgModel 
 {
 public:
-    ArgModel(int ntimes, double rho, double mu) :
+    ArgModel(int ntimes=0, double rho=0, double mu=0) :
         ntimes(ntimes),
         times(NULL),
         time_steps(NULL),
@@ -85,6 +85,26 @@ public:
         if (_popsizes)
             set_popsizes(_popsizes, ntimes);
     }
+
+
+    ArgModel(const ArgModel &other) :
+        ntimes(other.ntimes),
+        times(NULL),
+        time_steps(NULL),
+        popsizes(NULL),
+        rho(other.rho),
+        mu(other.mu)
+    {
+        set_times(other.times, ntimes);
+        if (other.popsizes)
+            set_popsizes(other.popsizes, ntimes);
+        
+        mutmap.insert(mutmap.begin(), other.mutmap.begin(), other.mutmap.end());
+        recombmap.insert(recombmap.begin(), 
+                         other.recombmap.begin(), other.recombmap.end());
+    }
+
+
     ~ArgModel()
     {
         delete [] times;

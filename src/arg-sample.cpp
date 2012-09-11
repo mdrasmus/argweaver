@@ -213,6 +213,7 @@ public:
     string times_file;
     string mutmap;
     string recombmap;
+    ArgModel model;
 
     // search
     int nclimb;
@@ -293,6 +294,34 @@ void log_model(const ArgModel &model)
 
 
 //=============================================================================
+// alignment compression
+
+void uncompress_model(ArgModel *model, double compress_seq)
+{
+    model->rho /= compress_seq;
+    model->mu /= compress_seq;
+
+    for (unsigned int i=0; i<model->mutmap.size(); i++)
+        model->mutmap[i].value /= compress_seq;
+    for (unsigned int i=0; i<model->recombmap.size(); i++)
+        model->recombmap[i].value /= compress_seq;
+}
+
+void compress_model(ArgModel *model, double compress_seq)
+{
+    model->rho *= compress_seq;
+    model->mu *= compress_seq;
+
+    for (unsigned int i=0; i<model->mutmap.size(); i++)
+        model->mutmap[i].value *= compress_seq;
+    for (unsigned int i=0; i<model->recombmap.size(); i++)
+        model->recombmap[i].value *= compress_seq;
+}
+
+
+
+
+//=============================================================================
 // statistics output
 
 void print_stats_header(FILE *stats_file)
@@ -324,23 +353,17 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     // uncompressed local trees 
     if (sites_mapping)
         uncompress_local_trees(trees, sites_mapping);
-    double old_rho = model->rho;
-    double old_mu = model->mu;
-    model->rho /= config->compress_seq;
-    model->mu /= config->compress_seq;
 
-    double prior = calc_arg_prior(model, trees);
-    double likelihood = calc_arg_likelihood(model, sequences, trees,
+    double prior = calc_arg_prior(&config->model, trees);
+    double likelihood = calc_arg_likelihood(&config->model, sequences, trees,
                                             sites_mapping);
     double joint = prior + likelihood;
 
     // recompress local trees
     if (sites_mapping)
         compress_local_trees(trees, sites_mapping);
-    model->rho = old_rho;
-    model->mu = old_mu;
-
-       
+    
+    
     // output stats
     fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\n",
             stage, iter,
@@ -686,35 +709,15 @@ int main(int argc, char **argv)
     }
 
 
-    // setup model
-    c.rho *= c.compress_seq;
-    c.mu *= c.compress_seq;
-    ArgModel model(c.ntimes, c.rho, c.mu);
+    // setup model times
     if (c.times_file != "") {
         printError("not implemented yet");
         return 1;
     } else if (c.time_step)
-        model.set_linear_times(c.time_step, c.ntimes);
+        c.model.set_linear_times(c.time_step, c.ntimes);
     else
-        model.set_log_times(c.maxtime, c.ntimes);
-    model.set_popsizes(c.popsize, model.ntimes);
+        c.model.set_log_times(c.maxtime, c.ntimes);
 
-    // read model parameter maps if given
-    if (c.mutmap != "") {
-        read_track(c.mutmap.c_str(), &model.mutmap);
-        // TODO: filter map to region
-        for (unsigned int i=0; i<model.mutmap.size(); i++)
-            model.mutmap[i].value *= c.compress_seq;
-    }
-    if (c.recombmap != "") {
-        read_track(c.recombmap.c_str(), &model.recombmap);
-        for (unsigned int i=0; i<model.recombmap.size(); i++)
-            model.recombmap[i].value *= c.compress_seq;
-    }
-
-    
-    // log model
-    log_model(model);
 
     // read sequences
     Sequences sequences;
@@ -722,6 +725,8 @@ int main(int argc, char **argv)
     auto_ptr<Sites> sites_ptr;
     SitesMapping *sites_mapping = NULL;
     auto_ptr<SitesMapping> sites_mapping_ptr;
+    Region seq_region;
+    Region seq_region_compress;
     
     if (c.fasta_file != "") {
         // read FASTA file
@@ -730,9 +735,25 @@ int main(int argc, char **argv)
             printError("could not read fasta file");
             return 1;
         }
+        seq_region.set("chr", 0, sequences.length());
 
         printLog(LOG_LOW, "read input sequences (nseqs=%d, length=%d)\n",
                  sequences.get_num_seqs(), sequences.length());
+        
+
+        // compress sequence if requested
+        if (c.compress_seq > 1) {
+            // sequence compress requested
+            sites_mapping = new SitesMapping();
+            sites_mapping_ptr = auto_ptr<SitesMapping>(sites_mapping);
+            sites = new Sites();
+            sites_ptr = auto_ptr<Sites>(sites);
+            make_sites_from_sequences(&sequences, sites);
+            find_compress_cols(sites, c.compress_seq, sites_mapping);
+            compress_sites(sites, sites_mapping);
+            make_sequences_from_sites(sites, &sequences);
+        }
+        seq_region_compress.set(seq_region.chrom, 0, sequences.length());
         
     } else if (c.sites_file != "") {
         // read sites file
@@ -767,16 +788,15 @@ int main(int argc, char **argv)
             printLog(LOG_LOW, "no sites given.  terminating.\n");
             return 1;
         }
+        seq_region.set(sites->chrom, sites->start_coord, sites->end_coord);
 
-        if (c.compress_seq > 1) {
-            // sequence compress requested
-            sites_mapping = new SitesMapping();
-            sites_mapping_ptr = auto_ptr<SitesMapping>(sites_mapping);
-            find_compress_cols(sites, c.compress_seq, sites_mapping);
-            compress_sites(sites, sites_mapping);
-        }
-            
+        // compress sequence
+        sites_mapping = new SitesMapping();
+        sites_mapping_ptr = auto_ptr<SitesMapping>(sites_mapping);
+        find_compress_cols(sites, c.compress_seq, sites_mapping);
+        compress_sites(sites, sites_mapping);
         make_sequences_from_sites(sites, &sequences);
+        seq_region_compress.set(seq_region.chrom, 0, sequences.length());
             
     } else {
         // no input sequence specified
@@ -785,7 +805,7 @@ int main(int argc, char **argv)
     }
 
 
-
+    /*
     // get coordinates (0-index)
     int start = 0;
     int end = sequences.length();
@@ -793,6 +813,7 @@ int main(int argc, char **argv)
         start = sites->start_coord;
         end = sites->end_coord;
     }
+    */
     
     // setup init ARG
     LocalTrees *trees = NULL;
@@ -803,7 +824,7 @@ int main(int argc, char **argv)
         trees = new LocalTrees();
         trees_ptr = auto_ptr<LocalTrees>(trees);
         vector<string> seqnames;
-        if (!read_init_arg(c.arg_file.c_str(), &model, trees, seqnames)) {
+        if (!read_init_arg(c.arg_file.c_str(), &c.model, trees, seqnames)) {
             printError("could not read ARG");
             return 1;
         }
@@ -817,42 +838,28 @@ int main(int argc, char **argv)
                  trees->chrom.c_str(), trees->start_coord, trees->end_coord, 
                  trees->get_num_leaves());
 
+        // check ARG matches sites/sequences
+        if (trees->start_coord != seq_region.start || 
+            trees->end_coord != seq_region.end) {
+            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d) [compressed coordinates]", 
+                       trees->start_coord, trees->end_coord, 
+                       seq_region.start, seq_region.end);
+            return 1;
+        }
+
+
         // compress input tree if compression is requested
         if (sites_mapping)
             compress_local_trees(trees, sites_mapping, true);
-
-        // TODO: may need to adjust start and end
-        // check ARG matches sites/sequences
-        if (trees->start_coord != start || trees->end_coord != end) {
-            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d) [compressed coordinates]", 
-                       trees->start_coord, trees->end_coord, start, end);
-            return 1;
-        }
+        
     } else {
         // create new init ARG
-        trees = new LocalTrees(start, end);
+        trees = new LocalTrees(seq_region_compress.start, 
+                               seq_region_compress.end);
+        trees->chrom = seq_region.chrom;
         trees_ptr = auto_ptr<LocalTrees>(trees);
     }
     
-    // set chromosome name
-    if (sites)
-        trees->chrom = sites->chrom;
-    //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
-    model.setup_maps(trees->chrom, trees->start_coord, trees->end_coord);
-
-
-    //printf(">>> %s %d %d\n", trees->chrom.c_str(), trees->start_coord,
-    //       trees->end_coord);
-    //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
-    //for (int i=0; i<model.mutmap.size(); i++) {
-    //    printf(">> %d %d %e %e\n", model.mutmap[i].start, model.mutmap[i].end,
-    //           model.mutmap[i].value, model.recombmap[i].value);
-    //}
-
-    
-    // setup coordinates for sequences
-    Sequences sequences2(&sequences, -1, start + sequences.length(), -start);
-
 
     // check for region sample
     if (c.resample_region_str != "") {
@@ -867,6 +874,42 @@ int main(int argc, char **argv)
             c.resample_region[1] = sites_mapping->compress(c.resample_region[1]);
         }
     }
+
+
+    // setup model
+    c.model.rho = c.rho;
+    c.model.mu = c.mu;
+    c.model.set_popsizes(c.popsize, c.model.ntimes);
+
+    // read model parameter maps if given
+    if (c.mutmap != "") {
+        // TODO: filter map to region
+        read_track(c.mutmap.c_str(), &c.model.mutmap);
+    }
+    if (c.recombmap != "") {
+        read_track(c.recombmap.c_str(), &c.model.recombmap);
+    }
+
+    // make compressed model
+    ArgModel model(c.model);
+    compress_model(&model, c.compress_seq);
+    model.setup_maps(trees->chrom, trees->start_coord, trees->end_coord);
+    
+    // log model
+    log_model(c.model);
+
+    //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
+    
+
+
+    //printf(">>> %s %d %d\n", trees->chrom.c_str(), trees->start_coord,
+    //       trees->end_coord);
+    //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
+    //for (int i=0; i<model.mutmap.size(); i++) {
+    //    printf(">> %d %d %e %e\n", model.mutmap[i].start, model.mutmap[i].end,
+    //           model.mutmap[i].value, model.recombmap[i].value);
+    //}
+
     
     
     // init stats file
@@ -879,7 +922,7 @@ int main(int argc, char **argv)
 
     // sample ARG
     printLog(LOG_LOW, "\n");
-    sample_arg(&model, &sequences2, trees, sites_mapping, &c);
+    sample_arg(&model, &sequences, trees, sites_mapping, &c);
     
     // final log message
     double maxrss = get_max_memory_usage() / 1000.0;

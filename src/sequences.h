@@ -75,6 +75,11 @@ public:
         return &seqs[0];
     }
 
+    inline const char * const *get_seqs() const
+    {
+        return &seqs[0];
+    }
+
 
     void set_owned(bool _owned)
     {
@@ -256,6 +261,8 @@ bool read_sites(const char *filename, Sites *sites,
 
 void make_sequences_from_sites(const Sites *sites, Sequences *sequencess, 
                                char default_char='A');
+void make_sites_from_sequences(const Sequences *sequences, Sites *sites);
+
 
 // sequence compression
 void find_compress_cols(const Sites *sites, int compress, 

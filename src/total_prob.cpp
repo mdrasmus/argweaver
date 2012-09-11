@@ -68,12 +68,14 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
 
         // get sequences for trees
         char *seqs[nseqs];
+        char *matrix = new char [blocklen*nseqs];
         for (int j=0; j<nseqs; j++)
-            seqs[j] = new char [blocklen];
+            seqs[j] = &matrix[j*blocklen];
 
         // find first site within this block
         int i2 = 0;
         
+        // copy sites into new alignment
         for (int i=start; i<end; i++) {
             while (sites_mapping->all_sites[i2] < i)
                 i2++;
@@ -89,6 +91,8 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
         }
 
         lnl += likelihood_tree(tree, model, seqs, nseqs, 0, end-start);
+
+        delete [] matrix;
     }
 
     return lnl;

@@ -238,7 +238,6 @@ void make_sequences_from_sites(const Sites *sites, Sequences *sequences,
     int start = sites->start_coord;
     int nsites = sites->get_num_sites();
     
-    //Sequences *sequences = new Sequences(seqlen);
     sequences->clear();
     sequences->set_owned(true);
     
@@ -260,6 +259,43 @@ void make_sequences_from_sites(const Sites *sites, Sequences *sequences,
 
     sequences->set_length(seqlen);
 }
+
+
+static inline bool is_invariant_site(const char *const *seqs, 
+                                     const int nseqs, const int pos)
+{
+    const char c = seqs[0][pos];
+    for (int j=1; j<nseqs; j++) {
+        if (seqs[j][pos] != c) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+void make_sites_from_sequences(const Sequences *sequences, Sites *sites)
+{
+    int nseqs = sequences->get_num_seqs();
+    int seqlen = sequences->length();
+    const char * const *seqs = sequences->get_seqs();
+    
+    sites->clear();
+    sites->start_coord = 0;
+    sites->end_coord = seqlen;
+    sites->names.insert(sites->names.begin(),
+                        sequences->names.begin(), sequences->names.end());
+
+    for (int i=0; i<seqlen; i++) {
+        if (!is_invariant_site(seqs, nseqs, i)) {
+            char *col = new char [nseqs];
+            for (int j=0; j<nseqs; j++)
+                col[j] = seqs[j][i];
+            sites->append(i, col);
+        }
+    }
+}
+
 
 
 // compress the sites by a factor of 'compress'
