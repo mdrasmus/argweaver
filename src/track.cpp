@@ -5,34 +5,35 @@
 
 namespace arghmm {
 
+
 template <>
-bool Track<double>::read_track_line(const char *line)
+bool read_track_line<double>(const char *line, 
+                     string &chrom, int &start, int &end, double &value)
 {
     const int CHROM_NAME_LENGTH = 1000;
-    char chrom[CHROM_NAME_LENGTH+1];
-    int start, end;
-    double value;
+    char chrom2[CHROM_NAME_LENGTH+1];
 
-    if (sscanf("%1000s\t%d\t%d\t%lf\n", chrom, &start, &end, &value) != 4)
+    if (sscanf("%1000s\t%d\t%d\t%lf\n", chrom2, &start, &end, &value) != 4)
         return false;
-    append(chrom, start, end, value);
+    chrom = string(chrom2);
     return true;
 }
 
 
 template <>
-bool Track<int>::read_track_line(const char *line)
+bool read_track_line<int>(const char *line, 
+                     string &chrom, int &start, int &end, int &value)
 {
     const int CHROM_NAME_LENGTH = 1000;
-    char chrom[CHROM_NAME_LENGTH+1];
-    int start, end;
-    int value;
+    char chrom2[CHROM_NAME_LENGTH+1];
 
-    if (sscanf("%1000s\t%d\t%d\t%d\n", chrom, &start, &end, &value) != 4)
+    if (sscanf("%1000s\t%d\t%d\t%d\n", chrom2, &start, &end, &value) != 4)
         return false;
-    append(chrom, start, end, value);
+    chrom = string(chrom2);
     return true;
 }
+
+
 
 } // namespace arghmm
 

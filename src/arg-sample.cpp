@@ -302,30 +302,46 @@ void print_stats_header(FILE *stats_file)
 
 
 void print_stats(FILE *stats_file, const char *stage, int iter,
-                 const ArgModel *model, 
+                 ArgModel *model, 
                  const Sequences *sequences, LocalTrees *trees,
-                 const SitesMapping* sites_mapping)
+                 const SitesMapping* sites_mapping, const Config *config)
 {
-    // uncompressed local trees 
-    //if (sites_mapping)
-    //    uncompress_local_trees(trees, sites_mapping);
-
-    double prior = calc_arg_prior(model, trees);
-    double likelihood = calc_arg_likelihood(model, sequences, trees);
-    double joint = prior + likelihood;
+    // calculate number of recombinations
     int nrecombs = trees->get_num_trees() - 1;
 
+    // calculate number of non-compatiable sites
     int nseqs = sequences->get_num_seqs();
     char *seqs[nseqs];
     for (int i=0; i<nseqs; i++)
         seqs[i] = sequences->seqs[trees->seqids[i]];
-    
     int noncompats = count_noncompat(trees, seqs, nseqs, sequences->length());
 
     // get memory usage in MB
     double maxrss = get_max_memory_usage() / 1000.0;
-    
 
+
+    // calculate likelihood, prior, and joint probabilities
+    // uncompressed local trees 
+    if (sites_mapping)
+        uncompress_local_trees(trees, sites_mapping);
+    double old_rho = model->rho;
+    double old_mu = model->mu;
+    model->rho /= config->compress_seq;
+    model->mu /= config->compress_seq;
+
+    double prior = calc_arg_prior(model, trees);
+    double likelihood = calc_arg_likelihood(model, sequences, trees,
+                                            sites_mapping);
+    double joint = prior + likelihood;
+
+    // recompress local trees
+    if (sites_mapping)
+        compress_local_trees(trees, sites_mapping);
+    model->rho = old_rho;
+    model->mu = old_mu;
+
+       
+    // output stats
     fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\n",
             stage, iter,
             prior, likelihood, joint, nrecombs, noncompats);
@@ -341,9 +357,6 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
              prior, likelihood, joint, nrecombs, noncompats,
              maxrss);
 
-    // recompress
-    //if (sites_mapping)
-    //    compress_local_trees(trees, sites_mapping);
 }
 
 //=============================================================================
@@ -418,7 +431,7 @@ void seq_sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "------------------------------------------------\n");
         sample_arg_seq(model, sequences, trees);
         print_stats(config->stats_file, "seq", trees->get_num_leaves(),
-                    model, sequences, trees, sites_mapping);
+                    model, sequences, trees, sites_mapping, config);
     }
 }
 
@@ -436,7 +449,7 @@ void climb_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "climb %d\n", i+1);
         resample_arg_climb(model, sequences, trees, recomb_preference);
         print_stats(config->stats_file, "climb", i, model, sequences, trees,
-                    sites_mapping);
+                    sites_mapping, config);
     }
     printLog(LOG_LOW, "\n");
 }
@@ -459,7 +472,7 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 
         // logging
         print_stats(config->stats_file, "resample", i, model, sequences, trees,
-                    sites_mapping);
+                    sites_mapping, config);
 
         // sample saving
         if (i % config->sample_step == 0)
@@ -487,7 +500,7 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "--------------------------------------------\n");
 
         print_stats(config->stats_file, "resample_region", 0, 
-                    model, sequences, trees, sites_mapping);
+                    model, sequences, trees, sites_mapping, config);
 
         resample_arg_all_region(model, sequences, trees, 
                                 config->resample_region[0], 
@@ -496,7 +509,7 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 
         // logging
         print_stats(config->stats_file, "resample_region", config->niters,
-                    model, sequences, trees, sites_mapping);
+                    model, sequences, trees, sites_mapping, config);
         log_local_trees(model, sequences, trees, sites_mapping, config, 0);
         
     } else{
@@ -689,6 +702,7 @@ int main(int argc, char **argv)
     // read model parameter maps if given
     if (c.mutmap != "") {
         read_track(c.mutmap.c_str(), &model.mutmap);
+        // TODO: filter map to region
         for (unsigned int i=0; i<model.mutmap.size(); i++)
             model.mutmap[i].value *= c.compress_seq;
     }
@@ -823,7 +837,18 @@ int main(int argc, char **argv)
     // set chromosome name
     if (sites)
         trees->chrom = sites->chrom;
-    
+    //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
+    model.setup_maps(trees->chrom, trees->start_coord, trees->end_coord);
+
+
+    //printf(">>> %s %d %d\n", trees->chrom.c_str(), trees->start_coord,
+    //       trees->end_coord);
+    //printf(">>> %d %d\n", model.mutmap.size(), model.recombmap.size());
+    //for (int i=0; i<model.mutmap.size(); i++) {
+    //    printf(">> %d %d %e %e\n", model.mutmap[i].start, model.mutmap[i].end,
+    //           model.mutmap[i].value, model.recombmap[i].value);
+    //}
+
     
     // setup coordinates for sequences
     Sequences sequences2(&sequences, -1, start + sequences.length(), -start);

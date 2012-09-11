@@ -209,7 +209,7 @@ public:
         seqlen = sites->length();
     }
 
-    int compress(int pos) {
+    int compress(int pos) const {
         const int n = all_sites.size();
         for (int pos2 = 0; pos2<n; pos2++) {
             if (all_sites[pos2] > pos)
@@ -218,6 +218,11 @@ public:
         return n - 1;
     }
 
+    int uncompress(int pos) const {
+        return all_sites[pos];
+    }
+
+
     int old_start;
     int old_end;
     int new_start;
@@ -225,9 +230,9 @@ public:
     int nsites;
     int seqlen;
 
-    vector<int> old_sites;
-    vector<int> new_sites;
-    vector<int> all_sites;
+    vector<int> old_sites; // the original position of each variant site
+    vector<int> new_sites; // the new position of each variant site
+    vector<int> all_sites; // the original position of each site
 };
 
 

@@ -275,9 +275,11 @@ void find_compress_cols(const Sites *sites, int compress,
     // record old coords
     sites_mapping->init(sites);
     
+    // iterate through variant sites
     for (int i=0; i<ncols; i++) {
         int col = sites->positions[i];
 
+        // find next block with variant site
         while (col >= next_block) {
             sites_mapping->all_sites.push_back(next_block - half_block);
             next_block += compress;

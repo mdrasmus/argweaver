@@ -20,10 +20,11 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
 {
     double lnl = 0.0;
     int nseqs = sequences->get_num_seqs();
-
+    
+    // special case for truck genealogies
     if (trees->nnodes < 3)
         return lnl += log(.25) * sequences->length();
-
+    
     // get sequences for trees
     char *seqs[nseqs];
     for (int j=0; j<nseqs; j++)
@@ -41,6 +42,57 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
     return lnl;
 }
 
+
+// NOTE: trees should be uncompressed and sequences compressed
+double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences, 
+                           const LocalTrees *trees, 
+                           const SitesMapping* sites_mapping)
+{
+    if (!sites_mapping)
+        return calc_arg_likelihood(model, sequences, trees);
+
+    double lnl = 0.0;
+    int nseqs = sequences->get_num_seqs();
+    const char default_char = 'A';
+    
+    // special case for truck genealogies
+    if (trees->nnodes < 3)
+        return lnl += log(.25) * sequences->length();
+    
+    int end = trees->start_coord;
+    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it) {
+        int start = end;
+        int blocklen = it->blocklen;
+        end = start + blocklen;
+        LocalTree *tree = it->tree;
+
+        // get sequences for trees
+        char *seqs[nseqs];
+        for (int j=0; j<nseqs; j++)
+            seqs[j] = new char [blocklen];
+
+        // find first site within this block
+        int i2 = 0;
+        
+        for (int i=start; i<end; i++) {
+            while (sites_mapping->all_sites[i2] < i)
+                i2++;
+            if (i == sites_mapping->all_sites[i2]) {
+                // copy site
+                for (int j=0; j<nseqs; j++)
+                    seqs[j][i-start] = sequences->seqs[trees->seqids[j]][i2];
+            } else {
+                // copy non-variant site
+                for (int j=0; j<nseqs; j++)
+                    seqs[j][i-start] = default_char;
+            }
+        }
+
+        lnl += likelihood_tree(tree, model, seqs, nseqs, 0, end-start);
+    }
+
+    return lnl;
+}
 
 
 // calculate the probability of the sequences given an ARG

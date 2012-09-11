@@ -142,17 +142,19 @@ public:
     }
 
     //====================================================================
-    // accessors
+    // maps
 
-    bool has_mutmap()
+    bool has_mutmap() const
     {
         return mutmap.size() > 0;
     }
 
-    bool has_recombmap()
+    bool has_recombmap() const
     {
         return recombmap.size() > 0;
     }
+
+    void setup_maps(string chrom, int start, int end);
 
 protected:
 
