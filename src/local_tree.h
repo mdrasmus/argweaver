@@ -510,7 +510,7 @@ public:
         return trees.size();
     }
 
-    // Copy tree structure from another tree
+    // Copy trees from another set of local trees
     void copy(const LocalTrees &other);
 
     // deallocate local trees

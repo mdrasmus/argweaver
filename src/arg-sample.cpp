@@ -405,10 +405,8 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     double joint = prior + likelihood;
 
     // recompress local trees
-    if (sites_mapping) {
+    if (sites_mapping)
         compress_local_trees(trees, sites_mapping);
-        assert_uncompress_local_trees(trees, sites_mapping);
-    }
     
     // output stats
     fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\n",

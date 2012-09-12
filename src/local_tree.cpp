@@ -684,6 +684,7 @@ void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping,
 }
 
 
+// assert that local trees uncompress correctly
 void assert_uncompress_local_trees(LocalTrees *trees, 
                                    const SitesMapping *sites_mapping)
 {
