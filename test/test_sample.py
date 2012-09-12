@@ -1197,11 +1197,11 @@ class Sample (unittest.TestCase):
         Plot the ARG length from a fully sampled ARG
         """
 
-        k = 12
+        k = 6
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(200e3) / 20
+        length = int(1000e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0
 
@@ -1210,7 +1210,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(40):
+        for i in range(20):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1224,7 +1224,10 @@ class Sample (unittest.TestCase):
                                          carg=True)
                 arg2 = arghmm.resample_climb_arg(arg2, seqs,
                                                  rho=rho, mu=mu, times=times,
-                                                 refine=200)
+                                                 refine=5, carg=True)
+                arg2 = arghmm.resample_all_arg(arg2, seqs,
+                                               rho=rho, mu=mu, times=times,
+                                               refine=30)
                 util.toc()
                 
                 rx.append(arglen)

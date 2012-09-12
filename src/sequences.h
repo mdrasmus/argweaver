@@ -230,7 +230,7 @@ public:
     // compress a series of block lengths
     void compress_blocks(const vector<int> &blocks, vector<int> &blocks2) const
     {
-        int cur = 0;
+        int cur = new_start;
         int new_seqlen = new_end - new_start;
 
         int end = old_start;
@@ -247,7 +247,31 @@ public:
                 blocks2.push_back(cur2 - cur);
                 cur = cur2;
             } else {
+                // last block case
                 blocks2.push_back(new_end - cur);
+            }
+        }
+    }
+
+    // uncompress a series of block lengths
+    void uncompress_blocks(const vector<int> &blocks, 
+                           vector<int> &blocks2) const
+    {
+        int cur = old_start;
+        int end = new_start;
+        for (vector<int>::const_iterator it=blocks.begin(); 
+             it != blocks.end(); ++it)
+        {
+            end += *it;
+            
+            if (end < new_end) {
+                // use median for placing block ends
+                int cur2 = (all_sites[end-1] + 1 + all_sites[end]) / 2;
+                blocks2.push_back(cur2 - cur);
+                cur = cur2;
+            } else {
+                // last block case
+                blocks2.push_back(old_end - cur);
             }
         }
     }

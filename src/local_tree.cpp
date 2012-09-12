@@ -598,30 +598,50 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
     assert_trees(trees2);
 }
 
+// find recoal node, it is the node with no inward mappings
+int get_recoal_node(const LocalTree *tree, const Spr &spr, const int *mapping)
+{
+    const int nnodes = tree->nnodes;
+    bool mapped[nnodes];
+    fill(mapped, mapped + nnodes, false);
+
+    for (int i=0; i<nnodes; i++)
+        if (mapping[i] != -1)
+            mapped[mapping[i]] = true;
+    
+    for (int i=0; i<nnodes; i++)
+        if (!mapped[i])
+            return i;
+
+    assert(false);
+    return -1;
+}
+
+//=============================================================================
+// local tree alignment compression
+
 
 
 void uncompress_local_trees(LocalTrees *trees, 
                             const SitesMapping *sites_mapping)
 {
-    assert(trees->start_coord == 0);
-    const int *all_sites = &sites_mapping->all_sites[0];
-    int cur = sites_mapping->old_start;
+    // get block lengths
+    vector<int> blocklens;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it)
+        blocklens.push_back(it->blocklen);
 
-    int end = trees->start_coord;
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        end += it->blocklen;
-        
-        if (end < trees->end_coord) {
-            int cur2 = (all_sites[end-1] + 1 + all_sites[end]) / 2;
-            it->blocklen = cur2 - cur;
-            assert(cur2 > cur);
-            cur = cur2;
-        } else {
-            it->blocklen = sites_mapping->old_end - cur;
-            assert(sites_mapping->old_end > cur);
-        }
+    // get uncompressed block lengths
+    vector<int> blocklens2;
+    sites_mapping->uncompress_blocks(blocklens, blocklens2);
+
+    // apply block lengths to local trees
+    int i = 0;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, i++)
+    {
+        assert(blocklens2[i] > 0);
+        it->blocklen = blocklens2[i];
     }
-
+    
     trees->start_coord = sites_mapping->old_start;
     trees->end_coord = sites_mapping->old_end;
 
@@ -629,40 +649,38 @@ void uncompress_local_trees(LocalTrees *trees,
 }
 
 
-// TODO: use new block compression code in sites_mapping to simplify
+// compress local trees according to sites_mapping
 void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping,
                           bool fuzzy)
 {
-    const int *all_sites = &sites_mapping->all_sites[0];
-    int cur = 0;
-    int new_seqlen = sites_mapping->new_end - sites_mapping->new_start;
+    // get block lengths
+    vector<int> blocklens;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it)
+        blocklens.push_back(it->blocklen);
 
-    int end = trees->start_coord;
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        end += it->blocklen;
-        
-        if (end < trees->end_coord) {
-            int cur2 = cur;
-            for (; cur2 < new_seqlen && all_sites[cur2] < end; 
-                 cur2++) {}
+    // get compressed block lengths
+    vector<int> blocklens2;
+    sites_mapping->compress_blocks(blocklens, blocklens2);
 
-            // ensure block are not zero length
-            if (fuzzy && cur2 == cur)
-                cur2++;
-            assert(cur2 > cur);
-
-            it->blocklen = cur2 - cur;
-            cur = cur2;
-        } else {
-            it->blocklen = sites_mapping->new_end - cur;
-            assert(sites_mapping->new_end > cur);
-        }
+    // enfore non-zero length blocks
+    for (unsigned int i=0; i<blocklens2.size(); i++) {
+        if (fuzzy) {
+            // shift block end to the right and compensate in next block
+            assert(i < blocklens2.size() - 1);
+            int diff = 1 - blocklens2[i];
+            blocklens2[i] += diff;
+            blocklens2[i+1] -= diff;
+        } else
+            assert(blocklens2[i] > 0);
     }
 
+    // apply new block lengths to local trees
+    int i = 0;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it, ++i)
+        it->blocklen = blocklens2[i];
+    
     trees->start_coord = sites_mapping->new_start;
     trees->end_coord = sites_mapping->new_end;
-
-    assert_trees(trees);
 }
 
 
@@ -686,25 +704,6 @@ void assert_uncompress_local_trees(LocalTrees *trees,
     }
 }
 
-
-// find recoal node, it is the node with no inward mappings
-int get_recoal_node(const LocalTree *tree, const Spr &spr, const int *mapping)
-{
-    const int nnodes = tree->nnodes;
-    bool mapped[nnodes];
-    fill(mapped, mapped + nnodes, false);
-
-    for (int i=0; i<nnodes; i++)
-        if (mapping[i] != -1)
-            mapped[mapping[i]] = true;
-    
-    for (int i=0; i<nnodes; i++)
-        if (!mapped[i])
-            return i;
-
-    assert(false);
-    return -1;
-}
 
 
 //=============================================================================
