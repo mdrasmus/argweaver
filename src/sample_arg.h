@@ -54,7 +54,7 @@ void resample_arg_all_region(
 
 void resample_arg_regions(
     const ArgModel *model, const Sequences *sequences, 
-    LocalTrees *trees, int window, int step);
+    LocalTrees *trees, int window, int step, int niters=1);
 
 } // namespace arghmm
 

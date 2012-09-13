@@ -239,7 +239,6 @@ void apply_spr(LocalTree *tree, const Spr &spr)
     // c = coal branch
     // cp = parent of coal branch
 
-
     LocalNode *nodes = tree->nodes;
 
     // trival case
@@ -511,7 +510,20 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
 // Returns second list of local trees.
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos)
 {
-    // special case
+    // special case (pos at beginning of local trees)
+    if (pos == trees->start_coord) {
+        LocalTrees *trees2 = new LocalTrees(pos, trees->end_coord, 
+                                            trees->nnodes);
+        trees2->seqids.insert(trees2->seqids.end(), trees->seqids.begin(),
+                              trees->seqids.end());
+
+        trees2->trees.splice(trees2->begin(), trees->trees, 
+                             trees->begin(), trees->end());
+        trees->end_coord = pos;
+        return trees2;
+    }    
+
+    // special case (pos at end of local trees)
     if (pos == trees->end_coord) {
         LocalTrees *trees2 = new LocalTrees(pos, pos, trees->nnodes);
         trees2->seqids.insert(trees2->seqids.end(), trees->seqids.begin(),

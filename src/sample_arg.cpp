@@ -339,12 +339,48 @@ State find_state_sub_tree_internal(
         return State(-1, -1);
     }
 
-    int subtree_root = partial_tree->nodes[partial_tree->root].child[0];
-    int sib = full_tree->get_sibling(subtree_root);
-    assert(sib != -1);
-    int parent = full_tree->nodes[subtree_root].parent;
+    // NOTE: do not assume internal nodes have same naming scheme between
+    // trees
 
-    return State(sib, full_tree->nodes[parent].age);
+    int subtree_root = partial_tree->nodes[partial_tree->root].child[0];
+
+    // identify node by path length from left most leaf
+    int count = 0;
+    int leaf = subtree_root;
+    while (!partial_tree->nodes[leaf].is_leaf()) {
+        leaf = partial_tree->nodes[leaf].child[0];
+        count++;
+    }
+
+    // find equivalent node in full tree
+    int ptr = leaf;
+    while (count > 0) {
+        ptr = full_tree->nodes[ptr].parent;
+        count--;
+    }
+
+    // find sibling and age of coalescence
+    int sib = full_tree->get_sibling(ptr);
+    assert(sib != -1);
+    int parent = full_tree->nodes[ptr].parent;
+    int coal_time = full_tree->nodes[parent].age;
+
+    // identify sibling by leaf and path length
+    count = 0;
+    leaf = sib;
+    while (!full_tree->nodes[leaf].is_leaf()) {
+        leaf = full_tree->nodes[leaf].child[0];
+        count++;
+    }
+
+    // map sib back to partial tree
+    ptr = leaf;
+    while (count > 0) {
+        ptr = partial_tree->nodes[ptr].parent;
+        count--;
+    }
+
+    return State(ptr, coal_time);
 }
 
 
@@ -373,23 +409,30 @@ void resample_arg_all_region(
     LocalTrees *trees3 = partition_local_trees(trees2, region_end);
     assert(trees2->length() == region_end - region_start);
 
-    // get starting and ending trees
-    LocalTree start_tree(*trees2->front().tree);
-    LocalTree end_tree(*trees2->back().tree);
-
+    // TODO: refactor
+    // extend stub (zero length block) if it happens to exist
+    bool stub = (trees2->trees.back().blocklen == 0);
+    if (stub) {
+        trees2->trees.back().blocklen += 1;
+        trees2->end_coord++;
+    }
 
     // perform several iterations of resampling
     for (int i=0; i<niters; i++) {
         // save a copy of the local trees
         LocalTrees old_trees2;
         old_trees2.copy(*trees2);
-                
+
+        // get starting and ending trees
+        LocalTree start_tree(*trees2->front().tree);
+        LocalTree end_tree(*trees2->back().tree);
+
         // remove internal branch from trees2
         // ramdomly choose a removal path
         int *removal_path = new int [trees2->get_num_trees()];
         double npaths = sample_arg_removal_path_uniform(trees2, removal_path);
         remove_arg_thread_path(trees2, removal_path, maxtime);
-        
+        delete [] removal_path;
         
         // determine start and end states from given trees
         LocalTree *start_tree_partial = trees2->front().tree;
@@ -406,7 +449,6 @@ void resample_arg_all_region(
                 end_state.set_null();
         }
 
-        delete [] removal_path;
 
         cond_sample_arg_thread_internal(model, sequences, trees2,
                                         start_state, end_state);
@@ -416,39 +458,18 @@ void resample_arg_all_region(
         // perform reject if needed
         double accept_prob = exp(npaths - npaths2);
         bool accept = (frand() < accept_prob);
-        //if (!accept)
-        //    trees2->copy(old_trees2);
+        if (!accept)
+            trees2->copy(old_trees2);
         
         // logging
-        printLog(LOG_LOW, "accept_prob = exp(%lf - %lf) = %f, accept = %d\n", 
-                 npaths, npaths2, accept_prob, (int) accept);
-        
-        
-        
-        /*
-        sample_arg_removal_path_recomb(trees2, recomb_preference, removal_path);
-        remove_arg_thread_path(trees2, removal_path, maxtime);
-        delete [] removal_path;
-        
-        // determine start and end states from given trees
-        LocalTree *start_tree_partial = trees2->front().tree;
-        LocalTree *end_tree_partial = trees2->back().tree;
-        State start_state = find_state_sub_tree_internal(
-            &start_tree, start_tree_partial, maxtime);
-        State end_state = find_state_sub_tree_internal(
-            &end_tree, end_tree_partial, maxtime);
-        
-        if (open_ended) {
-            if (region_start == trees->start_coord)
-                start_state.set_null();
-            if (region_end == trees->end_coord)
-                end_state.set_null();
-        }
+        printLog(LOG_LOW, "(%d) accept_prob = exp(%lf - %lf) = %f, accept = %d\n", 
+                 i, npaths, npaths2, accept_prob, (int) accept);
+    }
 
-        cond_sample_arg_thread_internal(model, sequences, trees2,
-                                        start_state, end_state);
-        assert_trees(trees2);
-        */
+    // remove stub if it exists
+    if (stub) {
+        trees2->trees.back().blocklen -= 1;
+        trees2->end_coord--;
     }
     
     // rejoin trees
@@ -464,11 +485,11 @@ void resample_arg_all_region(
 // resample an ARG a region at a time in a sliding window
 void resample_arg_regions(
     const ArgModel *model, const Sequences *sequences, 
-    LocalTrees *trees, int window, int step)
+    LocalTrees *trees, int window, int step, int niters)
 {
     for (int start=trees->start_coord; start<trees->end_coord; start+=step) {
         int end = min(start + window, trees->end_coord);
-        resample_arg_all_region(model, sequences, trees, start, end, 1);
+        resample_arg_all_region(model, sequences, trees, start, end, niters);
     }
 }
 

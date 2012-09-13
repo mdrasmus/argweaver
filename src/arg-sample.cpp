@@ -527,6 +527,7 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 {
     int window = 100000 / config->compress_seq;
     int step = 50000 / config->compress_seq;
+    int niters = 10;
 
     int iter = 0;
     if (config->resume)
@@ -539,9 +540,9 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     for (int i=iter; i<config->niters; i++) {
         printLog(LOG_LOW, "sample %d\n", i+1);
         //resample_arg_all(model, sequences, trees, config->prob_path_switch);
-
-        if (frand() < .5)
-            resample_arg_regions(model, sequences, trees, window, step);
+        
+        if (frand() < .9)
+            resample_arg_regions(model, sequences, trees, window, step, niters);
             //bool accept = resample_arg_mcmc(model, sequences, trees);
         else
             resample_arg_leaf(model, sequences, trees);

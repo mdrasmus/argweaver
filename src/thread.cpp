@@ -1400,7 +1400,7 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         tree = it->tree;
         LocalNode *nodes = tree->nodes;
         int start = end;
-        end += it->blocklen;
+        end += it->blocklen;        
 
         int removal_node = removal_path[i];
 
@@ -1428,6 +1428,7 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
                         tree->root, maxtime);
 
         apply_spr(tree, removal_spr);
+
             
         // determine subtree and maintree roots
         int subtree_root = removal_node;
