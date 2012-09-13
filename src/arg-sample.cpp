@@ -525,6 +525,9 @@ void climb_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                       SitesMapping* sites_mapping, Config *config)
 {
+    int window = 100000 / config->compress_seq;
+    int step = 50000 / config->compress_seq;
+
     int iter = 0;
     if (config->resume)
         iter = config->resume_iter;
@@ -535,7 +538,13 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     printLog(LOG_LOW, "--------------------------------------\n");
     for (int i=iter; i<config->niters; i++) {
         printLog(LOG_LOW, "sample %d\n", i+1);
-        resample_arg_all(model, sequences, trees, config->prob_path_switch);
+        //resample_arg_all(model, sequences, trees, config->prob_path_switch);
+
+        if (frand() < .5)
+            resample_arg_regions(model, sequences, trees, window, step);
+            //bool accept = resample_arg_mcmc(model, sequences, trees);
+        else
+            resample_arg_leaf(model, sequences, trees);
 
         // logging
         print_stats(config->stats_file, "resample", i, model, sequences, trees,

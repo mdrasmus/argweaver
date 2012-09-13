@@ -27,6 +27,12 @@ void resample_arg(const ArgModel *model, const Sequences *sequences,
 void resample_arg_all(const ArgModel *model, const Sequences *sequences, 
                       LocalTrees *trees, double prob_path_switch);
 
+void resample_arg_leaf(const ArgModel *model, const Sequences *sequences, 
+                       LocalTrees *trees);
+
+bool resample_arg_mcmc(const ArgModel *model, const Sequences *sequences, 
+                       LocalTrees *trees);
+
 void resample_arg_climb(const ArgModel *model, const Sequences *sequences, 
                         LocalTrees *trees, double recomb_preference);
 
@@ -43,8 +49,12 @@ void sample_arg_seq_region(const ArgModel *model, const Sequences *sequences,
 
 void resample_arg_all_region(
     const ArgModel *model, const Sequences *sequences, 
-    LocalTrees *trees, int region_start, int region_end, int niters);
+    LocalTrees *trees, int region_start, int region_end, int niters,
+    bool open_ended=true);
 
+void resample_arg_regions(
+    const ArgModel *model, const Sequences *sequences, 
+    LocalTrees *trees, int window, int step);
 
 } // namespace arghmm
 

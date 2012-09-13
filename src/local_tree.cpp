@@ -307,75 +307,11 @@ void apply_spr(LocalTree *tree, const Spr &spr)
         root = tree->root;
     }
     tree->root = root;
-    //tree->set_root();
 }
 
 
 //=============================================================================
 // local trees methods
-
-// removes a null SPR from one local tree
-bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it)
-{
-    // look one tree ahead
-    LocalTrees::iterator it2 = it;
-    ++it2;
-    if (it2 == trees->end())
-        return false;
-
-    // get spr from next tree, skip it if it is not null
-    Spr *spr2 = &it2->spr;
-    if (!spr2->is_null())
-        return false;
-
-    int nnodes = it2->tree->nnodes;
-        
-    if (it->mapping == NULL) {
-        // it2 will become first tree and therefore does not need a mapping
-        delete [] it2->mapping;
-        it2->mapping = NULL;
-    } else {
-        // compute transitive mapping
-        int *M1 = it->mapping;
-        int *M2 = it2->mapping;
-        int mapping[nnodes];
-        for (int i=0; i<nnodes; i++) {
-            if (M1[i] != -1)
-                mapping[i] = M2[M1[i]];
-            else
-                mapping[i] = -1;
-        }
-        
-        // set mapping
-        for (int i=0; i<nnodes; i++)
-            M2[i] = mapping[i];
-        
-        // copy over non-null spr
-        *spr2 = it->spr;
-        assert(!spr2->is_null());
-    }
-
-
-    // delete this tree
-    it2->blocklen += it->blocklen;
-    it->clear();
-    trees->trees.erase(it);
-    
-    return true;
-}
-
-
-
-// Removes trees with null SPRs from the local trees
-void remove_null_sprs(LocalTrees *trees)
-{
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
-        LocalTrees::iterator it2 = it;
-        ++it2;
-        remove_null_spr(trees, it);
-        it = it2;
-    }
-}
 
 
 
@@ -442,6 +378,90 @@ void LocalTrees::copy(const LocalTrees &other)
 }
 
 
+// removes a null SPR from one local tree
+bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it)
+{
+    // look one tree ahead
+    LocalTrees::iterator it2 = it;
+    ++it2;
+    if (it2 == trees->end())
+        return false;
+
+    // get spr from next tree, skip it if it is not null
+    Spr *spr2 = &it2->spr;
+    if (!spr2->is_null())
+        return false;
+
+    int nnodes = it2->tree->nnodes;
+        
+    if (it->mapping == NULL) {
+        // it2 will become first tree and therefore does not need a mapping
+        delete [] it2->mapping;
+        it2->mapping = NULL;
+    } else {
+        // compute transitive mapping
+        int *M1 = it->mapping;
+        int *M2 = it2->mapping;
+        int mapping[nnodes];
+        for (int i=0; i<nnodes; i++) {
+            if (M1[i] != -1)
+                mapping[i] = M2[M1[i]];
+            else
+                mapping[i] = -1;
+        }
+        
+        // set mapping
+        for (int i=0; i<nnodes; i++)
+            M2[i] = mapping[i];
+        
+        // copy over non-null spr
+        *spr2 = it->spr;
+        assert(!spr2->is_null());
+    }
+
+
+    // delete this tree
+    it2->blocklen += it->blocklen;
+    it->clear();
+    trees->trees.erase(it);
+    
+    return true;
+}
+
+
+
+// Removes trees with null SPRs from the local trees
+void remove_null_sprs(LocalTrees *trees)
+{
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end();) {
+        LocalTrees::iterator it2 = it;
+        ++it2;
+        remove_null_spr(trees, it);
+        it = it2;
+    }
+}
+
+
+// find recoal node, it is the node with no inward mappings
+int get_recoal_node(const LocalTree *tree, const Spr &spr, const int *mapping)
+{
+    const int nnodes = tree->nnodes;
+    bool mapped[nnodes];
+    fill(mapped, mapped + nnodes, false);
+
+    for (int i=0; i<nnodes; i++)
+        if (mapping[i] != -1)
+            mapped[mapping[i]] = true;
+    
+    for (int i=0; i<nnodes; i++)
+        if (!mapped[i])
+            return i;
+
+    assert(false);
+    return -1;
+}
+
+
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
                                   LocalTrees::iterator it, int it_start)
 {
@@ -449,13 +469,13 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
     LocalTrees *trees2 = new LocalTrees(pos, trees->end_coord, trees->nnodes);
     trees2->seqids.insert(trees2->seqids.end(), trees->seqids.begin(),
                           trees->seqids.end());
-
+    
     // splice trees over
     trees2->trees.splice(trees2->begin(), trees->trees, it, trees->end());
     
     // copy first tree back
     LocalTrees::iterator it2 = trees2->begin();
-    if (pos > it_start) {
+    //if (pos > it_start) {
         LocalTree *tree = it2->tree;
         LocalTree *last_tree = new LocalTree(tree->nnodes, tree->capacity);
         last_tree->copy(*tree);
@@ -469,7 +489,7 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
         
         trees->trees.push_back(
             LocalTreeSpr(last_tree, it2->spr, pos - it_start, mapping));
-    }
+    //}
     trees->end_coord = pos;
 
     // modify first tree of trees2
@@ -479,7 +499,7 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
     it2->spr.set_null();
     it2->blocklen -= pos - it_start;
     assert(it2->blocklen > 0);
-
+    
     assert_trees(trees);
     assert_trees(trees2);
     
@@ -491,6 +511,15 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
 // Returns second list of local trees.
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos)
 {
+    // special case
+    if (pos == trees->end_coord) {
+        LocalTrees *trees2 = new LocalTrees(pos, pos, trees->nnodes);
+        trees2->seqids.insert(trees2->seqids.end(), trees->seqids.begin(),
+                              trees->seqids.end());
+        return trees2;
+    }
+
+
     // find break point
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
@@ -571,6 +600,9 @@ void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
 // Do I have to remap the ids of one of them to match the other?
 void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
 {
+    const int ntrees = trees->get_num_trees();
+    const int ntrees2 = trees2->get_num_trees();
+
     // ensure seqids are the same
     for (unsigned int i=0; i<trees->seqids.size(); i++)
         assert(trees->seqids[i] == trees2->seqids[i]);
@@ -585,42 +617,23 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
     trees2->end_coord = trees2->start_coord;
     
     // set the mapping the newly neighboring trees
-    LocalTrees::iterator it2 = it;
-    ++it2;
-    if (it2->mapping == NULL)
-        it2->mapping = new int [trees2->nnodes];
-    map_congruent_trees(it->tree, &trees->seqids[0],
-                        it2->tree, &trees2->seqids[0], it2->mapping);
-
-    assert(remove_null_spr(trees, it));
-
+    if (ntrees > 0 && ntrees2 > 0) {
+        LocalTrees::iterator it2 = it;
+        ++it2;
+        if (it2->mapping == NULL)
+            it2->mapping = new int [trees2->nnodes];
+        map_congruent_trees(it->tree, &trees->seqids[0],
+                            it2->tree, &trees2->seqids[0], it2->mapping);
+        assert(remove_null_spr(trees, it));
+    }
+    
     assert_trees(trees);
     assert_trees(trees2);
 }
 
-// find recoal node, it is the node with no inward mappings
-int get_recoal_node(const LocalTree *tree, const Spr &spr, const int *mapping)
-{
-    const int nnodes = tree->nnodes;
-    bool mapped[nnodes];
-    fill(mapped, mapped + nnodes, false);
-
-    for (int i=0; i<nnodes; i++)
-        if (mapping[i] != -1)
-            mapped[mapping[i]] = true;
-    
-    for (int i=0; i<nnodes; i++)
-        if (!mapped[i])
-            return i;
-
-    assert(false);
-    return -1;
-}
 
 //=============================================================================
 // local tree alignment compression
-
-
 
 void uncompress_local_trees(LocalTrees *trees, 
                             const SitesMapping *sites_mapping)

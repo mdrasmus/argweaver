@@ -164,6 +164,16 @@ public:
         set_ptree(ptree, nnodes, ages, capacity);
     }
 
+    LocalTree(const LocalTree &other) :
+        nnodes(0),
+        capacity(0),
+        root(-1),
+        nodes(NULL)        
+    {
+        copy(other);
+    }
+
+
     ~LocalTree() {
         if (nodes) {
             delete [] nodes;

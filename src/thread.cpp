@@ -745,6 +745,37 @@ void get_all_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
 }
 
 
+// sample a removal path that only contains leaves
+// TODO: this could be simplified, calculating leaf path are easy
+void sample_arg_removal_leaf_path(const LocalTrees *trees, int node, int *path)
+{
+    int i = 0;
+    path[i++] = node;
+    LocalTree *last_tree = NULL;
+
+    for (LocalTrees::const_iterator it=trees->begin(); 
+         it != trees->end(); ++it) 
+    {
+        LocalTree *tree = it->tree;
+
+        if (last_tree) {
+            int next_nodes[2];
+            const Spr *spr = &it->spr;
+            const int *mapping = it->mapping;
+            get_next_removal_nodes(last_tree, tree, *spr, mapping,
+                                   path[i-1], next_nodes);
+            path[i++] = next_nodes[0];
+            
+            // ensure that a removal path re-enters the local tree correctly
+            if (last_tree->root == path[i-2] && tree->root != path[i-1]) {
+                assert(spr->coal_node == last_tree->root);
+            }
+        }
+        
+        last_tree = tree;
+    }
+}
+
 
 // sample a removal path forward along an ARG
 void sample_arg_removal_path_forward(
@@ -843,39 +874,6 @@ void sample_arg_removal_path(const LocalTrees *trees, int node, int *path)
     LocalTrees::const_iterator it = trees->begin();
     sample_arg_removal_path_forward(trees, it, node, path, 0);
 }
-
-
-// sample a removal path that only contains leaves
-// TODO: this could be simplified, calculating leaf path are easy
-void sample_arg_removal_leaf_path(const LocalTrees *trees, int node, int *path)
-{
-    int i = 0;
-    path[i++] = node;
-    LocalTree *last_tree = NULL;
-
-    for (LocalTrees::const_iterator it=trees->begin(); 
-         it != trees->end(); ++it) 
-    {
-        LocalTree *tree = it->tree;
-
-        if (last_tree) {
-            int next_nodes[2];
-            const Spr *spr = &it->spr;
-            const int *mapping = it->mapping;
-            get_next_removal_nodes(last_tree, tree, *spr, mapping,
-                                   path[i-1], next_nodes);
-            path[i++] = next_nodes[0];
-            
-            // ensure that a removal path re-enters the local tree correctly
-            if (last_tree->root == path[i-2] && tree->root != path[i-1]) {
-                assert(spr->coal_node == last_tree->root);
-            }
-        }
-        
-        last_tree = tree;
-    }
-}
-
 
 
 // sample a removal path that perfers recombination baring branches
@@ -986,85 +984,81 @@ void sample_arg_removal_path_recomb(
     delete_matrix<double>(trans, ntrees);
 }
 
-typedef int next_row[2];
+
+//=============================================================================
+// sample removal paths uniformly
 
 // count number of removal paths
 void count_arg_removal_paths(const LocalTrees *trees,
-                             int **counts, next_row **backptrs)
+                             RemovalPaths &removal_paths)
 {
     const int ntrees = trees->get_num_trees();
     const int nnodes = trees->nnodes;
-    
+    double **counts = removal_paths.counts;
+    RemovalPaths::next_row **backptrs = removal_paths.backptrs;    
+
     // calculate first column
-    fill(counts[0], counts[0] + nnodes, 1);
+    fill(counts[0], counts[0] + nnodes, 0.0);
 
     // compute forward table
     LocalTrees::const_iterator it= trees->begin();
     LocalTree const *last_tree = it->tree;
-    int next_nodes[nnodes][2];
     ++it;
     for (int i=1; i<ntrees; i++, ++it) {
         LocalTree const *tree = it->tree;
         const int *mapping = it->mapping;
-        next_row *prev_nodes = backptrs[i];
-
-        // get next and previous transitions
-        get_all_next_removal_nodes(last_tree, tree, it->spr, mapping,
-                                   next_nodes);
+        
+        // get back pointers
         get_all_prev_removal_nodes(last_tree, tree, it->spr, mapping,
-                                   prev_nodes);
+                                   backptrs[i]);
         
         // calc counts column
         for (int j=0; j<nnodes; j++) {
-            counts[i][j] = 0;
-            for (int ki=0; ki<2; ki++) {
-                int k = backptrs[i][j][ki];
-                if (k != -1)
-                    counts[i][j] += counts[i-1][k];
-            }
+            int *ptrs = backptrs[i][j];
+            if (ptrs[1] == -1)
+                counts[i][j] = counts[i-1][ptrs[0]];
+            else
+                counts[i][j] = logadd(counts[i-1][ptrs[0]],
+                                      counts[i-1][ptrs[1]]);
         }
 
         last_tree = tree;
     }
 }
 
+
 // count total number of removal paths
-int count_total_arg_removal_paths(const LocalTrees *trees,
-                                  int **counts, next_row **backptrs)
+double count_total_arg_removal_paths(const RemovalPaths &removal_paths)
 {
-    const int ntrees = trees->get_num_trees();
-    const int nnodes = trees->nnodes;
-
     // count total number of paths
-    int total = 0;
-    for (int j=0; j<nnodes; j++)
-        total += counts[ntrees - 1][j];
-
-    return total;
+    return logsum(removal_paths.counts[removal_paths.ntrees - 1], 
+                  removal_paths.nnodes);
 }
 
 
+
 // sample a removal path uniformly from all paths and return total path count
-int sample_arg_removal_path_uniform(const LocalTrees *trees, int *path)
+double sample_arg_removal_path_uniform(const LocalTrees *trees, int *path)
 {
+    // compute path counts table
+    RemovalPaths removal_paths(trees);
+    count_arg_removal_paths(trees, removal_paths);
+
+    // convenience variables
     const int ntrees = trees->get_num_trees();
     const int nnodes = trees->nnodes;
-    
-    // allocate path counts and traceback tables
-    int **counts = new_matrix<int>(ntrees, nnodes);
-    next_row **backptrs = new_matrix<next_row>(ntrees, nnodes);
-    
-    // compute path counts table
-    count_arg_removal_paths(trees, counts, backptrs);
+    double **counts = removal_paths.counts;
+    RemovalPaths::next_row **backptrs = removal_paths.backptrs;
 
     // sample last branch of path first weighted by path counts
     double weights[nnodes];
-    copy(counts[ntrees - 1], counts[ntrees - 1] + nnodes, weights);
+    double norm = logsum(counts[ntrees - 1], nnodes);
+    for (int j=0; j<nnodes; j++)
+        weights[j] = exp(counts[ntrees - 1][j] - norm);
     path[ntrees - 1] = sample(weights, nnodes);
 
-    for (int i = ntrees-1; i>0; i--) {
-        const int j = path[i];
-        const int *ptrs = backptrs[i][j];
+    for (int i=ntrees-1; i>0; i--) {
+        const int *ptrs = backptrs[i][path[i]];
         if (ptrs[1] == -1) {
             // single trace back
             path[i-1] = ptrs[0];
@@ -1073,7 +1067,7 @@ int sample_arg_removal_path_uniform(const LocalTrees *trees, int *path)
             const double p1 = counts[i-1][ptrs[0]];
             const double p2 = counts[i-1][ptrs[1]];
             
-            if (frand() < p1 / (p1 + p2))
+            if (log(frand()) < (p1 - logadd(p1, p2)))
                 path[i-1] = ptrs[0];
             else
                 path[i-1] = ptrs[1];
@@ -1081,37 +1075,19 @@ int sample_arg_removal_path_uniform(const LocalTrees *trees, int *path)
     }
 
     // count total number of paths
-    int total = count_total_arg_removal_paths(trees, counts, backptrs);
-    
-    // clean up
-    delete_matrix<int>(counts, ntrees);
-    delete_matrix<next_row>(backptrs, ntrees);
-
-    return total;
+    return count_total_arg_removal_paths(removal_paths);
 }
 
 
 // count total number of removal paths
-int count_total_arg_removal_paths(const LocalTrees *trees)
-{
-    const int ntrees = trees->get_num_trees();
-    const int nnodes = trees->nnodes;
-    
-    // allocate path counts and traceback tables
-    int **counts = new_matrix<int>(ntrees, nnodes);
-    next_row **backptrs = new_matrix<next_row>(ntrees, nnodes);
-    
+double count_total_arg_removal_paths(const LocalTrees *trees)
+{    
     // compute path counts table
-    count_arg_removal_paths(trees, counts, backptrs);
+    RemovalPaths removal_paths(trees);
+    count_arg_removal_paths(trees, removal_paths);
 
     // count total number of paths
-    int total = count_total_arg_removal_paths(trees, counts, backptrs);
-    
-    // clean up
-    delete_matrix<int>(counts, ntrees);
-    delete_matrix<next_row>(backptrs, ntrees);
-
-    return total;
+    return count_total_arg_removal_paths(removal_paths);
 }
 
 

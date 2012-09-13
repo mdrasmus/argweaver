@@ -29,6 +29,17 @@ public:
         time = _time;
     }
 
+    void set_null()
+    {
+        node = -1;
+        time = -1;
+    }
+
+    bool is_null() const 
+    {
+        return node == -1 && time -1;
+    }
+
     int node;
     int time;
 };

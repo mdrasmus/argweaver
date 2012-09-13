@@ -107,22 +107,61 @@ void resample_arg_all(const ArgModel *model, const Sequences *sequences,
 }
 
 
-
-// resample the threading of an internal branch
-void resample_arg_climb(const ArgModel *model, const Sequences *sequences, 
-                        LocalTrees *trees, double recomb_preference)
+void resample_arg_leaf(const ArgModel *model, const Sequences *sequences, 
+                       LocalTrees *trees)
 {
     const int maxtime = model->ntimes + 1;
     int *removal_path = new int [trees->get_num_trees()];
     
-    // ramdomly choose a removal path weighted by recombinations
-    sample_arg_removal_path_recomb(trees, recomb_preference, removal_path);
+    // ramdomly choose a removal path
+    int node = irand(trees->get_num_leaves());
+    sample_arg_removal_leaf_path(trees, node, removal_path);
     
     remove_arg_thread_path(trees, removal_path, maxtime);
     sample_arg_thread_internal(model, sequences, trees);
     
     delete [] removal_path;
 }
+
+
+
+// resample the threading of an internal branch using MCMC
+bool resample_arg_mcmc(const ArgModel *model, const Sequences *sequences, 
+                       LocalTrees *trees)
+{
+    const int maxtime = model->ntimes + 1;
+    int *removal_path = new int [trees->get_num_trees()];
+    
+    // save a copy of the local trees
+    LocalTrees trees2;
+    trees2.copy(*trees);
+
+    // ramdomly choose a removal path
+    double npaths = sample_arg_removal_path_uniform(trees, removal_path);
+    remove_arg_thread_path(trees, removal_path, maxtime);
+    sample_arg_thread_internal(model, sequences, trees);
+    
+    double npaths2 = count_total_arg_removal_paths(trees);
+
+    double accept_prob = exp(npaths - npaths2);
+    bool accept = (frand() < accept_prob);
+
+    // perform reject if needed
+    if (!accept)
+        trees->copy(trees2);
+
+    // logging
+    printLog(LOG_LOW, "accept_prob = exp(%lf - %lf) = %f, accept = %d\n", 
+             npaths, npaths2, accept_prob, (int) accept);
+    
+
+    // clean up
+    delete [] removal_path;
+
+    return accept;
+}
+
+
 
 
 
@@ -143,8 +182,17 @@ void resample_arg_recomb(const ArgModel *model, const Sequences *sequences,
 
 
 
+// resample the threading of an internal branch
+void resample_arg_climb(const ArgModel *model, const Sequences *sequences, 
+                        LocalTrees *trees, double recomb_preference)
+{
+    resample_arg_recomb(model, sequences, trees, recomb_preference);
+}
 
 
+
+
+/*
 // sample an ARG with both sequential and gibbs iterations
 void sample_arg_seq_gibbs(const ArgModel *model, const Sequences *sequences, 
                           LocalTrees *trees, int seqiters, int gibbsiters)
@@ -182,59 +230,18 @@ void sample_arg_seq_gibbs(const ArgModel *model, const Sequences *sequences,
             chroms[i] = i;
         shuffle(chroms, nleaves);
 
-        for (int i=0; i<min(gibbsiters, nleaves); i++) {
+        for (int i=0; i<min(gibbsiters, nleaves); i++)
             resample_arg_all(model, sequences, trees);
-
-            /*
-            remove_arg_thread(trees, chroms[i]);
-            sample_arg_thread(model, sequences, trees, chroms[i]);
-            */
-        }
 
         printTimerLog(time, LOG_QUIET, 
                       "seq_gibbs stage (%3d leaves):       ", nleaves);
     }
 }
+*/
 
 
-
-// resample the threading of all the chromosomes
-void remax_arg(const ArgModel *model, const Sequences *sequences, 
-               LocalTrees *trees, int nremove)
-{
-    const int nleaves = trees->get_num_leaves();
-
-    if (nremove == 1) {
-        // cycle through chromosomes
-
-        for (int chrom=0; chrom<nleaves; chrom++) {
-            // remove chromosome from ARG and resample its thread
-            remove_arg_thread(trees, chrom);
-            max_arg_thread(model, sequences, trees, chrom);
-        }
-    } else {
-        // clamp nremove
-        if (nremove <= 0)
-            return;
-        if (nremove > nleaves)
-            nremove = nleaves;
-
-        // randomly choose which chromosomes to remove
-        int chroms_avail[nleaves];
-        for (int i=0; i<nleaves; i++)
-            chroms_avail[i] = i;
-        shuffle(chroms_avail, nleaves);
-
-        // remove chromosomes from ARG
-        for (int i=0; i<nremove; i++) {
-            remove_arg_thread(trees, chroms_avail[i]);
-        }
-
-        // resample chromosomes
-        for (int i=0; i<nremove; i++)
-            max_arg_thread(model, sequences, trees, chroms_avail[i]);
-    }
-}
+//=============================================================================
+// sub-region resampling
 
 
 State find_state_sub_tree(
@@ -343,48 +350,105 @@ State find_state_sub_tree_internal(
 
 // resample an ARG only for a given region
 // all branches are possible to resample
+// open_ended -- If true and region touches start or end of local trees do not
+//               conditioned on state.
 void resample_arg_all_region(
     const ArgModel *model, const Sequences *sequences, 
-    LocalTrees *trees, int region_start, int region_end, int niters)
+    LocalTrees *trees, int region_start, int region_end, int niters,
+    bool open_ended)
 {
     const int maxtime = model->ntimes + 1;
-    const double recomb_preference = .7;
 
-    assert(region_start > trees->start_coord);
-    assert(region_end < trees->end_coord);
+    // special case: zero length region
+    if (region_start == region_end)
+        return;
+
+    // assert region is within trees
+    assert(region_start >= trees->start_coord);
+    assert(region_end <= trees->end_coord);
     assert(region_start < region_end);
 
     // partion trees into three segments
     LocalTrees *trees2 = partition_local_trees(trees, region_start);
     LocalTrees *trees3 = partition_local_trees(trees2, region_end);
-
     assert(trees2->length() == region_end - region_start);
-    
-    LocalTree *start_tree = trees->back().tree;
-    LocalTree *end_tree = trees3->front().tree;
+
+    // get starting and ending trees
+    LocalTree start_tree(*trees2->front().tree);
+    LocalTree end_tree(*trees2->back().tree);
+
 
     // perform several iterations of resampling
     for (int i=0; i<niters; i++) {
-        // TODO: there could be a recombination separating start_tree and first_tree?  maybe move region_start and region_end to avoid this.
-
+        // save a copy of the local trees
+        LocalTrees old_trees2;
+        old_trees2.copy(*trees2);
+                
         // remove internal branch from trees2
-        // ramdomly choose a removal path weighted by recombinations
+        // ramdomly choose a removal path
         int *removal_path = new int [trees2->get_num_trees()];
+        double npaths = sample_arg_removal_path_uniform(trees2, removal_path);
+        remove_arg_thread_path(trees2, removal_path, maxtime);
+        
+        
+        // determine start and end states from given trees
+        LocalTree *start_tree_partial = trees2->front().tree;
+        LocalTree *end_tree_partial = trees2->back().tree;
+        State start_state = find_state_sub_tree_internal(
+            &start_tree, start_tree_partial, maxtime);
+        State end_state = find_state_sub_tree_internal(
+            &end_tree, end_tree_partial, maxtime);
+        
+        if (open_ended) {
+            if (region_start == trees->start_coord)
+                start_state.set_null();
+            if (region_end == trees3->end_coord)
+                end_state.set_null();
+        }
+
+        delete [] removal_path;
+
+        cond_sample_arg_thread_internal(model, sequences, trees2,
+                                        start_state, end_state);
+        assert_trees(trees2);
+        double npaths2 = count_total_arg_removal_paths(trees2);
+
+        // perform reject if needed
+        double accept_prob = exp(npaths - npaths2);
+        bool accept = (frand() < accept_prob);
+        //if (!accept)
+        //    trees2->copy(old_trees2);
+        
+        // logging
+        printLog(LOG_LOW, "accept_prob = exp(%lf - %lf) = %f, accept = %d\n", 
+                 npaths, npaths2, accept_prob, (int) accept);
+        
+        
+        
+        /*
         sample_arg_removal_path_recomb(trees2, recomb_preference, removal_path);
         remove_arg_thread_path(trees2, removal_path, maxtime);
         delete [] removal_path;
         
         // determine start and end states from given trees
-        LocalTree *first_tree = trees2->front().tree;
-        LocalTree *last_tree = trees2->back().tree;
+        LocalTree *start_tree_partial = trees2->front().tree;
+        LocalTree *end_tree_partial = trees2->back().tree;
         State start_state = find_state_sub_tree_internal(
-            start_tree, first_tree, maxtime);
+            &start_tree, start_tree_partial, maxtime);
         State end_state = find_state_sub_tree_internal(
-            end_tree, last_tree, maxtime);
+            &end_tree, end_tree_partial, maxtime);
         
+        if (open_ended) {
+            if (region_start == trees->start_coord)
+                start_state.set_null();
+            if (region_end == trees->end_coord)
+                end_state.set_null();
+        }
+
         cond_sample_arg_thread_internal(model, sequences, trees2,
                                         start_state, end_state);
         assert_trees(trees2);
+        */
     }
     
     // rejoin trees
@@ -395,6 +459,60 @@ void resample_arg_all_region(
     delete trees2;
     delete trees3;
 }
+
+
+// resample an ARG a region at a time in a sliding window
+void resample_arg_regions(
+    const ArgModel *model, const Sequences *sequences, 
+    LocalTrees *trees, int window, int step)
+{
+    for (int start=trees->start_coord; start<trees->end_coord; start+=step) {
+        int end = min(start + window, trees->end_coord);
+        resample_arg_all_region(model, sequences, trees, start, end, 1);
+    }
+}
+
+
+
+
+// resample the threading of all the chromosomes
+void remax_arg(const ArgModel *model, const Sequences *sequences, 
+               LocalTrees *trees, int nremove)
+{
+    const int nleaves = trees->get_num_leaves();
+
+    if (nremove == 1) {
+        // cycle through chromosomes
+
+        for (int chrom=0; chrom<nleaves; chrom++) {
+            // remove chromosome from ARG and resample its thread
+            remove_arg_thread(trees, chrom);
+            max_arg_thread(model, sequences, trees, chrom);
+        }
+    } else {
+        // clamp nremove
+        if (nremove <= 0)
+            return;
+        if (nremove > nleaves)
+            nremove = nleaves;
+
+        // randomly choose which chromosomes to remove
+        int chroms_avail[nleaves];
+        for (int i=0; i<nleaves; i++)
+            chroms_avail[i] = i;
+        shuffle(chroms_avail, nleaves);
+
+        // remove chromosomes from ARG
+        for (int i=0; i<nremove; i++) {
+            remove_arg_thread(trees, chroms_avail[i]);
+        }
+
+        // resample chromosomes
+        for (int i=0; i<nremove; i++)
+            max_arg_thread(model, sequences, trees, chroms_avail[i]);
+    }
+}
+
 
 
 //=============================================================================
@@ -559,7 +677,7 @@ LocalTrees *arghmm_resample_arg_all_region(
 }
 
 
-
+// DISABLED
 LocalTrees *arghmm_sample_arg_seq_gibbs(double *times, int ntimes,
     double *popsizes, double rho, double mu,
     char **seqs, int nseqs, int seqlen, int seqiters, int gibbsiters)
@@ -569,7 +687,7 @@ LocalTrees *arghmm_sample_arg_seq_gibbs(double *times, int ntimes,
     Sequences sequences(seqs, nseqs, seqlen);
     LocalTrees *trees = new LocalTrees();    
 
-    sample_arg_seq_gibbs(&model, &sequences, trees, seqiters, gibbsiters);
+    //sample_arg_seq_gibbs(&model, &sequences, trees, seqiters, gibbsiters);
 
     return trees;
 }
