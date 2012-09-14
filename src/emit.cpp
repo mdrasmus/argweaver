@@ -63,7 +63,6 @@ public:
     {
         data = new lk_row* [seqlen];
         for (int i=0; i<seqlen; i++)
-            //data[i] = new_matrix<double>(nnodes, 4);
             data[i] = new double [nnodes][4];
     }
 
@@ -80,14 +79,15 @@ public:
 };
 
 
-inline void likelihood_site_node(const LocalTree *tree, const int node,
-                                 const char *const *seqs, const int pos, 
-                                 const double *muts, const double *nomuts, 
-                                 lk_row* table)
+// calculate inner partial likelihood 
+inline void likelihood_site_node_inner(
+    const LocalTree *tree, const int node, 
+    const char *const *seqs, const int pos, 
+    const double *muts, const double *nomuts, lk_row* table)
 {
     const LocalNode* nodes = tree->nodes;
     const int j = node;
-        
+    
     if (nodes[j].is_leaf()) {
         // leaf case
         const char c = seqs[j][pos];
@@ -128,63 +128,68 @@ inline void likelihood_site_node(const LocalTree *tree, const int node,
 }
 
 
-double likelihood_site(const LocalTree *tree, const char *const *seqs, 
-                       const int pos, const int *order, const double *muts,
-                       const double *nomuts, lk_row* table)
-{
-    const int nnodes = tree->nnodes;
-
-    // iterate postorder through nodes
-    for (int i=0; i<nnodes; i++)
-        likelihood_site_node(tree, order[i], seqs, pos, muts, nomuts, table);
-
-    // sum over root node
-    double p = 0.0;
-    int root = tree->root;
-    for (int a=0; a<4; a++)
-        p += table[root][a]  * .25;
-    
-    return p;
-}
-
-
-double likelihood_site(const LocalTree *tree, const char *const *seqs, 
-                       const int pos, const int *order, const double *muts,
-                       const double *nomuts)
-{
-    const int nnodes = tree->nnodes;
-    lk_row table[nnodes];
-
-    // iterate postorder through nodes
-    for (int i=0; i<nnodes; i++)
-        likelihood_site_node(tree, order[i], seqs, pos, muts, nomuts, table);
-
-    // sum over root node
-    double p = 0.0;
-    int root = tree->root;
-    for (int a=0; a<4; a++)
-        p += table[root][a]  * .25;
-    
-    return p;
-}
-
-
-
-// only recalculate the path from node to the root
-double likelihood_site_partial(const LocalTree *tree, const char *const *seqs, 
-                               const int pos, const int *order, 
-                               const double *muts, const double *nomuts, 
-                               const int prev_node, const int new_node,
-                               lk_row* table)
+// calculate outer partial likelihood 
+inline void likelihood_site_node_outer(
+    const LocalTree *tree, const int root, const int node, 
+    const char *const *seqs, const int pos, 
+    const double *muts, const double *nomuts, 
+    lk_row* outer, lk_row* inner)
 {
     const LocalNode* nodes = tree->nodes;
+    const int j = node;
+    
+    if (node == root) {
+        // root case
+        outer[j][0] = 1.0;
+        outer[j][1] = 1.0;
+        outer[j][2] = 1.0;
+        outer[j][3] = 1.0;
+    } else {
+        // non-root case
+        int sib = tree->get_sibling(j);
+        int parent = nodes[j].parent;
 
-    // walk up root path
-    for (int j=prev_node; j!=-1; j=nodes[j].parent)
-        likelihood_site_node(tree, j, seqs, pos, muts, nomuts, table);
-    for (int j=new_node; j!=-1; j=nodes[j].parent)
-        likelihood_site_node(tree, j, seqs, pos, muts, nomuts, table);
+        if (parent != root) {
+            for (int a=0; a<4; a++) {
+                double p1 = 0.0;
+                double p2 = 0.0;
+                for (int b=0; b<4; b++) {
+                    if (a == b) {
+                        p1 += inner[sib][b] * nomuts[sib];
+                        p2 += outer[parent][b] * nomuts[parent];
+                    } else {
+                        p1 += inner[sib][b] * muts[sib];
+                        p2 += outer[parent][b] * muts[parent];
+                    }
+                }
+                outer[j][a] = p1 * p2;
+            }
+        } else {
+            for (int a=0; a<4; a++) {
+                double p1 = 0.0;
+                for (int b=0; b<4; b++) {
+                    if (a == b)
+                        p1 += inner[sib][b] * nomuts[sib];
+                    else
+                        p1 += inner[sib][b] * muts[sib];
+                }
+                outer[j][a] = p1;
+            }
+        }
+    }
+}
 
+
+// calculate full inner table
+double likelihood_site_inner(
+    const LocalTree *tree, const char *const *seqs, 
+    const int pos, const int *order, const int norder,
+    const double *muts, const double *nomuts, lk_row* table)
+{
+    // iterate postorder through nodes
+    for (int i=0; i<norder; i++)
+        likelihood_site_node_inner(
+            tree, order[i], seqs, pos, muts, nomuts, table);
 
     // sum over root node
     double p = 0.0;
@@ -194,6 +199,73 @@ double likelihood_site_partial(const LocalTree *tree, const char *const *seqs,
     
     return p;
 }
+
+
+// calculate full outer table
+void likelihood_site_outer(
+    const LocalTree *tree, const char *const *seqs, 
+    const int pos, const int *order, const int norder,
+    const double *muts, const double *nomuts, 
+    lk_row *inner, lk_row *outer)
+{
+    int queue[tree->nnodes];
+    int top = 0;
+
+    int maintree_root = tree->nodes[tree->root].child[1];
+    queue[top++] = maintree_root;
+    
+    // process in preorder
+    while (top > 0) {
+        int node = queue[--top];
+        likelihood_site_node_outer(tree, maintree_root, node, seqs, pos, 
+                                   muts, nomuts, outer, inner);
+
+        // recurse
+        if (!tree->nodes[node].is_leaf()) {
+            queue[top++] = tree->nodes[node].child[0];
+            queue[top++] = tree->nodes[node].child[1];
+        }
+    }
+}
+
+
+void calc_inner_outer(const LocalTree *tree, const ArgModel *model,
+                      const char *const *seqs, const int seqlen,  
+                      const bool *invariant, lk_row **inner, lk_row **outer)
+{
+    const double *times = model->times;
+    const LocalNode *nodes = tree->nodes;
+    const double mintime = times[1];
+
+    // get postorder
+    int norder = tree->nnodes;
+    int order[tree->nnodes];
+    tree->get_postorder(order);
+    
+    
+    // get mutation probabilities and treelen
+    double muts[tree->nnodes];
+    double nomuts[tree->nnodes];
+    for (int i=0; i<tree->nnodes; i++) {
+        if (i != tree->root) {
+            double t = max(times[nodes[nodes[i].parent].age] - 
+                           times[nodes[i].age], mintime);
+            muts[i] = prob_branch(t, model->mu, true);
+            nomuts[i] = prob_branch(t, model->mu, false);
+        }
+    }
+        
+    // calculate emissions for tree at each site
+    for (int i=0; i<seqlen; i++) {
+        if (!invariant[i]) {
+            likelihood_site_inner(tree, seqs, i, order, norder, 
+                                  muts, nomuts, inner[i]);
+            likelihood_site_outer(tree, seqs, i, order, norder,
+                                  muts, nomuts, inner[i], outer[i]);
+        }
+    }
+}
+
 
 
 void likelihood_sites(const LocalTree *tree, const ArgModel *model,
@@ -209,7 +281,28 @@ void likelihood_sites(const LocalTree *tree, const ArgModel *model,
 
     // get postorder
     int order[tree->nnodes];
-    tree->get_postorder(order);
+    int norder;
+    
+    if (prev_node == -1) {
+        tree->get_postorder(order);
+        norder = tree->nnodes;
+    } else {
+        // find partial postorder
+
+        // find dirty entries
+        bool dirty[tree->nnodes];
+        fill(dirty, dirty+tree->nnodes, false);
+        for (int j=prev_node; j!=-1; j=nodes[j].parent)
+            dirty[j] = true;
+
+        // walk up root path
+        norder = 0;
+        for (int j=new_node; !dirty[j]; j=nodes[j].parent)
+            order[norder++] = j;
+        for (int j=prev_node; j!=-1; j=nodes[j].parent)
+            order[norder++] = j;
+    }
+
 
     // get mutation probabilities and treelen
     double muts[tree->nnodes];
@@ -225,27 +318,18 @@ void likelihood_sites(const LocalTree *tree, const ArgModel *model,
         }
     }
 
+
     // calculate invariant_lk
     double invariant_lk = .25 * exp(- model->mu * max(treelen, mintime));
     
     // calculate emissions for tree at each site
     for (int i=0; i<seqlen; i++) {
-        if (invariant && invariant[i] && invariant_lk > 0)
+        if (invariant && invariant[i]) {
             // use precommuted invariant site likelihood
-            emit[i][statei] = invariant_lk;
-        else {
-            if (prev_node != -1) {
-                emit[i][statei] = likelihood_site_partial(
-                    tree, seqs, i, order, muts, nomuts, 
-                    prev_node, new_node, table[i]);
-            } else
-                emit[i][statei] = likelihood_site(tree, seqs, i, order, 
-                                                  muts, nomuts, table[i]);
-            
-            // save invariant likelihood
-            if (invariant && invariant[i]) {
-                invariant_lk = emit[i][statei];
-            }
+            emit[i][statei] = invariant_lk;            
+        } else {
+            emit[i][statei] = likelihood_site_inner(
+                tree, seqs, i, order, norder, muts, nomuts, table[i]);
         }
     }
 }
@@ -257,9 +341,11 @@ double likelihood_tree(const LocalTree *tree, const ArgModel *model,
                        const int start, const int end)
 {
     const double *times = model->times;
+    const int nnodes = tree->nnodes;
     const LocalNode *nodes = tree->nodes;
     const double mintime = times[1];
     double invariant_lk = -1;
+    lk_row table[nnodes];
 
     // get postorder
     int order[tree->nnodes];
@@ -288,7 +374,8 @@ double likelihood_tree(const LocalTree *tree, const ArgModel *model,
             // use precommuted invariant site likelihood
             lk = invariant_lk;
         else {
-            lk = likelihood_site(tree, seqs, i, order, muts, nomuts);
+            lk = likelihood_site_inner(tree, seqs, i, order, tree->nnodes, 
+                                       muts, nomuts, table);
             
             // save invariant likelihood
             if (invariant)
@@ -327,23 +414,23 @@ void calc_emissions(const States &states, const LocalTree *tree,
         State state = states[j];
         add_tree_branch(&tree2, state.node, state.time);
         
-        if (prev_node != -1) {
-            new_node = tree2[state.node].parent;
-            prev_node = (prev_node != newleaf ? prev_node : tree->nnodes-1);
-        }
+        //new_node = state.node
+        //new_node = (new_node != newleaf ? new_node : tree->nnodes-1);
         
         likelihood_sites(&tree2, model, seqs, seqlen, j, invariant, emit,
-                         table.data, prev_node, new_node);        
+                         table.data, prev_node, new_node);
+
         remove_tree_branch(&tree2, newleaf, NULL);
         
         //prev_node = tree2[state.node].parent;
+        //prev_node = (prev_node != newleaf ? prev_node : tree->nnodes-1);
     }
 
     delete [] invariant;
 }
 
 
-void calc_emissions_internal(const States &states, const LocalTree *tree,
+void calc_emissions_internal2(const States &states, const LocalTree *tree,
                      const char *const *seqs, int nseqs, int seqlen, 
                      const ArgModel *model, double **emit)
 {
@@ -369,23 +456,194 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
     // find invariant sites
     find_invariant_sites(seqs, nseqs, seqlen, invariant);
 
+    int prev_node = -1;
+    int new_node = -1;
     for (int j=0; j<nstates; j++) {
         State state = states[j];
         assert(subtree_root != tree2.root);
+
+        new_node = state.node;
+        
         Spr add_spr(subtree_root, subtree_root_age, state.node, state.time);
         apply_spr(&tree2, add_spr);
 
         likelihood_sites(&tree2, model, seqs, seqlen, j, invariant, emit,
-                         table.data);
+                         table.data, prev_node, new_node);
+        
+        /*
+        double tmp[seqlen];
+        for (int i=0; i<seqlen; i++)
+            tmp[i] = emit[i][j];
+        
+        likelihood_sites(&tree2, model, seqs, seqlen, j, invariant, emit,
+                         table.data, -1, -1);
+        for (int i=0; i<seqlen; i++) {
+            //printf("> %d,%d: %e %e\n", i, j, emit[i][j], tmp[i]);
+            assert(emit[i][j] == tmp[i]);
+        }
+        */
 
         Spr remove_spr(subtree_root, subtree_root_age, 
                        tree2.root, maxtime);
         apply_spr(&tree2, remove_spr);
+
+        prev_node = tree2[new_node].parent;
     }
 
     // clean up
     delete [] invariant;
 }
+
+
+void calc_emissions_internal(const States &states, const LocalTree *tree,
+                              const char *const *seqs, int nseqs, int seqlen, 
+                              const ArgModel *model, double **emit)
+{
+    const int nstates = states.size();
+    const int maintree_root = tree->nodes[tree->root].child[1];
+    const int subtree_root = tree->nodes[tree->root].child[0];
+    const double mintime = model->times[1];
+
+    // special case: ignore fully specified local tree
+    if (nstates == 0) {
+        for (int i=0; i<seqlen; i++)
+            emit[i][0] = 1.0;
+        return;
+    }    
+    
+    // find invariant sites
+    bool *invariant = new bool [seqlen];
+    find_invariant_sites(seqs, nseqs, seqlen, invariant);
+
+    // compute inner and outer likelihood tables
+    LikelihoodTable inner(seqlen, tree->nnodes);
+    LikelihoodTable outer(seqlen, tree->nnodes);
+    calc_inner_outer(tree, model, seqs, seqlen, invariant, 
+                     inner.data, outer.data);
+
+    // calc tree lengths
+    int queue[tree->nnodes];
+    int top = 0;
+
+    // process in preorder maintree nodes
+    double maintreelen = 0.0;
+    queue[top++] = maintree_root;
+    while (top > 0) {
+        int node = queue[--top];
+        if (node != maintree_root)
+            maintreelen += max(tree->get_dist(node, model->times), mintime);
+        if (!tree->nodes[node].is_leaf()) {
+            queue[top++] = tree->nodes[node].child[0];
+            queue[top++] = tree->nodes[node].child[1];
+        }
+    }
+
+    // process in preorder subtree nodes
+    double subtreelen = 0.0;
+    queue[top++] = subtree_root;
+    while (top > 0) {
+        int node = queue[--top];
+        if (node != subtree_root)
+            subtreelen += max(tree->get_dist(node, model->times), mintime);
+        if (!tree->nodes[node].is_leaf()) {
+            queue[top++] = tree->nodes[node].child[0];
+            queue[top++] = tree->nodes[node].child[1];
+        }
+    }
+
+    // DEBUG
+    //double **emit2 = new_matrix<double>(seqlen, nstates);
+    //calc_emissions_internal2(states, tree, seqs, nseqs, seqlen, model, emit2);
+    
+
+    // populate emission table
+    for (int j=0; j<nstates; j++) {
+        State state = states[j];
+        
+        // get nodes
+        int node1 = subtree_root;        
+        int node2 = state.node;
+        int parent = tree->nodes[node2].parent;
+
+        // get times
+        double time1 = model->times[tree->nodes[node1].age];
+        double time2 = model->times[tree->nodes[node2].age];
+        double parent_time = model->times[min(tree->nodes[parent].age,
+                                              model->ntimes-1)];
+        double coal_time = model->times[state.time];
+
+        // get distances
+        double dist1 = max(coal_time - time1, mintime);
+        double dist2 = max(coal_time - time2, mintime);
+        double dist3 = max(parent_time - coal_time, mintime);
+
+        // get mutation probabilities
+        double mut1 = prob_branch(dist1, model->mu, true);
+        double mut2 = prob_branch(dist2, model->mu, true);
+        double mut3 = prob_branch(dist3, model->mu, true);
+        double nomut1 = prob_branch(dist1, model->mu, false);
+        double nomut2 = prob_branch(dist2, model->mu, false);
+        double nomut3 = prob_branch(dist3, model->mu, false);
+        
+        // get tree length
+        double treelen;
+        if (node2 == maintree_root)
+            treelen = maintreelen + subtreelen 
+                + max(coal_time - time1, mintime)
+                + max(coal_time - model->times[tree->nodes[maintree_root].age],
+                      mintime);
+        else
+            treelen = maintreelen + subtreelen 
+                + max(coal_time - time1, mintime);
+
+        // calculate invariant_lk
+        double invariant_lk = .25 * exp(- model->mu * max(treelen, mintime));
+
+        // fill in row of emission table
+        for (int i=0; i<seqlen; i++) {
+            if (invariant[i]) {
+                emit[i][j] = invariant_lk;
+            } else {
+                lk_row *in = inner.data[i];
+                lk_row *out = outer.data[i];
+
+                emit[i][j] = 0.0;
+                for (int a=0; a<4; a++) {
+                    double p1 = 0.0, p2 = 0.0, p3 = 0.0;
+                    for (int b=0; b<4; b++) {
+                        if (a == b) {
+                            p1 += in[node1][b] * nomut1;
+                            p2 += in[node2][b] * nomut2;
+                            p3 += out[node2][b] * nomut3;
+                        } else {
+                            p1 += in[node1][b] * mut1;
+                            p2 += in[node2][b] * mut2;
+                            p3 += out[node2][b] * mut3;
+                        }
+                    }
+                    
+                    if (node2 != maintree_root) {
+                        emit[i][j] += p1 * p2 * p3 * .25;
+                    } else {
+                        emit[i][j] += p1 * p2 * .25;
+                    }
+                }
+            }
+
+            // DEBUG
+            //printf(">> %d,%d: %e %e\n", i, j, emit[i][j], emit2[i][j]);
+            //assert(fequal(emit[i][j], emit2[i][j], .0001, 1e-12));
+        }
+    }
+
+    // clean up
+    delete [] invariant;
+
+
+    // DEBUG
+    //delete_matrix<double>(emit2, seqlen);
+}
+
 
 //=============================================================================
 // approximate emissions

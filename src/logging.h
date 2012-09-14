@@ -137,6 +137,18 @@ public:
         loglevel = level;
     }
 
+    int incLogLevel()
+    {
+        loglevel++;
+        return loglevel;
+    }
+
+    int decLogLevel()
+    {
+        loglevel--;
+        return loglevel;
+    }
+
     bool isLogLevel(int level) const
     {
         return level <= loglevel;
@@ -214,8 +226,13 @@ inline FILE *getLogFile()
 { return g_logger.getLogFile(); }
 
 inline bool isLogLevel(int level)
-{ return g_logger.isLogLevel(level);
-}
+{ return g_logger.isLogLevel(level); }
+
+inline int incLogLevel()
+{ return g_logger.incLogLevel(); }
+
+inline int decLogLevel()
+{ return g_logger.decLogLevel(); }
 
 
 // global function API

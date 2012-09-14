@@ -541,11 +541,16 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "sample %d\n", i+1);
         //resample_arg_all(model, sequences, trees, config->prob_path_switch);
         
+        resample_arg_regions(model, sequences, trees, window, step, niters);
+
+
+        /*
         if (frand() < .9)
             resample_arg_regions(model, sequences, trees, window, step, niters);
             //bool accept = resample_arg_mcmc(model, sequences, trees);
         else
             resample_arg_leaf(model, sequences, trees);
+        */
 
         // logging
         print_stats(config->stats_file, "resample", i, model, sequences, trees,
