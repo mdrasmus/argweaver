@@ -1606,7 +1606,7 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 20
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
@@ -1643,11 +1643,6 @@ class Sample (unittest.TestCase):
                 arg2 = arghmm.resample_climb_arg(arg2,
                     seqs, rho=rho, mu=mu, times=times, popsizes=n,
                     refine=climb, recomb_pref=.9, carg=True)
-
-                #arg2 = arghmm.resample_arg(arg2,
-                #    seqs, rho=rho, mu=mu, times=times, popsizes=n,
-                #    refine=refine, carg=True)
-
                 arg2 = arghmm.resample_all_arg(arg2,
                     seqs, rho=rho, mu=mu, times=times, popsizes=n,
                     refine=refine, carg=True, prob_path_switch=.5)
