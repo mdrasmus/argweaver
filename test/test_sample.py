@@ -1606,16 +1606,18 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 12
+        k = 20
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(200e3) / 20
+        length = int(400e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=180000)
-        climb = 200; refine = 0;
+        climb = 100; refine = 200;
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
+
+        arghmm.setLogLevel(0)
 
         names = []
         rx = []
@@ -1654,72 +1656,6 @@ class Sample (unittest.TestCase):
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
                                              times=times)
                 print lk, lk2
-                rx.append(lk)
-                ry.append(lk2)
-                names.append([i, j])
-                if write:
-                    arglib.write_arg("test/data/sample_arg_joint/%d-%d.arg" %
-                                     (i, j), arg2)
-        util.toc()
-
-        if write:
-            data = [[i, j, a, b] for (i, j), a, b in zip(names, rx, ry)]
-            write_delim("test/data/sample_arg_joint/data.txt", data)
-        
-
-        print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
-
-        p = plot(rx, ry,
-                 xlab="true ARG joint probability",
-                 ylab="inferred ARG joint probability")
-        p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
-        pause()
-
-
-    def test_sample_arg_joint_seq_gibbs(self):
-        """
-        Plot the ARG joint prob from a fully sampled ARG
-        """
-
-        k = 12
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = int(100e3) / 20
-        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        seqiters = 1; gibbsiters = 5
-        write = False
-        if write:
-            make_clean_dir("test/data/sample_arg_joint")
-
-        names = []
-        rx = []
-        ry = []
-        util.tic("plot")
-        for i in range(15):
-            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                         times=times)
-            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
-            seqs = arglib.make_alignment(arg, muts)
-            if write:
-                arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
-                seqs.write("test/data/sample_arg_joint/%d.fa" % i)
-
-            lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
-
-            for j in range(1):
-                util.tic("sample ARG %d, %d" % (i, j))
-                arg2 = arghmm.sample_arg_seq_gibbs(
-                    seqs, rho=rho, mu=mu, times=times,
-                    seqiters=seqiters, gibbsiters=gibbsiters, carg=True)
-                arg2 = arghmm.resample_all_arg(arg2,
-                    seqs, rho=rho, mu=mu, times=times,
-                    refine=20, carg=True)
-                util.toc()
-
-                lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
-                                             times=times)
                 rx.append(lk)
                 ry.append(lk2)
                 names.append([i, j])
@@ -1883,7 +1819,7 @@ class Sample (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(1000e3) / 20
+        length = int(100e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1; refine = 12 * 20
         write = False

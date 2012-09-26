@@ -361,7 +361,6 @@ public:
         // if we have a previous state space (i.e. not first block)
         if (!last_states) {
             matrices->transmat_switch = NULL;
-            matrices->transprobs_switch = NULL;
             matrices->nstates1 = matrices->nstates2 = nstates;
             
         } else {
@@ -376,18 +375,7 @@ public:
             calc_transition_probs_switch_internal(tree, last_tree, 
                 tree_iter->spr, tree_iter->mapping,
                 *last_states, *states, model, &lineages, 
-                matrices->transmat_switch);
-
-            if (calc_full) {
-                assert(false);
-                // TODO: need to make a internal branch version
-                //matrices->transprobs_switch = new_matrix<double>(
-                //    matrices->nstates1, matrices->nstates2);
-                //get_transition_probs_switch(matrices->transmat_switch,
-                //                            matrices->transprobs_switch);
-            } else {
-                matrices->transprobs_switch = NULL;
-            }
+                matrices->transmat_switch);            
         }
 
         // update lineages to current tree
@@ -398,15 +386,11 @@ public:
         calc_transition_probs_internal(tree, model, *states, &lineages, 
                                        matrices->transmat);
         
-        if (calc_full) {
-            assert(false);
-            // TODO: need to make a internal branch version
-            //matrices->transprobs = new_matrix<double>(nstates, nstates);
-            //get_transition_probs(tree, model, *states, &lineages,
-            //    matrices->transmat, matrices->transprobs);
-        } else {
-            matrices->transprobs = NULL;
-        }
+        // NOTE: full matrix calculation is not implemented for internal branch
+        // sampling
+        assert(!calc_full);
+        matrices->transprobs = NULL;
+        matrices->transprobs_switch = NULL;
     }
     
     
@@ -431,6 +415,8 @@ protected:
 };
 
 
+
+// compute all emission and transition matrices and store them in a list
 class ArgHmmMatrixList : public ArgHmmMatrixIter
 {
 public:

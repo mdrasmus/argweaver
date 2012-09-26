@@ -525,8 +525,8 @@ void climb_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                       SitesMapping* sites_mapping, Config *config)
 {
-    int window = 100000 / config->compress_seq;
-    int step = 50000 / config->compress_seq;
+    int window = 200000 / config->compress_seq;
+    int step = window / 2 / config->compress_seq;
     int niters = 10;
 
     int iter = 0;

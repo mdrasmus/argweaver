@@ -629,9 +629,61 @@ class Basic (unittest.TestCase):
         assert arghmm.assert_transition_probs_switch_internal(
             trees, times, popsizes, rho)
 
-            
 
     def test_emit(self):
+        """
+        Calculate emission probabilities
+        """
+        
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(1e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+
+        muts = arghmm.sample_arg_mutations(arg, mu, times)
+        seqs = arghmm.make_alignment(arg, muts)
+
+        new_name = "n%d" % (k-1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
+
+        trees, names = arghmm.arg2ctrees(arg, times)
+        seqs2, nseqs, seqlen = arghmm.seqs2cseqs(seqs, names + [new_name])
+
+        assert arghmm.arghmm_assert_emit(trees, len(times), times, mu,
+                                         seqs2, nseqs, seqlen)
+
+    def test_emit_internal(self):
+        """
+        Calculate emission probabilities
+        """
+        
+        k = 10
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(10e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+
+        muts = arghmm.sample_arg_mutations(arg, mu, times)
+        seqs = arghmm.make_alignment(arg, muts)
+        
+        trees, names = arghmm.arg2ctrees(arg, times)
+        seqs2, nseqs, seqlen = arghmm.seqs2cseqs(seqs, names)
+
+        assert arghmm.arghmm_assert_emit_internal(trees, len(times), times, mu,
+                                                  seqs2, nseqs, seqlen)
+
+
+
+    def test_emit_argmax(self):
         """
         Calculate emission probabilities
         """

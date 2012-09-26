@@ -93,6 +93,14 @@ if arghmmclib:
             c_double, "mu"])
     export(arghmmclib, "delete_emissions", c_int,
            [c_double_p_p, "emit", c_int, "seqlen"])
+    export(arghmmclib, "arghmm_assert_emit", c_bool,
+           [c_void_p, "trees", c_int, "ntimes", c_double_list, "times", 
+            c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
+    export(arghmmclib, "arghmm_assert_emit_internal", c_bool,
+           [c_void_p, "trees", c_int, "ntimes", c_double_list, "times", 
+            c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
 
 
     # ArgHMM Forward algorithm

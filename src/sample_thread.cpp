@@ -220,7 +220,7 @@ void arghmm_forward_switch(const double *col1, double* col2,
 //=============================================================================
 
 
-// run forward algorithm with matrices precomputed
+// run forward algorithm
 void arghmm_forward_alg_fast(const LocalTrees *trees, const ArgModel *model,
     const Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
     ArgHmmForwardTable *forward, bool prior_given, bool internal)
@@ -276,21 +276,7 @@ void arghmm_forward_alg_fast(const LocalTrees *trees, const ArgModel *model,
         // safety check
         int nstates = max(matrices.transmat->nstates, 1);
         double top = max_array(fw[pos + matrices.blocklen - 1], nstates);
-        if (top <= 0.0) {
-            if (matrices.transmat_switch)
-                printf("switch: %d %d\n", 
-                       matrices.transmat_switch->nstates1,
-                       matrices.transmat_switch->nstates2);
-            printf("nstates = %d, blocklen = %d\n", 
-                   matrices.transmat->nstates, matrices.blocklen);
-            for (int j=0; j<min(10, matrices.blocklen); j++) {
-                int j2 = pos + matrices.blocklen - 1 - j;
-                for (int i=0; i<nstates; i++) {
-                    printf("fw[%d][%d] = %f\n", j2, i, fw[j2][i]);
-                }
-            }
-            assert(false);
-        }
+        assert(top > 0.0);
 
         last_tree = tree;
     }

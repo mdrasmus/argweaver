@@ -689,7 +689,7 @@ void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping,
 
     // enfore non-zero length blocks
     for (unsigned int i=0; i<blocklens2.size(); i++) {
-        if (fuzzy) {
+        if (fuzzy && blocklens2[i] <= 0) {
             // shift block end to the right and compensate in next block
             assert(i < blocklens2.size() - 1);
             int diff = 1 - blocklens2[i];
