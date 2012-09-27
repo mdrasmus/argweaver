@@ -548,8 +548,7 @@ void calc_transition_probs_switch(
             else
                 recomb_parent_age = last_tree->nodes[
                     last_tree->nodes[spr.recomb_node].parent].age;
-
-            //printf("det %d %d\n", i, j);
+            
             transmat_switch->determprob[i] = log(calc_recomb_recoal(
               last_tree, model, lineages, spr, 
               states1[i], recomb_parent_age, last_treelen));

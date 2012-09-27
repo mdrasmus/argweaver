@@ -51,7 +51,7 @@ class Prog (unittest.TestCase):
             makedirs("test/data/test_prog")
             
             os.system("""arg-sim \
-            -k 20 -L 1000000 \
+            -k 20 -L 100000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 \
             --ntimes 20 --maxtime 400e3 \
             -o test/data/test_prog/0""")
