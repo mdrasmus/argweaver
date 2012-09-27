@@ -5,6 +5,8 @@
 
 namespace arghmm {
 
+
+// Initializes mutation and recombination maps for use
 void ArgModel::setup_maps(string chrom, int start, int end) {
     // setup default maps
     if (mutmap.size() == 0)
@@ -12,6 +14,7 @@ void ArgModel::setup_maps(string chrom, int start, int end) {
     if (recombmap.size() == 0)
         recombmap.append(chrom, start, end, rho);
 
+    // create new mut and recomb maps that share common boundaries
     int pos = start, pos2;
     unsigned int i = 0;
     unsigned int j = 0;

@@ -47,12 +47,12 @@ void cond_sample_arg_seq(const ArgModel *model, const Sequences *sequences,
 void sample_arg_seq_region(const ArgModel *model, const Sequences *sequences, 
                            LocalTrees *trees, int region_start, int region_end);
 
-void resample_arg_all_region(
+double resample_arg_region(
     const ArgModel *model, const Sequences *sequences, 
     LocalTrees *trees, int region_start, int region_end, int niters,
     bool open_ended=true);
 
-void resample_arg_regions(
+double resample_arg_regions(
     const ArgModel *model, const Sequences *sequences, 
     LocalTrees *trees, int window, int step, int niters=1);
 

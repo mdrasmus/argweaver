@@ -77,9 +77,8 @@ void resample_arg(const ArgModel *model, const Sequences *sequences,
         shuffle(chroms_avail, nleaves);
 
         // remove chromosomes from ARG
-        for (int i=0; i<nremove; i++) {
+        for (int i=0; i<nremove; i++)
             remove_arg_thread(trees, chroms_avail[i]);
-        }
 
         // resample chromosomes
         for (int i=0; i<nremove; i++)
@@ -107,6 +106,7 @@ void resample_arg_all(const ArgModel *model, const Sequences *sequences,
 }
 
 
+// resample the threading of a leaf of an ARG
 void resample_arg_leaf(const ArgModel *model, const Sequences *sequences, 
                        LocalTrees *trees)
 {
@@ -140,13 +140,11 @@ bool resample_arg_mcmc(const ArgModel *model, const Sequences *sequences,
     double npaths = sample_arg_removal_path_uniform(trees, removal_path);
     remove_arg_thread_path(trees, removal_path, maxtime);
     sample_arg_thread_internal(model, sequences, trees);
-    
     double npaths2 = count_total_arg_removal_paths(trees);
 
+    // perform reject if needed
     double accept_prob = exp(npaths - npaths2);
     bool accept = (frand() < accept_prob);
-
-    // perform reject if needed
     if (!accept)
         trees->copy(trees2);
 
@@ -160,8 +158,6 @@ bool resample_arg_mcmc(const ArgModel *model, const Sequences *sequences,
 
     return accept;
 }
-
-
 
 
 
@@ -182,7 +178,7 @@ void resample_arg_recomb(const ArgModel *model, const Sequences *sequences,
 
 
 
-// resample the threading of an internal branch
+// resample an ARG heuristically and aggressively to high joint probability
 void resample_arg_climb(const ArgModel *model, const Sequences *sequences, 
                         LocalTrees *trees, double recomb_preference)
 {
@@ -306,6 +302,7 @@ void cond_sample_arg_seq(const ArgModel *model, const Sequences *sequences,
 void sample_arg_seq_region(const ArgModel *model, const Sequences *sequences, 
                            LocalTrees *trees, int region_start, int region_end)
 {
+    // ensure region is within ARG
     assert(region_start > trees->start_coord);
     assert(region_end < trees->end_coord);
     assert(region_start < region_end);
@@ -313,7 +310,6 @@ void sample_arg_seq_region(const ArgModel *model, const Sequences *sequences,
     // partion trees into three segments
     LocalTrees *trees2 = partition_local_trees(trees, region_start);
     LocalTrees *trees3 = partition_local_trees(trees2, region_end);
-
     assert(trees2->length() == region_end - region_start);
     
     // resample region conditioning on starting and ending trees
@@ -388,7 +384,7 @@ State find_state_sub_tree_internal(
 // all branches are possible to resample
 // open_ended -- If true and region touches start or end of local trees do not
 //               conditioned on state.
-void resample_arg_all_region(
+double resample_arg_region(
     const ArgModel *model, const Sequences *sequences, 
     LocalTrees *trees, int region_start, int region_end, int niters,
     bool open_ended)
@@ -397,7 +393,7 @@ void resample_arg_all_region(
 
     // special case: zero length region
     if (region_start == region_end)
-        return;
+        return 1.0;
     
     // assert region is within trees
     assert(region_start >= trees->start_coord);
@@ -418,6 +414,7 @@ void resample_arg_all_region(
     }
 
     // perform several iterations of resampling
+    int accepts = 0;
     for (int i=0; i<niters; i++) {
         printLog(LOG_LOW, "region sample: iter=%d, region=(%d, %d)\n", 
                  i, region_start, region_end);
@@ -465,6 +462,8 @@ void resample_arg_all_region(
         bool accept = (frand() < accept_prob);
         if (!accept)
             trees2->copy(old_trees2);
+        else
+            accepts++;
         
         // logging
         printLog(LOG_LOW, "accept_prob = exp(%lf - %lf) = %f, accept = %d\n", 
@@ -484,24 +483,38 @@ void resample_arg_all_region(
     // clean up
     delete trees2;
     delete trees3;
+
+    return accepts / double(niters);
 }
 
 
 // resample an ARG a region at a time in a sliding window
-void resample_arg_regions(
+double resample_arg_regions(
     const ArgModel *model, const Sequences *sequences, 
     LocalTrees *trees, int window, int step, int niters)
 {
     // start timer
     Timer time;
 
-    for (int start=trees->start_coord; start+step/2 <trees->end_coord; 
-         start+=step) 
+    decLogLevel();
+    double accept_rate = 0.0;
+    int nwindows = 0;
+    for (int start=trees->start_coord; 
+         start == trees->start_coord || start+window/2 <trees->end_coord; 
+         start+=step)
     {
+        nwindows++;
         int end = min(start + window, trees->end_coord);
-        resample_arg_all_region(model, sequences, trees, start, end, niters);
+        accept_rate += resample_arg_region(
+            model, sequences, trees, start, end, niters);
     }
-    printTimerLog(time, LOG_LOW, "resample_arg_regions:");
+    incLogLevel();
+
+    accept_rate /= nwindows;
+    printTimerLog(time, LOG_LOW, "resample_arg_regions: accept=%f time=", 
+                  accept_rate);
+
+    return accept_rate;
 }
 
 
@@ -551,6 +564,16 @@ void remax_arg(const ArgModel *model, const Sequences *sequences,
 // C interface
 extern "C" {
 
+// sequentially sample until all chromosomes are present
+LocalTrees *arghmm_complete_arg(
+    LocalTrees *trees, ArgModel *model, Sequences *sequences)
+{
+    const int nseqs = sequences->get_num_seqs();
+    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++)
+        sample_arg_thread(model, sequences, trees, new_chrom);
+    return trees;
+}
+
 
 // sequentially sample an ARG
 LocalTrees *arghmm_sample_arg_seq(
@@ -599,8 +622,7 @@ LocalTrees *arghmm_resample_arg(
     Sequences sequences(seqs, nseqs, seqlen);
     
     // sequentially sample until all chromosomes are present
-    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++)
-        sample_arg_thread(&model, &sequences, trees, new_chrom);
+    arghmm_complete_arg(trees, &model, &sequences);
 
     // gibbs sample
     for (int i=0; i<niters; i++)
@@ -621,9 +643,8 @@ LocalTrees *arghmm_resample_all_arg(
     Sequences sequences(seqs, nseqs, seqlen);
     
     // sequentially sample until all chromosomes are present
-    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++)
-        sample_arg_thread(&model, &sequences, trees, new_chrom);
-
+    arghmm_complete_arg(trees, &model, &sequences);
+    
     // gibbs sample
     for (int i=0; i<niters; i++)
         resample_arg_all(&model, &sequences, trees, prob_path_switch);
@@ -632,8 +653,49 @@ LocalTrees *arghmm_resample_all_arg(
 }
 
 
-
 // resample all branches in an ARG with gibbs
+LocalTrees *arghmm_resample_mcmc_arg(
+    LocalTrees *trees, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int niters, int niters2, int window)
+{
+    // setup model, local trees, sequences
+    int step = window / 2;
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    
+    // sequentially sample until all chromosomes are present
+    arghmm_complete_arg(trees, &model, &sequences);
+    
+    // gibbs sample
+    for (int i=0; i<niters; i++)
+        resample_arg_regions(&model, &sequences, trees, window, step, niters2);
+    
+    return trees;
+}
+
+
+LocalTrees *arghmm_resample_arg_leaf(
+    LocalTrees *trees, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int niters)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    
+    // sequentially sample until all chromosomes are present
+    arghmm_complete_arg(trees, &model, &sequences);
+    
+    // gibbs sample
+    for (int i=0; i<niters; i++)
+        resample_arg_leaf(&model, &sequences, trees);
+    
+    return trees;    
+}
+
+
+// resample ARG focused on recombinations
 LocalTrees *arghmm_resample_climb_arg(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
@@ -644,12 +706,28 @@ LocalTrees *arghmm_resample_climb_arg(
     Sequences sequences(seqs, nseqs, seqlen);
     
     // sequentially sample until all chromosomes are present
-    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++)
-        sample_arg_thread(&model, &sequences, trees, new_chrom);
-
+    arghmm_complete_arg(trees, &model, &sequences);
+    
     // gibbs sample
     for (int i=0; i<niters; i++)
         resample_arg_climb(&model, &sequences, trees, recomb_preference);
+    
+    return trees;
+}
+
+
+LocalTrees *arghmm_resample_arg_region(
+    LocalTrees *trees, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, 
+    int region_start, int region_end, int niters)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+
+    resample_arg_region(&model, &sequences, trees, 
+                        region_start, region_end, niters);
     
     return trees;
 }
@@ -666,44 +744,11 @@ LocalTrees *arghmm_remax_arg(
     Sequences sequences(seqs, nseqs, seqlen);
     
     // sequentially sample until all chromosomes are present
-    for (int new_chrom=trees->get_num_leaves(); new_chrom<nseqs; new_chrom++) {
-        max_arg_thread(&model, &sequences, trees, new_chrom);
-    }
-
+    arghmm_complete_arg(trees, &model, &sequences);
+    
     // gibbs sample
     for (int i=0; i<niters; i++)
         remax_arg(&model, &sequences, trees, nremove);
-    
-    return trees;
-}
-
-
-LocalTrees *arghmm_resample_arg_region(
-    LocalTrees *trees, double *times, int ntimes,
-    double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, int region_start, int region_end)
-{
-    // setup model, local trees, sequences
-    ArgModel model(ntimes, times, popsizes, rho, mu);
-    Sequences sequences(seqs, nseqs, seqlen);
-    
-    sample_arg_seq_region(&model, &sequences, trees, region_start, region_end);
-    
-    return trees;
-}
-
-LocalTrees *arghmm_resample_arg_all_region(
-    LocalTrees *trees, double *times, int ntimes,
-    double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, 
-    int region_start, int region_end, int niters)
-{
-    // setup model, local trees, sequences
-    ArgModel model(ntimes, times, popsizes, rho, mu);
-    Sequences sequences(seqs, nseqs, seqlen);
-
-    resample_arg_all_region(&model, &sequences, trees, 
-                            region_start, region_end, niters);
     
     return trees;
 }

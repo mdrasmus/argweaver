@@ -44,6 +44,7 @@ public:
         mu(mu)
     {}
 
+    // Model with constant population sizes and log-spaced time points
     ArgModel(int ntimes, double maxtime, double popsize, 
              double rho, double mu) :
         ntimes(ntimes),
@@ -57,6 +58,7 @@ public:
         set_popsizes(popsize, ntimes);
     }
 
+    // Model with variable population sizes and log-space time points
     ArgModel(int ntimes, double maxtime, double *_popsizes, 
              double rho, double mu) :
         ntimes(ntimes),
@@ -71,7 +73,8 @@ public:
             set_popsizes(_popsizes, ntimes);
     }
 
-
+        
+    // Model with custom time points and variable population sizes
     ArgModel(int ntimes, double *_times, double *_popsizes, 
              double rho, double mu) :
         ntimes(ntimes),
@@ -86,7 +89,7 @@ public:
             set_popsizes(_popsizes, ntimes);
     }
 
-
+    // Copy constructor
     ArgModel(const ArgModel &other) :
         ntimes(other.ntimes),
         times(NULL),
@@ -95,13 +98,7 @@ public:
         rho(other.rho),
         mu(other.mu)
     {
-        set_times(other.times, ntimes);
-        if (other.popsizes)
-            set_popsizes(other.popsizes, ntimes);
-        
-        mutmap.insert(mutmap.begin(), other.mutmap.begin(), other.mutmap.end());
-        recombmap.insert(recombmap.begin(), 
-                         other.recombmap.begin(), other.recombmap.end());
+        copy(other);
     }
 
 
@@ -113,19 +110,42 @@ public:
             delete [] popsizes;
     }
 
-    //=====================================================================
-    // setting time points and popsizes
+    
+    // Copy parameters from another model
+    void copy(const ArgModel &other)
+    {
+        rho = other.rho;
+        mu = other.mu;
 
+        set_times(other.times, ntimes);
+        if (other.popsizes)
+            set_popsizes(other.popsizes, ntimes);
+        
+        mutmap.insert(mutmap.begin(), other.mutmap.begin(), other.mutmap.end());
+        recombmap.insert(recombmap.begin(), 
+                         other.recombmap.begin(), other.recombmap.end());
+    }
+
+    // Returns dummy time used for root of tree with internal branch removed
+    int get_removed_root_time() const {
+        return ntimes + 1;
+    }
+
+    //=====================================================================
+    // setting time points and population sizes
+
+    // Sets the model time points from an array
     void set_times(double *_times, int _ntimes) {
         ntimes = _ntimes;
         if (times)
             delete [] times;
         times = new double [ntimes];
-        copy(_times, _times + ntimes, times);
+        std::copy(_times, _times + ntimes, times);
         
         setup_time_steps();
     }
 
+    // Sets the model time points linearily in log space
     void set_log_times(double maxtime, int _ntimes) {
         ntimes = _ntimes;
         if (times)
@@ -135,6 +155,7 @@ public:
         setup_time_steps();
     }
 
+    // Sets the model time points linearily
     void set_linear_times(double time_step, int _ntimes) {
         ntimes = _ntimes;
         if (times)
@@ -145,14 +166,16 @@ public:
         setup_time_steps();
     }
 
+    // Sets the model population sizes from an array
     void set_popsizes(double *_popsizes, int _ntimes) {
         ntimes = _ntimes;
         if (popsizes)
             delete [] popsizes;
         popsizes = new double [ntimes];
-        copy(_popsizes, _popsizes + ntimes, popsizes);
+        std::copy(_popsizes, _popsizes + ntimes, popsizes);
     }
 
+    // Sets the model populations to be constant over all time points
     void set_popsizes(double popsize, int _ntimes) {
         ntimes = _ntimes;
         if (popsizes)
@@ -164,20 +187,23 @@ public:
     //====================================================================
     // maps
 
-    bool has_mutmap() const
-    {
+    // Teturns true if mutation map is present
+    bool has_mutmap() const {
         return mutmap.size() > 0;
     }
 
-    bool has_recombmap() const
-    {
+    // Teturns true if recombination map is present
+    bool has_recombmap() const {
         return recombmap.size() > 0;
     }
 
+    // Initializes mutation and recombination maps for use
     void setup_maps(string chrom, int start, int end);
+
 
 protected:
 
+    // Setup time steps between time points
     void setup_time_steps()
     {
         if (time_steps)
@@ -189,17 +215,17 @@ protected:
     }
 
 public:
-    // time points
+    // time points (presented in generations)
     int ntimes;
     double *times;
     double *time_steps;
 
     // parameters
-    double *popsizes;
-    double rho;
-    double mu;
-    Track<double> mutmap;
-    Track<double> recombmap;
+    double *popsizes;        // population sizes
+    double rho;              // recombination rate (recombs/generation/site)
+    double mu;               // mutation rate (mutations/generation/site)
+    Track<double> mutmap;    // mutation map
+    Track<double> recombmap; // recombination map
 };
 
 

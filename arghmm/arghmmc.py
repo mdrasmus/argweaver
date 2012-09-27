@@ -157,6 +157,11 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "niters", c_double, "prob_path_switch"])
+    export(arghmmclib, "arghmm_resample_mcmc_arg", c_void_p,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+            c_int, "niters", c_int, "niters2", c_int, "window"])
     export(arghmmclib, "arghmm_resample_climb_arg", c_void_p,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -168,11 +173,6 @@ if arghmmclib:
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "niters", c_int, "nremove"])
     export(arghmmclib, "arghmm_resample_arg_region", c_void_p,
-           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
-            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_int, "region_start", c_int, "region_end"])
-    export(arghmmclib, "arghmm_resample_arg_all_region", c_void_p,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
@@ -869,6 +869,54 @@ def resample_climb_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8,
     return arg
 
 
+def resample_mcmc_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
+                      refine=1, times=None, verbose=False, carg=False,
+                      window=200000, niters2=5):
+    """
+    Sample ARG for sequences
+    """
+    if times is None:
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+    if isinstance(popsizes, float) or isinstance(popsizes, int):
+        popsizes = [popsizes] * len(times)
+
+    if verbose:
+        util.tic("resample arg")
+
+    # convert arg to c++
+    if verbose:
+        util.tic("convert arg")
+    trees, names = arg2ctrees(arg, times)
+    if verbose:
+        util.toc()
+
+    # get sequences in same order    
+    # and add all other sequences not in arg yet
+    leaves = set(names)
+    names = list(names)
+    for name in seqs:
+        if name not in leaves:
+            names.append(name)
+    seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
+
+    # resample arg
+    trees = arghmm_resample_mcmc_arg(
+        trees, times, len(times),
+        popsizes, rho, mu,
+        seqs2, nseqs, seqlen, refine, niters2, window)
+
+    if carg:
+        arg = (trees, names)
+    else:
+        # convert arg back to python
+        arg = ctrees2arg(trees, names, times, verbose=verbose)
+
+    if verbose:
+        util.toc()
+    
+    return arg
+
+
 
 def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
                  refine=1, nremove=1, times=None, verbose=False):
@@ -949,7 +997,7 @@ def resample_arg_region(arg, seqs, region_start, region_end,
     # resample arg
     seqlen = len(seqs[names[0]])
 
-    trees = arghmm_resample_arg_all_region(
+    trees = arghmm_resample_arg_region(
         trees, times, len(times),
         popsizes, rho, mu, seqs2, nseqs, seqlen,
         region_start, region_end, refine)

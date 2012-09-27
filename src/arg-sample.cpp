@@ -525,10 +525,14 @@ void climb_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                       SitesMapping* sites_mapping, Config *config)
 {
-    int window = 200000 / config->compress_seq;
-    int step = window / 2 / config->compress_seq;
+    // setup search options
+    double frac_leaf = .5;
+    int window = 100000;
     int niters = 10;
+    window /= config->compress_seq;
+    int step = window / 2;
 
+    // set iteration counter
     int iter = 0;
     if (config->resume)
         iter = config->resume_iter;
@@ -540,18 +544,12 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     for (int i=iter; i<config->niters; i++) {
         printLog(LOG_LOW, "sample %d\n", i+1);
         //resample_arg_all(model, sequences, trees, config->prob_path_switch);
-        
-        resample_arg_regions(model, sequences, trees, window, step, niters);
 
-
-        /*
-        if (frand() < .9)
-            resample_arg_regions(model, sequences, trees, window, step, niters);
-            //bool accept = resample_arg_mcmc(model, sequences, trees);
-        else
+        if (frand() < frac_leaf)
             resample_arg_leaf(model, sequences, trees);
-        */
-
+        else
+            resample_arg_regions(model, sequences, trees, window, step, niters);
+        
         // logging
         print_stats(config->stats_file, "resample", i, model, sequences, trees,
                     sites_mapping, config);
@@ -584,10 +582,10 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         print_stats(config->stats_file, "resample_region", 0, 
                     model, sequences, trees, sites_mapping, config);
 
-        resample_arg_all_region(model, sequences, trees, 
-                                config->resample_region[0], 
-                                config->resample_region[1], 
-                                config->niters);
+        resample_arg_region(model, sequences, trees, 
+                            config->resample_region[0], 
+                            config->resample_region[1], 
+                            config->niters);
 
         // logging
         print_stats(config->stats_file, "resample_region", config->niters,
