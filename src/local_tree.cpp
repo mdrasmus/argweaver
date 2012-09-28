@@ -886,25 +886,20 @@ bool parse_node_age(char* text, char *end, double *age)
     }
 
     text += 6;
-    //printf(">> %s\n", text);
 
     char *key = text;
     char *key_end, *value, *value_end;
     while (iter_nhx_ney_values(text, end, &key, &key_end, &value, &value_end)){
-        //printf(">> %s\n", key);
-
         if (strncmp(key, "age", 3) == 0 && key_end - key == 3) {
             if (sscanf(value, "%lf", age) != 1)
                 return false;
             else {
-                //printf("age=%lf\n", *age);
                 return true;
             }
         }
         
         key = value_end + 1;
     }
-    
     
     return false;
 }
@@ -925,12 +920,7 @@ bool parse_local_tree(const char* newick, LocalTree *tree,
     names.push_back(-1);
     int node = 0;
 
-    //printf(">>%s", newick);
-
     for (int i=0; i<len; i++) {
-
-        //printf(">> char %d '%s", i, &newick[i]);
-        
         switch (newick[i]) {
         case '(': // new branchset
             ptree.push_back(node);
@@ -992,10 +982,6 @@ bool parse_local_tree(const char* newick, LocalTree *tree,
                     printError("bad newick: node name is not an integer");
                     i = len;
                 }
-
-                //printf("NAME: %s", &newick[i]);
-                //printf("name[%d] = %d, %d\n", node, names[node],
-                //       names.size());
             } else if (last == ':') {
                 // ignore distance
             }
@@ -1039,7 +1025,6 @@ bool parse_local_tree(const char* newick, LocalTree *tree,
     // set children
     for (int i=0; i<nnodes; i++) {
         if (ptree[i] != -1) {
-            //printf("add_child %d %d\n", order[ptree[i]], order[i]);
             if (tree->add_child(order[ptree[i]], order[i]) == -1) {
                 printError("local tree is not binary");
                 return false;
@@ -1223,17 +1208,6 @@ bool read_local_trees(FILE *infile, const double *times, int ntimes,
             split(&line[6], delim, seqnames);
             nnodes = 2 * seqnames.size() - 1;
 
-            /*
-        } else if (strncmp(line, "RANGE", 5) == 0) {
-            // parse range
-            if (sscanf(&line[6], "%d\t%d", 
-                       &trees->start_coord, &trees->end_coord) != 2) {
-                printError("bad RANGE line (line %d)", lineno);
-                delete [] line;
-                return false;
-            }
-            */
-
         } else if (strncmp(line, "RANGE", 5) == 0) {
             // parse range
             printError("deprecated RANGE line detected, use REGION instead (line %d)", lineno);
@@ -1265,7 +1239,6 @@ bool read_local_trees(FILE *infile, const double *times, int ntimes,
             char *newick_end = line + strlen(line);
             char *newick = find(line+5, newick_end, delim[0]) + 1;
             newick = find(newick, newick_end, delim[0]) + 1;
-            //printf(">> %s\n", newick);
 
             LocalTree *tree = new LocalTree(nnodes);
             if (!parse_local_tree(newick, tree, times, ntimes)) {

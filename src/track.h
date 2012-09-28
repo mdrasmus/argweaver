@@ -1,11 +1,12 @@
-#ifndef ARGHMM_CONFIG_PARAM_H
-#define ARGHMM_CONFIG_PARAM_H
+#ifndef ARGHMM_TRACK_H
+#define ARGHMM_TRACK_H
 
-
+// c++ includes
 #include <string.h>
 #include <string>
 #include <vector>
 
+// arghmm includes
 #include "logging.h"
 #include "parsing.h"
 
@@ -14,7 +15,8 @@ namespace arghmm {
 
 using namespace std;
 
-
+// A region within a chromosome
+// start is inclusive, end is exclusive
 class Region
 {
 public:
@@ -37,6 +39,9 @@ public:
     int end;
 };
 
+
+// A region within a chromosome associated with a value
+// start is inclusive, end is exclusive
 template <class T>
 class RegionValue {
 public:
@@ -58,6 +63,8 @@ public:
     T value;
 };
 
+
+// A track is a series of regions each associated with a value
 template <class T>
 class Track : public vector<RegionValue<T> > {
 public:
@@ -95,10 +102,12 @@ public:
 };
 
 
+// Reads one region from a map file
 template <class T>
 bool read_track_line(const char *line, RegionValue<T> &region);
 
 
+// A reader for reading a track from a map file
 template <class T>
 class TrackReader {
 public:
@@ -113,6 +122,7 @@ public:
             delete [] line;
     }
 
+    // open a map file by filename
     bool open(const char *filename) {
         FILE *infile;
         if ((infile = fopen(filename, "r")) == NULL) {
@@ -126,12 +136,15 @@ public:
         return true;
     }
     
+    // open a map file by stream
     bool open(FILE *_infile) {
         infile = _infile;
         has_error = false;
         return true;
     }
     
+    // Fetches the next RegionValue from a map file
+    // Returns true if region read, false otherwise
     bool next(RegionValue<T> &region) {
         lineno++;
         if (fgetline(&line, &linesize, infile)) {
@@ -149,10 +162,12 @@ public:
         return true;
     }
 
+    // Returns true if error encountered
     bool error() const {
         return has_error;
     }
 
+    // Returns current line number in map file
     int line_number() const {
         return lineno;
     }
@@ -167,6 +182,7 @@ protected:
 };
 
 
+// Reads a track from a map stream
 template <class T>
 bool read_track(FILE *infile, Track<T> *track)
 {
@@ -186,6 +202,8 @@ bool read_track(FILE *infile, Track<T> *track)
 }
 
 
+// Reads a track from a map stream
+// NOTE: only regions with chrom:start-end are kept
 template <class T>
 bool read_track_filter(FILE *infile, Track<T> *track,
                        string chrom, int start, int end)
@@ -216,7 +234,7 @@ bool read_track_filter(FILE *infile, Track<T> *track,
 }
 
 
-
+// Reads a track from a map file
 template <class T>
 bool read_track(const char *filename, Track<T> *track)
 {
@@ -232,7 +250,8 @@ bool read_track(const char *filename, Track<T> *track)
     return result;
 }
 
-
+// Reads a track from a map file
+// NOTE: only regions with chrom:start-end are kept
 template <class T>
 bool read_track_filter(const char *filename, Track<T> *track,
                        string chrom, int start, int end)
