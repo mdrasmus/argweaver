@@ -38,6 +38,18 @@ class Prog (unittest.TestCase):
     --climb 10 -n 40 \
     -x 1 \
     -o test/data/test_prog_small/0.sample/out""")
+
+
+    def test_prog_resume(self):
+
+        os.system("""arg-sample \
+    -s test/data/test_prog_small/0.sites \
+    -N 1e4 -r 1.5e-8 -m 2.5e-8 \
+    --ntimes 20 --maxtime 400e3 -c 20 \
+    --climb 10 -n 40 \
+    -x 1 --resume \
+    -o test/data/test_prog_small/0.sample/out""")
+
         
 
 

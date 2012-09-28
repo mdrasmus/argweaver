@@ -780,7 +780,7 @@ void write_newick_node(FILE *out, const LocalTree *tree,
 }
 
 
-// write out the newick notation of a tree
+// write out the newick notation of a tree to a stream
 void write_newick_tree(FILE *out, const LocalTree *tree, 
                        const char *const *names,
                        const double *times, int depth, bool oneline)
@@ -812,7 +812,7 @@ void write_newick_tree(FILE *out, const LocalTree *tree,
     }
 }
 
-
+// write out the newick notation of a tree to a file
 bool write_newick_tree(const char *filename, const LocalTree *tree, 
                        const char *const *names, const double *times, 
                        bool oneline)
@@ -847,14 +847,14 @@ int find_time(double time, const double *times, int ntimes)
         }
     }
     assert(mini != -1);
-
-    //printf("find_time %f %f %f\n", times[mini], time, mindiff);
+    
     return mini;
 }
 
 
-// end is exclusive
-bool iter_nhx_ney_values(char *text, char *end, 
+// Iterates through the key-value pairs of a NHX comment
+// NOTE: end is exclusive
+bool iter_nhx_key_values(char *text, char *end, 
                          char **key, char **key_end, 
                          char **value, char **value_end)
 {
@@ -878,6 +878,8 @@ bool iter_nhx_ney_values(char *text, char *end,
 }
 
 
+// Parse the node age from a string 'text'
+// NOTE: end is exclusive
 bool parse_node_age(char* text, char *end, double *age)
 {
     // ensure comment begins with "&&NHX:"
@@ -889,7 +891,7 @@ bool parse_node_age(char* text, char *end, double *age)
 
     char *key = text;
     char *key_end, *value, *value_end;
-    while (iter_nhx_ney_values(text, end, &key, &key_end, &value, &value_end)){
+    while (iter_nhx_key_values(text, end, &key, &key_end, &value, &value_end)){
         if (strncmp(key, "age", 3) == 0 && key_end - key == 3) {
             if (sscanf(value, "%lf", age) != 1)
                 return false;
@@ -905,6 +907,7 @@ bool parse_node_age(char* text, char *end, double *age)
 }
 
 
+// Parses a local tree from a newick string
 bool parse_local_tree(const char* newick, LocalTree *tree, 
                       const double *times, int ntimes)
 {
@@ -1031,10 +1034,10 @@ bool parse_local_tree(const char* newick, LocalTree *tree,
             }
         }
     }
-
-
-    // TODO: do not abort
-    assert_tree(tree);
+    
+    // check for valid tree structure
+    if (!assert_tree(tree))
+        return false;
 
     return true;
 }
@@ -1057,9 +1060,9 @@ void write_local_trees(FILE *out, const LocalTrees *trees,
         fprintf(out, "\n");
     }
 
-    // print region
+    // print region, convert to 1-index
     fprintf(out, "REGION\t%s\t%d\t%d\n", 
-            trees->chrom.c_str(), trees->start_coord, trees->end_coord);
+            trees->chrom.c_str(), trees->start_coord + 1, trees->end_coord);
 
     
     // setup nodeids
@@ -1083,13 +1086,16 @@ void write_local_trees(FILE *out, const LocalTrees *trees,
         for (int i=0; i<nnodes; i++)
             snprintf(nodeids[i], nodeid_len, "%d", total_mapping[i]);
 
-        fprintf(out, "TREE\t%d\t%d\t", start, end);
+        // write tree
+        // convert to 1-index
+        fprintf(out, "TREE\t%d\t%d\t", start+1, end);
         write_newick_tree(out, tree, nodeids, times, 0, true);
         fprintf(out, "\n");
 
         LocalTrees::const_iterator it2 = it;
         ++it2;
         if (it2 != trees->end()) {
+            // write SPR
             const Spr &spr = it2->spr;
             fprintf(out, "SPR\t%d\t%d\t%f\t%d\t%f\n", end,
                     total_mapping[spr.recomb_node], times[spr.recomb_time],
@@ -1225,6 +1231,7 @@ bool read_local_trees(FILE *infile, const double *times, int ntimes,
                 return false;
             }
             trees->chrom = chrom;
+            trees->start_coord--; // convert start to 0-index
 
         } else if (strncmp(line, "TREE", 4) == 0) {
             // parse tree
@@ -1257,7 +1264,8 @@ bool read_local_trees(FILE *infile, const double *times, int ntimes,
                 mapping[last_tree->nodes[spr.recomb_node].parent] = -1;
             }
 
-            int blocklen = end - start;
+            // convert start to 0-index
+            int blocklen = end - start + 1;
             trees->trees.push_back(LocalTreeSpr(tree, spr, blocklen, mapping));
 
             if (last_tree)

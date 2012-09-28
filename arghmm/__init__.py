@@ -682,6 +682,7 @@ def parse_tree_data(node, data):
 
 
 def parse_tree(text):
+    """Parse a newick string into a tree"""
     tree = treelib.Tree()
     stream = StringIO.StringIO(text)
     tree.read_newick(stream, readData=parse_tree_data)
@@ -693,6 +694,7 @@ def parse_tree(text):
 
 
 def format_tree(tree):
+    """Format a tree into a newick string"""
     def write_data(node):
         if node.is_leaf():
             return ":%f%s" % (node.dist, treelib.format_nhx_comment(node.data))
@@ -706,6 +708,11 @@ def format_tree(tree):
 
 
 def smc2sprs(smc):
+    """
+    Convert SMC iterable into a series of SPRs
+
+    NOTE: SMC is 1-index and SPRs are 0-index
+    """
 
     names = None
     region = None
@@ -719,7 +726,8 @@ def smc2sprs(smc):
             
         elif item["tag"] == "REGION":
             chrom = item["chrom"]
-            region = [item["start"], item["end"]]
+            # convert to 0-index
+            region = [item["start"]-1, item["end"]]
             
         elif item["tag"] == "TREE":
             tree = item["tree"]
@@ -756,6 +764,11 @@ def smc2sprs(smc):
 
 
 def smc2arg(smc):
+    """
+    Convert SMC to ARG
+
+    NOTE: SMC is 1-index and ARG is 0-index
+    """
 
     it = smc2sprs(smc)
     tree = it.next()
