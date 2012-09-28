@@ -26,6 +26,8 @@ namespace arghmm {
 
 using namespace std;
 
+
+// Transition and emission matrices for one non-recombining block in the ArgHmm
 class ArgHmmMatrices
 {
 public:
@@ -35,9 +37,23 @@ public:
         blocklen(0),
         transmat(NULL),
         transmat_switch(NULL),
+        emit(NULL),
         transprobs(NULL),
-        transprobs_switch(NULL),
-        emit(NULL)
+        transprobs_switch(NULL)
+    {}
+
+    ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
+                   TransMatrix *transmat,
+                   TransMatrixSwitch *transmat_switch,
+                   double **emit):
+        nstates1(nstates1),
+        nstates2(nstates2),
+        blocklen(blocklen),
+        transmat(transmat),
+        transmat_switch(transmat_switch),
+        emit(emit),
+        transprobs(NULL),
+        transprobs_switch(NULL)
     {}
 
     ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
@@ -48,24 +64,9 @@ public:
         blocklen(blocklen),
         transmat(NULL),
         transmat_switch(NULL),
+        emit(emit),
         transprobs(transprobs),
-        transprobs_switch(transprobs_switch),
-        emit(emit)
-    {}
-
-    ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
-                   TransMatrix *transmat,
-                   TransMatrixSwitch *transmat_switch,
-                   double **transprobs, double **transprobs_switch, 
-                   double **emit):
-        nstates1(nstates1),
-        nstates2(nstates2),
-        blocklen(blocklen),
-        transmat(transmat),
-        transmat_switch(transmat_switch),
-        transprobs(transprobs),
-        transprobs_switch(transprobs_switch),
-        emit(emit)
+        transprobs_switch(transprobs_switch)
     {}
 
     ~ArgHmmMatrices() 
@@ -108,14 +109,15 @@ public:
     }
 
     
-    int nstates1;
-    int nstates2;
-    int blocklen;
-    TransMatrix* transmat;
-    TransMatrixSwitch* transmat_switch;
-    double **transprobs;
-    double **transprobs_switch;
-    double **emit;
+    int nstates1; // number of states in previous block
+    int nstates2; // number of states in this block
+    int blocklen; // block length
+    TransMatrix* transmat; // transition matrix within this block
+    TransMatrixSwitch* transmat_switch; // transition matrix from previous block
+    double **emit; // emission matrix
+
+    double **transprobs; // dense transition matrix (optional)
+    double **transprobs_switch; // dense switch transition matrix (optional)
 };
 
 

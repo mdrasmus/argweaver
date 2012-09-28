@@ -577,8 +577,8 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False):
     infile.close()
 
 
-def read_smc(filename, parse_tree=False):
-    return list(iter_smc_file(filename, parse_tree=parse_tree))
+def read_smc(filename, parse_trees=False):
+    return list(iter_smc_file(filename, parse_trees=parse_trees))
 
 
 def smc_apply_spr(tree, spr):
@@ -781,6 +781,10 @@ def arg2smc(arg):
     raise Exception("not implemented yet")
     
 
+def read_arg(smc_filename):
+    """Read an ARG from an SMC file"""
+    return smc2arg(iter_smc_file(smc_filename, parse_trees=True))
+    
 
 #=============================================================================
 # simple LD functions

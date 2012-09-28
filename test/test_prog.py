@@ -63,7 +63,7 @@ class Prog (unittest.TestCase):
             makedirs("test/data/test_prog")
             
             os.system("""arg-sim \
-            -k 20 -L 100000 \
+            -k 20 -L 300000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 \
             --ntimes 20 --maxtime 400e3 \
             -o test/data/test_prog/0""")
@@ -73,7 +73,7 @@ class Prog (unittest.TestCase):
     -s test/data/test_prog/0.sites \
     -N 1e4 -r 1.5e-8 -m 2.5e-8 \
     --ntimes 20 --maxtime 400e3 -c 20 \
-    --climb 200 -n 2001 \
+    --climb 200 -n 1001 \
     -x 1 \
     -o test/data/test_prog/0.sample/out""")
         
@@ -145,6 +145,20 @@ class Prog (unittest.TestCase):
                 ylab="number of recombinations")
         rp.lines([0, len(y)], [y2, y2], col="gray")
         rplot_end(True)
+
+
+        # arglen
+        y2 = arglen
+        y = data.cget("arglen")
+        rplot_start("test/data/test_prog/0.trace.arglen.pdf",
+                    width=8, height=5)
+        rp.plot(y, t="l", ylim=[min(min(y), y2), max(max(y), y2)],
+                main="ARG branch length",
+                xlab="iterations",
+                ylab="ARG branch length")
+        rp.lines([0, len(y)], [y2, y2], col="gray")
+        rplot_end(True)
+
 
 
     def test_prog_map(self):

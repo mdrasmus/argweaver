@@ -374,7 +374,7 @@ void compress_model(ArgModel *model, SitesMapping *sites_mapping,
 
 void print_stats_header(FILE *stats_file)
 {
-    fprintf(stats_file, "stage\titer\tprior\tlikelihood\tjoint\trecombs\tnoncompats\n");
+    fprintf(stats_file, "stage\titer\tprior\tlikelihood\tjoint\trecombs\tnoncompats\targlen\n");
 }
 
 
@@ -406,15 +406,16 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     double likelihood = calc_arg_likelihood(&config->model, sequences, trees,
                                             sites_mapping);
     double joint = prior + likelihood;
+    double arglen = get_arglen(trees, config->model.times);
 
     // recompress local trees
     if (sites_mapping)
         compress_local_trees(trees, sites_mapping);
     
     // output stats
-    fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\n",
+    fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\t%f\n",
             stage, iter,
-            prior, likelihood, joint, nrecombs, noncompats);
+            prior, likelihood, joint, nrecombs, noncompats, arglen);
     fflush(stats_file);
 
     printLog(LOG_LOW, "\n"
@@ -423,9 +424,9 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
              "joint:      %f\n"
              "nrecombs:   %d\n"
              "noncompats: %d\n"
+             "arglen:     %f\n"
              "max memory: %.1f MB\n\n",
-             prior, likelihood, joint, nrecombs, noncompats,
-             maxrss);
+             prior, likelihood, joint, nrecombs, noncompats, arglen, maxrss);
 
 }
 

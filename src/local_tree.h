@@ -408,7 +408,7 @@ public:
         blocklen(blocklen)
     {}
 
-    
+    // deallocate associated data
     void clear() {
         if (tree) {
             delete tree;
@@ -421,6 +421,7 @@ public:
         }
     }
 
+    // set allocation capacity of underlying tree and node mapping
     void set_capacity(int _capacity)
     {
         if (tree->capacity == _capacity)
@@ -440,6 +441,7 @@ public:
         }
     }
 
+    // ensure capacity of tree and mapping
     void ensure_capacity(int _capacity)
     {
         if (tree->capacity < _capacity)
@@ -548,6 +550,7 @@ public:
         set_default_seqids();
     }
 
+    // set default sequence IDs
     void set_default_seqids()
     {
         const int nleaves = get_num_leaves();
@@ -557,6 +560,7 @@ public:
     }
 
 
+    // set sequence IDs according to a permutation of sequence names
     bool set_seqids(const vector<string> &names, 
                     const vector<string> &new_order)
     {
@@ -654,6 +658,8 @@ double get_basal_branch(const LocalTree *tree, const double *times,
 
 //=============================================================================
 // trees functions
+
+double get_arglen(const LocalTrees *trees, const double *times);
 
 void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
                          const LocalTree *tree2, const int *seqids2, 

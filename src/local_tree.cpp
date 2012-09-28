@@ -377,6 +377,29 @@ void LocalTrees::copy(const LocalTrees &other)
 }
 
 
+// get total ARG length
+double get_arglen(const LocalTrees *trees, const double *times)
+{
+    double arglen = 0.0;
+
+    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it) {
+        const LocalNode *nodes = it->tree->nodes;
+        const int nnodes = it->tree->nnodes;
+
+        double treelen = 0.0;
+        for (int i=0; i<nnodes; i++) {
+            int parent = nodes[i].parent;
+            if (parent != -1)
+                treelen += times[nodes[parent].age] - times[nodes[i].age];
+        }
+
+        arglen += treelen * it->blocklen;
+    }
+    
+    return arglen;
+}
+
+
 // removes a null SPR from one local tree
 bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it)
 {
