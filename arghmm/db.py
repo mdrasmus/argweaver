@@ -78,7 +78,7 @@ class SitesDB (object):
         
     def get_sites(self, chrom, start, end, names=None):
         res = self.con.execute("""SELECT pos, col FROM Sites
-                                  WHERE chrom = ? and ? <= pos and pos < ?
+                                  WHERE chrom = ? and ? <= pos and pos <= ?
                                   ORDER BY pos;""",
                                (chrom, start, end))
         

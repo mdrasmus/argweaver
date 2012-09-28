@@ -56,7 +56,7 @@ else:
 # output commands
 while reg_start < end:
     start2 = max(reg_start, start)
-    end2 = min(reg_start + step, end)
+    end2 = min(reg_start + step - 1, end)
     outprefix = conf.output % reg_start
 
     outdir = os.path.dirname(outprefix)
