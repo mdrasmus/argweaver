@@ -53,7 +53,7 @@ sites2 = arghmm.Sites(names=mget(sites.names, ind), chrom=sites.chrom,
                       region=region)
 
 for i, bases in sites:
-    if region[0] <= i < region[1]:
+    if region[0] <= i <= region[1]:
         bases = "".join(mget(bases, ind))
         if is_variant(bases) or conf.keep_invariant:
             sites2.append(i, bases)

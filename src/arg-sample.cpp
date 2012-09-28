@@ -244,9 +244,12 @@ public:
 
 
 
-bool parse_region(const char *region, int *start, int *end)
+bool parse_region(const char *region, int *start, int *end, 
+                  bool zero_index=false)
 {
     return sscanf(region, "%d-%d", start, end) == 2;
+    if (zero_index)
+        *start--; // convert to 0-index
 }
 
 //=============================================================================
@@ -819,7 +822,7 @@ int main(int argc, char **argv)
         int subregion[2] = {-1, -1};
         if (c.subregion_str != "") {
             if (!parse_region(c.subregion_str.c_str(), 
-                              &subregion[0], &subregion[1])) {
+                              &subregion[0], &subregion[1], true)) {
                 printError("subregion is not specified as 'start-end'");
                 return 1;
             }
@@ -920,7 +923,8 @@ int main(int argc, char **argv)
     // check for region sample
     if (c.resample_region_str != "") {
         if (!parse_region(c.resample_region_str.c_str(), 
-                          &c.resample_region[0], &c.resample_region[1])) {
+                          &c.resample_region[0], &c.resample_region[1], true))
+        {
             printError("--resample-region is not specified as 'start-end'");
             return 1;
         }

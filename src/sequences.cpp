@@ -129,6 +129,7 @@ void write_fasta(FILE *stream, Sequences *seqs)
 // input/output: sites file format
 
 
+// Read a Sites stream
 bool read_sites(FILE *infile, Sites *sites, 
                 int subregion_start, int subregion_end)
 {
@@ -159,6 +160,7 @@ bool read_sites(FILE *infile, Sites *sites,
                 return false;
             }
             sites->chrom = chrom;
+            sites->start_coord--;  // convert to 0-index
 
             // set region by subregion if specified
             if (subregion_start != -1)
@@ -202,7 +204,8 @@ bool read_sites(FILE *infile, Sites *sites,
                 return false;
             }
 
-            sites->append(position, &line[i], true);
+            // convert to 0-index
+            sites->append(position - 1, &line[i], true);
         }
         
         delete [] line;
@@ -212,7 +215,7 @@ bool read_sites(FILE *infile, Sites *sites,
 }
 
 
-
+// Read a Sites alignment file
 bool read_sites(const char *filename, Sites *sites, 
                 int subregion_start, int subregion_end)
 {
@@ -230,6 +233,7 @@ bool read_sites(const char *filename, Sites *sites,
 }
 
 
+// Converts a Sites alignment to a Sequences alignment
 void make_sequences_from_sites(const Sites *sites, Sequences *sequences, 
                                char default_char)
 {
@@ -261,6 +265,7 @@ void make_sequences_from_sites(const Sites *sites, Sequences *sequences,
 }
 
 
+// Returns true if alignment column is invariant
 static inline bool is_invariant_site(const char *const *seqs, 
                                      const int nseqs, const int pos)
 {
@@ -274,6 +279,7 @@ static inline bool is_invariant_site(const char *const *seqs,
 }
 
 
+// Converts a Sequences alignment to a Sites alignment
 void make_sites_from_sequences(const Sequences *sequences, Sites *sites)
 {
     int nseqs = sequences->get_num_seqs();

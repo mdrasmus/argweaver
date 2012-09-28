@@ -139,6 +139,8 @@ protected:
 };
 
 
+// sites are represented internally as 0-index and end-exclusive
+// file-format represents sites as 1-index and end-inclusive
 class Sites
 {
 public:
@@ -199,7 +201,7 @@ public:
 };
 
 
-
+// mapping of sites between a compressed and uncompressed alignment
 class SitesMapping 
 {
 public:

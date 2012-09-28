@@ -316,6 +316,13 @@ def open_stream(filename, mode="r"):
 # sites
 
 class Sites (object):
+    """
+    Data structure for representing the variant sites in an alignment
+    
+    region is 1-indexed and end inclusive
+    site positions are also 1-indexed
+    """
+
     def __init__(self, names=None, chrom="chr", region=None):
         if names:
             self.names = names
@@ -333,20 +340,25 @@ class Sites (object):
 
 
     def length(self):
-        return self.region[1] - self.region[0]
+        """Returns overall length of alignment"""
+        return self.region[1] - self.region[0] + 1
 
     def nseqs(self):
+        """Returns number of sequences in alignment"""
         return len(self._cols[self.positions[0]])
 
     def nsites(self):
+        """Returns number of variant sites in alignment"""
         return len(self._cols)
     
 
     def append(self, pos, col):
+        """Adds a variant site to alignment with position 'pos' and column 'col'"""
         self.positions.append(pos)
         self._cols[pos] = col
 
     def get(self, pos):
+        """Returns column at position 'pos'"""
         return self._cols[pos]
 
     def set(self, pos, col):
@@ -390,7 +402,7 @@ class Sites (object):
         
 
 def iter_sites(filename):
-    """Iterate through a *.sites file"""
+    """Iterate through a sites file"""
     infile = open_stream(filename)
 
     header = {}
@@ -428,7 +440,7 @@ def iter_sites(filename):
 
 
 def read_sites(filename):
-    """Read a *.sites file"""
+    """Read a sites file"""
 
     reader = iter_sites(filename)
     header = reader.next()
@@ -457,11 +469,12 @@ def write_sites(filename, sites):
 
 
 def seqs2sites(seqs, chrom=None, region=None, start=None):
+    """Convert FASTA object into a Sites object"""
 
     if start is None:
-        start = 0
+        start = 1
     if region is None:
-        region = [start, start + seqs.alignlen()]
+        region = [start, start + seqs.alignlen() - 1]
 
     sites = Sites(names=seqs.keys(), chrom=chrom, region=region)
 
