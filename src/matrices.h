@@ -37,9 +37,7 @@ public:
         blocklen(0),
         transmat(NULL),
         transmat_switch(NULL),
-        emit(NULL),
-        transprobs(NULL),
-        transprobs_switch(NULL)
+        emit(NULL)
     {}
 
     ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
@@ -51,22 +49,7 @@ public:
         blocklen(blocklen),
         transmat(transmat),
         transmat_switch(transmat_switch),
-        emit(emit),
-        transprobs(NULL),
-        transprobs_switch(NULL)
-    {}
-
-    ArgHmmMatrices(int nstates1, int nstates2, int blocklen,
-                   double **transprobs, double **transprobs_switch, 
-                   double **emit):
-        nstates1(nstates1),
-        nstates2(nstates2),
-        blocklen(blocklen),
-        transmat(NULL),
-        transmat_switch(NULL),
-        emit(emit),
-        transprobs(transprobs),
-        transprobs_switch(transprobs_switch)
+        emit(emit)
     {}
 
     ~ArgHmmMatrices() 
@@ -83,14 +66,6 @@ public:
             delete transmat_switch;
             transmat_switch = NULL;
         }
-        if (transprobs) {
-            delete_matrix<double>(transprobs, nstates2);
-            transprobs = NULL;
-        }
-        if (transprobs_switch) {
-            delete_matrix<double>(transprobs_switch, nstates1);
-            transprobs_switch = NULL;
-        }
         if (emit) {
             delete_matrix<double>(emit, blocklen);
             emit = NULL;
@@ -103,8 +78,6 @@ public:
     {
         transmat = NULL;
         transmat_switch = NULL;
-        transprobs = NULL;
-        transprobs_switch = NULL;
         emit = NULL;
     }
 
@@ -115,9 +88,6 @@ public:
     TransMatrix* transmat; // transition matrix within this block
     TransMatrixSwitch* transmat_switch; // transition matrix from previous block
     double **emit; // emission matrix
-
-    double **transprobs; // dense transition matrix (optional)
-    double **transprobs_switch; // dense switch transition matrix (optional)
 };
 
 
@@ -127,12 +97,11 @@ class ArgHmmMatrixIter
 public:
     ArgHmmMatrixIter(const ArgModel *model, const Sequences *seqs, 
                      const LocalTrees *trees, 
-                     int _new_chrom=-1, bool calc_full=false) :
+                     int _new_chrom=-1) :
         model(model),
         seqs(seqs),
         trees(trees),
         new_chrom(_new_chrom),
-        calc_full(calc_full),
         internal(false),
         pos(trees->start_coord),
         lineages(model->ntimes)
@@ -267,10 +236,10 @@ public:
 
 protected:
     const ArgModel *model;
+    ArgModel local_model;
     const Sequences *seqs;
     const LocalTrees *trees;
     int new_chrom;
-    bool calc_full;
     bool internal;
 
     ArgHmmMatrices mat;
@@ -292,9 +261,9 @@ class ArgHmmMatrixList : public ArgHmmMatrixIter
 public:
     ArgHmmMatrixList(const ArgModel *model, const Sequences *seqs, 
                      const LocalTrees *trees, 
-                     int new_chrom=-1, bool calc_full=false) :
+                     int new_chrom=-1) :
         ArgHmmMatrixIter(model, seqs, trees, 
-                         new_chrom, calc_full)
+                         new_chrom)
     {}
     ~ArgHmmMatrixList() 
     {

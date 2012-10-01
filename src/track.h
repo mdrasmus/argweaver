@@ -69,11 +69,41 @@ template <class T>
 class Track : public vector<RegionValue<T> > {
 public:
 
+
+    // Returns start coordinate if regions are available
+    // Returns -1 otherwise
+    int start_coord() const {
+        if (Track<T>::size() == 0)
+            return -1;
+        else
+            return Track<T>::front().start;
+    }
+
+    // Returns end coordinate if regions are available
+    // Returns -1 otherwise
+    int end_coord() const {
+        if (Track<T>::size() == 0)
+            return -1;
+        else
+            return Track<T>::back().end;
+    }
+
+    // Returns value of region containing position pos
+    T find(int pos, const T &default_value) const {
+        for (unsigned int i=0; i<Track<T>::size(); i++) {
+            const RegionValue<T> &region = Track<T>::at(i);
+            if (region.start <= pos && pos < region.end)
+                return region.value;
+        }
+        return default_value;
+    }
+
+    // Adds one region to the track
     void append(string chrom, int start, int end, T value) {
         push_back(RegionValue<T>(chrom, start, end, value));
     }
 
-
+    // Reads one region from a map file and adds it to the track
     bool read_track_line(const char *line)
     {
         string chrom;
@@ -84,20 +114,6 @@ public:
             return false;
         append(chrom, start, end, value);
         return true;
-    }
-
-    int start_coord() const {
-        if (Track<T>::size() == 0)
-            return -1;
-        else
-            return Track<T>::front().start;
-    }
-
-    int end_coord() const {
-        if (Track<T>::size() == 0)
-            return -1;
-        else
-            return Track<T>::back().start;
     }
 };
 

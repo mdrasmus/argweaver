@@ -31,7 +31,7 @@ using namespace std;
 
 // compute one block of forward algorithm with compressed transition matrices
 // NOTE: first column of forward table should be pre-populated
-void arghmm_forward_block(const LocalTree *tree, const ArgModel *model,
+void arghmm_forward_block(const LocalTree *tree, const int ntimes,
                           const int blocklen, const States &states, 
                           const LineageCounts &lineages,
                           const TransMatrix *matrix,
@@ -39,7 +39,6 @@ void arghmm_forward_block(const LocalTree *tree, const ArgModel *model,
                           bool internal=false)
 {
     const int nstates = states.size();
-    const int ntimes = model->ntimes;
     const LocalNode *nodes = tree->nodes;
 
     // get aliases for various precomputed terms
@@ -230,6 +229,7 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
     LineageCounts lineages(model->ntimes);
     States states;
     ArgHmmMatrices matrices;
+    ArgModel local_model;
     
     double **fw = forward->get_table();
 
@@ -241,6 +241,7 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
         int pos = matrix_iter->get_position();
         LocalTree *tree = it->tree;
         int blocklen = matrices.blocklen;
+        model->get_local_model(pos, local_model);
         
         // allocate the forward table
         if (pos > trees->start_coord || !prior_given)
@@ -263,7 +264,8 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
                     int subtree_root = tree->nodes[tree->root].child[0];
                     minage = tree->nodes[subtree_root].age;
                 }
-                calc_state_priors(states, &lineages, model, fw[pos], minage);
+                calc_state_priors(states, &lineages, &local_model, 
+                                  fw[pos], minage);
             }
         } else if (tree != last_tree) {
             // perform one column of forward algorithm with transmat_switch
@@ -277,7 +279,7 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
         }
         
         // calculate rest of block
-        arghmm_forward_block(tree, model, blocklen, 
+        arghmm_forward_block(tree, model->ntimes, blocklen, 
                              states, lineages, 
                              matrices.transmat,
                              matrices.emit, fw_block, internal);
