@@ -95,7 +95,19 @@ public:
             if (region.start <= pos && pos < region.end)
                 return region.value;
         }
+        // region not found
         return default_value;
+    }
+
+    // Returns index of region containing position pos
+    int index(int pos) const {
+        for (unsigned int i=0; i<Track<T>::size(); i++) {
+            const RegionValue<T> &region = Track<T>::at(i);
+            if (region.start <= pos && pos < region.end)
+                return i;
+        }
+        // region not found
+        return -1;
     }
 
     // Adds one region to the track

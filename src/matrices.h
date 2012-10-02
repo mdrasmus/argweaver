@@ -187,7 +187,7 @@ public:
                     last_tree, model->ntimes, *last_states);
             else
                 get_coal_states(last_tree, model->ntimes, *last_states);
-            pos -= it->blocklen;
+            pos -= tree_iter->blocklen;
         } else {
             last_tree = NULL;
             last_states = NULL;
@@ -235,6 +235,7 @@ public:
     void calc_matrices_internal(ArgHmmMatrices *matrices);
 
 protected:
+    // references to model, arg, sequences
     const ArgModel *model;
     ArgModel local_model;
     const Sequences *seqs;
@@ -242,15 +243,16 @@ protected:
     int new_chrom;
     bool internal;
 
+    // data for current block
     ArgHmmMatrices mat;
     int pos;
     LocalTrees::const_iterator tree_iter;
-    LineageCounts lineages;
     States states1;
     States states2;
     States *states;
     States *last_states;
     LocalTree *last_tree;
+    LineageCounts lineages;
 };
 
 

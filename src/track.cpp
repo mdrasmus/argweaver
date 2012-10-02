@@ -15,7 +15,6 @@ bool read_track_line<double>(const char *line, RegionValue<double> &region)
     if (sscanf(line, "%1000s\t%d\t%d\t%lf", 
                chrom2, &region.start, &region.end, &region.value) != 4)
         return false;
-    region.start -= 1; // convert 1 index to 0
     region.chrom = string(chrom2);
     return true;
 }
@@ -30,7 +29,6 @@ bool read_track_line<int>(const char *line, RegionValue<int> &region)
     if (sscanf(line, "%1000s\t%d\t%d\t%d", 
                chrom2, &region.start, &region.end, &region.value) != 4)
         return false;
-    region.start -= 1; // convert 1 index to 0
     region.chrom = string(chrom2);
     return true;
 }

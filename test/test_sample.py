@@ -1295,8 +1295,8 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
-        makedirs("data/sample_arg_arglen2/")
-        write_list("data/sample_arg_arglen2/arglen.txt", [arglen] + y)
+        makedirs("test/data/sample_arg_arglen2/")
+        write_list("test/data/sample_arg_arglen2/arglen.txt", [arglen] + y)
         p.plot([0, len(y)], [arglen, arglen], style="lines")
         
         
@@ -1346,8 +1346,8 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
-        makedirs("data/max_arg_arglen2/")
-        write_list("data/max_arg_arglen2/arglen.txt", [arglen] + y)
+        makedirs("test/data/max_arg_arglen2/")
+        write_list("test/data/max_arg_arglen2/arglen.txt", [arglen] + y)
         p.plot([0, len(y)], [arglen, arglen], style="lines")
         
         pause()
@@ -1470,8 +1470,8 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
-        makedirs("data/sample_arg_lk2/")
-        write_list("data/sample_arg_lk2/lk.txt", [lk] + y)
+        makedirs("test/data/sample_arg_lk2/")
+        write_list("test/data/sample_arg_lk2/lk.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
         
         
@@ -1984,8 +1984,8 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
-        makedirs("data/sample_arg_joint2/")
-        write_list("data/sample_arg_joint2/joint.txt", [lk] + y)
+        makedirs("test/data/sample_arg_joint2/")
+        write_list("test/data/sample_arg_joint2/joint.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
         
         
@@ -2230,8 +2230,8 @@ class Sample (unittest.TestCase):
 
         
         p = plot(y)
-        makedirs("data/sample_arg_joint_seq/")
-        write_list("data/sample_arg_joint_seq/joint.txt", [lk] + y)
+        makedirs("test/data/sample_arg_joint_seq/")
+        write_list("test/data/sample_arg_joint_seq/joint.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
         
         
