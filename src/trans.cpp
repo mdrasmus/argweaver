@@ -1410,15 +1410,15 @@ bool arghmm_assert_transmat_switch_internal(
     ArgHmmMatrixIter matrix_iter(&model, NULL, trees);
     matrix_iter.set_internal(true);
 
-    LocalTree *last_tree = NULL;
+    LocalTree const *last_tree = NULL;
     for (matrix_iter.begin(); matrix_iter.more(); matrix_iter.next()) {
         ArgHmmMatrices &matrices = matrix_iter.ref_matrices();
-        LocalTrees::const_iterator it = matrix_iter.get_tree_iter();
-        LocalTree *tree = it->tree;
+        const LocalTreeSpr *tree_spr = matrix_iter.get_tree_spr();
+        const LocalTree *tree = tree_spr->tree;
 
         if (matrices.transmat_switch) {
-            if (!assert_transmat_switch_internal(last_tree, tree, it->spr,
-                                                 it->mapping, &model, 
+            if (!assert_transmat_switch_internal(last_tree, tree, tree_spr->spr,
+                                                 tree_spr->mapping, &model, 
                                                  matrices.transmat_switch))
                 return false;
         }

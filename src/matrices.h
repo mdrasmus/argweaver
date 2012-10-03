@@ -257,11 +257,11 @@ public:
     }
 
 
-    virtual void get_matrices(ArgHmmMatrices *matrices)
+    virtual ArgHmmMatrices ref_matrices()
     {
         mat.clear();
         calc_matrices(&mat);
-        *matrices = mat;
+        return mat;
     }
 
     void calc_matrices(ArgHmmMatrices *matrices)
@@ -440,14 +440,6 @@ public:
         return tree_iter != trees->end();
     }
 
-
-    virtual void get_matrices(ArgHmmMatrices *matrices)
-    {
-        mat.clear();
-        calc_matrices(&mat);
-        *matrices = mat;
-    }
-
     virtual ArgHmmMatrices &ref_matrices()
     {
         mat.clear();
@@ -455,15 +447,21 @@ public:
         return mat;
     }
 
-
-    LocalTrees::const_iterator get_tree_iter() const
-    {
-        return tree_iter;
+    
+    const LocalTreeSpr *get_tree_spr() const {
+        return &(*tree_iter);
+    }
+    
+    int get_block_start() const {
+        return pos;
     }
 
-    int get_position() const
-    {
-        return pos;
+    int get_block_end() const {
+        return pos + tree_iter->blocklen;
+    }
+
+    int get_blocklen() const {
+        return tree_iter->blocklen;
     }
 
     void set_internal(bool _internal)
@@ -471,6 +469,7 @@ public:
         internal = _internal;
     }
 
+protected:
     
     // calculate transition and emission matrices for current block
     void calc_matrices(ArgHmmMatrices *matrices);
@@ -478,7 +477,7 @@ public:
     // calculate transition and emission matrices for current block
     void calc_matrices_internal(ArgHmmMatrices *matrices);
 
-protected:
+
     // references to model, arg, sequences
     const ArgModel *model;
     ArgModel local_model;
@@ -580,13 +579,7 @@ public:
         matrix_index--;
         return ArgHmmMatrixIter::prev();
     }
-
-
-    virtual void get_matrices(ArgHmmMatrices *mat)
-    {
-        *mat = matrices[matrix_index];
-    }
-
+    
     virtual ArgHmmMatrices &ref_matrices()
     {
         return matrices[matrix_index];
