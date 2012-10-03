@@ -56,23 +56,23 @@ class Prog (unittest.TestCase):
     def test_prog(self):
 
         popsize = 1e4
-        mu = 2.5e-8
-        rho = 1.5e-8
+        mu = 1.20e-8
+        rho = 1.16e-8
 
         if not os.path.exists("test/data/test_prog/0.sites"):
             makedirs("test/data/test_prog")
             
             os.system("""arg-sim \
-            -k 20 -L 300000 \
-            -N 1e4 -r 1.5e-8 -m 2.5e-8 \
-            --ntimes 20 --maxtime 400e3 \
+            -k 20 -L 400000 \
+            -N 1e4 -r 1.16e-8 -m 1.20e-8 \
+            --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
 
         make_clean_dir("test/data/test_prog/0.sample")
         os.system("""arg-sample \
     -s test/data/test_prog/0.sites \
-    -N 1e4 -r 1.5e-8 -m 2.5e-8 \
-    --ntimes 20 --maxtime 400e3 -c 20 \
+    -N 1e4 -r 1.16e-8 -m 1.20e-8 \
+    --ntimes 20 --maxtime 200e3 -c 20 \
     --climb 200 -n 1001 \
     -x 1 \
     -o test/data/test_prog/0.sample/out""")

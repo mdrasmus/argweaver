@@ -218,12 +218,12 @@ public:
     //====================================================================
     // maps
 
-    // Teturns true if mutation map is present
+    // Returns true if mutation map is present
     bool has_mutmap() const {
         return mutmap.size() > 0;
     }
 
-    // Teturns true if recombination map is present
+    // Returns true if recombination map is present
     bool has_recombmap() const {
         return recombmap.size() > 0;
     }

@@ -1609,22 +1609,22 @@ class Sample (unittest.TestCase):
         k = 12
         n = 1e4
         rho = 1.5e-8 * 20
-        #mu = 2.5e-8 * 20
-        mu = 1.5e-8 * 20
-        length = int(500e3) / 20
+        mu = 2.5e-8 * 20
+        #mu = 1.5e-8 * 20
+        length = int(400e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=180000)
-        climb = 100; refine = 200;
+        climb = 50; refine = 200;
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
 
-        arghmm.setLogLevel(0)
+        arghmm.setLogLevel(1)
 
         names = []
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(10):
+        for i in range(20):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1647,6 +1647,9 @@ class Sample (unittest.TestCase):
                 arg2 = arghmm.resample_mcmc_arg(arg2,
                     seqs, rho=rho, mu=mu, times=times, popsizes=n,
                     refine=refine, carg=True)
+                #arg2 = arghmm.resample_all_arg(arg2,
+                #    seqs, rho=rho, mu=mu, times=times, popsizes=n,
+                #    refine=refine, carg=True)
                 util.toc()
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
@@ -1815,8 +1818,8 @@ class Sample (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(1000e3) / 20
-        times = arghmm.get_time_points(ntimes=20, maxtime=400e3)
+        length = int(200e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200e3)
         climb = 200; refine = 1000
         niters2 = 5
         window = int(200e3) / 20
