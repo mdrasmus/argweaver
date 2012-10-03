@@ -176,8 +176,8 @@ class Prog (unittest.TestCase):
                       ["chr", 120000, 200000, mu*.6]]
             write_delim("test/data/test_prog_map/mut.map.txt", mutmap)
             rmap = [["chr", -1000, 30000, rho],
-                    ["chr", 30000, 60000, rho*.8],
-                    ["chr", 60000, 100000, rho*.5]]
+                    ["chr", 30000, 60000, rho*.05],
+                    ["chr", 60000, 100000, rho*.05]]
             write_delim("test/data/test_prog_map/recomb.map.txt", rmap)
             
             os.system("""arg-sim \

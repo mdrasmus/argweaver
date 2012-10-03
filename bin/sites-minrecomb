@@ -51,7 +51,6 @@ while j < n:
         i += 1
     j += 1
 
-print "nrecombs:", nrecombs
 
 '''
 # get conflict edges
