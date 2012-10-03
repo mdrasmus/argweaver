@@ -1407,13 +1407,12 @@ bool arghmm_assert_transmat_switch_internal(
     remove_arg_thread_path(trees, removal_path, maxtime);
 
     // build matrices
-    ArgHmmMatrices matrices;
     ArgHmmMatrixIter matrix_iter(&model, NULL, trees);
     matrix_iter.set_internal(true);
 
     LocalTree *last_tree = NULL;
     for (matrix_iter.begin(); matrix_iter.more(); matrix_iter.next()) {
-        matrix_iter.get_matrices(&matrices);
+        ArgHmmMatrices &matrices = matrix_iter.ref_matrices();
         LocalTrees::const_iterator it = matrix_iter.get_tree_iter();
         LocalTree *tree = it->tree;
 

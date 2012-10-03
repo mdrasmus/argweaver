@@ -228,7 +228,6 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
 {
     LineageCounts lineages(model->ntimes);
     States states;
-    ArgHmmMatrices matrices;
     ArgModel local_model;
     
     double **fw = forward->get_table();
@@ -237,7 +236,7 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
     LocalTree *last_tree = NULL;
     for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
         LocalTrees::const_iterator it = matrix_iter->get_tree_iter();
-        matrix_iter->get_matrices(&matrices);
+        ArgHmmMatrices &matrices = matrix_iter->ref_matrices();
         int pos = matrix_iter->get_position();
         LocalTree *tree = it->tree;
         int blocklen = matrices.blocklen;
@@ -358,7 +357,6 @@ double stochastic_traceback(
     ArgHmmMatrixIter *matrix_iter, 
     double **fw, int *path, bool last_state_given, bool internal)
 {
-    ArgHmmMatrices mat;
     States states;
     double lnl = 0.0;
 
@@ -367,7 +365,7 @@ double stochastic_traceback(
     int pos = trees->end_coord;
 
     if (!last_state_given) {
-        matrix_iter->get_matrices(&mat);
+        ArgHmmMatrices &mat = matrix_iter->ref_matrices();
         const int nstates = max(mat.nstates2, 1);
         path[pos-1] = sample(fw[pos-1], nstates);
         lnl = fw[pos-1][path[pos-1]];
@@ -375,7 +373,7 @@ double stochastic_traceback(
     
     // iterate backward through blocks
     for (; matrix_iter->more(); matrix_iter->prev()) {
-        matrix_iter->get_matrices(&mat);
+        ArgHmmMatrices &mat = matrix_iter->ref_matrices();
         LocalTree *tree = matrix_iter->get_tree_iter()->tree;
         if (internal)
             get_coal_states_internal(tree, model->ntimes, states);
@@ -463,7 +461,6 @@ void max_traceback(const LocalTrees *trees, const ArgModel *model,
                         double **fw, int *path, 
                         bool last_state_given, bool internal)
 {
-    ArgHmmMatrices mat;
     States states;
 
     // choose last column first
@@ -471,7 +468,7 @@ void max_traceback(const LocalTrees *trees, const ArgModel *model,
     int pos = trees->end_coord;
 
     if (!last_state_given) {
-        matrix_iter->get_matrices(&mat);
+        ArgHmmMatrices &mat = matrix_iter->ref_matrices();
         int nstates = mat.nstates2;
         int maxi = 0;
         double maxprob = fw[pos - 1][0];
@@ -486,7 +483,7 @@ void max_traceback(const LocalTrees *trees, const ArgModel *model,
     
     // iterate backward through blocks
     for (; matrix_iter->more(); matrix_iter->prev()) {
-        matrix_iter->get_matrices(&mat);
+        ArgHmmMatrices &mat = matrix_iter->ref_matrices();
         LocalTree *tree = matrix_iter->get_tree_iter()->tree;
         if (internal)
             get_coal_states_internal(tree, model->ntimes, states);

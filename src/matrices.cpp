@@ -8,7 +8,7 @@ namespace arghmm {
 void calc_matrices_internal(
     const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
     const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
-    const int start, const int end, const int new_chrom,
+    const int start, const int end, 
     ArgHmmMatrices *matrices)
 {
     const bool internal = true;
@@ -39,9 +39,8 @@ void calc_matrices_internal(
     
     
     // calculate switch transition matrix if we are starting a new block
-    if (!last_tree_spr) {
-        // no previous states (first block)
-        // therefore we have no switch transition matrix
+    if (!last_tree_spr && last_tree_spr != tree_spr) {
+        // no switch transition matrix
         matrices->transmat_switch = NULL;
         matrices->nstates1 = matrices->nstates2 = nstates;
         
@@ -73,7 +72,7 @@ void calc_matrices_internal(
 
 
 // calculate transition and emission matrices for current block
-void calc_matrices(
+void calc_matrices_external(
     const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
     const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
     const int start, const int end, const int new_chrom,
@@ -106,9 +105,8 @@ void calc_matrices(
     
     
     // calculate switch transition matrix if we are starting a new block
-    if (!last_tree_spr) {
-        // no previous states (first block)
-        // therefore we have no switch transition matrix
+    if (!last_tree_spr && last_tree_spr != tree_spr) {
+        // no switch transition matrix
         matrices->transmat_switch = NULL;
         matrices->nstates1 = matrices->nstates2 = nstates;
         
@@ -138,6 +136,22 @@ void calc_matrices(
 }
 
 
+void calc_matrices(
+    const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
+    const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
+    const int start, const int end, const int new_chrom,
+    const bool internal, ArgHmmMatrices *matrices)
+{
+    if (internal)
+        calc_matrices_internal(
+            model, seqs, trees, last_tree_spr, tree_spr,
+            start, end, matrices);
+    else
+        calc_matrices_external(
+            model, seqs, trees, last_tree_spr,  tree_spr,
+            start, end, new_chrom, matrices);
+}
+
 
 // calculate transition and emission matrices for current block
 void ArgHmmMatrixIter::calc_matrices(ArgHmmMatrices *matrices)
@@ -149,15 +163,9 @@ void ArgHmmMatrixIter::calc_matrices(ArgHmmMatrices *matrices)
     if (it != trees->end())
         last_tree_spr = &(*it);
     
-    
-    if (internal)
-        arghmm::calc_matrices_internal(
-            &local_model, seqs, trees, last_tree_spr, &(*tree_iter),
-            pos, pos+tree_iter->blocklen, new_chrom, matrices);
-    else
-        arghmm::calc_matrices(
-            &local_model, seqs, trees, last_tree_spr, &(*tree_iter),
-            pos, pos+tree_iter->blocklen, new_chrom, matrices);
+    arghmm::calc_matrices(
+        &local_model, seqs, trees, last_tree_spr, &(*tree_iter),
+        pos, pos+tree_iter->blocklen, new_chrom, internal, matrices);
 }
 
 void ArgHmmMatrixIter::calc_matrices_internal(ArgHmmMatrices *matrices)

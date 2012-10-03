@@ -91,6 +91,14 @@ public:
 };
 
 
+void calc_matrices(
+    const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
+    const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
+    const int start, const int end, const int new_chrom,
+    const bool internal, ArgHmmMatrices *matrices);
+
+
+
 // A block of the ARG and model
 class ArgModelBlock
 {
@@ -209,6 +217,7 @@ public:
 
     virtual ~ArgHmmMatrixIter2() 
     {
+        mat.clear();
     }
 
     void setup() {
@@ -250,10 +259,26 @@ public:
 
     virtual void get_matrices(ArgHmmMatrices *matrices)
     {
-        //mat.clear();
-        //calc_matrices(&mat);
-        //*matrices = mat;
+        mat.clear();
+        calc_matrices(&mat);
+        *matrices = mat;
     }
+
+    void calc_matrices(ArgHmmMatrices *matrices)
+    {
+        ArgModel local_model;
+        ArgModelBlock &block = blocks.at(block_index);
+        
+        model->get_local_model(block.start, local_model);
+        LocalTreeSpr const* last_tree_spr = NULL;
+        if (block_index > 0)
+            last_tree_spr = blocks.at(block_index-1).tree_spr;
+        
+        arghmm::calc_matrices(
+            &local_model, seqs, trees, last_tree_spr, block.tree_spr,
+            block.start, block.end, new_chrom, internal, matrices);
+    }
+
 
     const LocalTreeSpr *get_tree_spr() const
     {
@@ -292,11 +317,14 @@ protected:
     const LocalTrees *trees;
     int new_chrom;
     bool internal;
+    
+    ArgHmmMatrices mat;
 
     // record of common blocks
     ArgModelBlocks blocks;
     int block_index;
 };
+
 
 
 // iterates through matricies for the ArgHmm
@@ -420,6 +448,14 @@ public:
         *matrices = mat;
     }
 
+    virtual ArgHmmMatrices &ref_matrices()
+    {
+        mat.clear();
+        calc_matrices(&mat);
+        return mat;
+    }
+
+
     LocalTrees::const_iterator get_tree_iter() const
     {
         return tree_iter;
@@ -475,7 +511,7 @@ public:
         ArgHmmMatrixIter(model, seqs, trees, 
                          new_chrom)
     {}
-    ~ArgHmmMatrixList() 
+    virtual ~ArgHmmMatrixList() 
     {
         clear();
     }
@@ -549,6 +585,11 @@ public:
     virtual void get_matrices(ArgHmmMatrices *mat)
     {
         *mat = matrices[matrix_index];
+    }
+
+    virtual ArgHmmMatrices &ref_matrices()
+    {
+        return matrices[matrix_index];
     }
 
     
