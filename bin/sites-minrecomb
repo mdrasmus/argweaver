@@ -44,7 +44,7 @@ while j < n:
     i = start
     while i < j:
         if not arglib.is_split_compatible(splits[i], splits[j]):
-            print i, j #, splits[i], splits[j]
+            util.print_row(sites.chrom, mut_pos[i], mut_pos[j])
             nrecombs += 1
             start = j
             break
