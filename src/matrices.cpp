@@ -152,7 +152,7 @@ void calc_matrices(
             start, end, new_chrom, matrices);
 }
 
-
+    /*
 // calculate transition and emission matrices for current block
 void ArgHmmMatrixIter::calc_matrices(ArgHmmMatrices *matrices)
 {
@@ -170,7 +170,7 @@ void ArgHmmMatrixIter::calc_matrices(ArgHmmMatrices *matrices)
 
 void ArgHmmMatrixIter::calc_matrices_internal(ArgHmmMatrices *matrices)
 {}
-
+    */
 
 
 /*

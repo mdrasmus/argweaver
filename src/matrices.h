@@ -137,16 +137,20 @@ public:
         
     void setup() {
         int start = trees->start_coord;
-        int end = start;
         int tree_start = start;
         int model_index = model->mutmap.index(start);
         LocalTrees::const_iterator tree_iter = trees->begin();
         int tree_end = tree_start + tree_iter->blocklen;
         int model_end = model->mutmap[model_index].end; 
-
+        
         // record all common blocks
         while (start < trees->end_coord) {
-            start = end;
+            // determine next block end
+            int end = min(tree_end, model_end);
+            
+            // record block
+            blocks.push_back(ArgModelBlock(start, end, 
+                                           &(*tree_iter), model_index));
             
             if (tree_end <= model_end) {
                 // tree block end is next
@@ -165,14 +169,9 @@ public:
         
             // compute new block ends
             tree_end = tree_start + tree_iter->blocklen;
-            model_end = model->mutmap[model_index].end; 
+            model_end = model->mutmap[model_index].end;
             
-            // determine next block end
-            end = min(tree_end, model_end);
-            
-            // record block
-            blocks.push_back(ArgModelBlock(start, end, 
-                                           &(*tree_iter), model_index));
+            start = end;
         }
     }
 
@@ -198,10 +197,10 @@ protected:
 
 
 // iterates through matricies for the ArgHmm
-class ArgHmmMatrixIter2
+class ArgHmmMatrixIter
 {
 public:
-    ArgHmmMatrixIter2(const ArgModel *model, const Sequences *seqs, 
+    ArgHmmMatrixIter(const ArgModel *model, const Sequences *seqs, 
                       const LocalTrees *trees, 
                       int _new_chrom=-1) :
         model(model),
@@ -215,24 +214,31 @@ public:
             new_chrom = trees->get_num_leaves();
     }
 
-    virtual ~ArgHmmMatrixIter2() 
+    virtual ~ArgHmmMatrixIter() 
     {
         mat.clear();
     }
 
-    void setup() {
+    virtual void setup() {
         // determine all blocks
         blocks.setup();
+    }
+
+    virtual void clear() {
     }
 
     // initializes iterator
     virtual void begin()
     {
+        if (blocks.size() == 0)
+            setup();
         block_index = 0;
     }
     
     virtual void rbegin()
     {
+        if (blocks.size() == 0)
+            setup();
         block_index = blocks.size() - 1;
     }
 
@@ -242,47 +248,40 @@ public:
         return block_index < int(blocks.size());
     }
 
-
     // moves iterator to previous block
     virtual bool prev()
     {
         block_index--;
         return block_index >= 0;
     }
-    
 
     // returns true if there are more blocks
     virtual bool more() const {
         return block_index >= 0 && block_index < blocks.size();
     }
 
-
-    virtual ArgHmmMatrices ref_matrices()
+    virtual ArgHmmMatrices &ref_matrices()
     {
         mat.clear();
         calc_matrices(&mat);
         return mat;
     }
 
-    void calc_matrices(ArgHmmMatrices *matrices)
-    {
-        ArgModel local_model;
-        ArgModelBlock &block = blocks.at(block_index);
-        
-        model->get_local_model(block.start, local_model);
-        LocalTreeSpr const* last_tree_spr = NULL;
-        if (block_index > 0)
-            last_tree_spr = blocks.at(block_index-1).tree_spr;
-        
-        arghmm::calc_matrices(
-            &local_model, seqs, trees, last_tree_spr, block.tree_spr,
-            block.start, block.end, new_chrom, internal, matrices);
+    const LocalTreeSpr *get_tree_spr() const {
+        return blocks.at(block_index).tree_spr;
     }
 
+    const LocalTreeSpr *get_last_tree_spr() const {
+        if (block_index > 0)
+            return blocks.at(block_index-1).tree_spr;
+        else
+            return NULL;
+    }
 
-    const LocalTreeSpr *get_tree_spr() const
-    {
-        return blocks.at(block_index).tree_spr;
+    // Returns true if block starts with switch transition matrix
+    bool has_switch() const {
+        const LocalTreeSpr * last_tree_spr = get_last_tree_spr();
+        return last_tree_spr && last_tree_spr != get_tree_spr();
     }
 
     int get_block_start() const {
@@ -311,6 +310,21 @@ public:
     }
     
 protected:
+
+    void calc_matrices(ArgHmmMatrices *matrices)
+    {
+        ArgModel local_model;
+        ArgModelBlock &block = blocks.at(block_index);
+        
+        model->get_local_model(block.start, local_model);
+        const LocalTreeSpr * last_tree_spr = get_last_tree_spr();
+        
+        arghmm::calc_matrices(
+            &local_model, seqs, trees, last_tree_spr, block.tree_spr,
+            block.start, block.end, new_chrom, internal, matrices);
+    }
+
+
     // references to model, arg, sequences
     const ArgModel *model;
     const Sequences *seqs;
@@ -328,10 +342,10 @@ protected:
 
 
 // iterates through matricies for the ArgHmm
-class ArgHmmMatrixIter
+class ArgHmmMatrixIter3
 {
 public:
-    ArgHmmMatrixIter(const ArgModel *model, const Sequences *seqs, 
+    ArgHmmMatrixIter3(const ArgModel *model, const Sequences *seqs, 
                      const LocalTrees *trees, 
                      int _new_chrom=-1) :
         model(model),
@@ -346,17 +360,29 @@ public:
             new_chrom = trees->get_num_leaves();
     }
 
-    virtual ~ArgHmmMatrixIter() 
+    virtual ~ArgHmmMatrixIter3() 
     {
         mat.clear();
     }
+
+
+    virtual void setup() {}
+
+    virtual void clear() {}
 
     // initializes iterator
     virtual void begin()
     {
         begin(trees->begin(), trees->start_coord);
     }
+
+    virtual void rbegin()
+    {
+        LocalTrees::const_iterator it = --trees->end();
+        rbegin(it, trees->end_coord - it->blocklen);
+    }
     
+protected:
     virtual void begin(LocalTrees::const_iterator start, int start_coord)
     {
         tree_iter = start;
@@ -382,19 +408,12 @@ public:
         }
     }
     
-    
-    virtual void rbegin()
-    {
-        LocalTrees::const_iterator it = --trees->end();
-        rbegin(it, trees->end_coord - it->blocklen);
-    }
-    
     virtual void rbegin(LocalTrees::const_iterator start, int start_coord)
     {
         begin(start, start_coord);
     }
 
-
+public:
     virtual bool next()
     {
         // update pointers
@@ -516,14 +535,10 @@ public:
     }
 
     // precompute all matrices
-    void setup() 
+    virtual void setup() 
     {
-        setup(trees->begin(), trees->end());
-    }
-
-    // precompute all matrices
-    void setup(LocalTrees::const_iterator start, LocalTrees::const_iterator end)
-    {
+        ArgHmmMatrixIter::setup();
+     
         for (begin(); more(); next()) {
             matrices.push_back(ArgHmmMatrices());
             calc_matrices(&matrices.back());
@@ -531,7 +546,7 @@ public:
     }
     
     // free all computed matrices
-    void clear()
+    virtual void clear()
     {
         for (unsigned int i=0; i<matrices.size(); i++)
             matrices[i].clear();
@@ -545,26 +560,11 @@ public:
         matrix_index = 0;
     }
     
-    // initializes iterator
-    virtual void begin(LocalTrees::iterator start, int start_coord)
-    {
-        ArgHmmMatrixIter::begin(start, start_coord);
-        matrix_index = 0;
-    }
-
     virtual void rbegin()
     {
         ArgHmmMatrixIter::rbegin();
         matrix_index = matrices.size() - 1;
     }
-    
-    // initializes iterator
-    virtual void rbegin(LocalTrees::iterator start, int start_coord)
-    {
-        ArgHmmMatrixIter::rbegin(start, start_coord);
-        matrix_index = matrices.size() - 1;
-    }
-
 
     // moves iterator to next block
     virtual bool next()

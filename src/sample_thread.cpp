@@ -265,7 +265,7 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
                 calc_state_priors(states, &lineages, &local_model, 
                                   fw[pos], minage);
             }
-        } else if (tree != last_tree) {
+        } else if (matrices.transmat_switch) {
             // perform one column of forward algorithm with transmat_switch
             arghmm_forward_switch(fw[pos-1], fw[pos], 
                 matrices.transmat_switch, matrices.emit[0]);
@@ -383,13 +383,20 @@ double stochastic_traceback(
         lnl += sample_hmm_posterior(mat.blocklen, tree, states,
                                     mat.transmat, &fw[pos], &path[pos]);
 
-        // use switch matrix for last col of next block
+        // fill in last col of next block
         if (pos > trees->start_coord) {
-            int i = pos - 1;
-            path[i] = sample_hmm_posterior_step(
-                mat.transmat_switch, fw[i], path[i+1]);
-            lnl += log(fw[i][path[i]] * 
-                       mat.transmat_switch->get(path[i], path[i+1]));
+            if (mat.transmat_switch) {
+                // use switch matrix
+                int i = pos - 1;
+                path[i] = sample_hmm_posterior_step(
+                    mat.transmat_switch, fw[i], path[i+1]);
+                lnl += log(fw[i][path[i]] * 
+                           mat.transmat_switch->get(path[i], path[i+1]));
+            } else {
+                // use normal matrix
+                lnl += sample_hmm_posterior(1, tree, states,
+                    mat.transmat, &fw[pos-1], &path[pos-1]);
+            }
         }
     }
 
@@ -495,9 +502,16 @@ void max_traceback(const LocalTrees *trees, const ArgModel *model,
 
         // use switch matrix for last col of next block
         if (pos > trees->start_coord) {
-            int i = pos - 1;
-            path[i] = max_hmm_posterior_step(
-                mat.transmat_switch, fw[i], path[i+1]);
+            if (mat.transmat_switch) {
+                // use switch matrix
+                int i = pos - 1;
+                path[i] = max_hmm_posterior_step(
+                    mat.transmat_switch, fw[i], path[i+1]);
+            } else {
+                // use normal matrix
+                max_hmm_posterior(1, tree, states,
+                    mat.transmat, &fw[pos-1], &path[pos-1]);
+            }
         }
     }
 }
