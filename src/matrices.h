@@ -72,7 +72,6 @@ public:
         }
     }
 
-
     // release ownership of underlying data
     void detach() 
     {
@@ -91,7 +90,7 @@ public:
 };
 
 
-void calc_matrices(
+void calc_arghmm_matrices(
     const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
     const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
     const int start, const int end, const int new_chrom,
@@ -224,8 +223,16 @@ public:
         blocks.setup();
     }
 
-    virtual void clear() {
+    virtual void clear() {}
+    
+    // calculate matrix for internal branch resampling
+    void set_internal(bool _internal)
+    {
+        internal = _internal;
     }
+
+    //==================================================
+    // iteration methods
 
     // initializes iterator
     virtual void begin()
@@ -259,6 +266,9 @@ public:
     virtual bool more() const {
         return block_index >= 0 && block_index < blocks.size();
     }
+
+    //==================================================
+    // accessors
 
     virtual ArgHmmMatrices &ref_matrices()
     {
@@ -303,11 +313,6 @@ public:
     void get_local_model(ArgModel &local_model) {
         model->get_local_model(blocks.at(block_index).start, local_model);
     }
-
-    void set_internal(bool _internal)
-    {
-        internal = _internal;
-    }
     
 protected:
 
@@ -319,7 +324,7 @@ protected:
         model->get_local_model(block.start, local_model);
         const LocalTreeSpr * last_tree_spr = get_last_tree_spr();
         
-        arghmm::calc_matrices(
+        arghmm::calc_arghmm_matrices(
             &local_model, seqs, trees, last_tree_spr, block.tree_spr,
             block.start, block.end, new_chrom, internal, matrices);
     }
@@ -341,6 +346,94 @@ protected:
 
 
 
+// compute all emission and transition matrices and store them in a list
+class ArgHmmMatrixList : public ArgHmmMatrixIter
+{
+public:
+    ArgHmmMatrixList(const ArgModel *model, const Sequences *seqs, 
+                     const LocalTrees *trees, 
+                     int new_chrom=-1) :
+        ArgHmmMatrixIter(model, seqs, trees, 
+                         new_chrom)
+    {}
+    virtual ~ArgHmmMatrixList() 
+    {
+        clear();
+    }
+
+    // precompute all matrices
+    virtual void setup() 
+    {
+        ArgHmmMatrixIter::setup();
+     
+        for (begin(); more(); next()) {
+            matrices.push_back(ArgHmmMatrices());
+            calc_matrices(&matrices.back());
+        }
+    }
+    
+    // free all computed matrices
+    virtual void clear()
+    {
+        for (unsigned int i=0; i<matrices.size(); i++)
+            matrices[i].clear();
+        matrices.clear();
+    }
+
+    //==================================================
+    // iteration methods
+
+    virtual void begin()
+    {
+        ArgHmmMatrixIter::begin();
+        matrix_index = 0;
+    }
+    
+    virtual void rbegin()
+    {
+        ArgHmmMatrixIter::rbegin();
+        matrix_index = matrices.size() - 1;
+    }
+
+    // moves iterator to next block
+    virtual bool next()
+    {
+        matrix_index++;
+        return ArgHmmMatrixIter::next();
+    }
+
+    // moves iterator to previous block
+    virtual bool prev()
+    {
+        matrix_index--;
+        return ArgHmmMatrixIter::prev();
+    }
+
+    //==================================================
+    // accessors
+    
+    virtual ArgHmmMatrices &ref_matrices()
+    {
+        return matrices[matrix_index];
+    }
+
+    
+protected:
+    int matrix_index;
+    vector<ArgHmmMatrices> matrices;
+};
+
+
+} // namespace arghmm
+
+
+#endif // ARGHMM_MATRICES_H
+
+
+//=============================================================================
+// OLD CODE
+
+/*
 // iterates through matricies for the ArgHmm
 class ArgHmmMatrixIter3
 {
@@ -517,82 +610,4 @@ protected:
     LineageCounts lineages;
 };
 
-
-
-// compute all emission and transition matrices and store them in a list
-class ArgHmmMatrixList : public ArgHmmMatrixIter
-{
-public:
-    ArgHmmMatrixList(const ArgModel *model, const Sequences *seqs, 
-                     const LocalTrees *trees, 
-                     int new_chrom=-1) :
-        ArgHmmMatrixIter(model, seqs, trees, 
-                         new_chrom)
-    {}
-    virtual ~ArgHmmMatrixList() 
-    {
-        clear();
-    }
-
-    // precompute all matrices
-    virtual void setup() 
-    {
-        ArgHmmMatrixIter::setup();
-     
-        for (begin(); more(); next()) {
-            matrices.push_back(ArgHmmMatrices());
-            calc_matrices(&matrices.back());
-        }
-    }
-    
-    // free all computed matrices
-    virtual void clear()
-    {
-        for (unsigned int i=0; i<matrices.size(); i++)
-            matrices[i].clear();
-        matrices.clear();
-    }
-
-
-    virtual void begin()
-    {
-        ArgHmmMatrixIter::begin();
-        matrix_index = 0;
-    }
-    
-    virtual void rbegin()
-    {
-        ArgHmmMatrixIter::rbegin();
-        matrix_index = matrices.size() - 1;
-    }
-
-    // moves iterator to next block
-    virtual bool next()
-    {
-        matrix_index++;
-        return ArgHmmMatrixIter::next();
-    }
-
-    // moves iterator to previous block
-    virtual bool prev()
-    {
-        matrix_index--;
-        return ArgHmmMatrixIter::prev();
-    }
-    
-    virtual ArgHmmMatrices &ref_matrices()
-    {
-        return matrices[matrix_index];
-    }
-
-    
-protected:
-    int matrix_index;
-    vector<ArgHmmMatrices> matrices;
-};
-
-
-} // namespace arghmm
-
-
-#endif // ARGHMM_MATRICES_H
+*/

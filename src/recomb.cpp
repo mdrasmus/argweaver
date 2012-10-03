@@ -60,14 +60,11 @@ void sample_recombinations(
     vector <double> probs;
 
     // loop through local blocks
-    int end = trees->start_coord;
     for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
 
         // get local block information
         ArgHmmMatrices &matrices = matrix_iter->ref_matrices();
         LocalTree *tree = matrix_iter->get_tree_spr()->tree;
-        int start = end + 1;  // don't allow new recomb at start
-        end = start - 1 + matrices.blocklen;
         lineages.count(tree, internal);
         if (internal)
             get_coal_states_internal(tree, model->ntimes, states);
@@ -79,6 +76,15 @@ void sample_recombinations(
         if (internal && states.size() == 0)
             continue;
 
+        int start = matrix_iter->get_block_start();
+        int end = matrix_iter->get_block_end();
+        if (matrices.transmat_switch || start == trees->start_coord) {
+            // don't allow new recomb at start if we are switching blocks
+            start++;
+        }
+
+        //int start = end + 1;  // don't allow new recomb at start
+        //end = start - 1 + matrices.blocklen;
         
         // loop through positions in block
         for (int i=start; i<end; i++) {
@@ -165,16 +171,23 @@ void max_recombinations(
 
     
     // loop through local blocks
-    int end = trees->start_coord;
     for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
         // get local block information
         ArgHmmMatrices &matrices = matrix_iter->ref_matrices();
         LocalTree *tree = matrix_iter->get_tree_spr()->tree;
-        int start = end + 1;  // don't allow new recomb at start
-        end = start - 1 + matrices.blocklen;
         lineages.count(tree);
         get_coal_states(tree, model->ntimes, states);
         
+        int start = matrix_iter->get_block_start();
+        int end = matrix_iter->get_block_end();
+        if (matrices.transmat_switch || start == trees->start_coord) {
+            // don't allow new recomb at start if we are switching blocks
+            start++;
+        }
+
+        //int start = end + 1;  // don't allow new recomb at start
+        //end = start - 1 + matrices.blocklen;
+
         // loop through positions in block
         for (int i=start; i<end; i++) {
             // its never worth sampling a recombination if you don't have to

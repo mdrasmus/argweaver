@@ -170,14 +170,14 @@ class Prog (unittest.TestCase):
         if not os.path.exists("test/data/test_prog_map/0.sites"):
             makedirs("test/data/test_prog_map")
 
-            mutmap = [["chr", 1, 20000, mu],
-                      ["chr", 20001, 50000, mu*.8],
-                      ["chr", 50001, 120000, mu*.5],
-                      ["chr", 120001, 200000, mu*.6]]
+            mutmap = [["chr", 0, 20000, mu],
+                      ["chr", 20000, 50000, mu*.8],
+                      ["chr", 50000, 120000, mu*.5],
+                      ["chr", 120000, 200000, mu*.6]]
             write_delim("test/data/test_prog_map/mut.map.txt", mutmap)
             rmap = [["chr", -1000, 30000, rho],
-                    ["chr", 30001, 60000, rho*.8],
-                    ["chr", 60001, 100000, rho*.5]]
+                    ["chr", 30000, 60000, rho*.8],
+                    ["chr", 60000, 100000, rho*.5]]
             write_delim("test/data/test_prog_map/recomb.map.txt", rmap)
             
             os.system("""arg-sim \

@@ -217,11 +217,8 @@ void arghmm_forward_switch(const double *col1, double* col2,
 }
 
 
-//=============================================================================
 
-
-// TODO: add recomb/mut maps
-// run forward algorithm
+// Run forward algorithm for all blocks
 void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
     const Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
     ArgHmmForwardTable *forward, bool prior_given, bool internal)
@@ -235,16 +232,19 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
     // forward algorithm over local trees
     LocalTree *last_tree = NULL;
     for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
+        // get block information
         LocalTree *tree = matrix_iter->get_tree_spr()->tree;
         ArgHmmMatrices &matrices = matrix_iter->ref_matrices();
         int pos = matrix_iter->get_block_start();
         int blocklen = matrices.blocklen;
         model->get_local_model(pos, local_model);
+        double **emit = matrices.emit;
         
         // allocate the forward table
         if (pos > trees->start_coord || !prior_given)
             forward->new_block(pos, pos+matrices.blocklen, matrices.nstates2);
         double **fw_block = &fw[pos];
+
         
         if (internal)
             get_coal_states_internal(tree, model->ntimes, states);
@@ -273,6 +273,7 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
             // we are still inside the same ARG block, therefore the
             // state-space does not change and no switch matrix is needed
             fw_block = &fw[pos-1];
+            emit = &emit[-1];
             blocklen++;
         }
         
@@ -280,7 +281,7 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
         arghmm_forward_block(tree, model->ntimes, blocklen, 
                              states, lineages, 
                              matrices.transmat,
-                             matrices.emit, fw_block, internal);
+                             emit, fw_block, internal);
 
         // safety check
         int nstates = max(matrices.transmat->nstates, 1);
@@ -394,7 +395,7 @@ double stochastic_traceback(
                            mat.transmat_switch->get(path[i], path[i+1]));
             } else {
                 // use normal matrix
-                lnl += sample_hmm_posterior(1, tree, states,
+                lnl += sample_hmm_posterior(2, tree, states,
                     mat.transmat, &fw[pos-1], &path[pos-1]);
             }
         }
