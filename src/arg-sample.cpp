@@ -554,7 +554,7 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
             resample_arg_leaf(model, sequences, trees);
             printLog(LOG_LOW, "resample_arg_leaf: accept=%f\n", 1.0);
         } else {
-            bool accept_rate = resample_arg_regions(
+            double accept_rate = resample_arg_regions(
                 model, sequences, trees, window, step, niters);
             printLog(LOG_LOW, "resample_arg_regions: accept=%f\n", accept_rate);
         }
