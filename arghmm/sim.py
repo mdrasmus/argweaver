@@ -16,20 +16,68 @@ from compbio import arglib, fasta
 import arghmm
 
 
+def find_region(pos, track):
+    for i, region in enumerate(track):
+        if pos >= region[1] and pos < region[2]:
+            return i, region
+    return len(track), None
 
-def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None, 
-                     init_tree=None,
-                     names=None, make_names=True):
+
+def sample_next_recomb(treelen, rho, pos=None, recombmap=None, minlen=1):
+    """
+    Sample when next recombination will occur along the genome
+    """
+    
+    if recombmap:
+        pos2 = 0
+        i, region = find_region(pos, recombmap)
+        if not region:
+            # no more regions
+            return sample_next_recomb(treelen, recombmap[-1][3])
+        
+        while True:
+            rho = region[3]
+
+            # sample next recomb
+            while True:
+                pos2 += random.expovariate(max(treelen * rho, rho))
+                blocklen = pos2 - pos
+                if pos2 < region[2] and blocklen > minlen:
+                    return blocklen
+                if blocklen >= region[2]:
+                    break
+
+            # recomb is not in this block, keep going
+            pos2 = region[2]
+            i += 1
+            if i >= len(recombmap):
+                # no more regions
+                return sample_next_recomb(treelen, recombmap[-1][3])
+            region = recombmap[i]
+
+            
+        
+    else:
+        blocklen = 0
+        while blocklen < minlen:
+            blocklen = random.expovariate(max(treelen * rho, rho))
+        return blocklen
+
+
+def sample_dsmc_sprs(k, popsize, rho, recombmap=None,
+                     start=0.0, end=0.0, times=None,
+                     init_tree=None, names=None, make_names=True):
     """
     Sample ARG using Discrete Sequentially Markovian Coalescent (SMC)
 
-    k   -- chromosomes
-    popsize  -- effective population size (haploid)
-    rho -- recombination rate (recombinations / site / generation)
-    start -- staring chromosome coordinate
-    end   -- ending chromsome coordinate
-    t   -- initial time (default: 0)
-    names -- names to use for leaves (default: None)
+    k          -- chromosomes
+    popsize    -- effective population size (haploid)
+    rho        -- recombination rate (recombinations / site / generation)
+    recombmap  -- map for variable recombination rate
+    start      -- staring chromosome coordinate
+    end        -- ending chromsome coordinate
+    t          -- initial time (default: 0)
+    names      -- names to use for leaves (default: None)
     make_names -- make names using strings (default: True)
     """
 
@@ -57,9 +105,8 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
     while True:
         # sample next recomb point
         treelen = sum(x.get_dist() for x in tree)
-        blocklen = 0
-        while blocklen == 0:
-            blocklen = int(random.expovariate(max(treelen * rho, rho)))
+        blocklen = int(sample_next_recomb(treelen, rho, pos=pos,
+                                          recombmap=recombmap, minlen=1))
         pos += blocklen
         if pos >= end - 1:
             break
@@ -144,15 +191,17 @@ def sample_dsmc_sprs(k, popsize, rho, start=0.0, end=0.0, times=None,
         tree.set_root()
 
 
-def sample_arg_dsmc(k, popsize, rho, start=0.0, end=0.0, times=None, 
-                    init_tree=None,
-                    names=None, make_names=True):
+
+def sample_arg_dsmc(k, popsize, rho, recombmap=None,
+                    start=0.0, end=0.0, times=None, 
+                    init_tree=None, names=None, make_names=True):
     """
     Returns an ARG sampled from the Discrete Sequentially Markovian Coalescent (SMC)
     
     k   -- chromosomes
     popsize -- effective population size
     rho -- recombination rate (recombinations / site / generation)
+    recombmap -- map for variable recombination rate
     start -- staring chromosome coordinate
     end   -- ending chromsome coordinate
     
@@ -167,7 +216,8 @@ def sample_arg_dsmc(k, popsize, rho, start=0.0, end=0.0, times=None,
         times = arghmm.get_time_points(ntimes, maxtime, delta)
     
     it = sample_dsmc_sprs(
-        k, popsize, rho, start=start, end=end, times=times, 
+        k, popsize, rho, recombmap=recombmap,
+        start=start, end=end, times=times, 
         init_tree=init_tree, names=names, make_names=make_names)
     tree = it.next()
     arg = arglib.make_arg_from_sprs(tree, it)

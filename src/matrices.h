@@ -165,11 +165,12 @@ public:
             // check if no more blocks
             if (tree_iter == trees->end())
                 break;
+            assert(model_index < int(model->mutmap.size()));
         
             // compute new block ends
             tree_end = tree_start + tree_iter->blocklen;
             model_end = model->mutmap[model_index].end;
-            
+
             start = end;
         }
     }

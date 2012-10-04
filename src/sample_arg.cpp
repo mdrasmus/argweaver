@@ -493,9 +493,6 @@ double resample_arg_regions(
     const ArgModel *model, const Sequences *sequences, 
     LocalTrees *trees, int window, int step, int niters)
 {
-    // start timer
-    Timer time;
-
     decLogLevel();
     double accept_rate = 0.0;
     int nwindows = 0;
@@ -511,9 +508,6 @@ double resample_arg_regions(
     incLogLevel();
 
     accept_rate /= nwindows;
-    printTimerLog(time, LOG_LOW, "resample_arg_regions: accept=%f time=", 
-                  accept_rate);
-
     return accept_rate;
 }
 

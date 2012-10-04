@@ -249,7 +249,7 @@ bool read_track_filter(FILE *infile, Track<T> *track,
                 region.start = start;
             if (region.end > end)
                 region.end = end;
-
+            
             track->push_back(region);
         }
     }

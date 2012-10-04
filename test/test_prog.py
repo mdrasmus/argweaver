@@ -54,11 +54,11 @@ class Prog (unittest.TestCase):
 
 
     def test_prog(self):
-
+        
         popsize = 1e4
         mu = 2.20e-8
         rho = 1.16e-8
-
+        
         if not os.path.exists("test/data/test_prog/0.sites"):
             makedirs("test/data/test_prog")
             
@@ -67,7 +67,7 @@ class Prog (unittest.TestCase):
             -N 1e4 -r 1.16e-8 -m 2.20e-8 \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
-
+            
         make_clean_dir("test/data/test_prog/0.sample")
         os.system("""arg-sample \
     -s test/data/test_prog/0.sites \
@@ -77,7 +77,7 @@ class Prog (unittest.TestCase):
     -x 1 \
     -o test/data/test_prog/0.sample/out""")
         
-
+        
         # read true arg and seqs
         times = arghmm.get_time_points(ntimes=20, maxtime=400000)
         arg = arglib.read_arg("test/data/test_prog/0.arg")

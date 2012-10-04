@@ -147,6 +147,8 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
             const int age1 = ages1[node2];
             const int age2 = ages2[node2];
             
+            assert(!isnan(col1[k]));
+
             // same branch case (extra terms substracted, no 2*B[min(a,b)])
             double sum = tmatrix_fgroups[b];
             const int j1 = indexes[node2];
@@ -273,9 +275,15 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
             // we are still inside the same ARG block, therefore the
             // state-space does not change and no switch matrix is needed
             fw_block = &fw[pos-1];
-            emit = &emit[-1];
+            //emit = &emit[-1];
+            //fw_block--;
+            emit--;
             blocklen++;
         }
+
+        int nstates = max(matrices.transmat->nstates, 1);
+        double top = max_array(fw_block[0], nstates);
+        assert(top > 0.0);
         
         // calculate rest of block
         arghmm_forward_block(tree, model->ntimes, blocklen, 
@@ -284,9 +292,8 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
                              emit, fw_block, internal);
 
         // safety check
-        int nstates = max(matrices.transmat->nstates, 1);
-        double top = max_array(fw[pos + matrices.blocklen - 1], nstates);
-        assert(top > 0.0);
+        double top2 = max_array(fw[pos + matrices.blocklen - 1], nstates);
+        assert(top2 > 0.0);
 
         last_tree = tree;
     }

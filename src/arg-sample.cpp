@@ -549,10 +549,17 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "sample %d\n", i+1);
         //resample_arg_all(model, sequences, trees, config->prob_path_switch);
 
-        if (frand() < frac_leaf)
+        Timer timer;
+        if (frand() < frac_leaf) {
             resample_arg_leaf(model, sequences, trees);
-        else
-            resample_arg_regions(model, sequences, trees, window, step, niters);
+            printLog(LOG_LOW, "resample_arg_leaf: accept=%f\n", 1.0);
+        } else {
+            bool accept_rate = resample_arg_regions(
+                model, sequences, trees, window, step, niters);
+            printLog(LOG_LOW, "resample_arg_regions: accept=%f\n", accept_rate);
+        }
+        printTimerLog(timer, LOG_LOW, "sample time:");
+
         
         // logging
         print_stats(config->stats_file, "resample", i, model, sequences, trees,
@@ -833,7 +840,8 @@ int main(int argc, char **argv)
         sites = new Sites();
         sites_ptr = auto_ptr<Sites>(sites);
         CompressStream stream(c.sites_file.c_str());
-        if (!read_sites(stream.stream, sites, subregion[0], subregion[1])) {
+        if (!stream.stream || 
+            !read_sites(stream.stream, sites, subregion[0], subregion[1])) {
             printError("could not read sites file");
             return 1;
         }
@@ -964,9 +972,18 @@ int main(int argc, char **argv)
     
     // make compressed model
     ArgModel model(c.model);
+    model.setup_maps(seq_region.chrom, seq_region.start, seq_region.end);
     compress_model(&model, sites_mapping, c.compress_seq);
-    model.setup_maps(trees->chrom, trees->start_coord, trees->end_coord);
-    
+
+    /*
+    for (unsigned int i=0; i<model.recombmap.size(); i++)
+        printf("recomb[%d] = (%d, %d, %e), mut[%d] = (%d, %d, %e)\n", 
+               i, model.recombmap[i].start, model.recombmap[i].end,
+               model.recombmap[i].value,
+               i, model.mutmap[i].start, model.mutmap[i].end,
+               model.mutmap[i].value);
+    */
+
     // log original model
     log_model(model);
     

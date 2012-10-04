@@ -21,6 +21,10 @@ void ArgModel::setup_maps(string chrom, int start, int end) {
     Track<double> mutmap2;
     Track<double> recombmap2;
     while (i < mutmap.size() || j < recombmap.size()) {
+        printf("recomb[%d] = (%d, %d, %e), mut[%d] = (%d, %d, %e)\n", 
+               j, recombmap[j].start, recombmap[j].end, recombmap[j].value,
+               i, mutmap[i].start, mutmap[i].end, mutmap[i].value);
+
         if (mutmap[i].end < recombmap[j].end) {
             pos2 = mutmap[i].end;
             mutmap2.append(chrom, pos, pos2, mutmap[i].value);
