@@ -167,6 +167,10 @@ public:
         return ntimes + 1;
     }
 
+    double get_mintime() const {
+        return times[1] * .1;
+    }
+
     //=====================================================================
     // setting time points and population sizes
 
@@ -230,7 +234,7 @@ public:
 
     // Initializes mutation and recombination maps for use
     void setup_maps(string chrom, int start, int end);
-
+    
     // set model parameters from map position
     void set_map_pos(int pos) {
         mu = mutmap.find(pos, mu);
@@ -248,6 +252,23 @@ public:
         model.time_steps = time_steps;
         model.popsizes = popsizes;
     }
+
+    void get_local_model_index(int index, ArgModel &model) const {
+        if (mutmap.size() == 0 || recombmap.size() == 0) {
+            model.mu = mu;
+            model.rho = rho;
+        } else {
+            model.mu = mutmap[index].value;
+            model.rho = recombmap[index].value;
+        }
+
+        model.owned = false;
+        model.times = times;
+        model.ntimes = ntimes;
+        model.time_steps = time_steps;
+        model.popsizes = popsizes;
+    }
+
     
 
 protected:

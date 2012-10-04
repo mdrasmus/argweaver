@@ -100,83 +100,6 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
 }
 
 
-// calculate the probability of the sequences given an ARG
-double calc_arg_likelihood_parsimony(
-    const ArgModel *model, const Sequences *sequences, const LocalTrees *trees)
-{
-    double lnl = 0.0;
-    int nseqs = sequences->get_num_seqs();
-    double minlen = model->times[1];
-    const double log25 = log(.25);
-    const double *times = model->times;
-
-    if (trees->nnodes < 3)
-        return lnl += log25 * sequences->length();
-
-    // get sequences for trees
-    char *seqs[nseqs];
-    for (int j=0; j<nseqs; j++)
-        seqs[j] = sequences->seqs[trees->seqids[j]];
-
-    int end = trees->start_coord;
-    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it) {
-        int start = end;
-        end = start + it->blocklen;
-        LocalTree *tree = it->tree;
-        const LocalNode *nodes = tree->nodes;
-        const int blocklen = end - start;
-
-        int root = tree->root;
-        int root1 = nodes[root].child[0];
-        int root2 = nodes[root].child[1];
-
-        // initialize per branch substitution counts
-        int counts[tree->nnodes];
-        for (int j=0; j<tree->nnodes; j++)
-            counts[j] = 0;
-
-        // process block
-        for (int i=start; i<end; i++) {
-            char ancestral[tree->nnodes];
-            parsimony_ancestral_seq(tree, seqs, nseqs, i, ancestral);
-            
-            // count substituions per branch
-            for (int j=0; j<tree->nnodes; j++) {
-                if (j == root || j == root2)
-                    continue;
-                if (j == root1 && 
-                    ancestral[root1] != ancestral[root2])
-                    counts[j]++;
-                else if (ancestral[j] != ancestral[nodes[j].parent])
-                    counts[j]++;
-            }
-        }
-
-        // prior probability of root sequence        
-        lnl += log25 * blocklen; 
-        
-        // compute likelihood of seeing each of those substituions
-        for (int j=0; j<tree->nnodes; j++) {
-            if (j == root || j == root2)
-                continue;
-            
-            int parent = nodes[j].parent;
-            double t;
-            if (j == root1)
-                // wrap branch
-                t = 2.0 * times[nodes[root].age] 
-                    - times[nodes[root1].age] 
-                    - times[nodes[root2].age];
-            else
-                t = times[nodes[parent].age] - times[nodes[j].age];
-            t = max(t, minlen);
-            lnl += (counts[j] - blocklen) * model->mu * t +
-                counts[j] * log(1/3. - 1/3. * exp(-model->mu * t));
-        }
-    }
-
-    return lnl;
-}
 
 
 // The probabiluty of going from 'a' lineages to 'b' lineages in time 't'
@@ -348,10 +271,14 @@ double arghmm_likelihood_parsimony(LocalTrees *trees,
                                    double mu, 
                                    char **seqs, int nseqs, int seqlen)
 {
+    /*
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, NULL, 0.0, mu);
     Sequences sequences(seqs, nseqs, seqlen);
     return calc_arg_likelihood_parsimony(&model, &sequences, trees);
+    */
+    abort();
+    return 0.0;
 }
 
 
@@ -382,3 +309,89 @@ double arghmm_joint_prob(LocalTrees *trees,
 
 
 } // namespace arghmm
+
+
+
+//=============================================================================
+// old code
+
+
+/*
+// calculate the probability of the sequences given an ARG
+double calc_arg_likelihood_parsimony(
+    const ArgModel *model, const Sequences *sequences, const LocalTrees *trees)
+{
+    double lnl = 0.0;
+    int nseqs = sequences->get_num_seqs();
+    double minlen = model->get_mintime();
+    const double log25 = log(.25);
+    const double *times = model->times;
+
+    if (trees->nnodes < 3)
+        return lnl += log25 * sequences->length();
+
+    // get sequences for trees
+    char *seqs[nseqs];
+    for (int j=0; j<nseqs; j++)
+        seqs[j] = sequences->seqs[trees->seqids[j]];
+
+    int end = trees->start_coord;
+    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it) {
+        int start = end;
+        end = start + it->blocklen;
+        LocalTree *tree = it->tree;
+        const LocalNode *nodes = tree->nodes;
+        const int blocklen = end - start;
+
+        int root = tree->root;
+        int root1 = nodes[root].child[0];
+        int root2 = nodes[root].child[1];
+
+        // initialize per branch substitution counts
+        int counts[tree->nnodes];
+        for (int j=0; j<tree->nnodes; j++)
+            counts[j] = 0;
+
+        // process block
+        for (int i=start; i<end; i++) {
+            char ancestral[tree->nnodes];
+            parsimony_ancestral_seq(tree, seqs, nseqs, i, ancestral);
+            
+            // count substituions per branch
+            for (int j=0; j<tree->nnodes; j++) {
+                if (j == root || j == root2)
+                    continue;
+                if (j == root1 && 
+                    ancestral[root1] != ancestral[root2])
+                    counts[j]++;
+                else if (ancestral[j] != ancestral[nodes[j].parent])
+                    counts[j]++;
+            }
+        }
+
+        // prior probability of root sequence        
+        lnl += log25 * blocklen; 
+        
+        // compute likelihood of seeing each of those substituions
+        for (int j=0; j<tree->nnodes; j++) {
+            if (j == root || j == root2)
+                continue;
+            
+            int parent = nodes[j].parent;
+            double t;
+            if (j == root1)
+                // wrap branch
+                t = 2.0 * times[nodes[root].age] 
+                    - times[nodes[root1].age] 
+                    - times[nodes[root2].age];
+            else
+                t = times[nodes[parent].age] - times[nodes[j].age];
+            t = max(t, minlen);
+            lnl += (counts[j] - blocklen) * model->mu * t +
+                counts[j] * log(1/3. - 1/3. * exp(-model->mu * t));
+        }
+    }
+
+    return lnl;
+}
+*/

@@ -1606,12 +1606,12 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 12
+        k = 6
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         #mu = 1.5e-8 * 20
-        length = int(400e3) / 20
+        length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=180000)
         climb = 50; refine = 200;
         write = False
@@ -1624,7 +1624,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(20):
+        for i in range(10):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -2082,7 +2082,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(40):
+        for i in range(10):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)

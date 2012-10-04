@@ -130,17 +130,20 @@ public:
     ArgModelBlocks(const ArgModel *model, const LocalTrees *trees) :
         model(model),
         trees(trees)
-    {
-        assert(model->has_recombmap() && model->has_mutmap());
-    }
+    {}
         
     void setup() {
         int start = trees->start_coord;
         int tree_start = start;
-        int model_index = model->mutmap.index(start);
         LocalTrees::const_iterator tree_iter = trees->begin();
         int tree_end = tree_start + tree_iter->blocklen;
-        int model_end = model->mutmap[model_index].end; 
+        
+        int model_index = -1;
+        int model_end = trees->end_coord;
+        if (model->has_mutmap()) {
+            model_index = model->mutmap.index(start);
+            model_end = model->mutmap[model_index].end; 
+        }
         
         // record all common blocks
         while (start < trees->end_coord) {
@@ -165,11 +168,13 @@ public:
             // check if no more blocks
             if (tree_iter == trees->end())
                 break;
-            assert(model_index < int(model->mutmap.size()));
-        
+            
             // compute new block ends
             tree_end = tree_start + tree_iter->blocklen;
-            model_end = model->mutmap[model_index].end;
+            if (model->has_mutmap()) {
+                assert(model_index < int(model->mutmap.size()));
+                model_end = model->mutmap[model_index].end;
+            }
 
             start = end;
         }
@@ -322,7 +327,8 @@ protected:
         ArgModel local_model;
         ArgModelBlock &block = blocks.at(block_index);
         
-        model->get_local_model(block.start, local_model);
+        //model->get_local_model(block.start, local_model);
+        model->get_local_model_index(block.model_index, local_model);
         const LocalTreeSpr * last_tree_spr = get_last_tree_spr();
         
         arghmm::calc_arghmm_matrices(

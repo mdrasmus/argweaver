@@ -231,7 +231,7 @@ def sample_arg_mutations(arg, mu, times):
     """
 
     mutations = []
-    minlen = times[1]
+    minlen = times[1] * .1
 
     for (start, end), tree in arglib.iter_tree_tracks(arg):
         arglib.remove_single_lineages(tree)
