@@ -50,6 +50,11 @@ if conf.model == "dsmc":
                                  start=0, end=conf.seqlen, times=times)
     muts = arghmm.sample_arg_mutations(arg, conf.mutrate, times=times)
 
+elif conf.model == "coal_recomb":
+    arg = arglib.sample_arg(conf.nseqs, 2*conf.popsize, conf.recombrate,
+                            start=0, end=conf.seqlen)
+    muts = arglib.sample_arg_mutations(arg, conf.mutrate)
+
 else:
     print >>sys.stderr, "unknown simulation model:", conf.model
 
