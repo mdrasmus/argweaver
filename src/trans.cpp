@@ -11,6 +11,22 @@
 namespace arghmm {
 
 
+void get_coal_time_steps(const double *times, int ntimes, 
+                         double *coal_time_steps)
+{    
+    // get midpoints
+    double times2[2*ntimes+1];
+    for (int i=0; i<ntimes; i++) {
+        times2[2*i] = times[i];
+        times2[2*i+1] = sqrt((times[i+1]+1.0)*(times[i]+1.0));
+    }
+    times2[2*ntimes] = times[ntimes];
+    
+    for (int i=0; i<=2*ntimes; i+=2)
+        coal_time_steps[i] = times2[min(i+1, 2*ntimes)-1] -
+            times2[max(i-1, 0)];
+}
+
 
 // Calculate transition probability within a local block
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,

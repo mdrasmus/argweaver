@@ -87,6 +87,7 @@ class Sample (unittest.TestCase):
         arglib.write_arg("test/data/sim_dsmc/0.arg", arg)
 
 
+
     def test_sim_dsmc_cmp_recomb(self):
         """
         Simulate from DSMC and compare to SMC
@@ -94,25 +95,134 @@ class Sample (unittest.TestCase):
 
         k = 10
         n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 10000
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = int(200e3)
+        #times = arghmm.get_time_points(ntimes=80, maxtime=200000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=180000)
+        #times = [i/30. * 200000 for i in range(31)]
 
         r1 = []; r2 = []
         for i in range(1, 100):
             print i
             arg = arglib.sample_arg_smc(k, 2*n, i/100. * rho,
                                          start=0, end=length)
-            arg2 = arghmm.sample_arg_dsmc(k, 2*n, i/100. * rho,
-                                         start=0, end=length)
+            arg2 = arghmm.sample_arg_dsmc(k, 2*n, i/100. * rho, times=times,
+                                          start=0, end=length)
             r1.append(ilen(j for j in arg if j.event == "recomb"))
             r2.append(ilen(j for j in arg2 if j.event == "recomb"))
 
         p = plot(r1, r2, xlab="# recomb SMC", ylab="# recomb DSMC")
         p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
         
+        pause()        
+
+    def test_sim_dsmc_cmp_recomb2(self):
+        """
+        Simulate from DSMC and compare to SMC
+        """
+
+        k = 20
+        #n = 1e4
+        n = 17241.0 / 2
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = int(1000e3)
+        #times = arghmm.get_time_points(ntimes=80, maxtime=200000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=180000)
+        #times = [i/30. * 200000 for i in range(31)]
+
+        r1 = []; r2 = []
+        nsamples = 50
+        for i in range(1, nsamples):
+            print i
+            rho2 = i/float(nsamples) * rho
+            arg = arglib.sample_arg(k, 2*n, rho2,
+                                    start=0, end=length)
+            arg = arglib.smcify_arg(arg)
+            arg2 = arghmm.sample_arg_dsmc(k, 2*n, rho2, times=times,
+                                          start=0, end=length)
+            r1.append(ilen(j for j in arg if j.event == "recomb"))
+            r2.append(ilen(j for j in arg2 if j.event == "recomb"))
+
+        p = plot(r1, r2, xlab="# recomb coal_recomb", ylab="# recomb DSMC")
+        p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
+
+        print mean(r1), sdev(r1), mean(r2), sdev(r2)
         pause()
+
+    def test_sim_dsmc_cmp_arglen2(self):
+        """
+        Simulate from DSMC and compare to SMC
+        """
+
+        k = 20
+        #n = 1e4
+        n = 17241.0 / 2
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = int(100e3)
+        #times = arghmm.get_time_points(ntimes=80, maxtime=200000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=180000)
+        #times = [i/30. * 200000 for i in range(31)]
+
+        r1 = []; r2 = []
+        nsamples = 20
+        for i in range(1, nsamples):
+            print i
+            rho2 = i/float(nsamples) * rho
+            arg = arglib.sample_arg_smc(k, 2*n, rho2,
+                                        start=0, end=length)
+            #arg = arglib.sample_arg(k, 2*n, rho2, start=0, end=length)
+            #arg = arglib.smcify_arg(arg)
+            arg2 = arghmm.sample_arg_dsmc(k, 2*n, rho2, times=times,
+                                          start=0, end=length)
+            r1.append(arglib.arglen(arg))
+            r2.append(arglib.arglen(arg2))
+
+        p = plot(r1, r2, xlab="arglen coal_recomb", ylab="arglen DSMC")
+        p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
+
+        print mean(r1), sdev(r1), mean(r2), sdev(r2)
+        pause()
+
+
+
+    def test_sim_dsmc_cmp_recomb3(self):
+        """
+        Simulate from DSMC and compare to SMC
+        """
+
+        k = 20
+        #n = 1e4
+        n = 17241.0 / 2
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = int(500e3)
+        #times = arghmm.get_time_points(ntimes=80, maxtime=200000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=180000)
+        #times = [i/30. * 200000 for i in range(31)]
+
+        r1 = []; r2 = []
+        nsamples = 30
+        for i in range(1, nsamples):
+            print i
+            rho2 = rho
+            arg = arglib.sample_arg(k, 2*n, rho2,
+                                    start=0, end=length)
+            arg = arglib.smcify_arg(arg)
+            arg2 = arghmm.sample_arg_dsmc(k, 2*n, rho2, times=times,
+                                          start=0, end=length)
+            r1.append(ilen(j for j in arg if j.event == "recomb"))
+            r2.append(ilen(j for j in arg2 if j.event == "recomb"))
+
+        p = plot(r1, r2, xlab="# recomb coal_recomb", ylab="# recomb DSMC")
+        p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
+
+        print mean(r1), sdev(r1), mean(r2), sdev(r2)
         
+        pause()
+
 
 
     def test_sim_dsmc_cmp_arglen(self):
@@ -857,7 +967,7 @@ class Sample (unittest.TestCase):
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(200e3) / 20
+        length = int(100e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 0
         refine = 0
@@ -867,7 +977,7 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(10):
+        for i in range(40):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -881,7 +991,7 @@ class Sample (unittest.TestCase):
                                          carg=True)
                 arg2 = arghmm.resample_climb_arg(arg2, seqs,
                                                  rho=rho, mu=mu, times=times,
-                                                 refine=200, carg=True)
+                                                 refine=100, carg=True)
                 #arg2 = arghmm.resample_all_arg(arg, seqs, rho=rho, mu=mu,
                 #                               times=times, refine=100)
                 #arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
@@ -891,7 +1001,7 @@ class Sample (unittest.TestCase):
                 nrecombs2 = arghmm.get_local_trees_ntrees(arg2[0]) - 1
                 rx.append(nrecombs)
                 ry.append(nrecombs2)
-                print rx[-1], ry[-1]
+                print i, rx[-1], ry[-1]
         util.toc()
 
         print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
