@@ -550,6 +550,8 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         //resample_arg_all(model, sequences, trees, config->prob_path_switch);
 
         Timer timer;
+        //resample_arg_mcmc_all(model, sequences, trees, frac_leaf,
+        //window, step, niters);
         if (frand() < frac_leaf) {
             resample_arg_leaf(model, sequences, trees);
             printLog(LOG_LOW, "resample_arg_leaf: accept=%f\n", 1.0);

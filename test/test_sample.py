@@ -963,23 +963,26 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 12
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(100e3) / 20
+        length = int(500e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 0
-        refine = 0
+        refine = 20
 
         print "times", times
 
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(40):
-            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                         times=times)
+        for i in range(30):
+            arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+            #arg = arglib.smcify_arg(arg)
+            
+            #arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+            #                             times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arglib.make_alignment(arg, muts)
             
@@ -989,13 +992,13 @@ class Sample (unittest.TestCase):
                 util.tic("sample ARG %d, %d" % (i, j))
                 arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                          carg=True)
-                arg2 = arghmm.resample_climb_arg(arg2, seqs,
-                                                 rho=rho, mu=mu, times=times,
-                                                 refine=100, carg=True)
+                #arg2 = arghmm.resample_climb_arg(arg2, seqs,
+                #                                 rho=rho, mu=mu, times=times,
+                #                                 refine=100, carg=True)
                 #arg2 = arghmm.resample_all_arg(arg, seqs, rho=rho, mu=mu,
                 #                               times=times, refine=100)
-                #arg2 = arghmm.sample_all_arg(seqs, rho=rho, mu=mu, times=times,
-                #                             refine=refine)
+                arg2 = arghmm.resample_mcmc_arg(arg2, seqs, rho=rho, mu=mu,
+                    times=times, refine=refine, carg=True)
                 util.toc()
 
                 nrecombs2 = arghmm.get_local_trees_ntrees(arg2[0]) - 1

@@ -40,20 +40,25 @@ if conf.recombmap:
 else:
     recombmap = None
 
+if conf.model == "coal_recomb":
+    print "simulating using the Coalescent with Recombination model..."
+    arg = arglib.sample_arg(conf.nseqs, 2*conf.popsize, conf.recombrate,
+                            start=0, end=conf.seqlen)
+    muts = arglib.sample_arg_mutations(arg, conf.mutrate)
 
-if conf.model == "dsmc":
+elif conf.model == "smc":
+    print "simulating using the SMC model..."
+    arg = arglib.sample_arg_smc(conf.nseqs, 2*conf.popsize, conf.recombrate,
+                                start=0, end=conf.seqlen)
+    muts = arglib.sample_arg_mutations(arg, conf.mutrate)
+
+elif conf.model == "dsmc":
     print "simulating using the DSMC model..."
-    
     times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
     arg = arghmm.sample_arg_dsmc(conf.nseqs, 2*conf.popsize, conf.recombrate,
                                  recombmap=recombmap,
                                  start=0, end=conf.seqlen, times=times)
     muts = arghmm.sample_arg_mutations(arg, conf.mutrate, times=times)
-
-elif conf.model == "coal_recomb":
-    arg = arglib.sample_arg(conf.nseqs, 2*conf.popsize, conf.recombrate,
-                            start=0, end=conf.seqlen)
-    muts = arglib.sample_arg_mutations(arg, conf.mutrate)
 
 else:
     print >>sys.stderr, "unknown simulation model:", conf.model

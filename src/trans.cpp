@@ -23,7 +23,7 @@ void get_coal_time_steps(const double *times, int ntimes,
     times2[2*ntimes] = times[ntimes];
     
     for (int i=0; i<=2*ntimes; i+=2)
-        coal_time_steps[i] = times2[min(i+1, 2*ntimes)-1] -
+        coal_time_steps[i/2] = times2[min(i+1, 2*ntimes)-1] -
             times2[max(i-1, 0)];
 }
 
@@ -38,7 +38,9 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     const double *time_steps = model->time_steps;
     const double *popsizes = model->popsizes;
     const double rho = model->rho;
-    
+    //double coal_time_steps[ntimes];
+    //get_coal_time_steps(times, ntimes, coal_time_steps);
+
     const int *nbranches = lineages->nbranches;
     const int *nrecombs = lineages->nrecombs;
     const int *ncoals = lineages->ncoals;
