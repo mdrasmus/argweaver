@@ -32,7 +32,6 @@ public:
             delete [] E;
             delete [] G;
             delete [] norecombs;
-            //delete [] sums;
         }
     }
 
@@ -45,10 +44,8 @@ public:
         E = new double [ntimes];
         G = new double [ntimes];
         norecombs = new double [ntimes];
-        //sums = new double [nstates];
     }
-
-
+    
     inline double get(
         const LocalTree *tree, const States &states, int i, int j) const
     {
@@ -84,7 +81,6 @@ public:
             return p;
         }
     }
-
 
     inline double get_log(
         const LocalTree *tree, const States &states, int i, int j) const
@@ -148,8 +144,7 @@ public:
     {
         return exp(get_log(i, j));
     }
-
-
+    
     inline double get_log(int i, int j) const
     {
         if (i == recoalsrc) {
@@ -163,7 +158,6 @@ public:
                 return -INFINITY;
         }
     }
-
     
 
     int nstates1;
@@ -177,6 +171,9 @@ public:
     double *recombrow;
 };
 
+
+
+//=============================================================================
 
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     const States &states, const LineageCounts *lineages, TransMatrix *matrix);

@@ -6,6 +6,29 @@
 namespace arghmm {
 
 
+void get_coal_time_steps(const double *times, int ntimes, 
+                         double *coal_time_steps)
+{    
+    // get midpoints
+    double times2[2*ntimes+1];
+    for (int i=0; i<ntimes; i++) {
+        times2[2*i] = times[i];
+        times2[2*i+1] = sqrt((times[i+1]+1.0)*(times[i]+1.0));
+    }
+    times2[2*ntimes] = times[ntimes];
+    
+    for (int i=0; i<2*ntimes; i+=2) {
+        coal_time_steps[i/2] = times2[min(i+1, 2*ntimes)] -
+            times2[max(i-1, 0)];
+        //printf(">> %d %d %f %f\n", min(i+1, 2*ntimes), max(i-1, 0),
+        //       times2[min(i+1, 2*ntimes)],
+        //       times2[max(i-1, 0)]);
+        //printf("> %d %f %f\n", i/2, times[i/2], coal_time_steps[i/2]);
+    }
+    coal_time_steps[ntimes-1] = INFINITY;
+}
+
+
 // Initializes mutation and recombination maps for use
 void ArgModel::setup_maps(string chrom, int start, int end) {
     // setup default maps

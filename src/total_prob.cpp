@@ -179,14 +179,14 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
 
     lnl -= log(ncoals_j);
     if (j < model->ntimes - 2)
-        lnl += log((1.0 - exp(- model->time_steps[j] * nbranches_j / 
+        lnl += log((1.0 - exp(- model->coal_time_steps[j] * nbranches_j / 
                               (2.0 * model->popsizes[j]))));
 
     double sum = 0.0;
     for (int m=k; m<j; m++) {
         int nbranches_m = lineages.nbranches[m] - int(m < broken_age);
         
-        sum += model->time_steps[m] * nbranches_m / 
+        sum += model->coal_time_steps[m] * nbranches_m / 
             (2.0 * model->popsizes[m]);
     }
     lnl -= sum;

@@ -30,6 +30,10 @@ inline void get_time_points(int ntimes, double maxtime,
 }
 
 
+void get_coal_time_steps(const double *times, int ntimes, 
+                         double *coal_time_steps);
+
+
 
 // The model parameters and time discretization scheme
 class ArgModel 
@@ -40,6 +44,7 @@ public:
         ntimes(ntimes),
         times(NULL),
         time_steps(NULL),
+        coal_time_steps(NULL),
         popsizes(NULL),
         rho(rho),
         mu(mu)
@@ -52,6 +57,7 @@ public:
         ntimes(ntimes),
         times(NULL),
         time_steps(NULL),
+        coal_time_steps(NULL),
         popsizes(NULL),
         rho(rho),
         mu(mu)
@@ -67,6 +73,7 @@ public:
         ntimes(ntimes),
         times(NULL),
         time_steps(NULL),
+        coal_time_steps(NULL),
         popsizes(NULL),
         rho(rho),
         mu(mu)
@@ -84,6 +91,7 @@ public:
         ntimes(ntimes),
         times(NULL),
         time_steps(NULL),
+        coal_time_steps(NULL),
         popsizes(NULL),
         rho(rho),
         mu(mu)
@@ -100,6 +108,7 @@ public:
         ntimes(other.ntimes),
         times(other.times),
         time_steps(other.time_steps),
+        coal_time_steps(other.coal_time_steps),
         popsizes(other.popsizes),
         rho(rho),
         mu(mu)
@@ -111,6 +120,7 @@ public:
         ntimes(other.ntimes),
         times(NULL),
         time_steps(NULL),
+        coal_time_steps(NULL),
         popsizes(NULL),
         rho(other.rho),
         mu(other.mu)
@@ -130,6 +140,7 @@ public:
         if (owned) {
             delete [] times;
             delete [] time_steps;
+            delete [] coal_time_steps;
             if (popsizes)
                 delete [] popsizes;
         }
@@ -180,7 +191,6 @@ public:
         clear_array(&times);
         times = new double [ntimes];
         std::copy(_times, _times + ntimes, times);
-        
         setup_time_steps();
     }
 
@@ -250,6 +260,7 @@ public:
         model.times = times;
         model.ntimes = ntimes;
         model.time_steps = time_steps;
+        model.coal_time_steps = coal_time_steps;
         model.popsizes = popsizes;
     }
 
@@ -266,6 +277,7 @@ public:
         model.times = times;
         model.ntimes = ntimes;
         model.time_steps = time_steps;
+        model.coal_time_steps = coal_time_steps;
         model.popsizes = popsizes;
     }
 
@@ -281,6 +293,11 @@ protected:
         for (int i=0; i<ntimes-1; i++)
             time_steps[i] = times[i+1] - times[i];
         time_steps[ntimes-1] = INFINITY;
+
+        clear_array(&coal_time_steps);
+        coal_time_steps = new double [ntimes];
+        get_coal_time_steps(times, ntimes, coal_time_steps);
+        //std::copy(time_steps, time_steps + ntimes, coal_time_steps);
     }
 
 public:
@@ -290,6 +307,7 @@ public:
     int ntimes;
     double *times;
     double *time_steps;
+    double *coal_time_steps;
 
     // parameters
     double *popsizes;        // population sizes

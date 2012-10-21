@@ -63,7 +63,7 @@ class Prog (unittest.TestCase):
             makedirs("test/data/test_prog")
             
             os.system("""arg-sim \
-            -k 20 -L 100000 \
+            -k 20 -L 100000 --model smc \
             -N 1e4 -r 1.16e-8 -m 2.20e-8 \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
@@ -73,7 +73,7 @@ class Prog (unittest.TestCase):
     -s test/data/test_prog/0.sites \
     -N 1e4 -r 1.16e-8 -m 2.20e-8 \
     --ntimes 20 --maxtime 200e3 -c 20 \
-    --climb 0 -n 1001 \
+    --climb 50 -n 201 \
     -x 1 \
     -o test/data/test_prog/0.sample/out""")
         

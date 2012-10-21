@@ -11,21 +11,6 @@
 namespace arghmm {
 
 
-void get_coal_time_steps(const double *times, int ntimes, 
-                         double *coal_time_steps)
-{    
-    // get midpoints
-    double times2[2*ntimes+1];
-    for (int i=0; i<ntimes; i++) {
-        times2[2*i] = times[i];
-        times2[2*i+1] = sqrt((times[i+1]+1.0)*(times[i]+1.0));
-    }
-    times2[2*ntimes] = times[ntimes];
-    
-    for (int i=0; i<=2*ntimes; i+=2)
-        coal_time_steps[i/2] = times2[min(i+1, 2*ntimes)-1] -
-            times2[max(i-1, 0)];
-}
 
 
 // Calculate transition probability within a local block
@@ -35,11 +20,10 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     // get model parameters
     const int ntimes = model->ntimes;
     const double *times = model->times;
+    const double *coal_time_steps = model->coal_time_steps;
     const double *time_steps = model->time_steps;
     const double *popsizes = model->popsizes;
     const double rho = model->rho;
-    //double coal_time_steps[ntimes];
-    //get_coal_time_steps(times, ntimes, coal_time_steps);
 
     const int *nbranches = lineages->nbranches;
     const int *nrecombs = lineages->nrecombs;
@@ -63,7 +47,7 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     double C = 0.0;
     B[0] = (nbranches[0] + 1.0) * time_steps[0] / (nrecombs[0] + 1.0);
     D[0] = (1.0 - exp(-max(rho * treelen, rho))) / treelen_b;
-    E[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
+    E[0] = (1.0 - exp(-coal_time_steps[0] * nbranches[0]
                       / (2.0 * popsizes[0]))) / ncoals[0];
     G[0] = time_steps[0] * ((nbranches[0] + 1.0) / (nrecombs[0] + 1.0) -
                             (nbranches[0] / (nrecombs[0] + 1.0 + 
@@ -87,11 +71,11 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
         }
 
         const int l = b - 1;
-        C = C + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
+        C = C + coal_time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
         const double eC = exp(C);
         B[b] = B[b-1] + (nbranches[b] + 1.0) * time_steps[b] / (nrecombs[b] + 1.0)*eC;
         D[b] = (1.0 - exp(-rho * treelen2)) / treelen2_b;
-        E[b] = (1.0 - exp(-time_steps[b] * nbranches[b] / 
+        E[b] = (1.0 - exp(-coal_time_steps[b] * nbranches[b] / 
                           (2.0 * popsizes[b]))) / eC / ncoals[b];
         G[b] = eC * time_steps[b] * 
             ((nbranches[b] + 1.0) / (nrecombs[b] + 1.0) -
@@ -112,6 +96,7 @@ void calc_transition_probs_internal(const LocalTree *tree,
     // get model parameters
     const int ntimes = model->ntimes;
     const double *times = model->times;
+    const double *coal_time_steps = model->coal_time_steps;
     const double *time_steps = model->time_steps;
     const double *popsizes = model->popsizes;
     const double rho = model->rho;
@@ -142,7 +127,7 @@ void calc_transition_probs_internal(const LocalTree *tree,
     double C = 0.0;
     B[0] = (nbranches[0] + 1.0) * time_steps[0] / (nrecombs[0] + 1.0);
     D[0] = (1.0 - exp(-max(rho * treelen, rho))) / treelen_b;
-    E[0] = (1.0 - exp(-time_steps[0] * nbranches[0]
+    E[0] = (1.0 - exp(-coal_time_steps[0] * nbranches[0]
                       / (2.0 * popsizes[0]))) / ncoals[0];
     G[0] = time_steps[0] * ((nbranches[0] + 1.0) / (nrecombs[0] + 1.0) -
                             (nbranches[0] / (nrecombs[0] + 1.0 + 
@@ -166,11 +151,11 @@ void calc_transition_probs_internal(const LocalTree *tree,
         }
         
         const int l = b - 1;
-        C = C + time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
+        C = C + coal_time_steps[l] * nbranches[l] / (2.0 * popsizes[l]);
         const double eC = exp(C);
         B[b] = B[b-1] + (nbranches[b] + 1.0) * time_steps[b] / (nrecombs[b] + 1.0)*eC;
         D[b] = (1.0 - exp(-rho * treelen2)) / treelen2_b;
-        E[b] = (1.0 - exp(-time_steps[b] * nbranches[b] / 
+        E[b] = (1.0 - exp(-coal_time_steps[b] * nbranches[b] / 
                           (2.0 * popsizes[b]))) / eC / ncoals[b];
         G[b] = eC * time_steps[b] * 
             ((nbranches[b] + 1.0) / (nrecombs[b] + 1.0) -
@@ -498,7 +483,7 @@ double calc_recomb_recoal(
     for (int m=k; m<j; m++) {
         int nbranches_m = lineages->nbranches[m] - int(m < recomb_parent_age) 
             + int(m < a);
-        sum += model->time_steps[m] * nbranches_m / (2.0 * model->popsizes[m]);
+        sum += model->coal_time_steps[m] * nbranches_m / (2.0 * model->popsizes[m]);
     }
     int nbranches_j = nbranches[j] - int(j < recomb_parent_age) + int(j < a);
     int ncoals_j = ncoals[j] - int(j <= recomb_parent_age)
@@ -520,7 +505,7 @@ double calc_recomb_recoal(
     double p = recomb_prob * exp(-sum) / ncoals_j;
 
     if (j < model->ntimes - 2)
-        p *= 1.0 - exp(-model->time_steps[j] * nbranches_j / 
+        p *= 1.0 - exp(-model->coal_time_steps[j] * nbranches_j / 
                        (2.0*model->popsizes[j]));
 
     if (ncoals_j <= 0 || nbranches_j <= 0 || 
@@ -874,7 +859,7 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
                        const int minage)
 {
     const int nstates = states.size();
-    const double *time_steps = model->time_steps;
+    const double *coal_time_steps = model->coal_time_steps;
     const double *popsizes = model->popsizes;
     const int *nbranches = lineages->nbranches;
     const int *ncoals = lineages->ncoals;
@@ -895,9 +880,9 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
 
         double sum = 0.0;
         for (int m=minage; m<b; m++)
-            sum += time_steps[m] * nbranches[m] / (2.0 * popsizes[m]);
+            sum += coal_time_steps[m] * nbranches[m] / (2.0 * popsizes[m]);
 
-        priors[i] = (1.0 - exp(- time_steps[b] * nbranches[b] /
+        priors[i] = (1.0 - exp(- coal_time_steps[b] * nbranches[b] /
                                (2.0 * popsizes[b]))) / ncoals[b] * exp(-sum);
     }
 }

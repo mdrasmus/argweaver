@@ -93,7 +93,7 @@ class Sample (unittest.TestCase):
         Simulate from DSMC and compare to SMC
         """
 
-        k = 10
+        k = 30
         n = 1e4
         rho = 1.5e-8
         mu = 2.5e-8
@@ -115,7 +115,7 @@ class Sample (unittest.TestCase):
         p = plot(r1, r2, xlab="# recomb SMC", ylab="# recomb DSMC")
         p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
         
-        pause()        
+        pause()
 
     def test_sim_dsmc_cmp_recomb2(self):
         """
@@ -150,42 +150,6 @@ class Sample (unittest.TestCase):
 
         print mean(r1), sdev(r1), mean(r2), sdev(r2)
         pause()
-
-    def test_sim_dsmc_cmp_arglen2(self):
-        """
-        Simulate from DSMC and compare to SMC
-        """
-
-        k = 20
-        #n = 1e4
-        n = 17241.0 / 2
-        rho = 1.5e-8
-        mu = 2.5e-8
-        length = int(100e3)
-        #times = arghmm.get_time_points(ntimes=80, maxtime=200000)
-        times = arghmm.get_time_points(ntimes=20, maxtime=180000)
-        #times = [i/30. * 200000 for i in range(31)]
-
-        r1 = []; r2 = []
-        nsamples = 20
-        for i in range(1, nsamples):
-            print i
-            rho2 = i/float(nsamples) * rho
-            arg = arglib.sample_arg_smc(k, 2*n, rho2,
-                                        start=0, end=length)
-            #arg = arglib.sample_arg(k, 2*n, rho2, start=0, end=length)
-            #arg = arglib.smcify_arg(arg)
-            arg2 = arghmm.sample_arg_dsmc(k, 2*n, rho2, times=times,
-                                          start=0, end=length)
-            r1.append(arglib.arglen(arg))
-            r2.append(arglib.arglen(arg2))
-
-        p = plot(r1, r2, xlab="arglen coal_recomb", ylab="arglen DSMC")
-        p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
-
-        print mean(r1), sdev(r1), mean(r2), sdev(r2)
-        pause()
-
 
 
     def test_sim_dsmc_cmp_recomb3(self):
@@ -289,31 +253,37 @@ class Sample (unittest.TestCase):
         pause()
 
 
-    def test_sample_mut(self):
+    def test_sim_dsmc_cmp_muts(self):
         """
-        Simulate mutations
+        Simulate from DSMC and compare to SMC
         """
 
-        k = 12
+        k = 20
         n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = int(200e3) / 20
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = int(200e3)
+        #times = arghmm.get_time_points(ntimes=80, maxtime=200000)
         times = arghmm.get_time_points(ntimes=20, maxtime=180000)
+        #times = [i/30. * 200000 for i in range(31)]
 
-        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                     times=times)
-        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
-        seqs = arghmm.make_alignment(arg, muts)
+        r1 = []; r2 = []
+        nsamples = 20
+        for i in range(1, nsamples+1):
+            arg = arglib.sample_arg_smc(k, 2*n, rho,
+                                         start=0, end=length)
+            arg2 = arghmm.sample_arg_dsmc(k, 2*n, rho, times=times,
+                                          start=0, end=length)
+            mut = arglib.sample_arg_mutations(arg, i/float(nsamples) * mu)
+            mut2 = arghmm.sample_arg_mutations(arg2, i/float(nsamples) * mu, times=times)
+            r1.append(len(mut))
+            r2.append(len(mut2))
+            print i, r1[-1], r2[-1]
 
-        print seqs.alignlen()
-        print histtab(cget(muts, 2))[:30]
-        print
-        print len(muts)
-        print ilen(arglib.iter_align_splits(seqs))
-
-        seqs.write("test/data/sample_mut.fa")
+        p = plot(r1, r2, xlab="# mut SMC", ylab="# mut DSMC")
+        p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
         
+        pause()
 
     #------------------------------------------
 
@@ -963,26 +933,26 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 5
+        k = 20
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(500e3) / 20
+        length = int(400e3 / 20)
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 0
-        refine = 20
+        refine = 0
 
         print "times", times
 
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(30):
-            arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+        for i in range(20):
+            #arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
             #arg = arglib.smcify_arg(arg)
             
-            #arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-            #                             times=times)
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arglib.make_alignment(arg, muts)
             
@@ -992,9 +962,9 @@ class Sample (unittest.TestCase):
                 util.tic("sample ARG %d, %d" % (i, j))
                 arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                          carg=True)
-                #arg2 = arghmm.resample_climb_arg(arg2, seqs,
-                #                                 rho=rho, mu=mu, times=times,
-                #                                 refine=100, carg=True)
+                arg2 = arghmm.resample_climb_arg(arg2, seqs,
+                                                 rho=rho, mu=mu, times=times,
+                                                 refine=100, carg=True)
                 #arg2 = arghmm.resample_all_arg(arg, seqs, rho=rho, mu=mu,
                 #                               times=times, refine=100)
                 arg2 = arghmm.resample_mcmc_arg(arg2, seqs, rho=rho, mu=mu,
@@ -1719,14 +1689,14 @@ class Sample (unittest.TestCase):
         Plot the ARG joint prob from a fully sampled ARG
         """
 
-        k = 6
+        k = 12
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         #mu = 1.5e-8 * 20
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=180000)
-        climb = 50; refine = 200;
+        climb = 50; refine = 0
         write = False
         if write:
             make_clean_dir("test/data/sample_arg_joint")
@@ -1737,9 +1707,13 @@ class Sample (unittest.TestCase):
         rx = []
         ry = []
         util.tic("plot")
-        for i in range(10):
-            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                         times=times)
+        for i in range(20):
+            #arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
+            #arg = arglib.smcify_arg(arg)
+            arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+            arghmm.discretize_arg(arg, times, round_age="closer")
+            #arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+            #                             times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arghmm.make_alignment(arg, muts)
             if write:
