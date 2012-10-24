@@ -32,6 +32,8 @@ inline void get_time_points(int ntimes, double maxtime,
 
 void get_coal_time_steps(const double *times, int ntimes, 
                          double *coal_time_steps);
+void get_coal_time_steps2(const double *times, int ntimes, 
+                          double *coal_time_steps);
 
 
 
@@ -45,6 +47,7 @@ public:
         times(NULL),
         time_steps(NULL),
         coal_time_steps(NULL),
+        coal_time_steps2(NULL),
         popsizes(NULL),
         rho(rho),
         mu(mu)
@@ -58,6 +61,7 @@ public:
         times(NULL),
         time_steps(NULL),
         coal_time_steps(NULL),
+        coal_time_steps2(NULL),
         popsizes(NULL),
         rho(rho),
         mu(mu)
@@ -74,6 +78,7 @@ public:
         times(NULL),
         time_steps(NULL),
         coal_time_steps(NULL),
+        coal_time_steps2(NULL),
         popsizes(NULL),
         rho(rho),
         mu(mu)
@@ -92,6 +97,7 @@ public:
         times(NULL),
         time_steps(NULL),
         coal_time_steps(NULL),
+        coal_time_steps2(NULL),
         popsizes(NULL),
         rho(rho),
         mu(mu)
@@ -109,6 +115,7 @@ public:
         times(other.times),
         time_steps(other.time_steps),
         coal_time_steps(other.coal_time_steps),
+        coal_time_steps2(other.coal_time_steps2),
         popsizes(other.popsizes),
         rho(rho),
         mu(mu)
@@ -121,6 +128,7 @@ public:
         times(NULL),
         time_steps(NULL),
         coal_time_steps(NULL),
+        coal_time_steps2(NULL),
         popsizes(NULL),
         rho(other.rho),
         mu(other.mu)
@@ -141,6 +149,7 @@ public:
             delete [] times;
             delete [] time_steps;
             delete [] coal_time_steps;
+            delete [] coal_time_steps2;
             if (popsizes)
                 delete [] popsizes;
         }
@@ -261,6 +270,7 @@ public:
         model.ntimes = ntimes;
         model.time_steps = time_steps;
         model.coal_time_steps = coal_time_steps;
+        model.coal_time_steps2 = coal_time_steps2;
         model.popsizes = popsizes;
     }
 
@@ -278,6 +288,7 @@ public:
         model.ntimes = ntimes;
         model.time_steps = time_steps;
         model.coal_time_steps = coal_time_steps;
+        model.coal_time_steps2 = coal_time_steps2;
         model.popsizes = popsizes;
     }
 
@@ -297,6 +308,11 @@ protected:
         clear_array(&coal_time_steps);
         coal_time_steps = new double [ntimes];
         get_coal_time_steps(times, ntimes, coal_time_steps);
+
+        clear_array(&coal_time_steps2);
+        coal_time_steps2 = new double [2*ntimes];
+        get_coal_time_steps2(times, ntimes, coal_time_steps2);
+        
         //std::copy(time_steps, time_steps + ntimes, coal_time_steps);
     }
 
@@ -308,6 +324,7 @@ public:
     double *times;
     double *time_steps;
     double *coal_time_steps;
+    double *coal_time_steps2;
 
     // parameters
     double *popsizes;        // population sizes

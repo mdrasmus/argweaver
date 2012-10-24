@@ -117,9 +117,9 @@ class Sample (unittest.TestCase):
         
         pause()
 
-    def test_sim_dsmc_cmp_recomb2(self):
+    def test_sim_smc_cmp_recomb(self):
         """
-        Simulate from DSMC and compare to SMC
+        Simulate from coal_recomb and compare to SMC
         """
 
         k = 20
@@ -127,7 +127,7 @@ class Sample (unittest.TestCase):
         n = 17241.0 / 2
         rho = 1.5e-8
         mu = 2.5e-8
-        length = int(1000e3)
+        length = int(100e3)
         #times = arghmm.get_time_points(ntimes=80, maxtime=200000)
         times = arghmm.get_time_points(ntimes=20, maxtime=180000)
         #times = [i/30. * 200000 for i in range(31)]
@@ -139,10 +139,12 @@ class Sample (unittest.TestCase):
             rho2 = i/float(nsamples) * rho
             arg = arglib.sample_arg(k, 2*n, rho2,
                                     start=0, end=length)
-            arg = arglib.smcify_arg(arg)
+            #arg = arglib.smcify_arg(arg)
             arg2 = arghmm.sample_arg_dsmc(k, 2*n, rho2, times=times,
                                           start=0, end=length)
-            r1.append(ilen(j for j in arg if j.event == "recomb"))
+            #arg2 = arglib.sample_arg_smc(k, 2*n, rho2, 
+            #                             start=0, end=length)
+            r1.append(ilen(arghmm.iter_visible_recombs(arg)))
             r2.append(ilen(j for j in arg2 if j.event == "recomb"))
 
         p = plot(r1, r2, xlab="# recomb coal_recomb", ylab="# recomb DSMC")
@@ -150,6 +152,33 @@ class Sample (unittest.TestCase):
 
         print mean(r1), sdev(r1), mean(r2), sdev(r2)
         pause()
+
+
+    def test_sim_recomb_coal(self):
+        """
+        Simulate from coal_recomb and compare to SMC
+        """
+
+        k = 20
+        n = 1e4
+        mu = 2.5e-8
+        rho = mu / 2.0
+        length = int(100e3)
+
+        r = []; s = []
+        nsamples = 40
+        for i in range(1, nsamples):
+            print i, 
+            rho2 = rho
+            arg = arglib.sample_arg(k, 2*n, rho2,
+                                    start=0, end=length)
+            muts = arglib.sample_arg_mutations(arg, mu)
+            r.append(ilen(arghmm.iter_visible_recombs(arg)))            
+            s.append(len(muts))
+            print r[-1], s[-1]
+        print mean(r), mean(s)
+            
+
 
 
     def test_sim_dsmc_cmp_recomb3(self):

@@ -23,7 +23,7 @@ def iter_tmrcas(filename):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
         if item["tag"] == "TREE":
-            yield item["start"], item["end"], chrom, item["tree"].root.data["age"]
+            yield item["start"]-1, item["end"], chrom, item["tree"].root.data["age"]
 
 
 #=============================================================================

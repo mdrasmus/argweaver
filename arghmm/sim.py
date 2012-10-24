@@ -64,8 +64,19 @@ def sample_next_recomb(treelen, rho, pos=None, recombmap=None, minlen=1):
         return blocklen
 
 
+
+def get_coal_times(times):    
+    # get midpoints
+    ntimes = len(times) - 1
+    times2 = []    
+    for i in range(ntimes):
+        times2.append(times[i])
+        times2.append(((times[i+1]+1)*(times[i]+1))**.5)
+    times2.append(times[ntimes])
+    return times2
+
+
 def get_coal_time_steps(times):
-    
     # get midpoints
     ntimes = len(times) - 1
     times2 = []    
@@ -502,6 +513,7 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
     assert times is not None
     ntimes = len(times) - 1
     time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]
+    times2 = get_coal_times(times)
     time_steps2 = get_coal_time_steps(times)
     
     if hasattr(popsize, "__len__"):
@@ -540,6 +552,8 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
         probs = [nbranches[k] * time_steps[k]
                  for k in range(root_age_index+1)]
         recomb_time_index = stats.sample(probs)
+        #if recomb_time_index < root_age_index and random.random() < 0.5:
+        #    root_age_index += 1
         recomb_time = times[recomb_time_index]
 
         # choose branch for recombination
@@ -549,16 +563,23 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
         
         # choose coal time
         j = recomb_time_index
+        last_kj = None
         while j < ntimes - 1:
             kj = nbranches[j]
             if ((recomb_node.name, j) in states and
                 recomb_node.parents[0].age > times[j]):
                 kj -= 1
             assert kj > 0, (j, root_age_index, states)
-            coal_prob = 1.0 - exp(- time_steps2[j] * kj / float(popsizes[j]))
+            #coal_prob = 1.0 - exp(- time_steps2[j] * kj / float(popsizes[j]))
+
+            A = (times2[2*j+1] - times2[2*j])*kj/float(popsizes[j])
+            if last_kj:
+                A += (times2[2*j] - times2[2*j-1])*last_kj/float(popsizes[j-1])
+            coal_prob = 1.0 - exp(-A)
             if random.random() < coal_prob:
                 break
             j += 1
+            last_kj = kj
         coal_time_index = j
         coal_time = times[j]
         
