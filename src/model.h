@@ -307,13 +307,12 @@ protected:
 
         clear_array(&coal_time_steps);
         coal_time_steps = new double [ntimes];
-        get_coal_time_steps(times, ntimes, coal_time_steps);
+        //get_coal_time_steps(times, ntimes, coal_time_steps);
+        std::copy(time_steps, time_steps + ntimes, coal_time_steps);
 
         clear_array(&coal_time_steps2);
         coal_time_steps2 = new double [2*ntimes];
         get_coal_time_steps2(times, ntimes, coal_time_steps2);
-        
-        //std::copy(time_steps, time_steps + ntimes, coal_time_steps);
     }
 
 public:

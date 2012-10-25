@@ -4,11 +4,117 @@
 #ifndef ARGHMM_TRANS_H
 #define ARGHMM_TRANS_H
 
+#include "common.h"
 #include "local_tree.h"
 #include "model.h"
 #include "states.h"
 
 namespace arghmm {
+
+
+// A compressed representation of the transition matrix
+class TransMatrix2
+{
+public:
+    TransMatrix2(int ntimes, int nstates, bool alloc=true) :
+        ntimes(ntimes),
+        nstates(nstates),
+        own_data(false),
+        internal(false)
+    {
+        if (alloc)
+            allocate(ntimes);
+    }
+
+    ~TransMatrix2()
+    {
+        if (own_data) {
+            delete [] B;
+            delete [] C;
+            delete [] D;
+            delete [] E;
+            delete [] G;
+            delete [] J;
+            delete_matrix<double>(S, ntimes);
+            delete [] norecombs;
+        }
+    }
+
+    void allocate(int ntimes)
+    {
+        ntimes = ntimes;
+        own_data = true;
+        B = new double [ntimes];
+        C = new double [ntimes];
+        D = new double [ntimes];
+        E = new double [ntimes];
+        G = new double [ntimes];
+        J = new double [ntimes];
+        S = new_matrix<double>(ntimes, ntimes);
+        S2 = new_matrix<double>(ntimes, ntimes);
+        norecombs = new double [ntimes];
+    }
+    
+    inline double get(
+        const LocalTree *tree, const States &states, int i, int j) const
+    {
+        double Bq = 0.0;
+        int minage = 0;
+        if (internal) {
+            if (nstates == 0)
+                return 1.0;
+            const int subtree_root = tree->nodes[tree->root].child[0];
+            const int subtree_age = tree->nodes[subtree_root].age;
+            minage = subtree_age;
+            if (subtree_age > 0)
+                Bq = B[subtree_age - 1];
+        }
+
+        const int node1 = states[i].node;
+        const int a = states[i].time;
+        const int node2 = states[j].node;
+        const int b = states[j].time;
+        const int c = tree->nodes[node2].age;
+
+        if (a < minage || b < minage)
+            return 0.0;
+        
+        if (node1 != node2) {
+            return D[a] * E[b] * (S[a][b] - 
+                                  (minage>0 ? S2[minage-1][b] : 0));
+        } else {
+            double p = D[a] * E[b] * (2 * S[a][b] - (c>0 ? S2[c-1][b] : 0)
+                                      - (minage>0 ? S2[minage-1][b] : 0));
+            if (a == b)
+                p += norecombs[a];
+            return p;
+        }
+    }
+
+    inline double get_log(
+        const LocalTree *tree, const States &states, int i, int j) const
+    {
+        return log(get(tree, states, i, j));
+    }
+
+
+
+    int ntimes;
+    int nstates;
+    bool own_data;
+    double *B;
+    double *C;
+    double *D;
+    double *E;
+    double *G;
+    double *J;
+    double **S;
+    double **S2;
+    double *norecombs;
+    bool internal;
+};
+
+
 
 // A compressed representation of the transition matrix
 class TransMatrix
@@ -207,6 +313,12 @@ void calc_transition_probs_switch_internal(
     const States &states1, const States &states2,
     const ArgModel *model, const LineageCounts *lineages, 
     TransMatrixSwitch *transmat_switch);
+void calc_transition_probs_switch_internal2(
+    const LocalTree *tree, const LocalTree *last_tree, 
+    const Spr &spr, const int *mapping,
+    const States &states1, const States &states2,
+    const ArgModel *model, const LineageCounts *lineages, 
+    TransMatrixSwitch *transmat_switch);
 
 
 void calc_state_priors(const States &states, const LineageCounts *lineages, 
@@ -222,6 +334,16 @@ void get_deterministic_transitions(
 
 bool assert_transmat(const LocalTree *tree, const ArgModel *model,
                      const TransMatrix *matrix);
+
+
+
+//=============================================================================
+// misc
+
+void get_recomb_transition_switch(
+    const LocalTree *tree, const LocalTree *last_tree, 
+    const Spr &spr, const int *mapping,
+    const States &states1, const States &states2, int next_states[2]);
 
 
 

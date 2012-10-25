@@ -533,12 +533,12 @@ class Basic (unittest.TestCase):
         Only calculate a single matrix
         """
 
-        k = 10
+        k = 4
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = 1000
-        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        times = arghmm.get_time_points(ntimes=4, maxtime=200000)
         popsizes = [n] * len(times)
         
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)        
@@ -589,12 +589,12 @@ class Basic (unittest.TestCase):
         Only calculate a single matrix
         """
 
-        k = 10
+        k = 5
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = 1000
-        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        times = arghmm.get_time_points(ntimes=5, maxtime=200000)
         popsizes = [n] * len(times)
         
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)        
