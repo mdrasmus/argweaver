@@ -44,8 +44,6 @@ void calc_transition_probs2(const LocalTree *tree, const ArgModel *model,
     double *G3 = matrix->G3;
     double *G4 = matrix->G4;
     
-    double **S = matrix->S;
-    double **S2 = matrix->S2;
     double *norecombs = matrix->norecombs;
     matrix->internal = internal;
 
@@ -143,7 +141,8 @@ void calc_transition_probs2(const LocalTree *tree, const ArgModel *model,
                 + int(a == b) * G3[b];
             S2[a][b] = G4[b] * B[a];
         }
-        }*/
+    }
+    */
 }
 
 

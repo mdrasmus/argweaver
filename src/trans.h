@@ -37,9 +37,6 @@ public:
             delete [] G2;
             delete [] G3;
             delete [] G4;
-
-            delete_matrix<double>(S, ntimes);
-            delete_matrix<double>(S2, ntimes);
             delete [] norecombs;
         }
     }
@@ -56,16 +53,12 @@ public:
         G2 = new double [ntimes];
         G3 = new double [ntimes];
         G4 = new double [ntimes];
-        
-        S = new_matrix<double>(ntimes, ntimes);
-        S2 = new_matrix<double>(ntimes, ntimes);
         norecombs = new double [ntimes];
     }
     
     inline double get(
         const LocalTree *tree, const States &states, int i, int j) const
     {
-        //double Bq = 0.0;
         int minage = 0;
         if (internal) {
             if (nstates == 0)
@@ -73,8 +66,6 @@ public:
             const int subtree_root = tree->nodes[tree->root].child[0];
             const int subtree_age = tree->nodes[subtree_root].age;
             minage = subtree_age;
-            //if (subtree_age > 0)
-            //    Bq = B[subtree_age - 1];
         }
 
         const int node1 = states[i].node;
@@ -92,15 +83,6 @@ public:
                  + int(a>b) * G2[b]
                  + int(a==b) * G3[b]
                  - (minage>0 ? G4[b]*B[minage-1] : 0));
-
-            /*
-            return D[a] * E[b] * (E2[b] * (B[min(a,b-1)] + int(a<b) * G1[a])
-                                  + int(a>b) * G2[b]
-                                  + int(a==b) * G3[b]
-                                  - (minage>0 ? S2[minage-1][b] : 0));
-            */
-            //return D[a] * E[b] * (S[a][b] - 
-            //                      (minage>0 ? S2[minage-1][b] : 0));
         } else {
             double p = D[a] * E[b] * 
                 ((2 * (E2[b] * (B[min(a,b-1)] + int(a<b) * G1[a])
@@ -108,9 +90,6 @@ public:
                        + int(a==b) * G3[b]))
                  - (c>0 ? G4[b]*B[c-1] : 0)
                  - (minage>0 ? G4[b]*B[minage-1] : 0));
-
-            //double p = D[a] * E[b] * (2 * S[a][b] - (c>0 ? S2[c-1][b] : 0)
-            //                          - (minage>0 ? S2[minage-1][b] : 0));
             if (a == b)
                 p += norecombs[a];
             return p;
@@ -136,9 +115,6 @@ public:
     double *G2;
     double *G3;
     double *G4;
-
-    double **S;
-    double **S2;
     double *norecombs;
     bool internal;
 };
