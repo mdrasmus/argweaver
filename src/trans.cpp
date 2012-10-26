@@ -144,14 +144,6 @@ void calc_transition_probs2(const LocalTree *tree, const ArgModel *model,
                 + int(a > b) * G2[b] 
                 + int(a == b) * G3[b];
             S2[a][b] = G4[b] * B2[a];
-
-            //S2[a][b] = exp(-C2[max(2*b-2,-1)])*
-            //    (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b] - coal_rates[2*b-1]):
-            //     1.0) * B2[a];
-
-            //S2[a][b] = exp(-C2[2*b-2])*
-            //    (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b] - coal_rates[2*b-1]):
-            //     1.0) * B2[a];
         }
     }
 
