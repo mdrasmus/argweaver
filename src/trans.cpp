@@ -27,20 +27,23 @@ void calc_transition_probs2(const LocalTree *tree, const ArgModel *model,
     // get model parameters
     const int ntimes = model->ntimes;
     const double *times = model->times;
-    //const double *coal_time_steps2 = model->coal_time_steps2;
     const double *time_steps = model->time_steps;
     const double rho = model->rho;
-
+    
     const int *nbranches = lineages->nbranches;
     const int *nrecombs = lineages->nrecombs;
     const int *ncoals = lineages->ncoals;
 
     // get matrix fields
-    double *B = matrix->B;
-    double *C = matrix->C;
     double *D = matrix->D;
     double *E = matrix->E;
-    double *G = matrix->G;
+    double *B = matrix->B;
+    double *E2 = matrix->E2;
+    double *G1 = matrix->G1;
+    double *G2 = matrix->G2;
+    double *G3 = matrix->G3;
+    double *G4 = matrix->G4;
+    
     double **S = matrix->S;
     double **S2 = matrix->S2;
     double *norecombs = matrix->norecombs;
@@ -48,12 +51,6 @@ void calc_transition_probs2(const LocalTree *tree, const ArgModel *model,
 
     double C2_alloc[2*ntimes+1];
     double *C2 = &C2_alloc[1];
-    double B2[ntimes];
-    double E2[ntimes];
-    double G1[ntimes];
-    double G2[ntimes];
-    double G3[ntimes];
-    double G4[ntimes];
 
     double coal_rates_alloc[2*ntimes+1];
     double *coal_rates = &coal_rates_alloc[1];
@@ -84,7 +81,7 @@ void calc_transition_probs2(const LocalTree *tree, const ArgModel *model,
         C2[b] = C2[b-1] + coal_rates[b];
     
     // base cases (time=0)
-    B2[0] = (nbranches[0] + 1.0) * time_steps[0] / (nrecombs[0] + 1.0);
+    B[0] = (nbranches[0] + 1.0) * time_steps[0] / (nrecombs[0] + 1.0);
     E2[0] = exp(C2[0]) * (1.0 - exp(-coal_rates[0]));
     G1[0] = time_steps[0] * (
         (nbranches[0] / (nrecombs[0] + 1.0 + int(0 < root_age_index)))
@@ -116,7 +113,7 @@ void calc_transition_probs2(const LocalTree *tree, const ArgModel *model,
             treelen2_b = treelen2 + time_steps[root_age_index];
         }
 
-        B2[b] = B2[b-1] + exp(C2[2*b-1]) * time_steps[b] *
+        B[b] = B[b-1] + exp(C2[2*b-1]) * time_steps[b] *
             (nbranches[b] + 1.0) / (nrecombs[b] + 1.0);
         E2[b] = exp(-C2[2*b-2]) * (b<ntimes-2 ?
             (1 - exp(-coal_rates[2*b]-coal_rates[2*b-1])) : 1.0);
@@ -138,49 +135,15 @@ void calc_transition_probs2(const LocalTree *tree, const ArgModel *model,
     }
     E[ntimes-2] = 1.0 / ncoals[ntimes-2];
 
-    for (int a=0; a<ntimes-1; a++) {
-        for (int b=0; b<ntimes-1; b++) {
-            S[a][b] = E2[b] * ((b>0 ? B2[min(a,b-1)] : 0.0) + int(a<b)*G1[a])
-                + int(a > b) * G2[b] 
-                + int(a == b) * G3[b];
-            S2[a][b] = G4[b] * B2[a];
-        }
-    }
-
     /*
     for (int a=0; a<ntimes-1; a++) {
         for (int b=0; b<ntimes-1; b++) {
-            S[a][b] = 0.0;
-            for (int k=0; k<=min(a,b); k++) {
-                double Jkb = (b < ntimes-2 ?
-                              (1 - exp(-coal_rates[2*b] -
-                                       int(b>k) * coal_rates[2*b-1])) : 1.0) *
-                              (b>k ? exp(coal_rates[2*k-1]) : 1.0);
-                double Mka = time_steps[k] * (nbranches[k] + int(k<a)) / 
-                    float(nrecombs[k] + 1 + int(k==a && a<root_age_index));
-                
-                S[a][b] += Jkb * Mka * exp(-C[b] + C[k]);
-            }
-            printf("1> S[%d][%d] = %e\n", a, b, S[a][b]);
-
-            S2[a][b] = 0.0;
-            for (int k=0; k<=a; k++) {
-                double Jkb = (b < ntimes-2 ?
-                              (1 - exp(-coal_rates[2*b] -
-                                       int(b>k) * coal_rates[2*b-1])) : 1.0) *
-                              (b>k ? exp(coal_rates[2*k-1]) : 1.0);
-                double Mk = time_steps[k] * (nbranches[k] + 1) / 
-                    float(nrecombs[k] + 1);
-
-                double sum = 0.0;
-                for (int m=k; m<=b-1; m++)
-                    sum += coal_rates[2*m-1] + coal_rates[2*m];
-                
-                S2[a][b] += Jkb * Mk * exp(-sum);
-            }
+            S[a][b] = E2[b] * ((b>0 ? B[min(a,b-1)] : 0.0) + int(a<b)*G1[a])
+                + int(a > b) * G2[b] 
+                + int(a == b) * G3[b];
+            S2[a][b] = G4[b] * B[a];
         }
-    }
-    */
+        }*/
 }
 
 

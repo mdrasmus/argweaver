@@ -29,13 +29,17 @@ public:
     ~TransMatrix2()
     {
         if (own_data) {
-            delete [] B;
-            delete [] C;
             delete [] D;
             delete [] E;
-            delete [] G;
-            delete [] J;
+            delete [] B;
+            delete [] E2;
+            delete [] G1;
+            delete [] G2;
+            delete [] G3;
+            delete [] G4;
+
             delete_matrix<double>(S, ntimes);
+            delete_matrix<double>(S2, ntimes);
             delete [] norecombs;
         }
     }
@@ -44,12 +48,15 @@ public:
     {
         ntimes = ntimes;
         own_data = true;
-        B = new double [ntimes];
-        C = new double [ntimes];
         D = new double [ntimes];
         E = new double [ntimes];
-        G = new double [ntimes];
-        J = new double [ntimes];
+        B = new double [ntimes];
+        E2 = new double [ntimes];
+        G1 = new double [ntimes];
+        G2 = new double [ntimes];
+        G3 = new double [ntimes];
+        G4 = new double [ntimes];
+        
         S = new_matrix<double>(ntimes, ntimes);
         S2 = new_matrix<double>(ntimes, ntimes);
         norecombs = new double [ntimes];
@@ -58,7 +65,7 @@ public:
     inline double get(
         const LocalTree *tree, const States &states, int i, int j) const
     {
-        double Bq = 0.0;
+        //double Bq = 0.0;
         int minage = 0;
         if (internal) {
             if (nstates == 0)
@@ -66,8 +73,8 @@ public:
             const int subtree_root = tree->nodes[tree->root].child[0];
             const int subtree_age = tree->nodes[subtree_root].age;
             minage = subtree_age;
-            if (subtree_age > 0)
-                Bq = B[subtree_age - 1];
+            //if (subtree_age > 0)
+            //    Bq = B[subtree_age - 1];
         }
 
         const int node1 = states[i].node;
@@ -80,11 +87,30 @@ public:
             return 0.0;
         
         if (node1 != node2) {
-            return D[a] * E[b] * (S[a][b] - 
-                                  (minage>0 ? S2[minage-1][b] : 0));
+            return D[a] * E[b] * 
+                (E2[b] * (B[min(a,b-1)] + int(a<b) * G1[a])
+                 + int(a>b) * G2[b]
+                 + int(a==b) * G3[b]
+                 - (minage>0 ? G4[b]*B[minage-1] : 0));
+
+            /*
+            return D[a] * E[b] * (E2[b] * (B[min(a,b-1)] + int(a<b) * G1[a])
+                                  + int(a>b) * G2[b]
+                                  + int(a==b) * G3[b]
+                                  - (minage>0 ? S2[minage-1][b] : 0));
+            */
+            //return D[a] * E[b] * (S[a][b] - 
+            //                      (minage>0 ? S2[minage-1][b] : 0));
         } else {
-            double p = D[a] * E[b] * (2 * S[a][b] - (c>0 ? S2[c-1][b] : 0)
-                                      - (minage>0 ? S2[minage-1][b] : 0));
+            double p = D[a] * E[b] * 
+                ((2 * (E2[b] * (B[min(a,b-1)] + int(a<b) * G1[a])
+                       + int(a>b) * G2[b]
+                       + int(a==b) * G3[b]))
+                 - (c>0 ? G4[b]*B[c-1] : 0)
+                 - (minage>0 ? G4[b]*B[minage-1] : 0));
+
+            //double p = D[a] * E[b] * (2 * S[a][b] - (c>0 ? S2[c-1][b] : 0)
+            //                          - (minage>0 ? S2[minage-1][b] : 0));
             if (a == b)
                 p += norecombs[a];
             return p;
@@ -102,12 +128,15 @@ public:
     int ntimes;
     int nstates;
     bool own_data;
-    double *B;
-    double *C;
     double *D;
     double *E;
-    double *G;
-    double *J;
+    double *B;
+    double *E2;
+    double *G1;
+    double *G2;
+    double *G3;
+    double *G4;
+
     double **S;
     double **S2;
     double *norecombs;
