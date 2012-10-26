@@ -146,6 +146,22 @@ double calc_tree_prior(const ArgModel *model, const LocalTree *tree,
 }
 
 
+void calc_coal_rates3(const ArgModel *model, const LocalTree *tree, 
+                      const Spr &spr, LineageCounts &lineages,
+                      double *coal_rates)
+{
+    int broken_age = tree->nodes[tree->nodes[spr.recomb_node].parent].age;
+
+    for (int i=0; i<2*model->ntimes; i++) {
+        int nbranches = lineages.nbranches[i/2] - int(i/2 < broken_age);
+        coal_rates[i] = model->coal_time_steps2[i] * nbranches / 
+            (2.0 * model->popsizes[i/2]);
+        //printf(">>>> %d %d %e %e\n", i, nbranches, model->coal_time_steps2[i],
+        //       model->popsizes[i/2]);
+    }
+}
+
+
 double calc_spr_prob(const ArgModel *model, const LocalTree *tree, 
                      const Spr &spr, LineageCounts &lineages)
 {
@@ -169,7 +185,30 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
     int k = spr.recomb_time;
     lnl += log(lineages.nbranches[k] * model->time_steps[k] /
                (lineages.nrecombs[k] * treelen_b));
+    //printf("1>> %e\n", lnl);
 
+    // probability of re-coalescence
+    int j = spr.coal_time;
+    int broken_age = nodes[nodes[spr.recomb_node].parent].age;
+    int ncoals_j = lineages.ncoals[j] 
+        - int(j <= broken_age) - int(j == broken_age);
+
+    double coal_rates[2*model->ntimes];
+    calc_coal_rates3(model, tree, spr, lineages, coal_rates);
+
+    lnl -= log(ncoals_j);
+    if (j < model->ntimes - 2) {
+        lnl += log(1.0 - exp(- coal_rates[2*j] - 
+                             (j>k ? coal_rates[2*j-1] : 0.0)));
+    }
+    //printf("2>> %e\n", lnl);
+    
+    for (int m=2*k; m<2*j-1; m++)
+        lnl -= coal_rates[m];
+    //printf("3>> %e\n", lnl);
+    assert(!isinf(lnl));
+
+    /*
     // probability of re-coalescence
     int j = spr.coal_time;
     int broken_age = nodes[nodes[spr.recomb_node].parent].age;
@@ -190,6 +229,7 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
             (2.0 * model->popsizes[m]);
     }
     lnl -= sum;
+    */
     
     return lnl;
 }

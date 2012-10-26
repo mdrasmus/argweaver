@@ -962,11 +962,11 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 20
+        k = 6
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(400e3 / 20)
+        length = int(200e3 / 20)
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 0
         refine = 0

@@ -54,7 +54,7 @@ void calc_arghmm_matrices_internal(
         // calculate transmat_switch
         matrices->transmat_switch = new TransMatrixSwitch(
             matrices->nstates1, matrices->nstates2);
-        calc_transition_probs_switch_internal2(tree, last_tree, 
+        calc_transition_probs_switch_internal(tree, last_tree, 
             tree_spr->spr, tree_spr->mapping,
             last_states, states, model, &lineages, 
             matrices->transmat_switch);
@@ -65,8 +65,8 @@ void calc_arghmm_matrices_internal(
     
     // calculate transmat and use it for rest of block
     matrices->transmat = new TransMatrix(model->ntimes, nstates);
-    calc_transition_probs_internal(tree, model, states, &lineages, 
-                                   matrices->transmat);
+    calc_transition_probs(tree, model, states, &lineages, matrices->transmat,
+                          internal);
 }
 
 
