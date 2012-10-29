@@ -1346,7 +1346,7 @@ class Basic (unittest.TestCase):
         seqs = arglib.make_alignment(arg, muts)
         
         print "muts", len(muts)
-        print "recomb", arglib.get_recomb_pos(arg)
+        print "recomb", len(arglib.get_recomb_pos(arg))
 
         times = arghmm.get_time_points(ntimes=20)
         arghmm.discretize_arg(arg, times)
@@ -1369,6 +1369,9 @@ class Basic (unittest.TestCase):
         util.toc()
 
         for i, (col1, col2) in enumerate(izip(probs1, probs2)):
+            sum2 = stats.logsum(col2)
+            col2 = [exp(x-sum2) for x in col2]
+            
             for a, b in izip(col1, col2):
                 try:
                     fequal(a, b, rel=.01)

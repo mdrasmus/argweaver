@@ -145,12 +145,21 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
             for (int j=j1, a=age1; a<=age2; j++, a++)
                 sum += tmatrix2[a][k] * col1[j];
             
-            // same state case (add possibility of no recomb)
-            //sum += norecombs[b] * col1[k];
-            
             col2[k] = sum * emit2[k];
             norm += col2[k];
         }
+
+        /*
+        // assert DP
+        for (int k=0; k<nstates; k++) {
+            double sum = 0.0;
+            for (int j=0; j<nstates; j++)
+                sum += col1[j] * matrix->get(tree, states, j, k);
+            double p = sum * emit2[k];
+            printf(">> %e %e\n", col2[k], p);
+            assert(fequal(col2[k], p, 1e-4, 1e-9));
+        }
+        */
 
         // normalize column for numerical stability
         for (int k=0; k<nstates; k++)
@@ -159,7 +168,7 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
 }
 
 
-
+    /*
 // compute one block of forward algorithm with compressed transition matrices
 // NOTE: first column of forward table should be pre-populated
 void arghmm_forward_block2(const LocalTree *tree, const int ntimes,
@@ -298,7 +307,7 @@ void arghmm_forward_block2(const LocalTree *tree, const int ntimes,
             col2[k] /= norm;
     }
 }
-
+*/
 
 
 // run forward algorithm for one column of the table

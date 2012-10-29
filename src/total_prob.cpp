@@ -146,7 +146,7 @@ double calc_tree_prior(const ArgModel *model, const LocalTree *tree,
 }
 
 
-void calc_coal_rates3(const ArgModel *model, const LocalTree *tree, 
+void calc_coal_rates_full_tree(const ArgModel *model, const LocalTree *tree, 
                       const Spr &spr, LineageCounts &lineages,
                       double *coal_rates)
 {
@@ -156,81 +156,56 @@ void calc_coal_rates3(const ArgModel *model, const LocalTree *tree,
         int nbranches = lineages.nbranches[i/2] - int(i/2 < broken_age);
         coal_rates[i] = model->coal_time_steps2[i] * nbranches / 
             (2.0 * model->popsizes[i/2]);
-        //printf(">>>> %d %d %e %e\n", i, nbranches, model->coal_time_steps2[i],
-        //       model->popsizes[i/2]);
     }
 }
 
 
 double calc_spr_prob(const ArgModel *model, const LocalTree *tree, 
-                     const Spr &spr, LineageCounts &lineages)
+                     const Spr &spr, LineageCounts &lineages, 
+                     double treelen)
 {
-    double lnl = 0.0;
-
+    assert(spr.recomb_node != tree->root);
     const LocalNode *nodes = tree->nodes;
     const int root_age = nodes[tree->root].age;
 
-    // get tree length
-    const double treelen = get_treelen(
-        tree, model->times, model->ntimes, false);
+    // get tree length, if it is not already given
+    if (treelen < 0)
+        treelen = get_treelen(tree, model->times, model->ntimes, false);
     const double treelen_b = treelen + model->time_steps[nodes[tree->root].age];
 
     // get lineage counts
     lineages.count(tree);
     lineages.nrecombs[root_age]--;
 
-    assert(spr.recomb_node != tree->root);
+    
+    double lnl = 0.0;
             
     // probability of recombination location in tree
     int k = spr.recomb_time;
     lnl += log(lineages.nbranches[k] * model->time_steps[k] /
                (lineages.nrecombs[k] * treelen_b));
-    //printf("1>> %e\n", lnl);
 
     // probability of re-coalescence
+    double coal_rates[2*model->ntimes];
+    calc_coal_rates_full_tree(model, tree, spr, lineages, coal_rates);
     int j = spr.coal_time;
     int broken_age = nodes[nodes[spr.recomb_node].parent].age;
+
+    // probability of recoalescence on choosen branch
     int ncoals_j = lineages.ncoals[j] 
         - int(j <= broken_age) - int(j == broken_age);
-
-    double coal_rates[2*model->ntimes];
-    calc_coal_rates3(model, tree, spr, lineages, coal_rates);
-
     lnl -= log(ncoals_j);
-    if (j < model->ntimes - 2) {
+
+    // probability of recoalescing in choosen time interval
+    if (j < model->ntimes - 2)
         lnl += log(1.0 - exp(- coal_rates[2*j] - 
                              (j>k ? coal_rates[2*j-1] : 0.0)));
-    }
-    //printf("2>> %e\n", lnl);
     
+    // probability of not coalescing before time interval j
     for (int m=2*k; m<2*j-1; m++)
         lnl -= coal_rates[m];
-    //printf("3>> %e\n", lnl);
-    assert(!isinf(lnl));
-
-    /*
-    // probability of re-coalescence
-    int j = spr.coal_time;
-    int broken_age = nodes[nodes[spr.recomb_node].parent].age;
-    int ncoals_j = lineages.ncoals[j] 
-        - int(j <= broken_age) - int(j == broken_age);
-    int nbranches_j = lineages.nbranches[j] - int(j < broken_age);
-
-    lnl -= log(ncoals_j);
-    if (j < model->ntimes - 2)
-        lnl += log((1.0 - exp(- model->coal_time_steps[j] * nbranches_j / 
-                              (2.0 * model->popsizes[j]))));
-
-    double sum = 0.0;
-    for (int m=k; m<j; m++) {
-        int nbranches_m = lineages.nbranches[m] - int(m < broken_age);
-        
-        sum += model->coal_time_steps[m] * nbranches_m / 
-            (2.0 * model->popsizes[m]);
-    }
-    lnl -= sum;
-    */
     
+    assert(!isinf(lnl));
     return lnl;
 }
 
@@ -265,7 +240,7 @@ double calc_arg_prior(const ArgModel *model, const LocalTrees *trees)
             // get SPR move information
             ++it;
             const Spr *spr = &it->spr;
-            lnl += calc_spr_prob(model, tree, *spr, lineages);
+            lnl += calc_spr_prob(model, tree, *spr, lineages, treelen);
 
         } else {
             // last block

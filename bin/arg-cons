@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+
+import optparse
+
+from rasmus.common import *
+from rasmus import intervals
+import arghmm
+
+o = optparse.OptionParser()
+o.add_option("-s", "--start", default=0, type="int")
+o.add_option("-e", "--end", default=5000, type="int")
+o.add_option("-d", "--step", default=1, type="int")
+
+conf, args = o.parse_args()
+
+#=============================================================================
+
+def treelen(tree):
+    return sum(x.dist for x in tree)
+
+def iter_trees(filename, attr):
+    chrom = "chr"
+    
+    for item in arghmm.iter_smc_file(filename, parse_trees=True):
+        if item["tag"] == "REGION":
+            chrom = item["chrom"]
+            attr["region"] = [item["chrom"], item["start"], item["end"]]
+	elif item["tag"] == "NAMES":
+            attr["names"] = item["names"]
+        elif item["tag"] == "TREE":
+            yield item["start"]-1, item["end"], chrom, item["tree"]
+
+def cons_smc(trees, attr):
+
+    yield {"tag": "NAMES", "names": attr["names"]}
+    yield {"tag": "REGION", "chrom": attr["region"][0],
+           "start": attr["region"][1], "end": attr["region"][2]}
+    
+    for start, end, group in intervals.iter_intersections(trees):
+        chrom = group[0][2]
+        treeset = cget(group, 3)
+        #print len(group)
+        #print group
+        tree = phylo.consensus_majority_rule(treeset, rooted=True)
+        #print [x.data for x in tree]
+        
+        yield {"tag": "TREE", "start": start+1, "end": end,
+               "tree": tree}
+    
+
+#=============================================================================
+
+# get filenames
+filename = args[0]
+if "%d" in filename:
+    filenames = []
+    for i in range(conf.start, conf.end, conf.step):
+        fn = filename % i
+        if os.path.exists(fn):
+            filenames.append(fn)
+else:
+    filenames = args
+
+
+attr = {}
+trees = []
+for filename in filenames:
+    trees.extend(iter_trees(filename, attr))
+trees.sort()
+
+smc = cons_smc(trees, attr)
+arghmm.write_smc(sys.stdout, smc)
+
+
+

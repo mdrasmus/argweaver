@@ -6,8 +6,13 @@
 
 namespace arghmm {
 
+void calc_coal_rates_full_tree(const ArgModel *model, const LocalTree *tree, 
+                               const Spr &spr, LineageCounts &lineages, 
+                               double *coal_rates);
+
 double calc_spr_prob(const ArgModel *model, const LocalTree *tree, 
-                     const Spr &spr, LineageCounts &lineages);
+                     const Spr &spr, LineageCounts &lineages,
+                     double treelen=-1.0);
 
 double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences, 
                            const LocalTrees *trees);

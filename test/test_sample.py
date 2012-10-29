@@ -962,11 +962,12 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG
         """
 
-        k = 6
+        k = 12
         n = 1e4
-        rho = 1.5e-8 * 20
+        #rho = 1.5e-8 * 20        
         mu = 2.5e-8 * 20
-        length = int(200e3 / 20)
+        rho = mu / 20.
+        length = int(400e3 / 20)
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 0
         refine = 0
@@ -1177,7 +1178,7 @@ class Sample (unittest.TestCase):
         Plot the recombinations from a fully sampled ARG over many Gibb iters
         """
 
-        k = 12
+        k = 20
         n = 1e4
         rho = 1.5e-8 * 20
         rho2 = rho 
@@ -1192,6 +1193,7 @@ class Sample (unittest.TestCase):
 
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                      times=times)
+        #arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arghmm.make_alignment(arg, muts)
         if write:
@@ -1221,13 +1223,15 @@ class Sample (unittest.TestCase):
 
         for i in range(1000):
             util.tic("resample ARG %d" % i)
+            arg2 = arghmm.resample_mcmc_arg(arg2, seqs, rho=rho, mu=mu,
+                    times=times, refine=1, carg=True)
             #arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times,
             #                           refine=refine, nremove=nremove)
             #arg2 = arghmm.resample_all_arg(arg2, seqs, rho=rho, mu=mu,
             #                               times=times, refine=1, carg=True)
-            arg2 = arghmm.resample_climb_arg(arg2, seqs, rho=rho, mu=mu,
-                                             times=times, refine=1,
-                                             carg=True)
+            #arg2 = arghmm.resample_climb_arg(arg2, seqs, rho=rho, mu=mu,
+            #                                 times=times, refine=1,
+            #                                 carg=True)
             util.toc()
             #nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
             nrecombs2 = arghmm.get_local_trees_ntrees(arg2[0]) - 1

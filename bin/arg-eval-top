@@ -1,0 +1,202 @@
+#!/usr/bin/env python
+
+import optparse
+
+from rasmus.common import *
+from rasmus import intervals, stats
+import arghmm
+from compbio import arglib
+import tempfile
+
+o = optparse.OptionParser()
+o.add_option("-n", "--ntrees", default=100, type="int")
+o.add_option("-e", "--error", default="split")
+o.add_option("-q", "--quiet", action="store_true")
+
+conf, args = o.parse_args()
+
+#=============================================================================
+
+
+def weighted_split_error(tree, tree2):
+
+    nleaves = len(tree.leaves())
+    total = 0
+    error = 0
+    
+    for branch in tree:
+        if branch == tree.root or branch.is_leaf(): continue
+        clade = branch.leaf_names()
+
+        # find clade in tree2 using dollo parsimony
+        branch2 = lca([tree2[x] for x in clade])
+        clade2 = branch2.leaf_names()
+
+        # compute weighted symmetric diff
+        diff = set(clade) ^ set(clade2)
+        #total += branch.dist
+        #error += branch.dist * len(diff) / float(nleaves)
+
+        total += 1
+        error += len(diff) / float(nleaves)
+
+    return error / total
+
+
+def iter_trees(filename, attr={}, ptrs=None):
+    chrom = "chr"
+    
+    for item in arghmm.iter_smc_file(filename):
+        if item["tag"] == "REGION":
+            chrom = item["chrom"]
+            attr["region"] = [item["chrom"], item["start"]-1, item["end"]]
+	elif item["tag"] == "NAMES":
+            attr["names"] = item["names"]
+        elif item["tag"] == "TREE":
+            yield item["start"]-1, item["end"], chrom, item["tree"]
+
+
+def iter_trees_arg(filename, attr):
+    arg = arglib.read_arg(filename)
+    attr["names"] = list(arg.leaf_names())
+    attr["region"] = ["chr", arg.start, arg.end]
+    
+    for block, tree in arglib.iter_tree_tracks(arg):
+        arglib.remove_single_lineages(tree)
+        yield block[0], block[1], "chr", tree.get_tree()
+
+
+def filter_trees(trees, pts):
+    try:
+        item = trees.next()
+        for pos in pts:
+            if item[0] > pos:
+                continue
+            while item[1] <= pos:
+                item = trees.next()
+            if item[0] <= pos < item[1]:
+                yield pos, item
+
+    except StopIteration:
+        return
+
+def parse_tree(tree, names):
+    if isinstance(tree, basestring):
+        tree = arghmm.parse_tree(tree)
+        for i, name in enumerate(names):
+            tree.rename(i, name)
+    return tree
+
+def write_tree(tree1, filename):
+    out = open(filename, "w")
+    out.write(phylo.hash_tree(tree1) + ";")
+    out.close()
+
+def get_spr_dist(tree1, tree2):
+    fd, filename1 = tempfile.mkstemp(".tmp", "")
+    os.close(fd)
+    fd, filename2 = temporaryfile.mkstemp(".tmp", "")
+    os.close(fd)
+
+    write_tree(tree1, filename1)
+    write_tree(tree2, filename2)
+    text = os.popen("tree-spr-dist %s %s" % (filename1, filename2)).read()
+    os.remove(filename1)
+    os.remove(filename2)
+    return int(text)
+
+def mast_tree(tree, tree2):
+    fd, filename = tempfile.mkstemp(".tmp", "")
+    os.close(fd)
+    out = open(filename, "w")
+    out.write(tree.get_one_line_newick() + "\n")
+    out.write(tree2.get_one_line_newick() + "\n")
+    out.close()
+    mast = treelib.parse_newick(os.popen("phylonet mast -i %s" % filename).read())
+    os.remove(filename)
+    return mast
+
+
+def mast_tree_dist(tree, tree2):
+    mast = mast_tree(tree, tree2)
+    return len(mast.leaves()) / float(len(tree.leaves()))
+
+
+def pat_dist(tree, tree2):
+    for node in tree:
+        node.dist = 1.0
+    for node in tree2:
+        node.dist = 1.0
+
+    names = tree.leaf_names()
+    dist1 = phylo.tree2distmat(tree, names)
+    dist2 = phylo.tree2distmat(tree2, names)
+    lst1 = [dist1[i][j] for i in range(len(names))
+            for j in range(i+1, len(names))]
+    lst2 = [dist2[i][j] for i in range(len(names))
+            for j in range(i+1, len(names))]
+    return stats.corr(lst1, lst2)
+    
+    
+
+#=============================================================================
+
+# get filenames
+filename1, filename2 = args
+conf.error = conf.error.split(",")
+
+attr1 = {}
+if filename1.endswith(".arg"):
+    trees1 = util.PushIter(iter_trees_arg(filename1, attr1))
+else:
+    trees1 = util.PushIter(iter_trees(filename1, attr1))
+attr2 = {}
+if filename2.endswith(".arg"):
+    trees2 = util.PushIter(iter_trees_arg(filename2, attr2))
+else:
+    trees2 = util.PushIter(iter_trees(filename2, attr2))
+
+trees1.peek()
+trees2.peek()
+
+start, end = attr1["region"][1], attr1["region"][2]
+step = (end-start+1)/conf.ntrees
+pts = range(start + step/2, end, step)
+
+error = []
+for (pos1, item1), (pos2, item2) in izip(
+    filter_trees(trees1, pts), filter_trees(trees2, pts)):
+
+    assert pos1 == pos2
+    tree1 = parse_tree(item1[3], attr1["names"])
+    tree2 = parse_tree(item2[3], attr2["names"])
+
+    row = []
+    for stat in conf.error:
+        if stat == "split":
+            row.append(weighted_split_error(tree1, tree2))
+
+        elif stat == "rf":
+            row.append(phylo.robinson_foulds_error(tree1, tree2))
+
+        elif stat == "spr":
+            row.append(get_spr_dist(tree1, tree2))
+
+        elif stat == "mast":
+            row.append(mast_tree_dist(tree1, tree2))
+
+        elif stat == "pat":
+            row.append(pat_dist(tree1, tree2))
+
+        else:
+            raise Exception("unknown error metric")
+    error.append(row)
+
+    if not conf.quiet:
+        print pos1, row
+
+error = transpose(error)
+print_row(*map(mean, error))
+
+
+

@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+import optparse
+
+from rasmus.common import *
+from rasmus import intervals
+import arghmm
+
+o = optparse.OptionParser()
+o.add_option("-s", "--start", default=0, type="int")
+o.add_option("-e", "--end", default=5000, type="int")
+o.add_option("-d", "--step", default=1, type="int")
+
+conf, args = o.parse_args()
+
+#=============================================================================
+
+def treelen(tree):
+    return sum(x.dist for x in tree)
+
+def iter_trees(filename):
+    chrom = "chr"
+    
+    for item in arghmm.iter_smc_file(filename, parse_trees=True,
+                                     apply_spr=True):
+        if item["tag"] == "REGION":
+            chrom = item["chrom"]
+        if item["tag"] == "TREE":
+            yield item["start"]-1, item["end"], chrom, item["tree"]
+
+
+#=============================================================================
+
+# get filenames
+filename = args[0]
+if "%d" in filename:
+    filenames = []
+    for i in range(conf.start, conf.end, conf.step):
+        fn = filename % i
+        if os.path.exists(fn):
+            filenames.append(fn)
+else:
+    filenames = args
+
+
+treelens = []
+for filename in filenames:
+    treelens.extend([s, e, c, treelen(t)] for s,e,c,t in iter_trees(filename))
+treelens.sort()
+
+for start, end, group in intervals.iter_intersections(treelens):
+    chrom = group[0][2]
+    vals = cget(group, 3)
+    print_row(chrom, start, end, mean(vals),
+              percentile(vals, .025), percentile(vals, .975))
+
+
