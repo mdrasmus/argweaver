@@ -3,6 +3,7 @@
 import optparse
 
 from rasmus.common import *
+from compbio import phylo, arglib
 from rasmus import intervals
 import arghmm
 
@@ -10,6 +11,8 @@ o = optparse.OptionParser()
 o.add_option("-s", "--start", default=0, type="int")
 o.add_option("-e", "--end", default=5000, type="int")
 o.add_option("-d", "--step", default=1, type="int")
+o.add_option("-n", "--ntrees", default=-1, type="int")
+o.add_option("-b", "--binary", action="store_true")
 
 conf, args = o.parse_args()
 
@@ -18,10 +21,11 @@ conf, args = o.parse_args()
 def treelen(tree):
     return sum(x.dist for x in tree)
 
+
 def iter_trees(filename, attr):
     chrom = "chr"
     
-    for item in arghmm.iter_smc_file(filename, parse_trees=True):
+    for item in arghmm.iter_smc_file(filename, parse_trees=False):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
             attr["region"] = [item["chrom"], item["start"], item["end"]]
@@ -30,19 +34,61 @@ def iter_trees(filename, attr):
         elif item["tag"] == "TREE":
             yield item["start"]-1, item["end"], chrom, item["tree"]
 
-def cons_smc(trees, attr):
+
+def iter_trees_arg(filename, attr):
+    arg = arglib.read_arg(filename)
+    attr["names"] = list(arg.leaf_names())
+    attr["region"] = ["chr", arg.start, arg.end]
+    
+    #for block, tree in arglib.iter_tree_tracks(arg):
+    for block in arglib.iter_recomb_blocks(arg):
+        yield int(block[0]), int(block[1]), "chr", \
+              (arg, (block[1] - block[0]) / 2.0)
+        #arglib.remove_single_lineages(tree)
+        #yield block[0], block[1], "chr", tree.get_tree()
+
+
+def get_tree(tree_repr):
+    if isinstance(tree_repr, basestring):
+        return arghmm.parse_tree(tree_repr)
+    else:
+        arg, pos = tree_repr
+        names = list(arg.leaf_names())
+        tree = arg.get_marginal_tree(pos)
+        arglib.remove_single_lineages(tree)
+        tree = tree.get_tree()
+        
+        for node in list(tree):
+            if not node.is_leaf():
+                tree.rename(node.name, tree.new_name())
+        for i, name in enumerate(names):
+            tree.rename(name, i)
+        
+        return tree
+        
+
+def cons_smc(trees, attr, positions=None):
 
     yield {"tag": "NAMES", "names": attr["names"]}
     yield {"tag": "REGION", "chrom": attr["region"][0],
            "start": attr["region"][1], "end": attr["region"][2]}
+
+    i = 0
     
     for start, end, group in intervals.iter_intersections(trees):
+        if positions:
+            while i < len(positions)-1 and positions[i] < start:
+                i += 1
+            if not (start <= positions[i] < end):
+                continue
+        print >>sys.stderr, start, end
+        
         chrom = group[0][2]
-        treeset = cget(group, 3)
-        #print len(group)
-        #print group
+        treeset = map(get_tree, cget(group, 3))
         tree = phylo.consensus_majority_rule(treeset, rooted=True)
-        #print [x.data for x in tree]
+
+        if conf.binary:
+            phylo.ensure_binary_tree(tree)
         
         yield {"tag": "TREE", "start": start+1, "end": end,
                "tree": tree}
@@ -65,10 +111,23 @@ else:
 attr = {}
 trees = []
 for filename in filenames:
-    trees.extend(iter_trees(filename, attr))
+    print >>sys.stderr, filename
+    if filename.endswith(".arg"):
+        trees.extend(iter_trees_arg(filename, attr))
+    else:
+        trees.extend(iter_trees(filename, attr))
 trees.sort()
 
-smc = cons_smc(trees, attr)
+if conf.ntrees:
+    start = attr["region"][1] - 1
+    end = attr["region"][2]
+    step = int((end - start) / conf.ntrees)
+    positions = range(start+step/2, end, step)
+    print >>sys.stderr, step, positions
+else:
+    positions = None
+
+smc = cons_smc(trees, attr, positions=positions)
 arghmm.write_smc(sys.stdout, smc)
 
 

@@ -87,7 +87,7 @@ def parse_tree(tree, names):
             tree.rename(i, name)
     return tree
 
-def write_tree(tree1, filename):
+def write_tree_top(tree1, filename):
     out = open(filename, "w")
     out.write(phylo.hash_tree(tree1) + ";")
     out.close()
@@ -97,9 +97,9 @@ def get_spr_dist(tree1, tree2):
     os.close(fd)
     fd, filename2 = temporaryfile.mkstemp(".tmp", "")
     os.close(fd)
-
-    write_tree(tree1, filename1)
-    write_tree(tree2, filename2)
+    
+    write_tree_top(tree1, filename1)
+    write_tree_top(tree2, filename2)
     text = os.popen("tree-spr-dist %s %s" % (filename1, filename2)).read()
     os.remove(filename1)
     os.remove(filename2)
@@ -109,8 +109,11 @@ def mast_tree(tree, tree2):
     fd, filename = tempfile.mkstemp(".tmp", "")
     os.close(fd)
     out = open(filename, "w")
-    out.write(tree.get_one_line_newick() + "\n")
-    out.write(tree2.get_one_line_newick() + "\n")
+    tree1.write(out, oneline=True, writeData=lambda node:""); out.write("\n")
+    tree2.write(out, oneline=True, writeData=lambda node:""); out.write("\n")
+
+    #out.write(tree1.get_one_line_newick() + "\n")
+    #out.write(tree2.get_one_line_newick() + "\n")
     out.close()
     mast = treelib.parse_newick(os.popen("phylonet mast -i %s" % filename).read())
     os.remove(filename)
@@ -160,14 +163,14 @@ trees1.peek()
 trees2.peek()
 
 start, end = attr1["region"][1], attr1["region"][2]
-step = (end-start+1)/conf.ntrees
+step = (end - start) / conf.ntrees
 pts = range(start + step/2, end, step)
 
 error = []
 for (pos1, item1), (pos2, item2) in izip(
     filter_trees(trees1, pts), filter_trees(trees2, pts)):
 
-    assert pos1 == pos2
+    assert pos1 == pos2, (pos1, pos2)
     tree1 = parse_tree(item1[3], attr1["names"])
     tree2 = parse_tree(item2[3], attr2["names"])
 
@@ -193,7 +196,7 @@ for (pos1, item1), (pos2, item2) in izip(
     error.append(row)
 
     if not conf.quiet:
-        print pos1, row
+        print_row(pos1, *row)
 
 error = transpose(error)
 print_row(*map(mean, error))
