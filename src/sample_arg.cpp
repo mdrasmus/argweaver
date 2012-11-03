@@ -20,6 +20,42 @@ namespace arghmm {
 
 using namespace std;
 
+
+// sequentially sample an ARG from scratch
+// sequences are sampled in the order given
+void sample_arg_seq(const ArgModel *model, const Sequences *sequences, 
+                    LocalTrees *trees)
+{
+    const int nseqs = sequences->get_num_seqs();
+    const int seqlen = sequences->length();
+
+    if (trees->get_num_leaves() == 0) {
+        // initialize ARG as trunk
+        const int capacity = 2 * sequences->get_num_seqs() - 1;
+        int start = trees->start_coord;
+        int end = trees->end_coord;
+        if (end != seqlen) {
+            start = 0;
+            end = seqlen;
+        }
+        trees->make_trunk(start, end, capacity);
+    }
+    
+    // record which sequences are already in the tree
+    bool has_sequence[nseqs];
+    fill(has_sequence, has_sequence+nseqs, false);
+    for (int i=0; i<trees->get_num_leaves(); i++)
+        has_sequence[trees->seqids[i]] = true;
+
+    // add more chromosomes one by one
+    for (int new_chrom=0; new_chrom<nseqs; new_chrom++) {
+        if (!has_sequence[new_chrom])
+            sample_arg_thread(model, sequences, trees, new_chrom);
+    }
+}
+
+
+/*
 // sequentially sample an ARG from scratch
 // sequences are sampled in the order given
 void sample_arg_seq(const ArgModel *model, const Sequences *sequences, 
@@ -40,12 +76,12 @@ void sample_arg_seq(const ArgModel *model, const Sequences *sequences,
     // add more chromosomes one by one
     for (int nchroms=2; nchroms<=sequences->get_num_seqs(); nchroms++) {
         // use first nchroms sequences
-        Sequences sequences2(sequences, nchroms);
+        //Sequences sequences2(sequences, nchroms);
         int new_chrom = nchroms - 1;
-        sample_arg_thread(model, &sequences2, trees, new_chrom);
+        sample_arg_thread(model, sequences, trees, new_chrom);
     }
 }
-
+ */
 
 // resample the threading of all the chromosomes
 void resample_arg(const ArgModel *model, const Sequences *sequences, 
