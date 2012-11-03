@@ -64,10 +64,7 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
     double tmatrix2[ntimes][nstates];
     for (int a=0; a<ntimes-1; a++) {
         for (int b=0; b<ntimes-1; b++) {
-            if (a < minage || b < minage)
-                tmatrix[a][b] = 0.0;
-            else
-                tmatrix[a][b] = matrix->get_time(a, b, 0, minage, false);
+            tmatrix[a][b] = matrix->get_time(a, b, 0, minage, false);
             assert(!isnan(tmatrix[a][b]));
         }
 
@@ -76,12 +73,8 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
             const int node2 = states[k].node;
             const int c = nodes[node2].age;
             assert(b >= minage);
-            if (a < minage)
-                tmatrix2[a][k] = 0.0;
-            else
-                tmatrix2[a][k] = 
-                    matrix->get_time(a, b, c, minage, true) -
-                    matrix->get_time(a, b, 0, minage, false);
+            tmatrix2[a][k] = matrix->get_time(a, b, c, minage, true) -
+                             matrix->get_time(a, b, 0, minage, false);
         }
     }
 
@@ -167,147 +160,6 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
     }
 }
 
-
-    /*
-// compute one block of forward algorithm with compressed transition matrices
-// NOTE: first column of forward table should be pre-populated
-void arghmm_forward_block2(const LocalTree *tree, const int ntimes,
-                          const int blocklen, const States &states, 
-                          const LineageCounts &lineages,
-                          const TransMatrix3 *matrix,
-                          const double* const *emit, double **fw,
-                          bool internal=false)
-{
-    const int nstates = states.size();
-    const LocalNode *nodes = tree->nodes;
-
-    // get aliases for various precomputed terms
-    const double *B = matrix->B;
-    const double *D = matrix->D;
-    const double *E = matrix->E;
-    const double *G = matrix->G;
-    const double *norecombs = matrix->norecombs;
-
-    double Bq = 0.0;
-    int minage = 0;
-    int subtree_root = 0, maintree_root = 0;
-    if (internal) {
-        subtree_root = nodes[tree->root].child[0];
-        maintree_root = nodes[tree->root].child[1];
-        const int subtree_age = nodes[subtree_root].age;
-        if (subtree_age > 0) {
-            Bq = B[subtree_age - 1];
-            minage = subtree_age;
-        }
-
-        if (nstates == 0) {
-            // handle fully given case
-            for (int i=1; i<blocklen; i++)
-                fw[i][0] = fw[i-1][0];
-            return;
-        }
-    }
-
-    // compute ntimes*ntimes and ntime*nstates temp matrices
-    double tmatrix[ntimes][ntimes];
-    double tmatrix2[ntimes][nstates];
-    for (int a=0; a<ntimes-1; a++) {
-        for (int b=0; b<ntimes-1; b++) {
-            const double I = double(a <= b);
-            if (a < minage || b < minage)
-                tmatrix[a][b] = 0.0;
-            else
-                tmatrix[a][b] = D[a] * E[b] * (B[min(a,b)] - Bq - I*G[a]);
-            assert(!isnan(tmatrix[a][b]));
-        }
-
-        for (int k=0; k<nstates; k++) {
-            const int b = states[k].time;
-            const int node2 = states[k].node;
-            const int c = nodes[node2].age;
-            const double Bc = (c > 0 ? B[c-1] : 0.0);
-            const double I = double(a <= b);
-            assert(b >= minage);
-            if (a < minage)
-                tmatrix2[a][k] = 0.0;
-            else
-                tmatrix2[a][k] = D[a] * E[b] * (B[min(a,b)] - I*G[a] - Bc);
-        }
-    }
-
-    // get max time
-    int maxtime = 0;
-    for (int k=0; k<nstates; k++)
-        if (maxtime < states[k].time)
-            maxtime = states[k].time;
-
-    // get branch ages
-    NodeStateLookup state_lookup(states, tree->nnodes);
-    int ages1[tree->nnodes];
-    int ages2[tree->nnodes];
-    int indexes[tree->nnodes];
-    for (int i=0; i<tree->nnodes; i++) {
-        ages1[i] = max(nodes[i].age, minage);
-        indexes[i] = state_lookup.lookup(i, ages1[i]);
-        if (internal)
-            ages2[i] = (i == maintree_root || i == tree->root) ? 
-                maxtime : nodes[nodes[i].parent].age;
-        else
-            ages2[i] = (i == tree->root) ? maxtime : nodes[nodes[i].parent].age;
-    }
-
-
-    double tmatrix_fgroups[ntimes];
-    double fgroups[ntimes];
-    for (int i=1; i<blocklen; i++) {
-        const double *col1 = fw[i-1];
-        double *col2 = fw[i];
-        const double *emit2 = emit[i];
-        
-        // precompute the fgroup sums
-        fill(fgroups, fgroups+ntimes, 0.0);
-        for (int j=0; j<nstates; j++) {
-            const int a = states[j].time;
-            fgroups[a] += col1[j];
-        }
-        
-        // multiply tmatrix and fgroups together
-        for (int b=0; b<ntimes-1; b++) {
-            double sum = 0.0;
-            for (int a=0; a<ntimes-1; a++)
-                sum += tmatrix[a][b] * fgroups[a];
-            tmatrix_fgroups[b] = sum;
-        }
-        
-        // fill in one column of forward table
-        double norm = 0.0;
-        for (int k=0; k<nstates; k++) {
-            const int b = states[k].time;
-            const int node2 = states[k].node;
-            const int age1 = ages1[node2];
-            const int age2 = ages2[node2];
-            
-            assert(!isnan(col1[k]));
-
-            // same branch case (extra terms substracted, no 2*B[min(a,b)])
-            double sum = tmatrix_fgroups[b];
-            const int j1 = indexes[node2];
-            for (int j=j1, a=age1; a<=age2; j++, a++)
-                sum += tmatrix2[a][k] * col1[j];
-            
-            // same state case (add possibility of no recomb)
-            sum += norecombs[b] * col1[k];
-            
-            col2[k] = sum * emit2[k];
-            norm += col2[k];
-        }
-
-        // normalize column for numerical stability
-        for (int k=0; k<nstates; k++)
-            col2[k] /= norm;
-    }
-}
-*/
 
 
 // run forward algorithm for one column of the table
@@ -415,8 +267,6 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
             // we are still inside the same ARG block, therefore the
             // state-space does not change and no switch matrix is needed
             fw_block = &fw[pos-1];
-            //emit = &emit[-1];
-            //fw_block--;
             emit--;
             blocklen++;
         }

@@ -566,6 +566,37 @@ public:
     {
         const int nnames = names.size();
         
+        // unset seqids
+        for (int i=0; i<nnames; i++)
+            seqids[i] = -1;
+        
+        //int new_seqids[nnames];
+        int k = 0;
+        for (unsigned int j=0; j<new_order.size(); j++) {
+            for (int i=0; i<nnames; i++) {
+                if (names[i] == new_order[j]) {
+                    seqids[i] = k++;
+                    break;
+                }
+            }
+        }
+
+        // check for unmapped seqids
+        for (int i=0; i<nnames; i++)
+            if (seqids[i] == -1)
+                return false;
+        
+        return true;
+    }
+    
+    
+    /*
+    // set sequence IDs according to a permutation of sequence names
+    bool set_seqids2(const vector<string> &names, 
+                    const vector<string> &new_order)
+    {
+        const int nnames = names.size();
+        
         // ensure names are the same number as seqids
         if (names.size() != seqids.size())
             return false;
@@ -590,6 +621,7 @@ public:
 
         return true;
     }
+    */
 
     string chrom;              // chromosome name of region
     int start_coord;           // start coordinate of whole tree list
