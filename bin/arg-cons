@@ -107,7 +107,6 @@ if "%d" in filename:
 else:
     filenames = args
 
-
 attr = {}
 trees = []
 for filename in filenames:

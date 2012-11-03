@@ -55,34 +55,6 @@ void sample_arg_seq(const ArgModel *model, const Sequences *sequences,
 }
 
 
-/*
-// sequentially sample an ARG from scratch
-// sequences are sampled in the order given
-void sample_arg_seq(const ArgModel *model, const Sequences *sequences, 
-                    LocalTrees *trees)
-{
-    const int seqlen = sequences->length();
-
-    // initialize ARG as trunk
-    const int capacity = 2 * sequences->get_num_seqs() - 1;
-    int start = trees->start_coord;
-    int end = trees->end_coord;
-    if (end != seqlen) {
-        start = 0;
-        end = seqlen;
-    }
-    trees->make_trunk(start, end, capacity);
-    
-    // add more chromosomes one by one
-    for (int nchroms=2; nchroms<=sequences->get_num_seqs(); nchroms++) {
-        // use first nchroms sequences
-        //Sequences sequences2(sequences, nchroms);
-        int new_chrom = nchroms - 1;
-        sample_arg_thread(model, sequences, trees, new_chrom);
-    }
-}
- */
-
 // resample the threading of all the chromosomes
 void resample_arg(const ArgModel *model, const Sequences *sequences, 
                   LocalTrees *trees, int nremove)

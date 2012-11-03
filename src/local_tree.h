@@ -566,63 +566,23 @@ public:
     {
         const int nnames = names.size();
         
-        // unset seqids
-        for (int i=0; i<nnames; i++)
-            seqids[i] = -1;
-        
-        //int new_seqids[nnames];
-        int k = 0;
-        for (unsigned int j=0; j<new_order.size(); j++) {
-            for (int i=0; i<nnames; i++) {
-                if (names[i] == new_order[j]) {
-                    seqids[i] = k++;
-                    break;
-                }
-            }
-        }
-
-        // check for unmapped seqids
-        for (int i=0; i<nnames; i++)
-            if (seqids[i] == -1)
-                return false;
-        
-        return true;
-    }
-    
-    
-    /*
-    // set sequence IDs according to a permutation of sequence names
-    bool set_seqids2(const vector<string> &names, 
-                    const vector<string> &new_order)
-    {
-        const int nnames = names.size();
-        
-        // ensure names are the same number as seqids
-        if (names.size() != seqids.size())
-            return false;
-
-        int new_seqids[nnames];
         for (int i=0; i<nnames; i++) {
-            new_seqids[i] = -1;
+            seqids[i] = -1;
             for (unsigned int j=0; j<new_order.size(); j++) {
                 if (names[i] == new_order[j]) {
-                    new_seqids[i] = j;
+                    seqids[i] = j;
                     break;
                 }
             }
-            if (new_seqids[i] == -1)
-                // name was not found
+            // check for unmapped seqids
+            if (seqids[i] == -1)
                 return false;
         }
-
-        // set seqids
-        for (int i=0; i<nnames; i++)
-            seqids[i] = new_seqids[i];
-
+        
         return true;
     }
-    */
-
+    
+    
     string chrom;              // chromosome name of region
     int start_coord;           // start coordinate of whole tree list
     int end_coord;             // end coordinate of whole tree list
