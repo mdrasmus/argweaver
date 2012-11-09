@@ -35,15 +35,14 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
                           const int blocklen, const States &states, 
                           const LineageCounts &lineages,
                           const TransMatrix *matrix,
-                          const double* const *emit, double **fw,
-                          bool internal=false)
+                          const double* const *emit, double **fw)
 {
     const int nstates = states.size();
     const LocalNode *nodes = tree->nodes;
     
     int minage = 0;
     int subtree_root = 0, maintree_root = 0;
-    if (internal) {
+    if (matrix->internal) {
         subtree_root = nodes[tree->root].child[0];
         maintree_root = nodes[tree->root].child[1];
         const int subtree_age = nodes[subtree_root].age;
@@ -92,7 +91,7 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
     for (int i=0; i<tree->nnodes; i++) {
         ages1[i] = max(nodes[i].age, minage);
         indexes[i] = state_lookup.lookup(i, ages1[i]);
-        if (internal)
+        if (matrix->internal)
             ages2[i] = (i == maintree_root || i == tree->root) ? 
                 maxtime : nodes[nodes[i].parent].age;
         else
@@ -159,6 +158,48 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
             col2[k] /= norm;
     }
 }
+
+
+// compute one block of forward algorithm with compressed transition matrices
+// NOTE: first column of forward table should be pre-populated
+// This can be used for testing
+void arghmm_forward_block_slow(const LocalTree *tree, const int ntimes,
+                               const int blocklen, const States &states, 
+                               const LineageCounts &lineages,
+                               const TransMatrix *matrix,
+                               const double* const *emit, double **fw)
+{
+    const int nstates = states.size();
+    
+    // get transition matrix
+    double **transmat = new_matrix<double>(nstates, nstates);
+    for (int k=0; k<nstates; k++)
+        for (int j=0; j<nstates; j++)
+            transmat[j][k] = matrix->get(tree, states, j, k);
+
+    // fill in forward table
+    for (int i=1; i<blocklen; i++) {
+        const double *col1 = fw[i-1];
+        double *col2 = fw[i];
+        double norm = 0.0;
+        
+        for (int k=0; k<nstates; k++) {
+            double sum = 0.0;
+            for (int j=0; j<nstates; j++)
+                sum += col1[j] * transmat[j][k];
+            col2[k] = sum * emit[i][k];
+            norm += col2[k];
+        }
+
+        // normalize column for numerical stability
+        for (int k=0; k<nstates; k++)
+            col2[k] /= norm;
+    }
+
+    // cleanup
+    delete_matrix<double>(transmat, nstates);
+}
+
 
 
 
@@ -239,11 +280,7 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
             forward->new_block(pos, pos+matrices.blocklen, matrices.nstates2);
         double **fw_block = &fw[pos];
 
-        
-        if (internal)
-            get_coal_states_internal(tree, model->ntimes, states);
-        else
-            get_coal_states(tree, model->ntimes, states);
+        get_coal_states(tree, model->ntimes, states, internal);
         lineages.count(tree, internal);
 
         // use switch matrix for first column of forward table
@@ -277,9 +314,8 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
         
         // calculate rest of block
         arghmm_forward_block(tree, model->ntimes, blocklen, 
-                             states, lineages, 
-                             matrices.transmat,
-                             emit, fw_block, internal);
+                             states, lineages, matrices.transmat,
+                             emit, fw_block);
 
         // safety check
         double top2 = max_array(fw[pos + matrices.blocklen - 1], nstates);
@@ -372,10 +408,7 @@ double stochastic_traceback(
     for (; matrix_iter->more(); matrix_iter->prev()) {
         ArgHmmMatrices &mat = matrix_iter->ref_matrices();
         LocalTree *tree = matrix_iter->get_tree_spr()->tree;
-        if (internal)
-            get_coal_states_internal(tree, model->ntimes, states);
-        else
-            get_coal_states(tree, model->ntimes, states);
+        get_coal_states(tree, model->ntimes, states, internal);
         pos -= mat.blocklen;
         
         lnl += sample_hmm_posterior(mat.blocklen, tree, states,
@@ -489,10 +522,7 @@ void max_traceback(const LocalTrees *trees, const ArgModel *model,
     for (; matrix_iter->more(); matrix_iter->prev()) {
         ArgHmmMatrices &mat = matrix_iter->ref_matrices();
         LocalTree *tree = matrix_iter->get_tree_spr()->tree;
-        if (internal)
-            get_coal_states_internal(tree, model->ntimes, states);
-        else
-            get_coal_states(tree, model->ntimes, states);
+        get_coal_states(tree, model->ntimes, states, internal);
         pos -= mat.blocklen;
         
         max_hmm_posterior(mat.blocklen, tree, states,
@@ -646,7 +676,7 @@ void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences,
     // fill in first column of forward table
     matrix_list.begin();
     tree = matrix_list.get_tree_spr()->tree;
-    get_coal_states(tree, model->ntimes, states);
+    get_coal_states(tree, model->ntimes, states, false);
     forward.new_block(matrix_list.get_block_start(), 
                       matrix_list.get_block_end(), states.size());
     int j = find_vector(states, start_state);
@@ -665,7 +695,7 @@ void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences,
     // fill in last state of traceback
     matrix_list.rbegin();
     tree = matrix_list.get_tree_spr()->tree;
-    get_coal_states(tree, model->ntimes, states);
+    get_coal_states(tree, model->ntimes, states, false);
     thread_path[trees->end_coord-1] = find_vector(states, end_state);
     assert(thread_path[trees->end_coord-1] != -1);
 
@@ -719,7 +749,7 @@ void cond_sample_arg_thread_internal(
     // fill in first column of forward table
     matrix_iter.begin();
     tree = matrix_iter.get_tree_spr()->tree;
-    get_coal_states_internal(tree, model->ntimes, states);
+    get_coal_states(tree, model->ntimes, states, internal);
     forward.new_block(matrix_iter.get_block_start(),
                       matrix_iter.get_block_end(), states.size());
 
@@ -753,7 +783,7 @@ void cond_sample_arg_thread_internal(
     // fill in last state of traceback
     matrix_iter.rbegin();
     tree = matrix_iter.get_tree_spr()->tree;
-    get_coal_states_internal(tree, model->ntimes, states);
+    get_coal_states(tree, model->ntimes, states, internal);
     if (states.size() > 0) {
         if (!end_state.is_null()) {
             thread_path[trees->end_coord-1] = find_vector(states, end_state);
@@ -885,11 +915,8 @@ double **arghmm_forward_alg(
         LocalTree *tree = matrix_list.get_tree_spr()->tree;
         LineageCounts lineages(ntimes);
         States states;
-        if (internal)
-            get_coal_states_internal(tree, model.ntimes, states);
-        else
-            get_coal_states(tree, model.ntimes, states);
-
+        get_coal_states(tree, model.ntimes, states, internal);
+        
         int start = matrix_list.get_block_start();
         forward.new_block(start, matrix_list.get_block_end(), states.size());
         double **fw = forward.get_table();
@@ -941,7 +968,7 @@ intstate *arghmm_sample_posterior(
     for (LocalTrees::iterator it=trees.begin(); it != trees.end(); ++it) {
         int start = end;
         int end = start + it->blocklen;
-        get_coal_states(it->tree, ntimes, states);
+        get_coal_states(it->tree, ntimes, states, false);
 
         for (int i=start; i<end; i++) {
             int istate = ipath[i];

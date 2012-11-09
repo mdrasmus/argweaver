@@ -748,7 +748,8 @@ def smc2sprs(smc):
                     times = None
                 
                 arg = arglib.make_arg_from_tree(init_tree, times)
-                
+
+                arg.chrom = chrom
                 arg.start = region[0]
                 arg.end = region[1]
                 yield arg
@@ -2207,7 +2208,7 @@ def get_posterior_probs(model, n, verbose=False,
 
 
 
-def est_arg_popsizes(arg, times=None):
+def est_arg_popsizes(arg, times=None, popsize_mu=1e4, popsize_sigma=.5e4):
 
     nleaves = len(list(arg.leaves()))
     assert times
@@ -2283,11 +2284,49 @@ def est_arg_popsizes(arg, times=None):
         c, _ = util.binsearch(times, ctime)
         for j in range(r, c):
             k_lineages[j] += lineages_per_time[j]
-            
 
-    popsizes = [(time_steps[j] / 2.0 / ncoals[j] * k_lineages[j]
-                if ncoals[j] > 0 else util.INF)
-                for j in range(len(time_steps))]
+
+    # add first tree
+    tree = arg.get_marginal_tree(arg.start)
+    arglib.remove_single_lineages(tree)
+    for node in tree:
+        a, _ = util.binsearch(times, node.age)
+        if not node.parents:
+            ncoals[a] += 1
+            continue
+        b, _ = util.binsearch(times, node.parents[0].age)
+        for i in range(a, b):
+            k_lineages[i] += 1
+        if not node.is_leaf():
+            ncoals[a] += 1
+    
+    #print zip(ncoals, k_lineages)
+
+    try:
+        import scipy.optimize
+
+        popsizes = []
+        for j in range(len(time_steps)):
+            A = - 1.0 / popsize_sigma / popsize_sigma
+            B = popsize_mu / popsize_sigma / popsize_sigma
+            C = - ncoals[j]
+            D = time_steps[j] * k_lineages[j] / 2.0
+            def func(x):
+                return A*x*x*x + B*x*x + C*x + D
+            #print [func(n) for n in util.frange(0, 2.0*popsize_mu,
+            #                               .2*popsize_mu)]
+            try:
+                popsizes.append(
+                    scipy.optimize.brentq(func, 0, 2.0*popsize_mu))
+            except:
+                popsizes.append(popsize_mu)
+    except:
+        raise
+        popsizes = [(time_steps[j] / 2.0 / ncoals[j] * k_lineages[j]
+                     if ncoals[j] > 0 else util.INF)
+                    for j in range(len(time_steps))]
+
+    
         
     return popsizes
 

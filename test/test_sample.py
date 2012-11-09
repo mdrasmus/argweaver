@@ -2713,12 +2713,12 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 2
+        k = 20
         rho = 1.5e-8
         mu = 2.5e-8
-        length = int(200e6)
-        times = arghmm.get_time_points(ntimes=30, maxtime=160000)
-        a = 60.
+        length = int(100e3)
+        times = arghmm.get_time_points(ntimes=20, maxtime=120000)
+        a = 30.
         b = 15
         #popsizes = [1e4 * (a - b + abs(i-b))/a for i in range(len(times))]
         popsizes = [1e4 * (a - i)/a for i in range(len(times))]
@@ -2732,15 +2732,70 @@ class Sample (unittest.TestCase):
                                      rho, start=0, end=length, times=times)
         util.toc()
 
+        print "recombs", ilen(x for x in arg if x.event == "recomb")
+
         util.tic("estimate popsizes")
-        popsizes2 = arghmm.est_arg_popsizes(arg, times=times)
+        popsizes2 = arghmm.est_arg_popsizes(arg, times=times,
+                                            popsize_mu=1e4, popsize_sigma=1e4)
         util.toc()
         
         print popsizes2
         p = plot(times, popsizes, xlog=10, xmin=10, ymin=0, ymax=20000)
+        #p = plot(times, popsizes, xmin=10, ymin=0, ymax=20000)
         p.plot(times[1:], popsizes2)
         
         pause()
+
+
+    def test_sample_arg_popsizes_window(self):
+        """
+        Estimate population sizes per time and window
+        """
+
+        k = 20
+        rho = 1.5e-8
+        mu = 2.5e-8
+        length = int(5000e3)
+        window = int(200e3)
+        times = arghmm.get_time_points(ntimes=20, maxtime=120000)
+        a = 30.
+        b = 15
+        #popsizes = [1e4 * (a - b + abs(i-b))/a for i in range(len(times))]
+        popsizes = [1e4 * (a - i)/a for i in range(len(times))]
+        #popsizes = [1e4 for i in range(len(times))]
+        refine = 0
+
+        util.tic("sim ARG")
+        arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
+                                     rho, start=0, end=length, times=times)
+        util.toc()
+
+        print "recombs", ilen(x for x in arg if x.event == "recomb")
+
+        util.tic("estimate popsizes")
+        step = 50e3
+        starts = range(arg.start, arg.end - window, step)
+        popsizes2 = []
+        for start in starts:
+            print start
+            arg2 = arglib.smcify_arg(arg, start, start+window)
+            popsizes2.append(arghmm.est_arg_popsizes(
+                arg2, times=times,
+                popsize_mu=1e4, popsize_sigma=.2e4))
+        util.toc()
+
+        #popsizes2 = transpose(popsizes2)
+        
+        pc(popsizes2)
+        #heatmap(popsizes2, showVals=True)
+        rp.assign("X", flatten(popsizes2))
+        rp.assign("l", len(popsizes2[0]))
+        rp("heatmap(matrix(X, l), Rowv=NA, Colv=NA, scale='none', col=rainbow(40, start=0, end=.3))")
+        #rp.heatmap(rp.matrix(popsizes2, len(popsizes2)), reorderfunc=None)
+        #rp.heatmap(rp.matrix(popsizes2, len(popsizes2)), reorderfunc=None)
+        
+        pause()
+
 
 
     def test_sample_arg_popsizes_trees(self):
@@ -2748,11 +2803,11 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 2
+        k = 20
         rho = 1.5e-8
         mu = 2.5e-8
-        length = int(20e6)
-        times = arghmm.get_time_points(ntimes=30, maxtime=160000)
+        length = int(100e3)
+        times = arghmm.get_time_points(ntimes=20, maxtime=160000)
         popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
         #popsizes = [1e4 for i in range(len(times))]
         refine = 0
@@ -2826,20 +2881,17 @@ class Sample (unittest.TestCase):
         k = 6
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(10e6) / 20
+        length = int(10e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=160000)
         popsizes = [1e4 * (61.-i)/60. for i in range(len(times))]
         refine = 5
 
         util.tic("sim ARG")
-        #arg = arglib.sample_arg_smc(k, 2 * popsizes[0],
-        #                            rho, start=0, end=length)        
         arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
                                      rho, start=0, end=length, times=times)
-        util.toc()
-
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
+        util.toc()        
         
         popsizes2 = [0] * (len(times) - 1)
         nsamples = 1

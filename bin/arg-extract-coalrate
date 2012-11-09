@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+
+import optparse
+
+from rasmus.common import *
+from compbio import arglib
+from rasmus import intervals
+import arghmm
+
+o = optparse.OptionParser()
+o.add_option("", "--ntimes", type="int", default=20)
+o.add_option("", "--maxtime", type="float", default=180e3)
+o.add_option("-w", "--window", type="int", default=int(200e3))
+o.add_option("", "--step", type="int", default=int(50e3))
+
+#o.add_option("-s", "--start", default=0, type="int")
+#o.add_option("-e", "--end", default=5000, type="int")
+#o.add_option("-d", "--step", default=1, type="int")
+
+conf, args = o.parse_args()
+
+
+#=============================================================================
+
+def mle_popsize_coal_times(k, times, mintime=0):
+    s = 0
+    i = k
+    last = 0
+    for t in times:
+        s += i*(i-1) * max(t - last, mintime)
+        i -= 1
+        last = t
+    return s / float(4 * k - 4)
+
+def mle_popsize_tree(tree, mintime=0):
+    times = sorted([x.data["age"] for x in tree if not x.is_leaf()])
+    return mle_popsize_coal_times(len(tree.leaves()), times, mintime)
+
+
+def iter_popsize(filename, mintime=0):
+    chrom = "chr"
+    
+    for item in arghmm.iter_smc_file(filename, parse_trees=True,
+                                     apply_spr=True):
+        if item["tag"] == "REGION":
+            chrom = item["chrom"]
+        if item["tag"] == "TREE":
+            tree = item["tree"]
+            popsize = mle_popsize_tree(tree, mintime)
+            yield item["start"], item["end"], chrom, popsize
+
+
+def infer_coalrates(arg, times, window=int(200e3), step=50e3,
+                    popsize_mu=1e4, popsize_sigma=.2e4):
+    
+    starts = range(arg.start, arg.end - window, step)
+    for start in starts:
+        arg2 = arglib.smcify_arg(arg, start, start+window)
+        popsizes = arghmm.est_arg_popsizes(
+            arg2, times=times,
+            popsize_mu=popsize_mu, popsize_sigma=popsize_sigma)
+
+        yield [arg.chrom, arg2.start, arg2.end] + popsizes
+        
+
+#=============================================================================
+
+
+times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+
+filename = args[0]
+'''
+if "%d" in filename:
+    filenames = []
+    for i in range(conf.start, conf.end, conf.step):
+        fn = filename % i
+        if os.path.exists(fn):
+            filenames.append(fn)
+else:
+    filenames = args
+'''
+
+arg = arghmm.read_arg(filename)
+arghmm.discretize_arg(arg, times)
+
+for row in infer_coalrates(arg, times, window=conf.window, step=conf.step,
+                           popsize_mu=1e4, popsize_sigma=.2e4):
+    print_row(*row)

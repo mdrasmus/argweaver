@@ -21,6 +21,7 @@ void calc_coal_rates_partial_tree(const ArgModel *model, const LocalTree *tree,
 }
 
 
+
 // Calculate transition probability within a local block
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     const States &states, const LineageCounts *lineages, TransMatrix *matrix,
@@ -31,76 +32,48 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     const double *times = model->times;
     const double *time_steps = model->time_steps;
     const double rho = model->rho;
-    
     const int *nbranches = lineages->nbranches;
     const int *nrecombs = lineages->nrecombs;
     const int *ncoals = lineages->ncoals;
 
-    // get matrix fields
-    double *D = matrix->D;
-    double *E = matrix->E;
-    double *B = matrix->B;
-    double *E2 = matrix->E2;
-    double *G1 = matrix->G1;
-    double *G2 = matrix->G2;
-    double *G3 = matrix->G3;
-    double *G4 = matrix->G4;
-    double *norecombs = matrix->norecombs;
+    // set internal branch resampling flag
     matrix->internal = internal;
 
     // get coalescent rates for each time sub-interval
     double coal_rates_alloc[2*ntimes+1];
     double *coal_rates = &coal_rates_alloc[1];
     calc_coal_rates_partial_tree(model, tree, lineages, coal_rates);
-    
-    // determine tree information: root, root age, tree length
-    int root_age_index;
-    double root_age;
-    double subtree_age = 0.0;
-    double treelen;
-    if (internal) {
-        const int *c = tree->nodes[tree->root].child;
-        const int subtree_root = c[0];
-        const int maintree_root = c[1];
-        root_age_index = tree->nodes[maintree_root].age;
-        root_age = times[root_age_index];
-        subtree_age = times[tree->nodes[subtree_root].age];
-        treelen = get_treelen_internal(tree, times, ntimes);
-    } else {
-        root_age_index = tree->nodes[tree->root].age;
-        root_age = times[root_age_index];
-        treelen = get_treelen(tree, times, ntimes, false);
-    }
-    double treelen_b = treelen + time_steps[root_age_index];
 
     // compute cumulative coalescent rates
     double C_alloc[2*ntimes+1];
     double *C = &C_alloc[1];
     C[-1] = 0.0;
     for (int b=0; b<2*ntimes-1; b++)
-        C[b] = C[b-1] + coal_rates[b];
-    
-    // base cases (time=0)
-    B[0] = (nbranches[0] + 1.0) * time_steps[0] / (nrecombs[0] + 1.0);
-    E2[0] = exp(C[0]) * (1.0 - exp(-coal_rates[0]));
-    G1[0] = time_steps[0] * (
-        (nbranches[0] / (nrecombs[0] + 1.0 + int(0 < root_age_index)))
-        - (nbranches[0] + 1.0) / (nrecombs[0] + 1.0));
-    G2[0] = (1.0 - exp(-coal_rates[0])) * time_steps[0] * 
-        (nbranches[0] + 1.0) / (nrecombs[0] + 1.0);
-    G3[0] = (1.0 - exp(-coal_rates[0])) * time_steps[0] * 
-        (nbranches[0] / (nrecombs[0] + 1.0 + int(0 < root_age_index)));
-    G4[0] = (0<ntimes-2 ? 1.0 - exp(-coal_rates[0]) : 1.0);
-    
-    D[0] = (1.0 - exp(-max(rho * treelen, rho))) / treelen_b;
-    E[0] = 1.0 / ncoals[0];
-    norecombs[0] = exp(-max(rho * treelen, rho));
-    
+        C[b] = C[b-1] + coal_rates[b];    
 
-    // calculate all other time points (time>0)
-    for (int b=1; b<ntimes-1; b++) {
+    // determine tree information: root, root age, tree length
+    int root_age_index;
+    double root_age;
+    double treelen;
+    if (internal) {
+        const int *c = tree->nodes[tree->root].child;
+        const int subtree_root = c[0];
+        const int maintree_root = c[1];
+        const double subtree_age = times[tree->nodes[subtree_root].age];
+        root_age_index = tree->nodes[maintree_root].age;
+        root_age = times[root_age_index];
+        // NOTE: subtree_age is discounted in advance to offset +times[b]
+        treelen = get_treelen_internal(tree, times, ntimes) - subtree_age;
+    } else {
+        root_age_index = tree->nodes[tree->root].age;
+        root_age = times[root_age_index];
+        treelen = get_treelen(tree, times, ntimes, false);
+    }
+
+    // calculate transition matrix terms
+    for (int b=0; b<ntimes-1; b++) {
         // get tree length
-        double treelen2 = treelen + times[b] - (internal ? subtree_age : 0);
+        double treelen2 = treelen + times[b];
         double treelen2_b;
         if (b > root_age_index) {
             // add wrapped branch
@@ -113,27 +86,26 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
             treelen2_b = treelen2 + time_steps[root_age_index];
         }
 
-        B[b] = B[b-1] + exp(C[2*b-1]) * time_steps[b] *
+        matrix->B[b] = matrix->B[b-1] + exp(C[2*b-1]) * time_steps[b] *
             (nbranches[b] + 1.0) / (nrecombs[b] + 1.0);
-        E2[b] = exp(-C[2*b-2]) * (b<ntimes-2 ?
+        matrix->E2[b] = exp(-C[2*b-2]) * (b<ntimes-2 ?
             (1 - exp(-coal_rates[2*b]-coal_rates[2*b-1])) : 1.0);
-        G1[b] = exp(C[2*b-1]) * time_steps[b] * (
+        matrix->G1[b] = exp(C[2*b-1]) * time_steps[b] * (
             (nbranches[b] / (nrecombs[b] + 1.0 + int(b < root_age_index)))
             - (nbranches[b] + 1.0) / (nrecombs[b] + 1.0));
-        G2[b] = (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b]) : 1.0) * 
+        matrix->G2[b] = (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b]) : 1.0) * 
             time_steps[b] * 
             (nbranches[b] + 1.0) / (nrecombs[b] + 1.0);
-        G3[b] = (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b]) : 1.0) *
+        matrix->G3[b] = (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b]) : 1.0) *
             time_steps[b] * 
             (nbranches[b] / (nrecombs[b] + 1.0 + int(b < root_age_index)));
-        G4[b] = exp(-C[2*b-2])*
+        matrix->G4[b] = exp(-C[2*b-2])*
             (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b] - coal_rates[2*b-1]):1.0);
-
-        D[b] = (1.0 - exp(-rho * treelen2)) / treelen2_b;
-        E[b] = 1.0 / ncoals[b];
-        norecombs[b] = exp(-max(rho * treelen2, rho));
+        matrix->D[b] = (1.0 - exp(-rho * treelen2)) / treelen2_b;
+        matrix->E[b] = 1.0 / ncoals[b];
+        matrix->norecombs[b] = exp(-max(rho * treelen2, rho));
     }
-    E[ntimes-2] = 1.0 / ncoals[ntimes-2];
+    matrix->E[ntimes-2] = 1.0 / ncoals[ntimes-2];
 }
 
 
@@ -169,8 +141,14 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
 // functions for switch matrix calculation
 
 
+// Returns the deterministic transitions that occur when switching between
+// blocks.  Transitions are stored in the array 'next_states' such that
+//   next_states[i] = j
+// for deterministic transition i-->j.
+// If state i has no deterministic transition 
+//   next_states[i] = -1.
 void get_deterministic_transitions(
-    const LocalTree *tree, const LocalTree *last_tree, 
+    const LocalTree *last_tree, const LocalTree *tree, 
     const Spr &spr, const int *mapping,
     const States &states1, const States &states2,
     int ntimes, int *next_states, bool internal)
@@ -497,7 +475,7 @@ void calc_transition_probs_switch(
     
 
     // get deterministic transitions
-    get_deterministic_transitions(tree, last_tree, spr, mapping,
+    get_deterministic_transitions(last_tree, tree, spr, mapping,
          states1, states2, model->ntimes, transmat_switch->determ);
     for (int i=0; i<nstates1; i++) {
         int j = transmat_switch->determ[i];
@@ -668,7 +646,7 @@ void calc_transition_probs_switch_internal(
 
     
     // get deterministic transitions
-    get_deterministic_transitions(tree, last_tree, spr, mapping,
+    get_deterministic_transitions(last_tree, tree, spr, mapping,
         states1, states2, model->ntimes, transmat_switch->determ,
         true);
     for (int i=0; i<nstates1; i++) {

@@ -86,7 +86,7 @@ void calc_arghmm_matrices_external(
     LineageCounts lineages(model->ntimes);
     States last_states;
     States states;
-    get_coal_states(tree, model->ntimes, states);
+    get_coal_states(tree, model->ntimes, states, false);
     const int nstates = states.size();
     
     // calculate emissions
@@ -112,7 +112,7 @@ void calc_arghmm_matrices_external(
         
     } else {
         LocalTree *last_tree = last_tree_spr->tree;
-        get_coal_states(last_tree, model->ntimes, last_states);
+        get_coal_states(last_tree, model->ntimes, last_states, false);
         matrices->nstates1 = last_states.size();
         matrices->nstates2 = nstates;
         lineages.count(last_tree);

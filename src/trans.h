@@ -251,7 +251,7 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
                        const int minage=0);
 
 void get_deterministic_transitions(
-    const LocalTree *tree, const LocalTree *last_tree, 
+    const LocalTree *last_tree, const LocalTree *tree, 
     const Spr &spr, const int *mapping,
     const States &states1, const States &states2,
     int ntimes, int *next_states, bool internal=false);
