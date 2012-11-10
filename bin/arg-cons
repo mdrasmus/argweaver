@@ -28,7 +28,7 @@ def iter_trees(filename, attr):
     for item in arghmm.iter_smc_file(filename, parse_trees=False):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
-            attr["region"] = [item["chrom"], item["start"], item["end"]]
+            attr["region"] = [item["chrom"], item["start"]-1, item["end"]]
 	elif item["tag"] == "NAMES":
             attr["names"] = item["names"]
         elif item["tag"] == "TREE":
@@ -43,7 +43,7 @@ def iter_trees_arg(filename, attr):
     #for block, tree in arglib.iter_tree_tracks(arg):
     for block in arglib.iter_recomb_blocks(arg):
         yield int(block[0]), int(block[1]), "chr", \
-              (arg, (block[1] - block[0]) / 2.0)
+              (arg, (block[0] + block[1]) / 2.0)
         #arglib.remove_single_lineages(tree)
         #yield block[0], block[1], "chr", tree.get_tree()
 
@@ -118,7 +118,7 @@ for filename in filenames:
 trees.sort()
 
 if conf.ntrees:
-    start = attr["region"][1] - 1
+    start = attr["region"][1]
     end = attr["region"][2]
     step = int((end - start) / conf.ntrees)
     positions = range(start+step/2, end, step)
