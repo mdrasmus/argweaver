@@ -26,12 +26,31 @@ void make_intstates(States states, intstate *istates)
 }
 
 
+
+void get_coal_states(const LocalTree *tree, int ntimes, States &states,
+                     bool internal)
+{
+    if (internal)
+        get_coal_states_internal(tree, ntimes, states);
+    else
+        get_coal_states_external(tree, ntimes, states);
+}
+
+int get_num_coal_states(const LocalTree *tree, int ntimes, bool internal)
+{
+    if (internal)
+        get_num_coal_states_internal(tree, ntimes);
+    else
+        get_num_coal_states_external(tree, ntimes);
+}
+
+
 // Returns the possible coalescing states for a tree
 //
 // NOTE: Do not allow coalescing at top time
 // states for the same branch are clustered together and ages are given
 // in increasing order
-void get_coal_states(const LocalTree *tree, int ntimes, States &states)
+void get_coal_states_external(const LocalTree *tree, int ntimes, States &states)
 {
     states.clear();
     const LocalNode *nodes = tree->nodes;
@@ -55,7 +74,7 @@ void get_coal_states(const LocalTree *tree, int ntimes, States &states)
 }
 
 // Returns the number of possible coalescing states for a tree
-int get_num_coal_states(const LocalTree *tree, int ntimes)
+int get_num_coal_states_external(const LocalTree *tree, int ntimes)
 {
     int nstates = 0;
     const LocalNode *nodes = tree->nodes;
@@ -184,36 +203,6 @@ int get_num_coal_states_internal(const LocalTree *tree, int ntimes)
 // C interface
 
 extern "C" {
-
-    /*
-// Returns state-spaces, useful for calling from python
-intstate **get_state_spaces(int **ptrees, int **ages, int **sprs, 
-                            int *blocklens, int ntrees, int nnodes, int ntimes)
-{
-    LocalTrees trees(ptrees, ages, sprs, blocklens, ntrees, nnodes);
-    States states;
-    
-    // allocate state space
-    intstate **all_states = new intstate* [ntrees];
-
-    // iterate over local trees
-    int i = 0;
-    for (LocalTrees::iterator it=trees.begin(); it != trees.end(); it++) {
-        LocalTree *tree = it->tree;
-        get_coal_states(tree, ntimes, states);
-        int nstates = states.size();
-        all_states[i] = new intstate [nstates];
-        
-        for (int j=0; j<nstates; j++) {
-            all_states[i][j][0] = states[j].node;
-            all_states[i][j][1] = states[j].time;
-        }
-        i++;
-    }
-
-    return all_states;
-}
-    */
 
 
 // Returns state-spaces, useful for calling from python

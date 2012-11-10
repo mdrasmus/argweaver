@@ -24,7 +24,7 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
 
             int determ[last_states->size()];
             get_deterministic_transitions(
-                 it->tree, last_tree, it->spr, it->mapping,
+                 last_tree, it->tree, it->spr, it->mapping,
                  *last_states, *states, ntimes, determ);
 
             int a = thread_path[start-1];

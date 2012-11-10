@@ -141,8 +141,12 @@ void make_states(intstate *istates, int nstates, States &states);
 // Converts state class represent to integer-based
 void make_intstates(States states, intstate *istates);
 
-void get_coal_states(const LocalTree *tree, int ntimes, States &states);
-int get_num_coal_states(const LocalTree *tree, int ntimes);
+void get_coal_states(const LocalTree *tree, int ntimes, States &states,
+                     bool internal=false);
+int get_num_coal_states(const LocalTree *tree, int ntimes, bool internal=false);
+
+void get_coal_states_external(const LocalTree *tree, int ntimes, States &states);
+int get_num_coal_states_external(const LocalTree *tree, int ntimes);
 
 void get_coal_states_internal(const LocalTree *tree, int ntimes,States &states);
 int get_num_coal_states_internal(const LocalTree *tree, int ntimes);
