@@ -1333,7 +1333,58 @@ class Basic (unittest.TestCase):
                 assert False
 
     #=========================================================================
-    
+
+
+    def test_forward_c(self):
+
+        k = 20
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(200e3 / 20)
+        times = arghmm.get_time_points(ntimes=20)
+
+        arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+        
+        print "muts", len(muts)
+        print "recomb", len(arglib.get_recomb_pos(arg))
+
+        arghmm.discretize_arg(arg, times)
+
+        # remove chrom
+        new_name = "n%d" % (k - 1)
+        arg = arghmm.remove_arg_thread(arg, new_name)
+
+        carg = arghmm.arg2ctrees(arg, times)
+        
+        util.tic("C fast")
+        probs1 = arghmm.arghmm_forward_algorithm(carg, seqs, times=times)
+        util.toc()
+
+        util.tic("C slow")
+        probs2 = arghmm.arghmm_forward_algorithm(carg, seqs, times=times,
+                                                 slow=True)
+        util.toc()
+        
+
+        for i, (col1, col2) in enumerate(izip(probs1, probs2)):
+            #sum2 = stats.logsum(col2)
+            #col2 = [exp(x-sum2) for x in col2]
+            
+            for a, b in izip(col1, col2):
+                try:
+                    #print a, b
+                    fequal(a, b, rel=.0001)
+                except:
+                    print model.states[i]
+                    print i, col1
+                    print i, col2
+                    raise
+
+
+    '''
     def test_forward_c(self):
 
         k = 10
@@ -1380,7 +1431,7 @@ class Basic (unittest.TestCase):
                     print i, col1
                     print i, col2
                     raise
-        
+                '''
 
     def test_backward_c(self):
 

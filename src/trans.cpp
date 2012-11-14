@@ -45,11 +45,12 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     calc_coal_rates_partial_tree(model, tree, lineages, coal_rates);
 
     // compute cumulative coalescent rates
-    double C_alloc[2*ntimes+1];
-    double *C = &C_alloc[1];
+    double C_alloc[2*ntimes+2];
+    double *C = &C_alloc[2];
+    C[-2] = 0.0;
     C[-1] = 0.0;
     for (int b=0; b<2*ntimes-1; b++)
-        C[b] = C[b-1] + coal_rates[b];    
+        C[b] = C[b-1] + coal_rates[b];
 
     // determine tree information: root, root age, tree length
     int root_age_index;
@@ -71,6 +72,7 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     }
 
     // calculate transition matrix terms
+    matrix->B[-1] = 0.0;
     for (int b=0; b<ntimes-1; b++) {
         // get tree length
         double treelen2 = treelen + times[b];

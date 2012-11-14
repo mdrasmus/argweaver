@@ -2752,11 +2752,11 @@ class Sample (unittest.TestCase):
         Estimate population sizes per time and window
         """
 
-        k = 20
+        k = 50
         rho = 1.5e-8
         mu = 2.5e-8
-        length = int(5000e3)
-        window = int(200e3)
+        length = int(500e3)
+        window = int(300e3)
         times = arghmm.get_time_points(ntimes=20, maxtime=120000)
         a = 30.
         b = 15
@@ -2781,9 +2781,10 @@ class Sample (unittest.TestCase):
             arg2 = arglib.smcify_arg(arg, start, start+window)
             popsizes2.append(arghmm.est_arg_popsizes(
                 arg2, times=times,
-                popsize_mu=1e4, popsize_sigma=.2e4))
+                popsize_mu=1e4, popsize_sigma=1e4))
         util.toc()
 
+        popsizes2 = [popsizes[:len(popsizes2[0])]] + popsizes2
         #popsizes2 = transpose(popsizes2)
         
         pc(popsizes2)

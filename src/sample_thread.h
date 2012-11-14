@@ -60,7 +60,7 @@ public:
         int blocklen = end - start;
         double *block = new double [blocklen * nstates];
         blocks.push_back(block);
-
+        
         // link block to fw table
         for (int i=start; i<end; i++) {
             assert(i-start_coord >= 0 && i-start_coord < seqlen);
@@ -129,7 +129,8 @@ public:
 
 void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
     const Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
-    ArgHmmForwardTable *forward, bool prior_given=false, bool internal=false);
+    ArgHmmForwardTable *forward, bool prior_given=false, 
+    bool internal=false, bool slow=false);
 
 
 //=============================================================================

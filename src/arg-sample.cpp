@@ -416,7 +416,7 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\t%f\n",
             stage, iter,
             prior, likelihood, joint, nrecombs, noncompats, arglen);
-    fflush(stats_file);
+    fflush(stats_file);    
 
     printLog(LOG_LOW, "\n"
              "prior:      %f\n"
@@ -862,10 +862,12 @@ int main(int argc, char **argv)
         seq_region.set(sites->chrom, sites->start_coord, sites->end_coord);
 
         // compress sequence
+        //if (c.compress_seq > 1) {
         sites_mapping = new SitesMapping();
         sites_mapping_ptr = auto_ptr<SitesMapping>(sites_mapping);
         find_compress_cols(sites, c.compress_seq, sites_mapping);
         compress_sites(sites, sites_mapping);
+        //}
         make_sequences_from_sites(sites, &sequences);
         seq_region_compress.set(seq_region.chrom, 0, sequences.length());
             
@@ -998,12 +1000,16 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // get memory usage in MB
+    double maxrss = get_max_memory_usage() / 1000.0;
+    printLog(LOG_LOW, "max memory usage: %.1f MB\n", maxrss);
+
     // sample ARG
     printLog(LOG_LOW, "\n");
     sample_arg(&model, &sequences, trees, sites_mapping, &c);
     
     // final log message
-    double maxrss = get_max_memory_usage() / 1000.0;
+    maxrss = get_max_memory_usage() / 1000.0;
     printTimerLog(timer, LOG_LOW, "sampling time: ");
     printLog(LOG_LOW, "max memory usage: %.1f MB\n", maxrss);
     printLog(LOG_LOW, "FINISH\n");

@@ -68,7 +68,7 @@ def infer_coalrates(arg, times, window=int(200e3), step=50e3,
 
 times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
 
-filename = args[0]
+#filename = args[0]
 '''
 if "%d" in filename:
     filenames = []
@@ -80,9 +80,9 @@ else:
     filenames = args
 '''
 
-arg = arghmm.read_arg(filename)
-arghmm.discretize_arg(arg, times)
-
-for row in infer_coalrates(arg, times, window=conf.window, step=conf.step,
-                           popsize_mu=1e4, popsize_sigma=.2e4):
-    print_row(*row)
+for filename in args:
+    arg = arghmm.read_arg(filename)
+    arghmm.discretize_arg(arg, times)
+    for row in infer_coalrates(arg, times, window=conf.window, step=conf.step,
+                               popsize_mu=1e4, popsize_sigma=.2e4):
+        print_row(*row)

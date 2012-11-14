@@ -243,8 +243,7 @@ public:
         
             if (end < old_end) {
                 int cur2 = cur;
-                for (; cur2 < new_seqlen && all_sites[cur2] < end; 
-                     cur2++) {}
+                for (; cur2 < new_seqlen && all_sites[cur2] < end; cur2++) {}
                 
                 blocks2.push_back(cur2 - cur);
                 cur = cur2;
@@ -270,6 +269,7 @@ public:
                 // use median for placing block ends
                 int cur2 = (all_sites[end-1] + 1 + all_sites[end]) / 2;
                 blocks2.push_back(cur2 - cur);
+                assert(cur2 > cur);
                 cur = cur2;
             } else {
                 // last block case

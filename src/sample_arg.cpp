@@ -49,8 +49,13 @@ void sample_arg_seq(const ArgModel *model, const Sequences *sequences,
 
     // add more chromosomes one by one
     for (int new_chrom=0; new_chrom<nseqs; new_chrom++) {
-        if (!has_sequence[new_chrom])
+        if (!has_sequence[new_chrom]) {
+            printLog(LOG_LOW, "add sequence %d of %d (%s)\n", 
+                     trees->get_num_leaves() + 1, nseqs,
+                     sequences->names[new_chrom].c_str());
             sample_arg_thread(model, sequences, trees, new_chrom);
+            printLog(LOG_LOW, "\n");
+        }
     }
 }
 

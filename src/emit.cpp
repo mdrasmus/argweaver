@@ -70,12 +70,15 @@ void prob_tree_mutation(const LocalTree *tree, const ArgModel *model,
     const double mintime = model->get_mintime();
 
     for (int i=0; i<nnodes; i++) {
-        if (i != tree->root) {
-            double t = max(times[nodes[nodes[i].parent].age] - 
-                           times[nodes[i].age], mintime);
-            muts[i] = prob_branch(t, model->mu, true);
-            nomuts[i] = prob_branch(t, model->mu, false);
-        }
+        if (i == tree->root)
+            continue;
+        int parent_age = nodes[nodes[i].parent].age;
+        if (parent_age == model->get_removed_root_time())
+            continue;
+
+        double t = max(times[parent_age] - times[nodes[i].age], mintime);
+        muts[i] = prob_branch(t, model->mu, true);
+        nomuts[i] = prob_branch(t, model->mu, false);
     }
 }
 

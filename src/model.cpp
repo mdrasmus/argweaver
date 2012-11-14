@@ -11,11 +11,11 @@ void get_coal_time_steps(const double *times, int ntimes,
 {    
     // get midpoints
     double times2[2*ntimes+1];
-    for (int i=0; i<ntimes; i++) {
+    for (int i=0; i<ntimes-1; i++) {
         times2[2*i] = times[i];
         times2[2*i+1] = sqrt((times[i+1]+1.0)*(times[i]+1.0));
     }
-    times2[2*ntimes] = times[ntimes];
+    times2[2*ntimes] = times[ntimes-1];
     
     for (int i=0; i<2*ntimes; i+=2) {
         coal_time_steps[i/2] = times2[min(i+1, 2*ntimes)] -
@@ -34,11 +34,11 @@ void get_coal_time_steps2(const double *times, int ntimes,
 {    
     // get midpoints
     double times2[2*ntimes+1];
-    for (int i=0; i<ntimes; i++) {
+    for (int i=0; i<ntimes-1; i++) {
         times2[2*i] = times[i];
         times2[2*i+1] = sqrt((times[i+1]+1.0)*(times[i]+1.0));
     }
-    times2[2*ntimes] = times[ntimes];
+    times2[2*ntimes] = times[ntimes-1];
     
     for (int i=0; i<2*ntimes-2; i++) {
         coal_time_steps[i] = times2[min(i+1, 2*ntimes)] - times2[i];

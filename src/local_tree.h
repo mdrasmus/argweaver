@@ -242,7 +242,7 @@ public:
     {
         if (_capacity == capacity)
             return;
-
+        
         LocalNode *tmp = new LocalNode[_capacity];
         assert(tmp);
 

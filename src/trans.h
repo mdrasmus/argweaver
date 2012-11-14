@@ -31,7 +31,7 @@ public:
         if (own_data) {
             delete [] D;
             delete [] E;
-            delete [] B;
+            delete [] B_alloc;
             delete [] E2;
             delete [] G1;
             delete [] G2;
@@ -48,7 +48,8 @@ public:
         own_data = true;
         D = new double [ntimes];
         E = new double [ntimes];
-        B = new double [ntimes];
+        B_alloc = new double [ntimes+1];
+        B = &B_alloc[1];
         E2 = new double [ntimes];
         G1 = new double [ntimes];
         G2 = new double [ntimes];
@@ -122,6 +123,7 @@ public:
     double *D;
     double *E;
     double *B;
+    double *B_alloc;
     double *E2;
     double *G1;
     double *G2;

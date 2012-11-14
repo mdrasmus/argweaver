@@ -108,7 +108,8 @@ if arghmmclib:
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_bool, "prior_given", c_double_list, "prior", c_bool, "internal"])
+            c_bool, "prior_given", c_double_list, "prior", c_bool, "internal",
+            c_bool, "slow"])
     export(arghmmclib, "delete_double_matrix", c_int,
            [c_double_p_p, "mat", c_int, "nrows"])
     export(arghmmclib, "delete_forward_matrix", c_int,
@@ -255,6 +256,9 @@ if arghmmclib:
     # thread data structures
     export(arghmmclib, "delete_path", c_int,
            [POINTER(c_int * 2), "path"])
+    export(arghmmclib, "arghmm_get_nstates", int,
+           [c_void_p, "trees",  c_int, "ntimes", c_bool, "internal",
+            c_out(c_int_list), "nstates"])
     export(arghmmclib, "get_state_spaces", POINTER(POINTER(c_int * 2)),
            [c_void_p, "trees",  c_int, "ntimes", c_bool, "internal"])
     export(arghmmclib, "delete_state_spaces", c_int,
@@ -450,10 +454,11 @@ def assert_transition_probs_switch_internal(trees, times, popsizes, rho):
 
 def arghmm_forward_algorithm(arg, seqs, rho=1.5e-8,
                              mu=2.5e-8, popsizes=1e4, times=None,
+                             ntimes=20, maxtime=180000,
                              verbose=False, 
-                             prior=[], internal=False):
+                             prior=[], internal=False, slow=False):
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = arghmm.get_time_points(ntimes=ntimes, maxtime=maxtime, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -476,7 +481,14 @@ def arghmm_forward_algorithm(arg, seqs, rho=1.5e-8,
     fw = arghmm_forward_alg(trees, times, len(times),
                             popsizes, rho, mu,
                             (c_char_p * len(seqs2))(*seqs2), len(seqs2),
-                            seqlen, len(prior) > 0, prior, internal)
+                            seqlen, len(prior) > 0, prior, internal,
+                            slow)
+
+    nstates = [0] * seqlen
+    arghmm_get_nstates(trees, len(times), internal, nstates)
+    
+    probs = [row[:n] for row, n in zip(fw, nstates)]
+    
     delete_forward_matrix(fw, seqlen)
 
     if verbose:

@@ -39,7 +39,8 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
 {
     const int nstates = states.size();
     const LocalNode *nodes = tree->nodes;
-    
+
+    //  handle internal branch resampling special cases
     int minage = 0;
     int subtree_root = 0, maintree_root = 0;
     if (matrix->internal) {
@@ -131,7 +132,7 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
             
             assert(!isnan(col1[k]));
 
-            // same branch case (extra terms substracted, no 2*B[min(a,b)])
+            // same branch case
             double sum = tmatrix_fgroups[b];
             const int j1 = indexes[node2];
             for (int j=j1, a=age1; a<=age2; j++, a++)
@@ -141,23 +142,12 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
             norm += col2[k];
         }
 
-        /*
-        // assert DP
-        for (int k=0; k<nstates; k++) {
-            double sum = 0.0;
-            for (int j=0; j<nstates; j++)
-                sum += col1[j] * matrix->get(tree, states, j, k);
-            double p = sum * emit2[k];
-            printf(">> %e %e\n", col2[k], p);
-            assert(fequal(col2[k], p, 1e-4, 1e-9));
-        }
-        */
-
         // normalize column for numerical stability
         for (int k=0; k<nstates; k++)
             col2[k] /= norm;
     }
 }
+
 
 
 // compute one block of forward algorithm with compressed transition matrices
@@ -256,7 +246,7 @@ void arghmm_forward_switch(const double *col1, double* col2,
 // Run forward algorithm for all blocks
 void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
     const Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
-    ArgHmmForwardTable *forward, bool prior_given, bool internal)
+    ArgHmmForwardTable *forward, bool prior_given, bool internal, bool slow)
 {
     LineageCounts lineages(model->ntimes);
     States states;
@@ -313,9 +303,14 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
         assert(top > 0.0);
         
         // calculate rest of block
-        arghmm_forward_block(tree, model->ntimes, blocklen, 
-                             states, lineages, matrices.transmat,
-                             emit, fw_block);
+        if (slow)
+            arghmm_forward_block_slow(tree, model->ntimes, blocklen, 
+                                      states, lineages, matrices.transmat,
+                                      emit, fw_block);
+        else
+            arghmm_forward_block(tree, model->ntimes, blocklen, 
+                                 states, lineages, matrices.transmat,
+                                 emit, fw_block);
 
         // safety check
         double top2 = max_array(fw[pos + matrices.blocklen - 1], nstates);
@@ -333,9 +328,9 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
 
 
 
-double sample_hmm_posterior(int n, const LocalTree *tree, const States &states,
-                          const TransMatrix *matrix, 
-                          const double *const *fw, int *path)
+double sample_hmm_posterior(
+    int blocklen, const LocalTree *tree, const States &states,
+    const TransMatrix *matrix, const double *const *fw, int *path)
 {
     // NOTE: path[n-1] must already be sampled
     
@@ -346,7 +341,7 @@ double sample_hmm_posterior(int n, const LocalTree *tree, const States &states,
     double lnl = 0.0;
 
     // recurse
-    for (int i=n-2; i>=0; i--) {
+    for (int i=blocklen-2; i>=0; i--) {
         int k = path[i+1];
         
         // recompute transition probabilities if state (k) changes
@@ -896,7 +891,7 @@ double **arghmm_forward_alg(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
     char **seqs, int nseqs, int seqlen, bool prior_given, double *prior,
-    bool internal)
+    bool internal, bool slow)
 {    
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, mu);
@@ -925,7 +920,7 @@ double **arghmm_forward_alg(
     }
 
     arghmm_forward_alg(trees, &model, &sequences, &matrix_list,
-                       &forward, prior_given, internal);
+                       &forward, prior_given, internal, slow);
 
     // steal pointer
     double **fw = forward.detach_table();

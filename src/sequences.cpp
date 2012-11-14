@@ -316,6 +316,24 @@ void find_compress_cols(const Sites *sites, int compress,
     
     // record old coords
     sites_mapping->init(sites);
+
+    // special case
+    if (compress == 1) {
+        for (int i=sites->start_coord; i<sites->end_coord; i++) {
+            sites_mapping->all_sites.push_back(i);
+        }
+
+        for (int i=0; i<ncols; i++) {
+            int col = sites->positions[i];
+            sites_mapping->old_sites.push_back(col);
+            sites_mapping->new_sites.push_back(i);
+        }
+
+        // record new coords
+        sites_mapping->new_start = 0;
+        sites_mapping->new_end = sites->length();
+        return;
+    }
     
     // iterate through variant sites
     for (int i=0; i<ncols; i++) {
@@ -333,6 +351,12 @@ void find_compress_cols(const Sites *sites, int compress,
         sites_mapping->all_sites.push_back(col);
         next_block += compress;
         blocki++;
+
+        // each original site should be unique
+        const int n = sites_mapping->all_sites.size();
+        if (n > 1)
+            assert(sites_mapping->all_sites[n-1] !=
+                   sites_mapping->all_sites[n-2]);
     }
 
     // record non-variants at end of alignment
@@ -342,7 +366,6 @@ void find_compress_cols(const Sites *sites, int compress,
         blocki++;
     }
 
-
     // record new coords
     sites_mapping->new_start = 0;
     int new_end = sites->length() / compress;
@@ -351,6 +374,9 @@ void find_compress_cols(const Sites *sites, int compress,
                                      new_end);
     else
         sites_mapping->new_end = new_end;
+
+    //assert(sites_mapping->all_sites.size() == sites_mapping->new_end - 
+    //       sites_mapping->new_start);
 }
 
 

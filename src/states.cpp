@@ -39,9 +39,9 @@ void get_coal_states(const LocalTree *tree, int ntimes, States &states,
 int get_num_coal_states(const LocalTree *tree, int ntimes, bool internal)
 {
     if (internal)
-        get_num_coal_states_internal(tree, ntimes);
+        return get_num_coal_states_internal(tree, ntimes);
     else
-        get_num_coal_states_external(tree, ntimes);
+        return get_num_coal_states_external(tree, ntimes);
 }
 
 
@@ -203,6 +203,25 @@ int get_num_coal_states_internal(const LocalTree *tree, int ntimes)
 // C interface
 
 extern "C" {
+
+
+void arghmm_get_nstates(LocalTrees *trees, int ntimes, bool internal,
+                        int *nstates)
+{
+    States states;
+    
+    // iterate over local trees
+    int i = 0;
+    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); it++) {
+        LocalTree *tree = it->tree;
+
+        get_coal_states(tree, ntimes, states, internal);
+        int n = states.size();
+        for (int j=0; j<it->blocklen; j++)
+            nstates[i+j] = n;
+        i += it->blocklen;
+    }
+}
 
 
 // Returns state-spaces, useful for calling from python

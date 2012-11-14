@@ -1231,7 +1231,7 @@ bool read_local_trees(FILE *infile, const double *times, int ntimes,
     int lineno = 1;
     while ((line = fgetline(infile))) {
         chomp(line);
-
+        
         if (strncmp(line, "NAMES", 5) == 0) {
             // parse names
             split(&line[6], delim, seqnames);
