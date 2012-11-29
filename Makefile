@@ -38,7 +38,7 @@ endif
 # ArgHmm files
 
 # package
-PKG_VERSION:=$(shell python -c 'import arghmm; print arghmm.PROGRAM_VERSION_TEXT' > /dev/null)
+PKG_VERSION:=$(shell python -c 'import arghmm; print arghmm.PROGRAM_VERSION_TEXT' 2> /dev/null)
 PKG_NAME=arghmm
 PKG=dist/$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_DIR=dist/$(PKG_NAME)-$(PKG_VERSION)
