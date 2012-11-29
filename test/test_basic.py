@@ -1337,12 +1337,12 @@ class Basic (unittest.TestCase):
 
     def test_forward_c(self):
 
-        k = 20
+        k = 10
         n = 1e4
         rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         length = int(200e3 / 20)
-        times = arghmm.get_time_points(ntimes=20)
+        times = arghmm.get_time_points(ntimes=100)
 
         arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)

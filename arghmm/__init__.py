@@ -711,9 +711,10 @@ def parse_tree_data(node, data):
 
 def parse_tree(text):
     """Parse a newick string into a tree"""
-    tree = treelib.Tree()
-    stream = StringIO.StringIO(text)
-    tree.read_newick(stream, readData=parse_tree_data)
+    #tree = treelib.Tree()
+    #stream = StringIO.StringIO(text)
+    #tree.read_newick(stream, readData=parse_tree_data)
+    tree = treelib.parse_newick(text, read_data=parse_tree_data)
 
     for node in list(tree):
         if node.is_leaf():
