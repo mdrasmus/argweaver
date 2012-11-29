@@ -763,7 +763,7 @@ def smc2sprs(smc):
             if isinstance(tree, basestring):
                 tree = parse_tree(tree)
                 
-            if not init_tree:
+            if not init_tree:                
                 init_tree = tree.copy()
 
                 # rename leaves
