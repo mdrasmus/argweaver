@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 
 import json
+import optparse
 
 from rasmus.common import *
 from arghmm.bottle import request, get, HTTPResponse, static_file, run
 import arghmm
 from arghmm.db import ArgDB, SitesDB
 
+o = optparse.OptionParser()
+o.add_option("-p", "--port", type="int", default=8080)
+o.add_option("", "--pub", action="store_true")
 
+conf, args = o.parse_args()
 
 #=============================================================================
 # routes
@@ -20,18 +25,11 @@ def get_tree(pos=0):
 
     callback = request.query.get("callback", "jsonp_callback")
 
-    return callback + "('" + \
-           json.dumps(smc_db.get_trees(chrom, pos, pos).next()) + "');"
-
-    '''
-    for item in smc:
-        if item["tag"] == "TREE":
-            if item["start"] <= pos < item["end"]:
-                print item
-                return callback + "('" + json.dumps(item) + "');"
-    '''
-    
-    return ""
+    try:
+        return callback + "('" + \
+               json.dumps(smc_db.get_trees(chrom, pos, pos).next()) + "');"
+    except:
+        return ""
 
 
 # get one tree and spr
@@ -42,23 +40,12 @@ def get_tree_spr(pos=0):
 
     callback = request.query.get("callback", "jsonp_callback")
 
-    result = [smc_db.get_trees(chrom, pos, pos).next()]
-    end = result[0]["end"]
-    result.append(smc_db.get_sprs(chrom, end, end+1).next())
-
-    '''
-    result = []
-    spr = False
-    for item in smc:
-        if item["tag"] == "TREE":
-            if item["start"] <= pos < item["end"]:
-                print item
-                result.append(item)
-                spr = True
-        elif item["tag"] == "SPR" and spr:
-            result.append(item)
-            break
-    '''
+    try:
+        result = [smc_db.get_trees(chrom, pos, pos).next()]
+        end = result[0]["end"]
+        result.append(smc_db.get_sprs(chrom, end, end+1).next())
+    except:
+        result = []
     
     return callback + "('" + json.dumps(result) + "');"
 
@@ -82,18 +69,6 @@ def get_trees(region=""):
     result.sort(key=lambda x: (x["start"], 1) if "start" in x
                 else (x["pos"], 0))
 
-    '''
-    for item in smc:
-        if item["tag"] == "TREE":
-            if util.overlap(start, end, item["start"], item["end"]):
-                print item
-                result.append(item)
-        elif item["tag"] == "SPR":
-            if start <= item["pos"] < end:
-                print item
-                result.append(item)
-    '''
-
     return callback + "('" + json.dumps(result) + "');"
 
 
@@ -112,14 +87,6 @@ def get_sprs(region=""):
 
     result = []
     result.extend(smc_db.get_sprs(chrom, start, end))
-
-    '''
-    for item in smc:
-        if item["tag"] == "SPR":
-            if start <= item["pos"] < end:
-                print item
-                result.append(item)
-    '''
 
     return callback + "('" + json.dumps(result) + "');"
 
@@ -148,10 +115,10 @@ def get_sites(region=""):
 
 #=============================================================================
 
-smc_file = sys.argv[1]
+smc_file = args[0]
 
-if len(sys.argv) > 2:
-    sites_file = sys.argv[2]
+if len(args) > 1:
+    sites_file = args[1]
 else:
     sites_file = None
 
@@ -165,12 +132,6 @@ util.toc()
 
 arg_names = smc_db.get_names()
 
-'''
-for item in smc:
-    if item["tag"] == "NAMES":
-        arg_names = item["names"]
-        break
-'''
 
 if sites_file:
     util.tic("reading sites...")
@@ -185,5 +146,8 @@ else:
 print "done"
 
 
-run(host='localhost', port=8080)
+if conf.pub:
+    run(host='', port=8080)
+else:
+    run(host='localhost', port=8080)
 
