@@ -112,9 +112,6 @@ public:
         // search
 	config.add(new ConfigParamComment("Search"));
 	config.add(new ConfigParam<int>
-		   ("", "--climb", "<# of climb iterations>", &nclimb, 50,
-                    "(default=50)"));
-	config.add(new ConfigParam<int>
 		   ("-n", "--iters", "<# of iterations>", &niters, 1000,
                     "(default=1000)"));
         config.add(new ConfigParam<string>
@@ -130,6 +127,9 @@ public:
 		   ("-c", "--compress-seq", "<compression factor>", 
                     &compress_seq, 1,
                     "alignment compression factor (default=1)"));
+	config.add(new ConfigParam<int>
+		   ("", "--climb", "<# of climb iterations>", &nclimb, 0,
+                    "(default=0)"));
         config.add(new ConfigParam<int>
 		   ("", "--sample-step", "<sample step size>", &sample_step, 
                     10, "number of iterations between steps (default=10)"));
@@ -537,16 +537,20 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     int step = window / 2;
 
     // set iteration counter
-    int iter = 0;
+    int iter = 1;
     if (config->resume)
-        iter = config->resume_iter;
+        iter = config->resume_iter + 1;
+    else {
+        // save first ARG (iter=0)
+        log_local_trees(model, sequences, trees, sites_mapping, config, 0);
+    }
 
 
     printLog(LOG_LOW, "Resample All Branches (%d iterations)\n", 
              config->niters);
     printLog(LOG_LOW, "--------------------------------------\n");
-    for (int i=iter; i<config->niters; i++) {
-        printLog(LOG_LOW, "sample %d\n", i+1);
+    for (int i=iter; i<=config->niters; i++) {
+        printLog(LOG_LOW, "sample %d\n", i);
         //resample_arg_all(model, sequences, trees, config->prob_path_switch);
 
         Timer timer;

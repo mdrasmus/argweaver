@@ -134,17 +134,23 @@ public:
 
     void setLogLevel(int level)
     {
+        if (chain)
+            chain->setLogLevel(level);
         loglevel = level;
     }
 
     int incLogLevel()
     {
+        if (chain)
+            chain->incLogLevel();
         loglevel++;
         return loglevel;
     }
 
     int decLogLevel()
     {
+        if (chain)
+            chain->decLogLevel();
         loglevel--;
         return loglevel;
     }

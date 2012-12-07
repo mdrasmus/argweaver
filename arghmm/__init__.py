@@ -24,7 +24,9 @@ from arghmm.sim import \
      sample_dsmc_sprs, \
      sample_arg_dsmc, \
      sample_arg_mutations, \
-     make_alignment
+     make_alignment, \
+     make_sites
+
 
 
 #=============================================================================
@@ -61,7 +63,6 @@ def get_time_points(ntimes=30, maxtime=80000, delta=.01):
     return [get_time_point(i, ntimes, maxtime, delta)
             for i in range(ntimes+1)]
 
-
 def iter_coal_states(tree, times):
     """Iterates through the coalescent states of a local tree"""
     
@@ -95,8 +96,6 @@ def get_nlineages(tree, times):
     """
     Count the number of lineages at each time point that can coal and recomb
     """
-
-    # TODO: is nrecombs including basal point?  It shouldn't
     
     nbranches = [0 for i in times]
     
@@ -153,7 +152,7 @@ def get_nlineages_recomb_coal(tree, times):
     return nbranches, nrecombs, ncoals
 
 
-def discretize_arg(arg, times, ignore_top=True, round_age="down"):
+def discretize_arg(arg, times, ignore_top=True, round_age="closer"):
     """
     Round node ages to the nearest time point
 
