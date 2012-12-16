@@ -757,7 +757,7 @@ class Basic (unittest.TestCase):
             
 
 
-
+    '''
     def test_trans_c(self):
 
         k = 10
@@ -903,7 +903,7 @@ class Basic (unittest.TestCase):
                     print i, j, emit[i][j], model.prob_emission(i, j)
                     print model.states[i][j]
                     raise
-
+    '''
 
     #========================
     # HMM algorithms

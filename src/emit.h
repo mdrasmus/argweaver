@@ -13,9 +13,9 @@ void parsimony_ancestral_seq(const LocalTree *tree, const char *const *seqs,
                              int *postorder=NULL);
 int parsimony_cost_seq(const LocalTree *tree, const char * const *seqs, 
                        int nseqs, int pos, int *postorder);
-void calc_emissions(const States &states, const LocalTree *tree,
-                    const char * const*seqs, int nseqs, int seqlen, 
-                    const ArgModel *model, double **emit);
+void calc_emissions_external(const States &states, const LocalTree *tree,
+                             const char * const*seqs, int nseqs, int seqlen, 
+                             const ArgModel *model, double **emit);
 void calc_emissions_internal(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen, 
                              const ArgModel *model, double **emit);

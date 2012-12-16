@@ -6,6 +6,10 @@
 #include "sequences.h"
 
 
+// TODO: add sites validation
+//       - positions should be sorted and unique
+//       - bases should be acceptable characters
+
 
 namespace arghmm {
 
