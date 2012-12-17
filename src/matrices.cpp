@@ -97,8 +97,8 @@ void calc_arghmm_matrices_external(
             subseqs[i] = &seqs->seqs[trees->seqids[i]][start];
         subseqs[nleaves] = &seqs->seqs[new_chrom][start];
         matrices->emit = new_matrix<double>(blocklen, nstates);
-        calc_emissions(states, tree, subseqs, nleaves + 1, blocklen, 
-                       model, matrices->emit);
+        calc_emissions_external(states, tree, subseqs, nleaves + 1, blocklen, 
+                                model, matrices->emit);
     } else {
         matrices->emit = NULL;
     }

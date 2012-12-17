@@ -17,10 +17,50 @@ import arghmm
 
 
 def find_region(pos, track):
+    """
+    Returns the region in 'track' that containts position 'pos'
+    """
+    
     for i, region in enumerate(track):
         if pos >= region[1] and pos < region[2]:
             return i, region
     return len(track), None
+
+
+def sample_tree(k, popsizes, times, start=0, end=1,
+                names=None, make_names=True):
+    """
+    Samples a coalescent tree using multiple population sizes
+    """
+
+    ntimes = len(times)
+    coal_times = []
+    events = []
+
+    timei = 0
+    n = popsizes[timei]
+    t = 0.0
+    k2 = k
+    while k2 > 1:
+        coal_rate = (k2 * (k2-1) / 2) / float(n)
+        t2 = random.expovariate(coal_rate)
+
+        if timei < ntimes-1 and t + t2 > times[timei+1]:
+            # advance to next time segment
+            timei += 1
+            t = times[timei]
+            n = popsizes[timei]
+            continue
+        
+        t += t2
+        coal_times.append(t)
+        events.append("coal")
+        k2 -= 1
+
+    arg = arglib.make_arg_from_times(k, coal_times, events,
+                                     start=start, end=end,
+                                     names=names, make_names=make_names)
+    return arg
 
 
 def sample_next_recomb(treelen, rho, pos=None, recombmap=None, minlen=1):
@@ -121,9 +161,11 @@ def sample_dsmc_sprs_round_down(k, popsize, rho, recombmap=None,
 
     # yield initial tree first
     if init_tree is None:
-        init_tree = arglib.sample_arg(k, popsizes[0],
-                                      rho=0.0, start=start, end=end,
-                                      names=names, make_names=make_names)
+        #init_tree = arglib.sample_arg(k, popsizes[0],
+        #                              rho=0.0, start=start, end=end,
+        #                              names=names, make_names=make_names)
+        init_tree = sample_tree(k, popsizes, times, start=start, end=end,
+                                names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
     
@@ -249,9 +291,11 @@ def sample_dsmc_sprs_round_both(k, popsize, rho, recombmap=None,
 
     # yield initial tree first
     if init_tree is None:
-        init_tree = arglib.sample_arg(k, popsizes[0],
-                                      rho=0.0, start=start, end=end,
-                                      names=names, make_names=make_names)
+        #init_tree = arglib.sample_arg(k, popsizes[0],
+        #                              rho=0.0, start=start, end=end,
+        #                              names=names, make_names=make_names)
+        init_tree = sample_tree(k, popsizes, times, start=start, end=end,
+                                names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
     
@@ -390,9 +434,11 @@ def sample_dsmc_sprs_round_closer2(k, popsize, rho, recombmap=None,
 
     # yield initial tree first
     if init_tree is None:
-        init_tree = arglib.sample_arg(k, popsizes[0],
-                                      rho=0.0, start=start, end=end,
-                                      names=names, make_names=make_names)
+        #init_tree = arglib.sample_arg(k, popsizes[0],
+        #                              rho=0.0, start=start, end=end,
+        #                              names=names, make_names=make_names)
+        init_tree = sample_tree(k, popsizes, times, start=start, end=end,
+                                names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
     
@@ -524,9 +570,11 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
 
     # yield initial tree first
     if init_tree is None:
-        init_tree = arglib.sample_arg(k, popsizes[0],
-                                      rho=0.0, start=start, end=end,
-                                      names=names, make_names=make_names)
+        #init_tree = arglib.sample_arg(k, popsizes[0],
+        #                              rho=0.0, start=start, end=end,
+        #                              names=names, make_names=make_names)
+        init_tree = sample_tree(k, popsizes, times, start=start, end=end,
+                                names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
     
@@ -666,9 +714,11 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
 
     # yield initial tree first
     if init_tree is None:
-        init_tree = arglib.sample_arg(k, popsizes[0],
-                                      rho=0.0, start=start, end=end,
-                                      names=names, make_names=make_names)
+        #init_tree = arglib.sample_arg(k, popsizes[0],
+        #                              rho=0.0, start=start, end=end,
+        #                              names=names, make_names=make_names)
+        init_tree = sample_tree(k, popsizes, times, start=start, end=end,
+                                names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
     
@@ -837,8 +887,56 @@ def sample_arg_mutations(arg, mu, times):
 
 
 
+def make_sites(arg, mutations, chrom="chr"):
+    leaves = list(arg.leaf_names())
+    nleaves = len(leaves)
+    sites = arghmm.Sites(names=leaves, chrom=chrom,
+                         region=[arg.start+1, arg.end])
 
-def make_alignment(arg, mutations):
+    # sort mutations by position
+    mutations.sort(key=lambda x: x[2])
+    
+    for mut_group in util.iter_groups(mutations, key=lambda x: int(x[2])):
+        ancestral = "ACGT"[random.randint(0, 3)]
+        pos = int(mut_group[0][2])
+        
+        # count mutations per branch
+        mut_count = defaultdict(lambda: 0)
+        for mut in mut_group:
+            mut_count[mut[0].name] += 1
+
+        tree = arg.get_marginal_tree(pos-.5)
+        bases = {tree.root.name: ancestral}
+        
+        for node in tree.preorder():                
+            if not node.parents:
+                continue
+
+            ancestral = bases[node.parents[0].name]
+            if node.name in mut_count:
+                c = mut_count[node.name]
+                i = 0
+                while True:
+                    derived = ancestral
+                    while derived == ancestral:
+                        derived = "ACGT"[random.randint(0, 3)]
+                    i += 1
+                    if i == c:
+                        break
+                    ancestral = derived
+
+                bases[node.name] = derived
+            else:
+                bases[node.name] = ancestral
+
+        col = "".join(bases[l] for l in leaves)
+        sites.append(pos+1, col)
+    
+    return sites
+
+
+
+def make_alignment(arg, mutations, infsites=False):
     aln = fasta.FastaDict()
     alnlen = int(arg.end - arg.start)
     leaves = list(arg.leaf_names())
@@ -853,7 +951,6 @@ def make_alignment(arg, mutations):
     muti = 0
     for i in xrange(alnlen):
         ancestral = "ACGT"[random.randint(0, 3)]
-        #ancestral = "A"
         
         if muti >= len(mutations) or i < int(mutations[muti][2]):
             # no mut
@@ -864,6 +961,10 @@ def make_alignment(arg, mutations):
             while muti < len(mutations) and i == int(mutations[muti][2]):
                 mut_count[mutations[muti][0].name] += 1
                 muti += 1
+
+            # enforce infinite sites
+            if infsites:
+                mut_count = {random.sample(mut_count.items(), 1)[0][0]: 1}
             
             tree = arg.get_marginal_tree(i-.5)
             bases = {tree.root.name: ancestral}

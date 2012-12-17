@@ -6,6 +6,10 @@
 #include "sequences.h"
 
 
+// TODO: add sites validation
+//       - positions should be sorted and unique
+//       - bases should be acceptable characters
+
 
 namespace arghmm {
 
@@ -129,12 +133,24 @@ void write_fasta(FILE *stream, Sequences *seqs)
 // input/output: sites file format
 
 
+bool validate_site_column(char *col, int nseqs)
+{
+    for (int i=0; i<nseqs; i++) {
+        col[i] = toupper(col[i]);
+        if (col[i] != 'N' && dna2int[(int) col[i]] == -1)
+            return false;
+    }
+    return true;
+}
+
+
 // Read a Sites stream
 bool read_sites(FILE *infile, Sites *sites, 
                 int subregion_start, int subregion_end)
 {
     const char *delim = "\t";
     char *line;
+    int nseqs = 0;
     
     sites->clear();
     bool error = false;
@@ -148,6 +164,7 @@ bool read_sites(FILE *infile, Sites *sites,
         if (strncmp(line, "NAMES\t", 6) == 0) {
             // parse NAMES line
             split(&line[6], delim, sites->names);
+            nseqs = sites->names.size();
 
         } else if (strncmp(line, "REGION\t", 7) == 0) {
             // parse RANGE line
@@ -186,26 +203,34 @@ bool read_sites(FILE *infile, Sites *sites,
                 delete [] line;
                 return false;
             }
-            int i=0;
-            for (; line[i] != '\t'; i++) {}
-            i++;
 
-            if (position < sites->start_coord ||
-                position >= sites->end_coord) {
-                // skip site if not in region
+            // skip site if not in region            
+            if (position < sites->start_coord || position >= sites->end_coord) {
                 delete [] line;
                 continue;
             }
+            
+            // skip first word
+            int i=0;
+            for (; line[i] != '\t'; i++) {}
+            i++;
+            char *col = &line[i];
 
-            unsigned int len = strlen(&line[i]);
-            if (len != sites->names.size()) {
+            // parse bases
+            unsigned int len = strlen(col);
+            if (len != (unsigned int) nseqs) {
                 printError("not enough bases given (line %d)", lineno);
+                delete [] line;
+                return false;
+            }
+            if (!validate_site_column(col, nseqs)) {
+                printError("invalid sequence characters (line %d)", lineno);
                 delete [] line;
                 return false;
             }
 
             // convert to 0-index
-            sites->append(position - 1, &line[i], true);
+            sites->append(position - 1, col, true);
         }
         
         delete [] line;
@@ -326,7 +351,7 @@ void find_compress_cols(const Sites *sites, int compress,
         for (int i=0; i<ncols; i++) {
             int col = sites->positions[i];
             sites_mapping->old_sites.push_back(col);
-            sites_mapping->new_sites.push_back(i);
+            sites_mapping->new_sites.push_back(col - sites->start_coord);
         }
 
         // record new coords

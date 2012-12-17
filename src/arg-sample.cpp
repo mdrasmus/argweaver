@@ -112,9 +112,6 @@ public:
         // search
 	config.add(new ConfigParamComment("Search"));
 	config.add(new ConfigParam<int>
-		   ("", "--climb", "<# of climb iterations>", &nclimb, 50,
-                    "(default=50)"));
-	config.add(new ConfigParam<int>
 		   ("-n", "--iters", "<# of iterations>", &niters, 1000,
                     "(default=1000)"));
         config.add(new ConfigParam<string>
@@ -130,6 +127,9 @@ public:
 		   ("-c", "--compress-seq", "<compression factor>", 
                     &compress_seq, 1,
                     "alignment compression factor (default=1)"));
+	config.add(new ConfigParam<int>
+		   ("", "--climb", "<# of climb iterations>", &nclimb, 0,
+                    "(default=0)"));
         config.add(new ConfigParam<int>
 		   ("", "--sample-step", "<sample step size>", &sample_step, 
                     10, "number of iterations between steps (default=10)"));
@@ -145,6 +145,10 @@ public:
                    ("", "--prob-path-switch", "<probability>", 
                     &prob_path_switch, .1,
                     "removal path switch (default=.1)", DEBUG_OPT));
+        config.add(new ConfigSwitch
+                   ("", "--infsites", &infsites, 
+                    "assume infinite sites model (at most one mutation per site)", 
+                    DEBUG_OPT));
 
         // help information
 	config.add(new ConfigParamComment("Information"));
@@ -230,6 +234,7 @@ public:
     bool no_compress_output;
     int randseed;
     double prob_path_switch;
+    bool infsites;
     
     // help/information
     bool quiet;
@@ -387,7 +392,7 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     int nrecombs = trees->get_num_trees() - 1;
 
     // calculate number of non-compatiable sites
-    int nseqs = sequences->get_num_seqs();
+    int nseqs = trees->get_num_leaves();
     char *seqs[nseqs];
     for (int i=0; i<nseqs; i++)
         seqs[i] = sequences->seqs[trees->seqids[i]];
@@ -416,7 +421,7 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\t%f\n",
             stage, iter,
             prior, likelihood, joint, nrecombs, noncompats, arglen);
-    fflush(stats_file);    
+    fflush(stats_file);
 
     printLog(LOG_LOW, "\n"
              "prior:      %f\n"
@@ -537,16 +542,20 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     int step = window / 2;
 
     // set iteration counter
-    int iter = 0;
+    int iter = 1;
     if (config->resume)
-        iter = config->resume_iter;
+        iter = config->resume_iter + 1;
+    else {
+        // save first ARG (iter=0)
+        log_local_trees(model, sequences, trees, sites_mapping, config, 0);
+    }
 
 
     printLog(LOG_LOW, "Resample All Branches (%d iterations)\n", 
              config->niters);
     printLog(LOG_LOW, "--------------------------------------\n");
-    for (int i=iter; i<config->niters; i++) {
-        printLog(LOG_LOW, "sample %d\n", i+1);
+    for (int i=iter; i<=config->niters; i++) {
+        printLog(LOG_LOW, "sample %d\n", i);
         //resample_arg_all(model, sequences, trees, config->prob_path_switch);
 
         Timer timer;
@@ -952,6 +961,8 @@ int main(int argc, char **argv)
     // setup model
     c.model.rho = c.rho;
     c.model.mu = c.mu;
+    if (c.infsites)
+        c.model.infsites_penalty = 0.0;
     c.model.set_popsizes(c.popsize, c.model.ntimes);
 
     // read model parameter maps if given

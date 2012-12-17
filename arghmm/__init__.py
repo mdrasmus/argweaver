@@ -24,7 +24,9 @@ from arghmm.sim import \
      sample_dsmc_sprs, \
      sample_arg_dsmc, \
      sample_arg_mutations, \
-     make_alignment
+     make_alignment, \
+     make_sites
+
 
 
 #=============================================================================
@@ -61,7 +63,6 @@ def get_time_points(ntimes=30, maxtime=80000, delta=.01):
     return [get_time_point(i, ntimes, maxtime, delta)
             for i in range(ntimes+1)]
 
-
 def iter_coal_states(tree, times):
     """Iterates through the coalescent states of a local tree"""
     
@@ -95,8 +96,6 @@ def get_nlineages(tree, times):
     """
     Count the number of lineages at each time point that can coal and recomb
     """
-
-    # TODO: is nrecombs including basal point?  It shouldn't
     
     nbranches = [0 for i in times]
     
@@ -153,7 +152,7 @@ def get_nlineages_recomb_coal(tree, times):
     return nbranches, nrecombs, ncoals
 
 
-def discretize_arg(arg, times, ignore_top=True, round_age="down"):
+def discretize_arg(arg, times, ignore_top=True, round_age="closer"):
     """
     Round node ages to the nearest time point
 
@@ -329,16 +328,19 @@ def open_stream(filename, mode="r"):
     
     if isinstance(filename, basestring):
         if filename.endswith(".gz"):
+            null = open(os.devnull, 'w')
             if mode == "r":
                 if not os.path.exists(filename):
                     raise Exception("unknown file '%s'" % filename)
                 return subprocess.Popen(["zcat", filename],
-                                        stdout=subprocess.PIPE).stdout
+                                        stdout=subprocess.PIPE,
+                                        stderr=null).stdout
             elif mode == "w":
                 with open(filename, "w") as out:
                     return subprocess.Popen(["gzip", "-"],
                                             stdout=out,
-                                            stdin=subprocess.PIPE).stdin
+                                            stdin=subprocess.PIPE,
+                                            stderr=null).stdin
             else:
                 raise Exception("unknown mode '%s'" % mode)
     return util.open_stream(filename, mode)
@@ -405,6 +407,16 @@ class Sites (object):
     def remove(self, pos):
         del self._cols[pos]
         self.positions.remove(pos)
+
+    def iter_region(self, start, end):
+        _, i = util.binsearch(self.positions, start)
+        _, j = util.binsearch(self.positions, end)
+        def func():
+            if i is None:
+                return
+            for pos in self.positions[i:j]:
+                yield pos, self._cols[pos]
+        return func()
 
     def __iter__(self):
         def func():
@@ -542,71 +554,89 @@ def sites2seqs(sites, default_char="A"):
 
 
 #=============================================================================
-# SMC input/output
+# SMC input/output (sequentially Markov coalescent)
 
-def get_smc_iter(filename):
-    if filename.endswith(".smc.gz"):
-        filename = filename[:-len(".smc.gz")]
-    elif filename.endswith(".gz"):
-        filename = filename[:-len(".gz")]
-    i = filename.rindex(".")
-    return int(filename[i+1:])
+class SMCReader (object):
+    """
+    Reads an SMC file
+    """
+    
+    def __init__(self, filename):
+        self._filename = filename
+        self._infile = iter_smc_file(filename)
+        self._stream = util.PushIter(self._infile)
 
+        # read header
+        header_tags = ("NAMES", "REGION")
+        self.header = {}
+        while self._stream.peek({"tag": ""})["tag"] in header_tags:
+            self.header.update(self._stream.next())
+            del self.header["tag"]
 
-def list_smc_files(path):
-    files = util.list_files(path, ".smc.gz")
-    files.sort(key=get_smc_iter)
-    return files
+    def __iter__(self):
+        return self
 
+    def next(self):
+        return self._stream.next()
+
+    def peek(self, default=None):
+        return self._stream.peek(default)
+
+    def parse_tree(self, text):
+        tree = parse_tree(text, self.header["names"])
+        return tree
+
+    def close(self):
+        #list(self._infile)
+        self._infile.close()
+            
 
 def iter_smc_file(filename, parse_trees=False, apply_spr=False):
-    """Iterates through a *.smc file"""
+    """Iterates through a SMC file"""
 
-    infile = open_stream(filename)
-    spr = None
-    tree = None
+    with open_stream(filename) as infile:
+        spr = None
+        tree = None
 
-    for line in infile:
-        line = line.rstrip()
-        tokens = line.split("\t")
-        
-        if tokens[0] == "NAMES":
-            yield {"tag": "NAMES", "names": tokens[1:]}
+        for line in infile:
+            line = line.rstrip()
+            tokens = line.split("\t")
 
-        elif tokens[0] == "REGION":
-            yield {"tag": "REGION",
-                   "chrom": tokens[1],
-                   "start": int(tokens[2]),
-                   "end": int(tokens[3])}
-        
-        elif tokens[0] == "RANGE":
-            raise Exception("deprecated RANGE line, use REGION instead")
-            
-        elif tokens[0] == "TREE":
-            tree_text = tokens[3]
-            if parse_trees:
-                if apply_spr and tree is not None and spr is not None:
-                    smc_apply_spr(tree, spr)
+            if tokens[0] == "NAMES":
+                yield {"tag": "NAMES", "names": tokens[1:]}
+
+            elif tokens[0] == "REGION":
+                yield {"tag": "REGION",
+                       "chrom": tokens[1],
+                       "start": int(tokens[2]),
+                       "end": int(tokens[3])}
+
+            elif tokens[0] == "RANGE":
+                raise Exception("deprecated RANGE line, use REGION instead")
+
+            elif tokens[0] == "TREE":
+                tree_text = tokens[3]
+                if parse_trees:
+                    if apply_spr and tree is not None and spr is not None:
+                        smc_apply_spr(tree, spr)
+                    else:
+                        tree = parse_tree(tree_text)
                 else:
-                    tree = parse_tree(tree_text)
-            else:
-                tree = tree_text
-            
-            yield {"tag": "TREE",
-                   "start": int(tokens[1]),
-                   "end": int(tokens[2]),
-                   "tree": tree}
+                    tree = tree_text
 
-        elif tokens[0] == "SPR":
-            spr = {"tag": "SPR",
-                   "pos": int(tokens[1]),
-                   "recomb_node": int(tokens[2]),
-                   "recomb_time": float(tokens[3]),
-                   "coal_node": int(tokens[4]),
-                   "coal_time": float(tokens[5])}
-            yield spr
+                yield {"tag": "TREE",
+                       "start": int(tokens[1]),
+                       "end": int(tokens[2]),
+                       "tree": tree}
 
-    infile.close()
+            elif tokens[0] == "SPR":
+                spr = {"tag": "SPR",
+                       "pos": int(tokens[1]),
+                       "recomb_node": int(tokens[2]),
+                       "recomb_time": float(tokens[3]),
+                       "coal_node": int(tokens[4]),
+                       "coal_time": float(tokens[5])}
+                yield spr
 
 
 def read_smc(filename, parse_trees=False):
@@ -713,15 +743,20 @@ def parse_tree_data(node, data):
             node.name = int(data)
 
 
-def parse_tree(text):
+def parse_tree(text, names=None):
     """Parse a newick string into a tree"""
-    tree = treelib.Tree()
-    stream = StringIO.StringIO(text)
-    tree.read_newick(stream, readData=parse_tree_data)
+    tree = treelib.parse_newick(text, read_data=parse_tree_data)
 
+    # rename leaves to integers
     for node in list(tree):
         if node.is_leaf():
             tree.rename(node.name, int(node.name))
+
+    if names:
+        # rename leaves according to given names
+        for i, name in enumerate(names):
+            tree.rename(i, name)
+            
     return tree
 
 
@@ -766,7 +801,7 @@ def smc2sprs(smc):
             if isinstance(tree, basestring):
                 tree = parse_tree(tree)
                 
-            if not init_tree:
+            if not init_tree:                
                 init_tree = tree.copy()
 
                 # rename leaves
@@ -817,7 +852,48 @@ def arg2smc(arg):
 def read_arg(smc_filename):
     """Read an ARG from an SMC file"""
     return smc2arg(iter_smc_file(smc_filename, parse_trees=True))
+
+
+
+def iter_smc_trees(smc_file, pos):
+    """
+    Iterate through local trees at positions 'pos' in filename 'smc_file'
+    """
     
+    smc = SMCReader(smc_file)
+    try:
+        piter = iter(pos)
+        item = smc.next()
+        for p in piter:
+            while (item["tag"] != "TREE" or
+                   item["start"] > p or
+                   item["end"] < p):
+                item = smc.next()
+            yield smc.parse_tree(item["tree"])
+    except StopIteration:
+        pass
+    smc.close()
+
+
+#=============================================================================
+# multiple SMC files
+
+def get_smc_sample_iter(filename):
+    """Returns the iteration number of an SMC filename"""
+    if filename.endswith(".smc.gz"):
+        filename = filename[:-len(".smc.gz")]
+    elif filename.endswith(".gz"):
+        filename = filename[:-len(".gz")]
+    i = filename.rindex(".")
+    return int(filename[i+1:])
+
+
+def list_smc_files(path):
+    """Lists all SMC files in a directory"""
+    files = util.list_files(path, ".smc.gz")
+    files.sort(key=get_smc_sample_iter)
+    return files
+
 
 #=============================================================================
 # simple LD functions
