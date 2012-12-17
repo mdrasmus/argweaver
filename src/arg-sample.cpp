@@ -962,7 +962,7 @@ int main(int argc, char **argv)
     c.model.rho = c.rho;
     c.model.mu = c.mu;
     if (c.infsites)
-        c.model.infsites_penalty = 0.0;
+        c.model.infsites_penalty = 1e-100; //0.0;
     c.model.set_popsizes(c.popsize, c.model.ntimes);
 
     // read model parameter maps if given

@@ -372,6 +372,8 @@ class Sites (object):
         self.positions = []
         self._cols = {}
 
+    #==================================================================
+    # dimensions
 
     def length(self):
         """Returns overall length of alignment"""
@@ -382,35 +384,66 @@ class Sites (object):
         return len(self._cols[self.positions[0]])
 
     def nsites(self):
-        """Returns number of variant sites in alignment"""
+        """Returns number of sites in alignment"""
         return len(self._cols)
     
 
     def append(self, pos, col):
-        """Adds a variant site to alignment with position 'pos' and column 'col'"""
+        """Adds a site to alignment with position 'pos' and column 'col'"""
         self.positions.append(pos)
         self._cols[pos] = col
 
-    def get(self, pos):
+    def get(self, pos, name=None, names=None):
         """Returns column at position 'pos'"""
-        return self._cols[pos]
+        col = self._cols[pos]
+        if name is not None:
+            return col[self.names.index(name)]
+        elif names is not None:
+            return "".join(col[self.names.index(name)] for name in names)
+        return col
 
     def set(self, pos, col):
+        """Sets a site with column 'col' at position 'pos'"""
         self._cols[pos] = col
 
+    def get_seq(self, name, start=None, end=None):
+        """Returns a sequence from the alignment"""
+        i = self.names.index(name)
+        seq = []
+        for pos, col in self.iter_region(start, end):
+            seq.append(col[i])
+        return "".join(seq)
+
     def has_col(self, pos):
+        """Returns True if alignment has position 'pos'"""
         return pos in self._cols
 
     def get_cols(self):
+        """Returns a list of all columns"""
         return [self._cols[pos] for pos in self.positions]
 
     def remove(self, pos):
+        """Return a variant sites from the alignment"""
         del self._cols[pos]
         self.positions.remove(pos)
 
-    def iter_region(self, start, end):
-        _, i = util.binsearch(self.positions, start)
-        _, j = util.binsearch(self.positions, end)
+    def __iter__(self):
+        """Iterates through the positions and columns of the alignment"""
+        def func():
+            for i in self.positions:
+                yield i, self._cols[i]
+        return func()
+
+    def iter_region(self, start=None, end=None):
+        """Iterates through the positions and columns between 'start' and 'end'"""
+        if start is None:
+            i = 0
+        else:
+            _, i = util.binsearch(self.positions, start)
+        if end is None:
+            j = None
+        else:
+            _, j = util.binsearch(self.positions, end)
         def func():
             if i is None:
                 return
@@ -418,25 +451,23 @@ class Sites (object):
                 yield pos, self._cols[pos]
         return func()
 
-    def __iter__(self):
-        def func():
-            for i in self.positions:
-                yield i, self._cols[i]
-        return func()
-
     def __getitem__(self, pos):
+        """Returns the column at position 'pos'"""
         return self._cols[pos]
 
     def __setitem__(self, pos, col):
+        """Sets the column 'col' at position 'pos'"""
         self._cols[pos] = col
         self.positions.append(pos)
         self.positions.sort()
 
     def __delitem__(self, pos):
+        """Removes a variant site from the alignment"""
         del self._cols[pos]
         self.positions.remove(pos)        
 
     def __contains__(self, pos):
+        """Returns True if position is within the laignment"""
         return pos in self._cols
 
 
