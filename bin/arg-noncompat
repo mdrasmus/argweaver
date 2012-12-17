@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+from rasmus.common import *
+import arghmm
+from compbio import arglib
+
+#=============================================================================
+
+def sites_split(names, col):
+    part1 = []
+    part2 = []
+    
+    c = col[0]
+    for i in range(len(col)):
+        if col[i] == c:
+            part1.append(names[i])
+        else:
+            part2.append(names[i])
+    return min([part1, part2], key=len)
+
+#=============================================================================
+
+argfile = sys.argv[1]
+sitesfile = sys.argv[2]
+
+if argfile.endswith(".arg"):
+    arg = arglib.read_arg(argfile)
+else:
+    arg = arghmm.read_arg(argfile)
+sites = arghmm.read_sites(sitesfile)
+
+print "names", sites.names
+print
+        
+noncompats = []
+for block, tree in arglib.iter_local_trees(arg):
+    tree = tree.get_tree()
+    treelib.remove_single_children(tree)
+    phylo.hash_order_tree(tree)
+    for pos, col in sites.iter_region(block[0]+1, block[1]+1):
+        assert block[0]+1 <= pos <= block[1]+1, (block, pos)
+        split = sites_split(sites.names, col)
+        node = arglib.split_to_tree_branch(tree, split)
+        if node is None:
+            noncompats.append(pos)
+            print "noncompat", block, pos, col
+            print phylo.hash_tree(tree)
+            print tree.leaf_names()
+            print "".join(col[sites.names.index(name)]
+                          for name in tree.leaf_names())
+            print split
+            print
+print "num noncompats", len(noncompats)
+

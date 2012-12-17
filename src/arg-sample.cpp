@@ -145,6 +145,10 @@ public:
                    ("", "--prob-path-switch", "<probability>", 
                     &prob_path_switch, .1,
                     "removal path switch (default=.1)", DEBUG_OPT));
+        config.add(new ConfigSwitch
+                   ("", "--infsites", &infsites, 
+                    "assume infinite sites model (at most one mutation per site)", 
+                    DEBUG_OPT));
 
         // help information
 	config.add(new ConfigParamComment("Information"));
@@ -230,6 +234,7 @@ public:
     bool no_compress_output;
     int randseed;
     double prob_path_switch;
+    bool infsites;
     
     // help/information
     bool quiet;
@@ -387,7 +392,7 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     int nrecombs = trees->get_num_trees() - 1;
 
     // calculate number of non-compatiable sites
-    int nseqs = sequences->get_num_seqs();
+    int nseqs = trees->get_num_leaves();
     char *seqs[nseqs];
     for (int i=0; i<nseqs; i++)
         seqs[i] = sequences->seqs[trees->seqids[i]];
@@ -416,7 +421,7 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\t%f\n",
             stage, iter,
             prior, likelihood, joint, nrecombs, noncompats, arglen);
-    fflush(stats_file);    
+    fflush(stats_file);
 
     printLog(LOG_LOW, "\n"
              "prior:      %f\n"
@@ -956,6 +961,8 @@ int main(int argc, char **argv)
     // setup model
     c.model.rho = c.rho;
     c.model.mu = c.mu;
+    if (c.infsites)
+        c.model.infsites_penalty = 0.0;
     c.model.set_popsizes(c.popsize, c.model.ntimes);
 
     // read model parameter maps if given

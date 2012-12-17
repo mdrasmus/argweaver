@@ -404,6 +404,16 @@ class Sites (object):
         del self._cols[pos]
         self.positions.remove(pos)
 
+    def iter_region(self, start, end):
+        _, i = util.binsearch(self.positions, start)
+        _, j = util.binsearch(self.positions, end)
+        def func():
+            if i is None:
+                return
+            for pos in self.positions[i:j]:
+                yield pos, self._cols[pos]
+        return func()
+
     def __iter__(self):
         def func():
             for i in self.positions:

@@ -297,6 +297,26 @@ public:
     }
 
 
+    void get_preorder(int node, int *order, int &norder) const
+    {
+        // start queue
+        int queue[nnodes];
+        int queuei = 0;
+        queue[queuei++] = node;
+        norder = 0;
+
+        while (queuei > 0) {
+            int node2 = queue[--queuei];
+            order[norder++] = node2;
+
+            if (!nodes[node2].is_leaf()) {
+                queue[queuei++] = nodes[node2].child[0];
+                queue[queuei++] = nodes[node2].child[1];
+            }
+        }
+    }
+
+
     // Returns the number of leaves in the tree
     inline int get_num_leaves() const
     {

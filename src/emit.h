@@ -11,6 +11,9 @@ namespace arghmm {
 void parsimony_ancestral_seq(const LocalTree *tree, const char *const *seqs, 
                              int nseqs, int pos, char *ancestral,
                              int *postorder=NULL);
+void parsimony_ancestral_set(const LocalTree *tree, const char * const *seqs, 
+                             int pos, int *postorder, int npostorder,
+                             char *ancestral);
 int parsimony_cost_seq(const LocalTree *tree, const char * const *seqs, 
                        int nseqs, int pos, int *postorder);
 void calc_emissions_external(const States &states, const LocalTree *tree,

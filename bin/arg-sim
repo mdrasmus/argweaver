@@ -19,6 +19,7 @@ o.add_option("", "--ntimes", type="int", default=20)
 o.add_option("", "--maxtime", type="float", default=180e3)
 o.add_option("", "--model", default="dsmc",
              help="simulation model: dsmc, smc, coal_recomb (default=dsmc)")
+o.add_option("", "--infsites", action="store_true", default=False)
 o.add_option("-R", "--recombmap", metavar="<recombination rate map file>", 
              help="recombination map file")
 
@@ -64,7 +65,7 @@ else:
     print >>sys.stderr, "unknown simulation model:", conf.model
 
 # simulate sequence
-seqs = arghmm.make_alignment(arg, muts)
+seqs = arghmm.make_alignment(arg, muts, infsites=conf.infsites)
 sites = arghmm.seqs2sites(seqs)
 sites.chrom = conf.chrom
 

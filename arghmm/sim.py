@@ -936,7 +936,7 @@ def make_sites(arg, mutations, chrom="chr"):
 
 
 
-def make_alignment(arg, mutations):
+def make_alignment(arg, mutations, infsites=False):
     aln = fasta.FastaDict()
     alnlen = int(arg.end - arg.start)
     leaves = list(arg.leaf_names())
@@ -951,7 +951,6 @@ def make_alignment(arg, mutations):
     muti = 0
     for i in xrange(alnlen):
         ancestral = "ACGT"[random.randint(0, 3)]
-        #ancestral = "A"
         
         if muti >= len(mutations) or i < int(mutations[muti][2]):
             # no mut
@@ -962,6 +961,10 @@ def make_alignment(arg, mutations):
             while muti < len(mutations) and i == int(mutations[muti][2]):
                 mut_count[mutations[muti][0].name] += 1
                 muti += 1
+
+            # enforce infinite sites
+            if infsites:
+                mut_count = {random.sample(mut_count.items(), 1)[0][0]: 1}
             
             tree = arg.get_marginal_tree(i-.5)
             bases = {tree.root.name: ancestral}

@@ -50,7 +50,8 @@ public:
         coal_time_steps2(NULL),
         popsizes(NULL),
         rho(rho),
-        mu(mu)
+        mu(mu),
+        infsites_penalty(1.0)
     {}
 
     // Model with constant population sizes and log-spaced time points
@@ -64,7 +65,8 @@ public:
         coal_time_steps2(NULL),
         popsizes(NULL),
         rho(rho),
-        mu(mu)
+        mu(mu),
+        infsites_penalty(1.0)
     {
         set_log_times(maxtime, ntimes);
         set_popsizes(popsize, ntimes);
@@ -81,7 +83,8 @@ public:
         coal_time_steps2(NULL),
         popsizes(NULL),
         rho(rho),
-        mu(mu)
+        mu(mu),
+        infsites_penalty(1.0)
     {
         set_log_times(maxtime, ntimes);
         if (_popsizes)
@@ -100,7 +103,8 @@ public:
         coal_time_steps2(NULL),
         popsizes(NULL),
         rho(rho),
-        mu(mu)
+        mu(mu),
+        infsites_penalty(1.0)
     {
         set_times(_times, ntimes);
         if (_popsizes)
@@ -118,7 +122,8 @@ public:
         coal_time_steps2(other.coal_time_steps2),
         popsizes(other.popsizes),
         rho(rho),
-        mu(mu)
+        mu(mu),
+        infsites_penalty(other.infsites_penalty)
     {}
     
 
@@ -131,7 +136,8 @@ public:
         coal_time_steps2(NULL),
         popsizes(NULL),
         rho(other.rho),
-        mu(other.mu)
+        mu(other.mu),
+        infsites_penalty(other.infsites_penalty)
     {
         copy(other);
     }
@@ -170,6 +176,7 @@ public:
         owned = true;
         rho = other.rho;
         mu = other.mu;
+        infsites_penalty = infsites_penalty;
 
         // copy popsizes and times
         set_times(other.times, ntimes);
@@ -264,6 +271,7 @@ public:
     void get_local_model(int pos, ArgModel &model) const {
         model.mu = mutmap.find(pos, mu);
         model.rho = recombmap.find(pos, rho);
+        model.infsites_penalty = infsites_penalty;
 
         model.owned = false;
         model.times = times;
@@ -282,6 +290,7 @@ public:
             model.mu = mutmap[index].value;
             model.rho = recombmap[index].value;
         }
+        model.infsites_penalty = infsites_penalty;
 
         model.owned = false;
         model.times = times;
@@ -329,6 +338,7 @@ public:
     double *popsizes;        // population sizes
     double rho;              // recombination rate (recombs/generation/site)
     double mu;               // mutation rate (mutations/generation/site)
+    double infsites_penalty; // penalty for violating infinite sites
     Track<double> mutmap;    // mutation map
     Track<double> recombmap; // recombination map
 };

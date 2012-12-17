@@ -126,7 +126,7 @@ inline void likelihood_site_node_inner(
     if (nodes[j].is_leaf()) {
         // leaf case
         const char c = seqs[j][pos];
-        if (c == 'N' || c == 'n') {
+        if (c == 'N') {
             inner[j][0] = 1.0;
             inner[j][1] = 1.0;
             inner[j][2] = 1.0;
@@ -418,11 +418,147 @@ double likelihood_tree(const LocalTree *tree, const ArgModel *model,
 // emission calculation
 
 
+void get_infinite_sites_states(const States &states, const LocalTree *tree,
+                               const char *const *seqs, int nseqs, int seqlen, 
+                               bool *invariant,
+                               bool internal, bool **valid_states)
+{
+    const int nstates = states.size();
+    const int nnodes = tree->nnodes;
+    
+    if (internal) {
+        // internal branch case
+        const int maintree_root = tree->nodes[tree->root].child[1];
+        const int subtree_root = tree->nodes[tree->root].child[0];
+
+        // get nodes within trees
+        int nsubnodes = 0, subnodes[nnodes];
+        tree->get_preorder(subtree_root, subnodes, nsubnodes);
+        reverse(subnodes, subnodes + nsubnodes);
+        int nmainnodes = 0, mainnodes[nnodes];
+        tree->get_preorder(maintree_root, mainnodes, nmainnodes);
+        reverse(mainnodes, mainnodes + nmainnodes);
+
+        for (int i=0; i<seqlen; i++) {
+            if (invariant[i])
+                continue;
+
+            // get set of all bases in the subtree
+            char subset = 0;
+            for (int k=0; k<nsubnodes; k++) {
+                int j = subnodes[k];
+                if (tree->nodes[j].is_leaf() && seqs[j][i] != 'N')
+                    subset |= 1 << dna2int[(int) seqs[j][i]];
+            }
+
+            // get set of all bases in the maintree
+            char mainset = 0;
+            for (int k=0; k<nmainnodes; k++) {
+                int j = mainnodes[k];
+                if (tree->nodes[j].is_leaf() && seqs[j][i] != 'N')
+                    mainset |= 1 << dna2int[(int) seqs[j][i]];
+            }
+            
+            // if subtree and main have distinct bases then all states are valid
+            if (!(subset & mainset)) {
+                for (int j=0; j<nstates; j++)
+                    valid_states[i][j] = true;
+                continue;
+            }
+
+            
+            // infer ancestral reconstruction
+            char bases[nnodes];
+            parsimony_ancestral_set(
+                tree, seqs, i, subnodes, nsubnodes, bases);
+            int cset = bases[subtree_root];
+            parsimony_ancestral_set(
+                tree, seqs, i, mainnodes, nmainnodes, bases);
+            
+            bool valid_nodes[nnodes];
+            for (int k=0; k<nmainnodes; k++) {
+                int j = mainnodes[k];
+                int parent = tree->nodes[j].parent;
+                valid_nodes[j] = bool(cset & bases[j]) || 
+                    (j != maintree_root && (cset & bases[parent]));
+            }
+            for (int j=0; j<nstates; j++)
+                valid_states[i][j] = valid_nodes[states[j].node];
+
+            // check for at least one valid state
+            bool valid = false;
+            for (int j=0; j<nstates; j++) {
+                if (valid_states[i][j]) {
+                    valid = true;
+                    break;
+                }
+            }
+            if (!valid) {
+                printError("unable to satisfy infinite sites assumption");
+                abort();
+            }
+        }
+        
+    } else {    
+        // external branch  case
+        int newleaf = tree->get_num_leaves();
+        int postorder[nnodes];
+        tree->get_postorder(postorder);
+
+        for (int i=0; i<seqlen; i++) {
+            if (invariant[i])
+                continue;
+
+            // get set of all bases in the tree
+            char set = 0;
+            for (int j=0; j<newleaf; j++)
+                if (seqs[j][i] != 'N')
+                    set |= 1 << dna2int[(int) seqs[j][i]];
+
+            char c = seqs[newleaf][i];            
+            char cset = ((c != 'N') ? 1 << dna2int[(int) c] : 0);
+            if (!(cset & set)) {
+                // newleaf has a new base, thus newleaf can go anywhere
+                for (int j=0; j<nstates; j++)
+                    valid_states[i][j] = true;
+                continue;
+            }
+
+            // infer ancestral reconstruction
+            char bases[nnodes];
+            parsimony_ancestral_set(
+                tree, seqs, i, postorder, nnodes, bases);
+            
+            bool valid_nodes[nnodes];
+            for (int j=0; j<nnodes; j++) {
+                int parent = tree->nodes[j].parent;
+                valid_nodes[j] = bool(cset & bases[j]) || 
+                    (parent != -1 && (cset & bases[parent]));
+            }
+            for (int j=0; j<nstates; j++)
+                valid_states[i][j] = valid_nodes[states[j].node];
+
+            // check for at least one valid state
+            bool valid = false;
+            for (int j=0; j<nstates; j++) {
+                if (valid_states[i][j]) {
+                    valid = true;
+                    break;
+                }
+            }
+            if (!valid) {
+                printError("unable to satisfy infinite sites assumption");
+                abort();
+            }
+        }
+    }
+}
+
+
 // calculate emissions for external branch resampling
 void calc_emissions(const States &states, const LocalTree *tree,
                     const char *const *seqs, int nseqs, int seqlen, 
-                    const ArgModel *model, bool internal, 
-                    bool infsites, double **emit)
+                    const ArgModel *model, bool internal, double **emit)
 {
     const int nstates = states.size();
     const double mintime = model->get_mintime();
@@ -438,7 +574,7 @@ void calc_emissions(const States &states, const LocalTree *tree,
         for (int i=0; i<seqlen; i++)
             emit[i][0] = 1.0;
         return;
-    }    
+    }
 
     
     // find invariant sites
@@ -457,7 +593,7 @@ void calc_emissions(const States &states, const LocalTree *tree,
         // compute inner table for new leaf
         for (int i=0; i<seqlen; i++) {
             const char c = seqs[newleaf][i];
-            if (c == 'N' || c == 'n') {
+            if (c == 'N') {
                 inner_subtree.data[i][0][0] = 1.0;
                 inner_subtree.data[i][0][1] = 1.0;
                 inner_subtree.data[i][0][2] = 1.0;
@@ -583,6 +719,22 @@ void calc_emissions(const States &states, const LocalTree *tree,
         }
     }
 
+    // optionally enforce infinite sites model
+    if (model->infsites_penalty < 1.0) {
+        bool **valid_states = new_matrix<bool>(seqlen, nstates);
+        get_infinite_sites_states(states, tree, seqs, nseqs, seqlen, 
+                                  invariant, internal, valid_states);
+        for (int i=0; i<seqlen; i++) {
+            if (!invariant[i]) {
+                for (int j=0; j<nstates; j++)
+                    if (!valid_states[i][j])
+                        emit[i][j] *= model->infsites_penalty;
+            }
+        }
+        delete_matrix<bool>(valid_states, seqlen);
+    }
+
+
     // clean up
     delete [] invariant;
 }
@@ -592,7 +744,7 @@ void calc_emissions_external(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen, 
                              const ArgModel *model, double **emit)
 {
-    calc_emissions(states, tree, seqs, nseqs, seqlen, model, false, false, emit);
+    calc_emissions(states, tree, seqs, nseqs, seqlen, model, false, emit);
 }
 
 // calculate emissions for internal branch resampling
@@ -600,7 +752,7 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen, 
                              const ArgModel *model, double **emit)
 {
-    calc_emissions(states, tree, seqs, nseqs, seqlen, model, true, false, emit);
+    calc_emissions(states, tree, seqs, nseqs, seqlen, model, true, emit);
 }
 
 
@@ -608,6 +760,65 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
 
 //=============================================================================
 // counting non-compatiable sites
+
+
+void parsimony_ancestral_set(const LocalTree *tree, const char * const *seqs, 
+                             int pos, int *postorder, int npostorder,
+                             char *ancestral) 
+{
+    const int nnodes = tree->nnodes;
+    const LocalNode *nodes = tree->nodes;
+    char sets[nnodes];
+    
+    // clear sets
+    for (int node=0; node<nnodes; node++)
+        sets[node] = 0;
+
+    // do unweighted parsimony by postorder traversal
+    int postorder2[nnodes];
+    if (!postorder) {
+        tree->get_postorder(postorder2);
+        postorder = postorder2;
+        npostorder = nnodes;
+    }
+    for (int i=0; i<npostorder; i++) {
+        int node = postorder[i];
+        if (nodes[node].is_leaf()) {
+            char c = seqs[node][pos];
+            if (c == 'N')
+                sets[node] = 0;
+            else
+                sets[node] = 1 << dna2int[(int) c];
+        } else {
+            char lset = sets[nodes[node].child[0]];
+            char rset = sets[nodes[node].child[1]];
+            char intersect = lset & rset;
+            if (intersect > 0)
+                sets[node] = intersect;
+            else
+                sets[node] = lset | rset;
+        }
+    }
+
+    // traceback
+    int root = postorder[npostorder-1];
+    ancestral[root] = sets[root];
+        
+    // traceback with preorder traversal
+    for (int i=npostorder-2; i>=0; i--) {
+        int node = postorder[i];
+        char s = sets[node];
+        char pset = ancestral[nodes[node].parent] & s;
+        if (pset) {
+            // use parent char if possible
+            ancestral[node] = pset;
+        } else {
+            // otherwise do not refine set
+            ancestral[node] = s;
+        }
+    }
+}
+
 
 void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs, 
                              int nseqs, int pos, char *ancestral,
@@ -632,7 +843,7 @@ void parsimony_ancestral_seq(const LocalTree *tree, const char * const *seqs,
         int node = postorder[i];
         if (nodes[node].is_leaf()) {
             char c = seqs[node][pos];
-            if (c == 'N' || c == 'n')
+            if (c == 'N')
                 sets[node] = 1 + 2 + 4 + 8;
             else
                 sets[node] = 1 << dna2int[(int) c];
@@ -695,7 +906,7 @@ int parsimony_cost_seq(const LocalTree *tree, const char * const *seqs,
     const int nnodes = tree->nnodes;
     const LocalNode *nodes = tree->nodes;
     const int maxcost = 100000;
-    int costs[nnodes][4];    
+    int costs[nnodes][4];
     
     // do unweighted parsimony by postorder traversal
     int postorder2[nnodes];
@@ -734,7 +945,7 @@ int parsimony_cost_seq(const LocalTree *tree, const char * const *seqs,
 
 
 int count_noncompat(const LocalTree *tree, const char * const *seqs, 
-                    int nseqs, int seqlen, int *postorder) 
+                    int nseqs, int seqlen, int *postorder)
 {
     // get postorder
     int postorder2[tree->nnodes];
@@ -745,9 +956,8 @@ int count_noncompat(const LocalTree *tree, const char * const *seqs,
     
     int noncompat = 0;
     for (int i=0; i<seqlen; i++)
-        noncompat += int(parsimony_cost_seq(tree, seqs, 
-                                            nseqs, i, postorder) > 1);
-
+        noncompat += int(parsimony_cost_seq(tree, seqs, nseqs, i, postorder) > 1);
+    
     return noncompat;
 }
 
@@ -1064,7 +1274,7 @@ void calc_emissions_external2(const States &states, const LocalTree *tree,
     // compute inner table for new leaf
     for (int i=0; i<seqlen; i++) {
         const char c = seqs[newleaf][i];
-        if (c == 'N' || c == 'n') {
+        if (c == 'N') {
             inner_subtree.data[i][0][0] = 1.0;
             inner_subtree.data[i][0][1] = 1.0;
             inner_subtree.data[i][0][2] = 1.0;
