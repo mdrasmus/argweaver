@@ -12,6 +12,8 @@ o.add_option("-o", "--output", metavar="OUTPUT_FILE", default="-")
 o.add_option("-r", "--region", metavar="START-END")
 o.add_option("-n", "--nseqs", metavar="NUMBER_OF_SEQS", type="int",
              help="use a random subsst of sequences")
+o.add_option("--both-haps", action="store_true",
+             help="use both haplotypes for each individual")
 o.add_option("-k", "--keep-invariant", action="store_true",
              help="keep invariant sites")
 o.add_option("-i", "--ind", metavar="INDIVIDUALS")
@@ -34,9 +36,17 @@ sites = arghmm.read_sites(conf.sites)
 
 # get individuals
 ind = range(sites.nseqs())
-if conf.nseqs:    
-    random.shuffle(ind)
-    ind = ind[:conf.nseqs]
+if conf.nseqs:
+    if conf.both_haps:
+        dips = unique(x[:-2] for x in sites.names)
+        random.shuffle(dips)
+        dips = dips[:conf.nseqs / 2]
+        names = flatten((x + "_1", x + "_2") for x in dips)
+        ind = [i for i, name in enumerate(sites.names) if name in names]
+    else:
+        random.shuffle(ind)
+        ind = ind[:conf.nseqs]
+        
 elif conf.ind:
     names2 = set(util.read_strings(conf.ind))
     ind = [i for i in ind if sites.names[i] in names2]

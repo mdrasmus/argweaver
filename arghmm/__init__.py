@@ -330,11 +330,15 @@ def open_stream(filename, mode="r"):
     if isinstance(filename, basestring):
         if filename.endswith(".gz"):
             if mode == "r":
+                if not os.path.exists(filename):
+                    raise Exception("unknown file '%s'" % filename)
                 return subprocess.Popen(["zcat", filename],
                                         stdout=subprocess.PIPE).stdout
             elif mode == "w":
-                return subprocess.Popen(["gzip", "-"],
-                                        stdin=subprocess.PIPE).stdin
+                with open(filename, "w") as out:
+                    return subprocess.Popen(["gzip", "-"],
+                                            stdout=out,
+                                            stdin=subprocess.PIPE).stdin
             else:
                 raise Exception("unknown mode '%s'" % mode)
     return util.open_stream(filename, mode)
