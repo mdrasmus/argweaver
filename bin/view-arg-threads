@@ -1,0 +1,55 @@
+#!/usr/bin/env python-i
+# Wed Dec 19 00:34:37 EST 2012
+
+import sys
+from compbio import arglib
+from compbio.vis import argvis
+import arghmm
+
+import summon
+from summon.hud import RulerHud
+from summon.core import *
+
+#=============================================================================
+
+argfile = sys.argv[1]
+if len(sys.argv) > 2:
+    sitefile = sys.argv[2]
+else:
+    sitefile = None
+
+#=============================================================================
+# reading
+
+if argfile.endswith(".smc.gz"):
+    arg = arghmm.read_arg(argfile)
+else:
+    arg = arglib.read_arg(argfile)
+
+if sitefile:
+    sites = arghmm.read_sites(sitefile)
+else:
+    sites = None
+
+#=============================================================================
+
+blocks, leaf_layout = argvis.layout_chroms(arg)
+
+win = summon.Window()
+win.set_bgcolor(.2,.2,.2)
+ruler = RulerHud(win, fgcolor=(1,1,1), left=False)
+win.set_binding(input_click("left", "up"), lambda: argvis.mouse_click(win))
+
+snp_colors = {"compat": [1, 0, 0],
+              "noncompat": [0, 1, 0]}
+chrom_color = None
+            
+g = win.add_group(group())
+argvis.draw_arg_threads(arg, blocks, leaf_layout, sites=sites,
+                        chrom_colors=chrom_color,
+                        #compat=True,
+                        snp_colors={"compat": [1, 1, 1],
+                                    "noncompat": [0, 1, 0]},
+                        spr_alpha=1, spr_trim=5,
+                        draw_group=g, win=win)
+win.home("exact")
