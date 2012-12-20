@@ -414,6 +414,34 @@ class Sites (object):
             seq.append(col[i])
         return "".join(seq)
 
+    def get_minor(self, pos):
+        """Returns the names of sequences with the minor allele"""
+        col = self._cols[pos]
+        part1 = []
+        part2 = []
+
+        c = col[0]
+        for i in range(len(col)):
+            if col[i] == c:
+                part1.append(self.names[i])
+            else:
+                part2.append(self.names[i])
+        return min([part1, part2], key=len)
+
+    def get_major(self, pos):
+        """Returns the names of sequences with the major allele"""
+        col = self._cols[pos]
+        part1 = []
+        part2 = []
+
+        c = col[0]
+        for i in range(len(col)):
+            if col[i] == c:
+                part1.append(self.names[i])
+            else:
+                part2.append(self.names[i])
+        return max([part1, part2], key=len)
+
     def has_col(self, pos):
         """Returns True if alignment has position 'pos'"""
         return pos in self._cols

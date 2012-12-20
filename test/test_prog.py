@@ -110,22 +110,22 @@ class Prog (unittest.TestCase):
         mu = 2.5e-8
         rho = 1.5e-8
 
-        make_clean_dir("test/data/test_prog_small")
+        make_clean_dir("test/data/test_prog_many")
             
         os.system("""arg-sim \
             -k 200 -L 100000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 \
             --ntimes 20 --maxtime 400e3 \
-            -o test/data/test_prog_small/0""")
+            -o test/data/test_prog_many/0""")
 
-        make_clean_dir("test/data/test_prog_small/0.sample")
+        make_clean_dir("test/data/test_prog_many/0.sample")
         os.system("""arg-sample \
-    -s test/data/test_prog_small/0.sites \
+    -s test/data/test_prog_many/0.sites \
     -N 1e4 -r 1.5e-8 -m 2.5e-8 \
     --ntimes 20 --maxtime 400e3 -c 20 \
     --climb 0 -n 100 \
     -x 1 \
-    -o test/data/test_prog_small/0.sample/out""")
+    -o test/data/test_prog_many/0.sample/out""")
 
 
 
