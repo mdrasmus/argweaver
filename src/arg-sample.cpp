@@ -505,7 +505,7 @@ void seq_sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "Sequentially Sample Initial ARG (%d sequences)\n",
                  sequences->get_num_seqs());
         printLog(LOG_LOW, "------------------------------------------------\n");
-        sample_arg_seq(model, sequences, trees);
+        sample_arg_seq(model, sequences, trees, true);
         print_stats(config->stats_file, "seq", trees->get_num_leaves(),
                     model, sequences, trees, sites_mapping, config);
     }
@@ -702,10 +702,8 @@ bool setup_resume(Config &config)
     // loop through status lines
     string arg_file = "";
     while ((line = fgetline(stats_file))) {
-        if (!parse_status_line(line, config, 
-                               config.resume_stage, config.resume_iter, 
-                               arg_file)) 
-        {
+        if (!parse_status_line(
+            line, config, config.resume_stage, config.resume_iter, arg_file)) {
             delete [] line;
             return false;
         }

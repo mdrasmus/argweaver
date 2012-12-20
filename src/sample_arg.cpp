@@ -24,7 +24,7 @@ using namespace std;
 // sequentially sample an ARG from scratch
 // sequences are sampled in the order given
 void sample_arg_seq(const ArgModel *model, const Sequences *sequences, 
-                    LocalTrees *trees)
+                    LocalTrees *trees, bool random)
 {
     const int nseqs = sequences->get_num_seqs();
     const int seqlen = sequences->length();
@@ -47,8 +47,15 @@ void sample_arg_seq(const ArgModel *model, const Sequences *sequences,
     for (int i=0; i<trees->get_num_leaves(); i++)
         has_sequence[trees->seqids[i]] = true;
 
+    vector<int> seqids;
+    for (int i=0; i<nseqs; i++)
+        seqids.push_back(i);
+    if (random)
+        shuffle(&seqids[0], seqids.size());
+
     // add more chromosomes one by one
-    for (int new_chrom=0; new_chrom<nseqs; new_chrom++) {
+    for (int i=0; i<nseqs; i++) {
+        int new_chrom = seqids[i];
         if (!has_sequence[new_chrom]) {
             printLog(LOG_LOW, "add sequence %d of %d (%s)\n", 
                      trees->get_num_leaves() + 1, nseqs,

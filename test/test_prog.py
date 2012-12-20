@@ -49,7 +49,6 @@ class Prog (unittest.TestCase):
     -N 1e4 -r 1.5e-8 -m 2.5e-8 \
     --ntimes 20 --maxtime 400e3 -c 20 \
     --climb 0 -n 0 \
-    -x 1 \
     -o test/data/test_prog_small/0.sample/out""")
 
 

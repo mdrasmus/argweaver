@@ -19,7 +19,7 @@ namespace arghmm {
 using namespace std;
 
 void sample_arg_seq(const ArgModel *model, const Sequences *sequences, 
-                    LocalTrees *trees);
+                    LocalTrees *trees, bool random=false);
 
 void resample_arg(const ArgModel *model, const Sequences *sequences, 
                   LocalTrees *trees, int nremove=1);
