@@ -16,7 +16,7 @@ void calc_coal_rates_partial_tree(const ArgModel *model, const LocalTree *tree,
 {
     coal_rates[-1] = 0.0;
     for (int i=0; i<2*model->ntimes; i++)
-        coal_rates[i] = model->coal_time_steps2[i] * lineages->nbranches[i/2] / 
+        coal_rates[i] = model->coal_time_steps[i] * lineages->nbranches[i/2] / 
             (2.0 * model->popsizes[i/2]);
 }
 
@@ -423,14 +423,14 @@ void calc_recoal_sums(const ArgModel *model, const LineageCounts *lineages,
     double sum = 0.0;
     for (int m=2*k; m<2*j-1; m++) {
         int nbranches_m = nbranches[m/2] - int(m/2<recomb_parent_age);
-        sum += model->coal_time_steps2[m] * nbranches_m / (2.0 * model->popsizes[m/2]);
+        sum += model->coal_time_steps[m] * nbranches_m / (2.0 * model->popsizes[m/2]);
     }
     *sums = sum;
 
     sum = 0.0;
     sums2[2*k] = sum;
     for (int m=2*k; m<2*j-1; m++) {
-        sum += model->coal_time_steps2[m] / (2.0 * model->popsizes[m/2]);
+        sum += model->coal_time_steps[m] / (2.0 * model->popsizes[m/2]);
         sums2[m+1] = sum;
     }
 }
@@ -478,11 +478,11 @@ double calc_recoal(
                 int(j-1 < a);
             if (over)
                 b1 = 1;
-            Z = model->coal_time_steps2[2*j-1] *  b1 / 
+            Z = model->coal_time_steps[2*j-1] *  b1 / 
                 (2.0*model->popsizes[j-1]);
         }
 
-        p *= 1.0 - exp(- model->coal_time_steps2[2*j] * nbranches_j / 
+        p *= 1.0 - exp(- model->coal_time_steps[2*j] * nbranches_j / 
                        (2.0*model->popsizes[j]) - Z);
     }
     
@@ -520,7 +520,7 @@ double calc_recomb_recoal(
     for (int m=2*k; m<2*j-1; m++) {
         int nbranches_m = lineages->nbranches[m/2] - int(m/2<recomb_parent_age) 
             + int(m/2 < a);
-        sum += model->coal_time_steps2[m] * nbranches_m / (2.0 * model->popsizes[m/2]);
+        sum += model->coal_time_steps[m] * nbranches_m / (2.0 * model->popsizes[m/2]);
     }
     p *= exp(-sum);
     
@@ -781,7 +781,7 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
                        const int minage)
 {
     const int nstates = states.size();
-    const double *coal_time_steps = model->coal_time_steps;
+    const double *coal_time_steps = model->times;
     const double *popsizes = model->popsizes;
     const int *nbranches = lineages->nbranches;
     const int *ncoals = lineages->ncoals;

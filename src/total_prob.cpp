@@ -154,7 +154,7 @@ void calc_coal_rates_full_tree(const ArgModel *model, const LocalTree *tree,
 
     for (int i=0; i<2*model->ntimes; i++) {
         int nbranches = lineages.nbranches[i/2] - int(i/2 < broken_age);
-        coal_rates[i] = model->coal_time_steps2[i] * nbranches / 
+        coal_rates[i] = model->coal_time_steps[i] * nbranches / 
             (2.0 * model->popsizes[i/2]);
     }
 }
