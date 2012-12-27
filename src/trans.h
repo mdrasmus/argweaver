@@ -161,10 +161,10 @@ public:
     {
         nstates1 = nstates1;
         nstates2 = nstates2;
-
+        
         // NOTE: nstates1 and nstates2 might be zero
         // we still calculate transitions for a state space of size zero
-
+        
         own_data = true;
         determ = new int [max(nstates1, 1)];
         determprob = new double [max(nstates1, 1)];
@@ -172,12 +172,12 @@ public:
         recombrow = new double [max(nstates2, 1)];
     }
     
-    inline double get(int i, int j) const
+    inline double get_log(int i, int j) const
     {
-        return exp(get_log(i, j));
+        return log(get(i, j));
     }
     
-    inline double get_log(int i, int j) const
+    inline double get(int i, int j) const
     {
         if (i == recoalsrc) {
             return recoalrow[j];
@@ -187,7 +187,7 @@ public:
             if (determ[i] == j)
                 return determprob[i];
             else
-                return -INFINITY;
+                return 0.0;
         }
     }
     
@@ -256,6 +256,7 @@ void get_deterministic_transitions(
     const LocalTree *last_tree, const LocalTree *tree, 
     const Spr &spr, const int *mapping,
     const States &states1, const States &states2,
+    NodeStateLookup &state2_lookup,
     int ntimes, int *next_states, bool internal=false);
 
 

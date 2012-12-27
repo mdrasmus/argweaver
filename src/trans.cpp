@@ -153,18 +153,19 @@ void get_deterministic_transitions(
     const LocalTree *last_tree, const LocalTree *tree, 
     const Spr &spr, const int *mapping,
     const States &states1, const States &states2,
+    NodeStateLookup &state2_lookup,
     int ntimes, int *next_states, bool internal)
 {
     // recomb_node in tree and last_tree
     // coal_node in last_tree
     
-    const int nnodes = tree->nnodes;
+    //const int nnodes = tree->nnodes;
     const LocalNode *nodes = tree->nodes;
     const LocalNode *last_nodes = last_tree->nodes;
     const int nstates1 = states1.size();
 
     // make state lookup
-    NodeStateLookup state2_lookup(states2, nnodes);
+    //NodeStateLookup state2_lookup(states2, nnodes);
 
     for (int i=0; i<nstates1; i++) {
         const int node1 = states1[i].node;
@@ -273,14 +274,16 @@ void get_deterministic_transitions(
 void get_recomb_transition_switch(
     const LocalTree *tree, const LocalTree *last_tree, 
     const Spr &spr, const int *mapping,
-    const States &states1, const States &states2, int next_states[2])
+    const States &states1, const States &states2, 
+    NodeStateLookup &state2_lookup,
+    int next_states[2])
 {
-    const int nnodes = tree->nnodes;
+    //const int nnodes = tree->nnodes;
     const LocalNode *nodes = tree->nodes;
     const LocalNode *last_nodes = last_tree->nodes;
 
     // make state lookup
-    NodeStateLookup state2_lookup(states2, nnodes);
+    //NodeStateLookup state2_lookup(states2, nnodes);
     
     // SPR subtree moves out from underneath us
     // therefore therefore the new chromosome coalesces with
@@ -477,8 +480,10 @@ void calc_transition_probs_switch(
     
 
     // get deterministic transitions
+    NodeStateLookup state2_lookup(states2, tree->nnodes);
     get_deterministic_transitions(last_tree, tree, spr, mapping,
-         states1, states2, model->ntimes, transmat_switch->determ);
+                                  states1, states2, state2_lookup,
+                                  model->ntimes, transmat_switch->determ);
     for (int i=0; i<nstates1; i++) {
         int j = transmat_switch->determ[i];
         if (j >= 0) {
@@ -489,9 +494,9 @@ void calc_transition_probs_switch(
                 recomb_parent_age = last_tree->nodes[
                     last_tree->nodes[spr.recomb_node].parent].age;
             
-            transmat_switch->determprob[i] = log(calc_recomb_recoal(
+            transmat_switch->determprob[i] = calc_recomb_recoal(
               last_tree, model, lineages, spr, 
-              states1[i], recomb_parent_age, last_treelen));
+              states1[i], recomb_parent_age, last_treelen);
         }
     }
     
@@ -519,25 +524,26 @@ void calc_transition_probs_switch(
     // [0] = stay, [1] = escape
     int recomb_next_states[2];
     get_recomb_transition_switch(tree, last_tree, spr, mapping,
-                                 states1, states2, recomb_next_states);
+                                 states1, states2, state2_lookup,
+                                 recomb_next_states);
     for (int j=0; j<nstates2; j++)
-        transmat_switch->recombrow[j] = -INFINITY;
+        transmat_switch->recombrow[j] = 0.0;
     
     {
         // stay case (recomb above)
         int j = recomb_next_states[0];
         recomb_parent_age = last_tree->nodes[
             last_tree->nodes[spr.recomb_node].parent].age;
-        transmat_switch->recombrow[j] = log(calc_recomb_recoal(
+        transmat_switch->recombrow[j] = calc_recomb_recoal(
             last_tree, model, lineages, spr, states1[recombsrc], 
-            recomb_parent_age, last_treelen));
+            recomb_parent_age, last_treelen);
         
         // escape case (recomb below)
         j = recomb_next_states[1];
         recomb_parent_age = states1[recombsrc].time;
-        transmat_switch->recombrow[j] = log(calc_recomb_recoal(
+        transmat_switch->recombrow[j] = calc_recomb_recoal(
             last_tree, model, lineages, spr, states1[recombsrc], 
-            recomb_parent_age, last_treelen));
+            recomb_parent_age, last_treelen);
     }
     
 
@@ -563,7 +569,7 @@ void calc_transition_probs_switch(
         const int node2 = states2[j].node;
         const int time2 = states2[j].time;
                 
-        transmat_switch->recoalrow[j] = -INFINITY;
+        transmat_switch->recoalrow[j] = 0.0;
         if (!((node2 == mapping[spr.recomb_node] 
                && time2 >= spr.recomb_time) ||
               (node2 == node3 && time2 == time1) ||
@@ -574,9 +580,9 @@ void calc_transition_probs_switch(
         recomb_parent_age = last_tree->nodes[last_tree->nodes[spr.recomb_node].parent].age;
         Spr spr2 = spr;
         spr2.coal_time = time2;
-        transmat_switch->recoalrow[j] = log(calc_recomb_recoal(
+        transmat_switch->recoalrow[j] = calc_recomb_recoal(
             last_tree, model, lineages, spr2, states1[recoalsrc],
-            recomb_parent_age, last_treelen));
+            recomb_parent_age, last_treelen);
     }
 }
 
@@ -598,7 +604,7 @@ void calc_transition_probs_switch_internal(
         // switching between two completely specified blocks
         if (nstates2 == 0) {
             transmat_switch->determ[0] = 0;
-            transmat_switch->determprob[0] = 0.0;
+            transmat_switch->determprob[0] = 1.0;
             transmat_switch->recoalsrc = -1;
             transmat_switch->recombsrc = -1;
             return;
@@ -610,7 +616,7 @@ void calc_transition_probs_switch_internal(
             if (states2[j].node == maintree_root &&
                 states2[j].time == spr.coal_time) {
                 transmat_switch->determ[0] = j;
-                transmat_switch->determprob[0] = 0.0;
+                transmat_switch->determprob[0] = 1.0;
                 transmat_switch->recoalsrc = -1;
                 transmat_switch->recombsrc = -1;
                 return;
@@ -636,9 +642,9 @@ void calc_transition_probs_switch_internal(
                 recomb_parent_age = last_tree->nodes[
                     last_tree->nodes[spr.recomb_node].parent].age;
                 
-            transmat_switch->determprob[i] = log(calc_recomb_recoal(
+            transmat_switch->determprob[i] = calc_recomb_recoal(
                 last_tree, model, lineages, spr, 
-                states1[i], recomb_parent_age, last_treelen, true));
+                states1[i], recomb_parent_age, last_treelen, true);
         }
 
         transmat_switch->recoalsrc = -1;
@@ -648,9 +654,10 @@ void calc_transition_probs_switch_internal(
 
     
     // get deterministic transitions
+    NodeStateLookup state2_lookup(states2, tree->nnodes);
     get_deterministic_transitions(last_tree, tree, spr, mapping,
-        states1, states2, model->ntimes, transmat_switch->determ,
-        true);
+                                  states1, states2, state2_lookup,
+                                  model->ntimes, transmat_switch->determ, true);
     for (int i=0; i<nstates1; i++) {
         int j = transmat_switch->determ[i];
         if (j >= 0) {
@@ -661,9 +668,9 @@ void calc_transition_probs_switch_internal(
                 recomb_parent_age = last_tree->nodes[
                     last_tree->nodes[spr.recomb_node].parent].age;
 
-            transmat_switch->determprob[i] = log(calc_recomb_recoal(
+            transmat_switch->determprob[i] = calc_recomb_recoal(
               last_tree, model, lineages, spr, 
-              states1[i], recomb_parent_age, last_treelen, true));
+              states1[i], recomb_parent_age, last_treelen, true);
         }
     }
 
@@ -690,18 +697,19 @@ void calc_transition_probs_switch_internal(
     if (recombsrc != -1) {
         int recomb_next_states[2];
         get_recomb_transition_switch(tree, last_tree, spr, mapping,
-                                     states1, states2, recomb_next_states);
+                                     states1, states2, state2_lookup,
+                                     recomb_next_states);
         for (int j=0; j<nstates2; j++)
-            transmat_switch->recombrow[j] = -INFINITY;
+            transmat_switch->recombrow[j] = 0.0;
     
         // stay case (recomb above)
         int j = recomb_next_states[0];
         if (j != -1) {
             recomb_parent_age = last_tree->nodes[
                 last_tree->nodes[spr.recomb_node].parent].age;
-            transmat_switch->recombrow[j] = log(calc_recomb_recoal(
+            transmat_switch->recombrow[j] = calc_recomb_recoal(
                 last_tree, model, lineages, spr, states1[recombsrc],
-                recomb_parent_age, last_treelen, true));
+                recomb_parent_age, last_treelen, true);
             assert(!isnan(transmat_switch->recombrow[j]));
         }
 
@@ -709,9 +717,9 @@ void calc_transition_probs_switch_internal(
         j = recomb_next_states[1];
         if (j != -1) {
             recomb_parent_age = states1[recombsrc].time;
-            transmat_switch->recombrow[j] = log(calc_recomb_recoal(
+            transmat_switch->recombrow[j] = calc_recomb_recoal(
                 last_tree, model, lineages, spr, states1[recombsrc],
-                recomb_parent_age, last_treelen, true));
+                recomb_parent_age, last_treelen, true);
             assert(!isnan(transmat_switch->recombrow[j]));
         }
     }
@@ -720,7 +728,7 @@ void calc_transition_probs_switch_internal(
     // compute recoal case
     if (recoalsrc == -1) {
         for (int j=0; j<nstates2; j++)
-            transmat_switch->recoalrow[j] = -INFINITY;
+            transmat_switch->recoalrow[j] = 0.0;
         return;
     }
 
@@ -745,7 +753,7 @@ void calc_transition_probs_switch_internal(
         const int node2 = states2[j].node;
         const int time2 = states2[j].time;
                 
-        transmat_switch->recoalrow[j] = -INFINITY;
+        transmat_switch->recoalrow[j] = 0.0;
         if (!((node2 == mapping[spr.recomb_node] 
                && time2 >= spr.recomb_time) ||
               (node2 == node3 && time2 == time1) ||
@@ -756,9 +764,9 @@ void calc_transition_probs_switch_internal(
         recomb_parent_age = last_tree->nodes[last_tree->nodes[spr.recomb_node].parent].age;
         Spr spr2 = spr;
         spr2.coal_time = time2;
-        transmat_switch->recoalrow[j] = log(calc_recomb_recoal(
+        transmat_switch->recoalrow[j] = calc_recomb_recoal(
             last_tree, model, lineages, spr2, states1[recoalsrc],
-            recomb_parent_age, last_treelen, true));
+            recomb_parent_age, last_treelen, true);
     }
 }
 

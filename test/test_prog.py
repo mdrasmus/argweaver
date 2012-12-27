@@ -35,9 +35,9 @@ class Prog (unittest.TestCase):
         mu = 2.5e-8
         rho = 1.5e-8
 
-        make_clean_dir("test/data/test_prog_small")
-            
-        os.system("""arg-sim \
+        if not os.path.exists("test/data/test_prog_small/0.sites"):
+            make_clean_dir("test/data/test_prog_small")
+            os.system("""arg-sim \
             -k 12 -L 200000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 \
             --ntimes 20 --maxtime 400e3 \
@@ -46,7 +46,7 @@ class Prog (unittest.TestCase):
         make_clean_dir("test/data/test_prog_small/0.sample")
         os.system("""arg-sample \
     -s test/data/test_prog_small/0.sites \
-    -N 1e4 -r 1.5e-8 -m 2.5e-8 \
+    -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
     --ntimes 20 --maxtime 400e3 -c 20 \
     --climb 0 -n 0 \
     -o test/data/test_prog_small/0.sample/out""")
@@ -110,9 +110,9 @@ class Prog (unittest.TestCase):
         mu = 2.5e-8
         rho = 1.5e-8
 
-        make_clean_dir("test/data/test_prog_many")
-            
-        os.system("""arg-sim \
+        if not os.path.exists("test/data/test_prog_many/0.sites"):
+            make_clean_dir("test/data/test_prog_many")
+            os.system("""arg-sim \
             -k 200 -L 100000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 \
             --ntimes 20 --maxtime 400e3 \

@@ -359,18 +359,17 @@ void arghmm_forward_switch(const double *col1, double* col2,
     // add deterministic transitions
     for (int j=0; j<nstates1; j++) {
         int k = matrix->determ[j];
-        if (j != matrix->recombsrc && j != matrix->recoalsrc && k != -1) {
-            col2[k] += col1[j] * exp(matrix->determprob[j]);
-        }
+        if (j != matrix->recombsrc && j != matrix->recoalsrc && k != -1)
+            col2[k] += col1[j] * matrix->determprob[j];
     }
     
     // add recombination and recoalescing transitions
     double norm = 0.0;
     for (int k=0; k<nstates2; k++) {
-        if (matrix->recombsrc != -1 && matrix->recombrow[k] > -INFINITY)
-            col2[k] += col1[matrix->recombsrc] * exp(matrix->recombrow[k]);
-        if (matrix->recoalsrc != -1 && matrix->recoalrow[k] > -INFINITY)
-            col2[k] += col1[matrix->recoalsrc] * exp(matrix->recoalrow[k]);
+        if (matrix->recombsrc != -1 && matrix->recombrow[k] > 0.0)
+            col2[k] += col1[matrix->recombsrc] * matrix->recombrow[k];
+        if (matrix->recoalsrc != -1 && matrix->recoalrow[k] > 0.0)
+            col2[k] += col1[matrix->recoalsrc] * matrix->recoalrow[k];
         col2[k] *= emit[k];
         norm += col2[k];
     }

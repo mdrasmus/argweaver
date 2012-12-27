@@ -17,6 +17,7 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
     int start = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
         get_coal_states(it->tree, ntimes, *states);
+        NodeStateLookup state_lookup(*states, it->tree->nnodes);
 
         // check spr
         if (last_tree) {
@@ -25,7 +26,7 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
             int determ[last_states->size()];
             get_deterministic_transitions(
                  last_tree, it->tree, it->spr, it->mapping,
-                 *last_states, *states, ntimes, determ);
+                 *last_states, *states, state_lookup, ntimes, determ);
 
             int a = thread_path[start-1];
             int b = determ[thread_path[start-1]];
@@ -335,7 +336,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
     int end = trees->start_coord;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
         LocalTree *tree = it->tree;
-        Spr *spr = &(it->spr);
+        //Spr *spr = &(it->spr);
         int start = end;
         end += it->blocklen;
         get_coal_states(tree, ntimes, states);
@@ -351,7 +352,7 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             add_spr_branch(tree, last_tree, state, last_state,
                            &it->spr, mapping,
                            newleaf, displaced, newcoal);
-            assert(assert_spr(last_tree, tree, spr, mapping));
+            //assert(assert_spr(last_tree, tree, spr, mapping));
         }
 
         // assert new branch is where it should be
@@ -435,9 +436,9 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
             
 
             // assert tree and SPR
-            assert(assert_tree(new_tree));
-            assert(new_tree->nodes[newcoal].age == state.time);
-            assert(assert_spr(tree, new_tree, &spr2, mapping2));
+            //assert(assert_tree(new_tree));
+            //assert(new_tree->nodes[newcoal].age == state.time);
+            //assert(assert_spr(tree, new_tree, &spr2, mapping2));
 
             // remember the previous tree for next iteration of loop
             tree = new_tree;

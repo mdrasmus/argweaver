@@ -106,7 +106,7 @@ public:
     }
 
     // Returns the state index for state (node, time)
-    inline int lookup(int node, int time) {
+    inline int lookup(int node, int time) const {
         if (nstates_per_node[node] == 0)
             return -1;
         const int i = node_offset[node] + time;
