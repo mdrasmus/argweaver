@@ -7,35 +7,16 @@ from rasmus import intervals, stats
 import arghmm
 
 o = optparse.OptionParser()
-o.add_option("-w", "--window", default=10000, type="int")
+o.add_option("-w", "--window", default=1000, type="int")
 o.add_option("-s", "--start", default=0, type="int")
-o.add_option("-e", "--end", default=5000, type="int")
+o.add_option("-e", "--end", default=10000, type="int")
 o.add_option("-d", "--step", default=1, type="int")
+o.add_option("-n", "--normalize", action="store_true",
+             help="normalize by generations")
+o.add_option("-t", "--ntimes", type="int", default=20)
+o.add_option("", "--maxtime", type="float", default=180e3)
 
 conf, args = o.parse_args()
-
-
-#=============================================================================
-
-def iter_recombs(filename):
-    chrom = "chr"
-    for item in arghmm.iter_smc_file(filename):
-        if item["tag"] == "REGION":
-            chrom = item["chrom"]        
-        if item["tag"] == "SPR":
-            yield item["pos"], chrom
-
-
-def iter_recombs_window(filename, window):
-    recombs = sorted(iter_recombs(filename))
-    chrom = recombs[0][1]
-    recombs = cget(recombs, 0)
-    last_x = None
-    for x, y in stats.iter_window(recombs, window, len):
-        if last_x:
-            yield last_x, x, chrom, last_y
-        last_x = x
-        last_y = y
 
 
 #=============================================================================
@@ -50,15 +31,50 @@ if "%d" in filename:
 else:
     filenames = args
 
-recombs = []
+times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+
+#=============================================================================
+
+treelens = []
 for filename in filenames:
-    recombs.extend(iter_recombs_window(filename, conf.window))
-recombs.sort()
+    print >>sys.stderr, filename
+    smc = arghmm.SMCReader(filename)
+    chrom, start, end = smc.header["chrom"], smc.header["start"], smc.header["end"]
+    trees = arghmm.read_local_trees(filename, times, len(times))
+    ntrees = arghmm.get_local_trees_ntrees(trees)
+    treelen = [0.0] * ntrees
+    blocklens = [0.0] * ntrees
+    starts = [0] * ntrees; ends = [0] * ntrees
+    arghmm.get_treelens(trees, times, len(times), treelen)
+    arghmm.get_local_trees_blocks(trees, starts, ends)
+    treelens.append(zip(starts, ends, treelen))
+    arghmm.delete_local_trees(trees)
 
-for start, end, group in intervals.iter_intersections(recombs):
-    chrom = group[0][2]
-    vals = cget(group, 3)
-    print_row(chrom, int(start), int(end), mean(vals),
-              percentile(vals, .025), percentile(vals, .975))
+
+#=============================================================================
+
+# get average tree lengths and recombination positions
+avg_treelens = [[s,e,mean(cget(group, 2))]
+                for s, e, group in intervals.iter_intersections(
+    sort(concat(*treelens)))]
+recombs = hist_dict(concat(*[[t[0] for t in treelen]
+                             for treelen in treelens]))
+
+# calcuate recomb rate
+recomb_rate = []
+i = 0
+for p in range(start, end, 1):
+    if i < len(avg_treelens) and avg_treelens[i][1] < p:
+        i += 1
+    if (i < len(avg_treelens) and
+        avg_treelens[i][0] <= p <= avg_treelens[i][1]):
+        recomb_rate.append([p, p+1,
+                            recombs.get(p, 0) / avg_treelens[i][2] /
+                            float(len(treelens))])
+        i += 1
 
 
+starts = cget(recomb_rate, 0)
+for lowi, highi, low, high in iter_window_index(starts, conf.window):
+    if highi > lowi:
+        print_row(chrom, low, high, mean(cget(recomb_rate[lowi:highi], 2)))

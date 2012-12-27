@@ -4,6 +4,7 @@
 #include "stdio.h"
 
 // arghmm includes
+#include "compress.h"
 #include "common.h"
 #include "local_tree.h"
 #include "logging.h"
@@ -1713,14 +1714,63 @@ void delete_local_trees(LocalTrees *trees)
 
 
 void write_local_trees(char *filename, LocalTrees *trees, char **names,
-                       double *times, int ntimes)
+                       double *times)
 {
-    Sequences seqs;
-    int nleaves = trees->get_num_leaves();
-    for (int i=0; i<nleaves; i++)
-        seqs.append(names[i], (char*) "");
+    //Sequences seqs;
+    //int nleaves = trees->get_num_leaves();
+    //for (int i=0; i<nleaves; i++)
+    //    seqs.append(names[i], (char*) "");
+    write_local_trees(filename, trees, names, times);
+    //write_local_trees(filename, trees, seqs, times);
+}
 
-    write_local_trees(filename, trees, seqs, times);
+
+LocalTrees *read_local_trees(const char *filename, const double *times, 
+                             int ntimes)
+{
+    char ***names = NULL;
+    LocalTrees *trees = new LocalTrees();
+    vector<string> seqnames;
+
+    CompressStream stream(filename, "r");
+    if (stream.stream && 
+        read_local_trees(stream.stream, times, ntimes, trees, seqnames)) 
+    {
+        if (names) {
+            // copy names
+            *names = new char* [seqnames.size()];
+            for (unsigned int i=0; i<seqnames.size(); i++) {
+                (*names)[i] = new char [seqnames[i].size()+1];
+                strncpy((*names)[i], seqnames[i].c_str(), seqnames[i].size()+1);
+            }
+        }
+    } else {
+        delete trees;
+        trees = NULL;
+    }
+    return trees;
+}
+
+
+void get_treelens(const LocalTrees *trees, const double *times, int ntimes,
+                  double *treelens)
+{
+    const bool use_basal = false;
+    int i = 0;
+    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it, i++)
+        treelens[i] = get_treelen(it->tree, times, ntimes, use_basal);
+}
+
+void get_local_trees_blocks(const LocalTrees *trees, int *starts, int *ends)
+{
+    int i = 0;
+    int end = trees->start_coord;
+    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it, i++) {
+        int start = end;
+        end += it->blocklen;
+        starts[i] = start;
+        ends[i] = end;
+    }
 }
 
 

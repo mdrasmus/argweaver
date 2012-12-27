@@ -120,6 +120,10 @@ public:
                     "region to resample of input ARG (optional)"));
         config.add(new ConfigSwitch
 		   ("", "--resume", &resume, "resume a previous run"));
+        config.add(new ConfigSwitch
+		   ("", "--overwrite", &overwrite, 
+                    "force an overwrite of a previous run"));
+
         
         // misc
 	config.add(new ConfigParamComment("Miscellaneous"));
@@ -140,6 +144,7 @@ public:
                    ("-x", "--randseed", "<random seed>", &randseed, 0,
                     "seed for random number generator (default=current time)"));
 
+        // advance options
         config.add(new ConfigParamComment("Advanced Options", DEBUG_OPT));
         config.add(new ConfigParam<double>
                    ("", "--prob-path-switch", "<probability>", 
@@ -149,6 +154,15 @@ public:
                    ("", "--infsites", &infsites, 
                     "assume infinite sites model (at most one mutation per site)", 
                     DEBUG_OPT));
+        config.add(new ConfigParam<int>
+                   ("", "--resample-window", "<window size>", 
+                    &resample_window, 100000,
+                    "sliding window for resampling (default=100000)", DEBUG_OPT));
+        config.add(new ConfigParam<int>
+                   ("", "--resample-window-iters", "<iterations>", 
+                    &resample_window_iters, 10,
+                    "number of iterations per sliding window for resampling (default=10)", DEBUG_OPT));
+
 
         // help information
 	config.add(new ConfigParamComment("Information"));
@@ -225,8 +239,11 @@ public:
     string resample_region_str;
     int resample_region[2];
     bool resume;
+    bool overwrite;
     string resume_stage;
     int resume_iter;
+    int resample_window;
+    int resample_window_iters;
 
     // misc
     int compress_seq;
@@ -536,8 +553,10 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 {
     // setup search options
     double frac_leaf = .5;
-    int window = 100000;
-    int niters = 10;
+    //int window = 100000;
+    //int niters = 10;
+    int window = config->resample_window;
+    int niters = config->resample_window_iters;
     window /= config->compress_seq;
     int step = window / 2;
 
@@ -547,6 +566,8 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         iter = config->resume_iter + 1;
     else {
         // save first ARG (iter=0)
+        print_stats(config->stats_file, "resample", 0, model, sequences, trees,
+                    sites_mapping, config);
         log_local_trees(model, sequences, trees, sites_mapping, config, 0);
     }
 
@@ -727,6 +748,21 @@ bool setup_resume(Config &config)
 }
 
 
+bool check_overwrite(Config &config)
+{
+    // check for stats file    
+    string stats_filename = config.out_prefix + STATS_SUFFIX;
+    bool exists = !access(stats_filename.c_str(), F_OK);
+    if (config.resume || config.overwrite || !exists) {
+        return true;
+    } else {
+        printError("Stats file already exists: %s", stats_filename.c_str());
+        printError("To force overwrite use --overwrite option");
+        return false;
+    }
+}
+
+
 //=============================================================================
 
 int main(int argc, char **argv)
@@ -744,6 +780,10 @@ int main(int argc, char **argv)
         return 1;
     }
     free(path);
+
+    // check overwriting
+    if (!check_overwrite(c))
+        return 1;
     
     // setup logging
     setLogLevel(c.verbose);
@@ -843,6 +883,7 @@ int main(int argc, char **argv)
                 printError("subregion is not specified as 'start-end'");
                 return 1;
             }
+            subregion[0] -= 1; // convert to 0-index
         }
 
         // read sites

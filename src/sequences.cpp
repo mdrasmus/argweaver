@@ -225,6 +225,7 @@ bool read_sites(FILE *infile, Sites *sites,
             }
             if (!validate_site_column(col, nseqs)) {
                 printError("invalid sequence characters (line %d)", lineno);
+                printError("%s\n", line);
                 delete [] line;
                 return false;
             }

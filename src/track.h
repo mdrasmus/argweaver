@@ -176,6 +176,10 @@ public:
     bool next(RegionValue<T> &region) {
         lineno++;
         if (fgetline(&line, &linesize, infile)) {
+            // ignore track lines
+            //if (!strncmp(line, "track", 5))
+            //    continue;
+            
             if (!read_track_line(line, region)) {
                 // error reading line
                 has_error = true;

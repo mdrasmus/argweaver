@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+
+import optparse
+
+from rasmus.common import *
+from rasmus import intervals, stats
+import arghmm
+
+o = optparse.OptionParser()
+o.add_option("-w", "--window", default=10000, type="int")
+o.add_option("-s", "--start", default=0, type="int")
+o.add_option("-e", "--end", default=5000, type="int")
+o.add_option("-d", "--step", default=1, type="int")
+o.add_option("-n", "--normalize", action="store_true",
+             help="normalize by generations")
+
+conf, args = o.parse_args()
+
+
+#=============================================================================
+
+def iter_recombs(filename):
+    chrom = "chr"
+    for item in arghmm.iter_smc_file(filename):
+        if item["tag"] == "REGION":
+            chrom = item["chrom"]        
+        if item["tag"] == "SPR":
+            yield item["pos"], chrom
+
+
+def iter_recombs_window(filename, window):
+    recombs = sorted(iter_recombs(filename))
+    chrom = recombs[0][1]
+    recombs = cget(recombs, 0)
+    last_x = None
+    for x, y in stats.iter_window(recombs, window, len):
+        if last_x:
+            yield last_x, x, chrom, last_y
+        last_x = x
+        last_y = y
+
+
+#=============================================================================
+
+filename = args[0]
+if "%d" in filename:
+    filenames = []
+    for i in range(conf.start, conf.end, conf.step):
+        fn = filename % i
+        if os.path.exists(fn):
+            filenames.append(fn)
+else:
+    filenames = args
+
+recombs = []
+for filename in filenames:
+    recombs.extend(iter_recombs_window(filename, conf.window))
+recombs.sort()
+
+for start, end, group in intervals.iter_intersections(recombs):
+    chrom = group[0][2]
+    vals = cget(group, 3)
+    print_row(chrom, int(start), int(end), mean(vals),
+              percentile(vals, .025), percentile(vals, .975))
+
+

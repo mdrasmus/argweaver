@@ -646,7 +646,6 @@ class SMCReader (object):
         return tree
 
     def close(self):
-        #list(self._infile)
         self._infile.close()
             
 

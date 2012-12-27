@@ -246,11 +246,19 @@ if arghmmclib:
            [c_void_p, "trees", c_out(c_int_matrix), "ptrees",
             c_out(c_int_matrix), "ages",
             c_out(c_int_matrix), "sprs", c_out(c_int_list), "blocklens"])
+    export(arghmmclib, "get_treelens", c_int,
+           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+            c_out(c_double_list), "treelens"])
+    export(arghmmclib, "get_local_trees_blocks", c_int,
+           [c_void_p, "trees", c_out(c_int_list), "starts",
+            c_out(c_int_list), "ends"])
     export(arghmmclib, "delete_local_trees", c_int,
            [c_void_p, "trees"])
     export(arghmmclib, "write_local_trees", c_int,
            [c_char_p, "filename", c_void_p, "trees", c_char_p_list, "names",
             c_double_list, "times", c_int, "ntimes"])
+    export(arghmmclib, "read_local_trees", c_void_p,
+           [c_char_p, "filename", c_double_list, "times", c_int, "ntimes"])
 
 
     # thread data structures
@@ -275,7 +283,7 @@ if arghmmclib:
 def set_random_seed(num):
     """Set the C random number generator seed"""
     arghmmclib.srand(num)
-    
+
 
 #=============================================================================
 # HMM transition and emission matrices
