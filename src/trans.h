@@ -226,7 +226,7 @@ void calc_transition_probs_switch(
     const Spr &spr, const int *mapping,
     const States &states1, const States &states2,
     const ArgModel *model, const LineageCounts *lineages, 
-    TransMatrixSwitch *transmat_switch);
+    TransMatrixSwitch *transmat_switch, bool internal=false);
 void calc_transition_probs_switch(
     const LocalTree *tree, const LocalTree *last_tree, 
     const Spr &spr, const int *mapping,
