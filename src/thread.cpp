@@ -1300,7 +1300,7 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, const int *thread_path,
 
             
             // determine mapping:
-            // all nodes keep their name expect the broken node, which is the
+            // all nodes keep their name accept the broken node, which is the
             // parent of recomb
             int *mapping2 = new int [tree->capacity];
             for (int j=0; j<tree->nnodes; j++)
@@ -1330,9 +1330,9 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, const int *thread_path,
             
 
             // assert tree and SPR
-            assert(assert_tree(new_tree));
-            assert(new_tree->nodes[newcoal].age == state.time);
-            assert(assert_spr(tree, new_tree, &spr2, mapping2));
+            //assert(assert_tree(new_tree));
+            //assert(new_tree->nodes[newcoal].age == state.time);
+            //assert(assert_spr(tree, new_tree, &spr2, mapping2));
 
             // remember the previous tree for next iteration of loop
             tree = new_tree;
