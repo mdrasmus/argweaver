@@ -191,6 +191,8 @@ def count_tree_lineages(tree, times):
 
     # get time steps
     midpoints = [0.0] + [(times[i+1] + times[i]) / 2.0 for i in range(ntimes-1)]
+    #midpoints = [0.0] + [sqrt((times[i+1]+1.0)*(times[i]+1.0))
+    #                     for i in range(ntimes-1)]
     time_steps = [midpoints[i+1] - midpoints[i] for i in range(ntimes-1)]
 
     # count lineages

@@ -374,6 +374,7 @@ void arghmm_forward_switch(const double *col1, double* col2,
         norm += col2[k];
     }
     
+#   ifdef DEBUG
     // assert that probability is valid
     double top = max_array(col2, nstates2);
     if (top <= 0.0) {
@@ -382,7 +383,7 @@ void arghmm_forward_switch(const double *col1, double* col2,
         }
         assert(false);
     }
-
+#   endif
 
     // normalize column for numerical stability
     for (int k=0; k<nstates2; k++)

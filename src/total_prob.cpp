@@ -132,16 +132,32 @@ double calc_tree_prior(const ArgModel *model, const LocalTree *tree,
     lineages.count(tree);
     int nleaves = tree->get_num_leaves();
     double lnl = 0.0;
+
+    // get effective population sizes
+    // uses harmonic mean to combine time steps
+    double times[model->ntimes];
+    double popsizes[model->ntimes];
+    times[0] = model->coal_time_steps[0];
+    popsizes[0] = model->popsizes[0];
+
+    for (int i=1; i<model->ntimes-1; i++) {
+        double t1 = model->coal_time_steps[2*i-1];
+        double t2 = model->coal_time_steps[2*i];
+        double n1 = model->popsizes[i-1];
+        double n2 = model->popsizes[i];
+
+        times[i] = t1 + t2;
+        popsizes[i] = (t1 + t2) / (t1/n1 + t2/n2);
+    }
     
     for (int i=0; i<model->ntimes-1; i++) {
         int a = (i == 0 ? nleaves : lineages.nbranches[i-1]);
         int b = lineages.nbranches[i];
-
-        lnl += log(prob_coal_counts(a, b, model->time_steps[i],
-                                    2.0*model->popsizes[i]));
+        lnl += log(prob_coal_counts(a, b, times[i], 2.0*popsizes[i]));
     }
-    
 
+    // TODO: top prior
+    
     return lnl;
 }
 
@@ -216,11 +232,9 @@ double calc_arg_prior(const ArgModel *model, const LocalTrees *trees)
 {
     double lnl = 0.0;
     LineageCounts lineages(model->ntimes);
-
-    // TODO: fix this before re-enabling
+    
     // first tree prior
-    //lnl += calc_tree_prior(model, trees->front().tree, lineages);
-
+    lnl += calc_tree_prior(model, trees->front().tree, lineages);
 
     int end = trees->start_coord;
     for (LocalTrees::const_iterator it=trees->begin(); it != trees->end();) {

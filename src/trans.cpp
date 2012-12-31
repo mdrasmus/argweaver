@@ -525,7 +525,7 @@ double calc_recomb_recoal(
     p *= exp(-sum);
     
     p *= calc_recoal(last_tree, model, lineages, spr, state1.time,
-                     recomb_parent_age, last_treelen, internal);    
+                     recomb_parent_age, last_treelen, internal);
     return p;
 }
 
@@ -775,13 +775,13 @@ void calc_transition_probs_switch(
 //=============================================================================
 // prior for state space
 
-// TODO: update for rounding closer
+
 void calc_state_priors(const States &states, const LineageCounts *lineages, 
                        const ArgModel *model, double *priors,
                        const int minage)
 {
     const int nstates = states.size();
-    const double *coal_time_steps = model->times;
+    const double *coal_time_steps = model->coal_time_steps;
     const double *popsizes = model->popsizes;
     const int *nbranches = lineages->nbranches;
     const int *ncoals = lineages->ncoals;
@@ -800,12 +800,27 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
             continue;
         }
 
+        // probability of not coalescing before time b
         double sum = 0.0;
-        for (int m=minage; m<b; m++)
-            sum += coal_time_steps[m] * nbranches[m] / (2.0 * popsizes[m]);
+        for (int m=2*minage; m<2*b-1; m++)
+            sum += coal_time_steps[m] * nbranches[m/2] / (2.0 * popsizes[m/2]);
+        double p = exp(-sum) / ncoals[b];
 
+        // probability of coalescing in time interval b
+        if (b < model->ntimes - 2) {
+            double Z = 0.0;
+            if (b>minage)
+                Z = coal_time_steps[2*b-1]*nbranches[b-1]/(2.0*popsizes[b-1]);
+            p *= 1.0 - exp(-coal_time_steps[2*b] * nbranches[b] / 
+                           (2.0*popsizes[b]) - Z);
+        }
+        
+        priors[i] = p;
+        
+        /*
         priors[i] = (1.0 - exp(- coal_time_steps[b] * nbranches[b] /
                                (2.0 * popsizes[b]))) / ncoals[b] * exp(-sum);
+        */
     }
 }
 

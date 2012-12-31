@@ -964,8 +964,10 @@ def find_high_freq_allele(col):
 
 
 def find_pair_allele_freqs(col1, col2):
-    A1 = find_high_freq_allele(col1)
-    B1 = find_high_freq_allele(col2)
+    #A1 = find_high_freq_allele(col1)
+    #B1 = find_high_freq_allele(col2)
+    A1 = col1[0]
+    B1 = col2[0]
     
     x = {}
     x[(0,0)] = 0
@@ -1030,7 +1032,7 @@ def calc_ld_r2(col1, col2, x=None):
     p2 = 1.0 - p1
     q2 = 1.0 - q1
 
-    return D / sqrt(p1*p2*q1*q2)
+    return D*D / (p1*p2*q1*q2)
 
 
 def calc_ld_matrix(cols, func):

@@ -50,7 +50,8 @@ def iter_trees_arg(filename, attr):
 
 def get_tree(tree_repr):
     if isinstance(tree_repr, basestring):
-        return arghmm.parse_tree(tree_repr)
+        #return arghmm.parse_tree(tree_repr)
+        return treelib.parse_newick(tree_repr)
     else:
         arg, pos = tree_repr
         names = list(arg.leaf_names())
@@ -86,9 +87,16 @@ def cons_smc(trees, attr, positions=None):
         chrom = group[0][2]
         treeset = map(get_tree, cget(group, 3))
         tree = phylo.consensus_majority_rule(treeset, rooted=True)
+        treelib.assert_tree(tree)
 
         if conf.binary:
             phylo.ensure_binary_tree(tree)
+
+        # issue new names for internal nodes to avoid conflict with leaves
+        tree.nextname = max(tree.nextname, len(attr["names"]))
+        for node in list(tree):
+            if not node.is_leaf():
+                tree.rename(node.name, tree.new_name())
         
         yield {"tag": "TREE", "start": start+1, "end": end,
                "tree": tree}
