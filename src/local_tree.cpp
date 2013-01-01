@@ -1714,7 +1714,7 @@ void delete_local_trees(LocalTrees *trees)
 
 
 void write_local_trees(char *filename, LocalTrees *trees, char **names,
-                       double *times)
+                       double *times, int ntimes)
 {
     //Sequences seqs;
     //int nleaves = trees->get_num_leaves();

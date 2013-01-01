@@ -75,7 +75,7 @@ print "writing output: ", conf.output + ".{fa,sites,arg}"
 path = os.path.dirname(conf.output)
 util.makedirs(path)
 
-seqs.write(conf.output + ".fa")
+#seqs.write(conf.output + ".fa")
 sites.write(conf.output + ".sites")
 arglib.write_arg(conf.output + ".arg", arg)
 
