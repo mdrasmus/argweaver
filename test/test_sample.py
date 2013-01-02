@@ -2,14 +2,17 @@
 
 import unittest, random
 
-import arghmm
-
 from rasmus.common import *
 from rasmus import stats, hmm
 from rasmus.testing import *
 
 from compbio import coal, arglib, fasta
 
+import arghmm
+from arghmm.popsize import est_popsize_trees, count_trees_lineages, \
+     count_tree_lineages, mle_prob_many_coal_counts
+
+#=============================================================================
 
 
 def strip_tree(tree):
@@ -3234,6 +3237,136 @@ class Sample (unittest.TestCase):
                                       refine=refine, times=times, verbose=True,
                                       carg=False)
 
+
+    def test_sample_prior(self):
+
+        k = 20
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(100) / 20
+        times = arghmm.get_time_points(ntimes=20)
+
+        trees = []
+        trees2 = []
+
+        arghmm.setLogLevel(0)
+
+        for i in range(100):
+            print i
+            #if i % 100 == 0:
+            #    print i
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            seqs = arglib.make_alignment(arg, [])
+            
+            arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                     popsizes=n, refine=0, carg=True)
+            arg2 = arghmm.resample_all_arg(
+                arg2, seqs, rho=rho,mu=mu, popsizes=n, refine=20,
+                times=times, verbose=False, carg=False)
+            trees.append(arg.get_marginal_tree(length/2))
+            trees2.append(arg2.get_marginal_tree(length/2))
+        popsizes = est_popsize_trees(trees2, times, n0=1e4)
+
+        starts, ends, steps = count_trees_lineages(trees, times)
+        print "starts", map(mean, starts[:-1])
+        starts2, ends2, steps2 = count_trees_lineages(trees2, times)
+        print "starts2", map(mean, starts[:-1])
+
+        
+        print "popsizes", popsizes
+        p = plot(popsizes, ymax=n*3, ymin=0)
+
+        p2 = plot(map(mean, starts[:-1]), map(mean, starts2[:-1]))
+        pause()
+
+
+    def test_sample_simple_popsize(self):
+
+        k = 5
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(100e3) / 20
+        times = arghmm.get_time_points(ntimes=20)
+
+        trees = []
+        trees2 = []
+
+        arghmm.setLogLevel(0)
+
+        for i in range(100):
+            print i
+            arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                         times=times)
+            muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+            seqs = arglib.make_alignment(arg, muts)
+            
+            arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                     popsizes=n, refine=0)
+            trees.append(arg.get_marginal_tree(length/2))
+            trees2.append(arg2.get_marginal_tree(length/2))
+        popsizes = est_popsize_trees(trees2, times, n0=1e4)
+
+        starts, ends, steps = count_trees_lineages(trees, times)
+        print "starts", map(mean, starts[:-1])
+        starts2, ends2, steps2 = count_trees_lineages(trees2, times)
+        print "starts2", map(mean, starts[:-1])
+
+        
+        print "popsizes", popsizes
+        p = plot(popsizes, ymax=n*3, ymin=0)
+
+        p2 = plot(map(mean, starts[:-1]), map(mean, starts2[:-1]))
+        pause()
+
+
+    def test_sample_lineages(self):
+
+        k = 20
+        n = 1e4
+        rho = 1.5e-8 * 20
+        mu = 2.5e-8 * 20
+        length = int(100e3) / 20
+        times = arghmm.get_time_points(ntimes=20)
+        ntrees = 10
+        step = length/ntrees
+        pos = range(step/2.0, length, step)
+        
+        arghmm.setLogLevel(0)
+
+        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                     times=times)
+        muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+        seqs = arglib.make_alignment(arg, muts)
+        
+        tree = arg.get_marginal_tree(length/2)
+        starts, ends, steps = count_tree_lineages(tree, times)
+        
+        
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                 popsizes=n, refine=0)
+
+        starts2 = []; ends2 = []
+        for i in range(40):
+            print i
+            arg2 = arghmm.resample_all_arg(
+                arg2, seqs, rho=rho, mu=mu, popsizes=n,
+                refine=10, times=times, verbose=False, carg=False)
+
+            tree2 = arg2.get_marginal_tree(length/2)
+            s, e, _ = count_tree_lineages(tree2, times)
+            starts2.append(s); ends2.append(e)
+            diff = mean(map(abs, vsub(starts, s)))
+            print " ".join("%2d" % j for j in starts)
+            print " ".join("%2d" % j for j in s)
+            print diff
+            print 
+        
+        print starts
+        pc(starts2)
+        
 
 
 #=============================================================================

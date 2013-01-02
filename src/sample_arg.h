@@ -33,6 +33,10 @@ void resample_arg_leaf(const ArgModel *model, const Sequences *sequences,
 bool resample_arg_mcmc(const ArgModel *model, const Sequences *sequences, 
                        LocalTrees *trees);
 
+void resample_arg_mcmc_all(const ArgModel *model, const Sequences *sequences, 
+                           LocalTrees *trees, double frac_leaf,
+                           int window, int step, int niters);
+
 void resample_arg_climb(const ArgModel *model, const Sequences *sequences, 
                         LocalTrees *trees, double recomb_preference);
 

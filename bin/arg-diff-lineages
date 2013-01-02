@@ -1,0 +1,126 @@
+#!/usr/bin/env python
+
+import optparse
+
+from rasmus.common import *
+from compbio import arglib
+from rasmus import intervals
+import arghmm
+
+o = optparse.OptionParser()
+o.add_option("", "--ntimes", type="int", default=20)
+o.add_option("", "--maxtime", type="float", default=180e3)
+o.add_option("", "--window-step", type="int", default=1000)
+
+o.add_option("-s", "--start", default=0, type="int")
+o.add_option("-e", "--end", default=5000, type="int")
+o.add_option("-d", "--step", default=1, type="int")
+
+conf, args = o.parse_args()
+
+
+#=============================================================================
+
+def get_nlineages(tree, times):
+    ages = treelib.get_tree_ages(tree)
+    for node, age in ages.items():
+        ages[node] = min(times, key=lambda x: abs(x - age))
+
+    nbranches = [0 for i in range(len(times))]
+    
+    for node in tree:
+        if node.parent:
+            p = times.index(ages[node.parent])
+            n = times.index(ages[node])
+
+            for i in range(n, p):
+                nbranches[i] += 1
+        else:
+            for i in range(times.index(ages[node]), len(times)):
+                nbranches[i] += 1
+    return nbranches  
+
+
+def get_arg_lineages(arg, times, step=None):
+    if step:
+        for i in get_pos(arg.start, arg.end, step):
+            tree = arg.get_marginal_tree(i-.5)
+            nbranches = arghmm.get_nlineages(tree, times)
+            yield [arg.chrom, i, i] + nbranches
+    else:        
+        for (start, end), tree in arglib.iter_local_trees(arg):
+            nbranches = arghmm.get_nlineages(tree, times)
+            yield [arg.chrom, start, end] + nbranches
+
+
+def get_smc_lineages(smc, times, chrom="chr", step=None):
+    for item in smc:
+        if item["tag"] == "REGION":
+            chrom = item["chrom"]
+        elif item["tag"] == "TREE":
+            if step:
+                for pos in get_pos(item["start"]-1, item["end"], step):
+                    tree = arghmm.parse_tree(item["tree"])
+                    nbranches = get_nlineages(tree, times)
+                    yield [chrom, pos, pos] + nbranches
+            else:
+                tree = arghmm.parse_tree(item["tree"])
+                nbranches = get_nlineages(tree, times)
+                yield [chrom, item["start"], item["end"]] + nbranches
+
+
+def get_pos(start, end, step):
+    for i in range(start, end):
+        if i % step == 0:
+            yield i
+
+def diff_counts(counts1, counts2):
+    return sum(abs(a - b) for a, b in izip(counts1, counts2))
+
+def diff_lineages(true_lineages, lineages):
+    assert len(true_lineages) == len(lineages), \
+           (len(true_lineages), len(lineages))
+    diff = []
+    for row, row2 in izip(true_lineages, lineages):
+        diff.append(diff_counts(row[3:], row2[3:]))
+        #print row, row2, diff[-1]
+    return mean(diff)
+
+
+#=============================================================================
+
+
+times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+
+# get trur lineage counts
+filename = args[0]
+if filename.endswith(".arg"):
+    arg = arglib.read_arg(filename)
+    arg.chrom = "chr"
+    arghmm.discretize_arg(arg, times)
+    true_lineages = list(get_arg_lineages(arg, times, step=conf.window_step))
+else:
+    smc = arghmm.iter_smc_file(filename)
+    true_lineages = list(get_smc_lineages(smc, times, step=conf.window_step))
+
+# get inferred lineage counts
+filename = args[1]
+if "%d" in filename:
+    filenames = []
+    for i in range(conf.start, conf.end, conf.step):
+        fn = filename % i
+        if os.path.exists(fn):
+            filenames.append(fn)
+else:
+    filenames = args[1:]
+
+
+for filename in filenames:
+    try:
+        it = arghmm.get_smc_sample_iter(filename)
+    except:
+        it = 0
+    smc = arghmm.iter_smc_file(filename)
+    lineages = list(get_smc_lineages(smc, times, step=conf.window_step))
+    print_row(it, diff_lineages(true_lineages, lineages))
+        

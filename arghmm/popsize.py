@@ -180,6 +180,7 @@ def mle_prob_many_coal_counts(As, Bs, t, n0):
 #=============================================================================
 # trees
 
+
 def count_tree_lineages(tree, times):
     """
     Counts the lineages present in a tree
@@ -190,9 +191,9 @@ def count_tree_lineages(tree, times):
     ends = []
 
     # get time steps
-    midpoints = [0.0] + [(times[i+1] + times[i]) / 2.0 for i in range(ntimes-1)]
-    #midpoints = [0.0] + [sqrt((times[i+1]+1.0)*(times[i]+1.0))
-    #                     for i in range(ntimes-1)]
+    #midpoints = [0.0] + [(times[i+1] + times[i]) / 2.0 for i in range(ntimes-1)]
+    midpoints = [0.0] + [sqrt((times[i+1]+1.0)*(times[i]+1.0))
+                         for i in range(ntimes-1)]
     time_steps = [midpoints[i+1] - midpoints[i] for i in range(ntimes-1)]
 
     # count lineages

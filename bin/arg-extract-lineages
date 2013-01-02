@@ -1,0 +1,102 @@
+#!/usr/bin/env python
+
+import optparse
+
+from rasmus.common import *
+from compbio import arglib
+from rasmus import intervals
+import arghmm
+
+o = optparse.OptionParser()
+o.add_option("", "--ntimes", type="int", default=20)
+o.add_option("", "--maxtime", type="float", default=180e3)
+o.add_option("-w", "--window", type="int", default=int(200e3))
+o.add_option("", "--step", type="int", default=None)
+
+#o.add_option("-s", "--start", default=0, type="int")
+#o.add_option("-e", "--end", default=5000, type="int")
+#o.add_option("-d", "--step", default=1, type="int")
+
+conf, args = o.parse_args()
+
+
+#=============================================================================
+
+def get_nlineages(tree, times):
+    ages = treelib.get_tree_ages(tree)
+    for node, age in ages.items():
+        ages[node] = min(times, key=lambda x: abs(x - age))
+
+    nbranches = [0 for i in range(len(times))]
+    
+    for node in tree:
+        if node.parent:
+            p = times.index(ages[node.parent])
+            n = times.index(ages[node])
+
+            for i in range(n, p):
+                nbranches[i] += 1
+        else:
+            for i in range(times.index(ages[node]), len(times)):
+                nbranches[i] += 1
+    return nbranches  
+
+
+def get_arg_lineages(arg, times):
+    for (start, end), tree in arglib.iter_local_trees(arg):
+        nbranches = arghmm.get_nlineages(tree, times)
+        yield [arg.chrom, start, end] + nbranches
+
+
+def get_smc_lineages(smc, times, chrom="chr"):
+    for item in smc:
+        if item["tag"] == "REGION":
+            chrom = item["chrom"]
+        elif item["tag"] == "TREE":
+            tree = arghmm.parse_tree(item["tree"])
+            nbranches = get_nlineages(tree, times)
+            yield [chrom, item["start"], item["end"]] + nbranches
+
+
+def get_pos(start, end, step):
+    for i in range(start, end):
+        if i % step == 0:
+            yield i
+
+def get_smc_lineages2(smc, times, chrom="chr", step=10):
+    for item in smc:
+        if item["tag"] == "REGION":
+            chrom = item["chrom"]
+        elif item["tag"] == "TREE":
+            for pos in get_pos(item["start"], item["end"], step):
+                tree = arghmm.parse_tree(item["tree"])
+                nbranches = get_nlineages(tree, times)
+                yield [chrom, pos, pos] + nbranches
+
+
+#=============================================================================
+
+
+times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+
+#filename = args[0]
+'''
+if "%d" in filename:
+    filenames = []
+    for i in range(conf.start, conf.end, conf.step):
+        fn = filename % i
+        if os.path.exists(fn):
+            filenames.append(fn)
+else:
+    filenames = args
+'''
+
+for filename in args:
+    smc = arghmm.iter_smc_file(filename)
+    if conf.step:
+        for row in get_smc_lineages2(smc, times, step=conf.step):
+            print_row(*row)
+    else:
+        for row in get_smc_lineages(smc, times):
+            print_row(*row)
+        

@@ -317,6 +317,7 @@ void apply_spr(LocalTree *tree, const Spr &spr)
 
 LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
                        int ntrees, int nnodes, int capacity, int start) :
+    chrom("chr"),
     start_coord(start),
     nnodes(nnodes)
 {

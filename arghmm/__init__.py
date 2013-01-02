@@ -52,7 +52,7 @@ else:
 #=============================================================================
 # discretization
 
-
+'''
 def get_time_point(i, ntimes, maxtime, delta=10):
     """Returns a discretized time point"""
     return (exp(i/float(ntimes) * log(1 + delta * maxtime)) - 1) / delta
@@ -62,6 +62,18 @@ def get_time_points(ntimes=30, maxtime=80000, delta=.01):
     """Returns a list of discretized time points"""
     return [get_time_point(i, ntimes, maxtime, delta)
             for i in range(ntimes+1)]
+'''
+
+def get_time_point(i, ntimes, maxtime, delta=10):
+    """Returns a discretized time point"""
+    return (exp(i/float(ntimes) * log(1 + delta * maxtime)) - 1) / delta
+
+
+def get_time_points(ntimes=30, maxtime=80000, delta=.01):
+    """Returns a list of discretized time points"""
+    return [get_time_point(i, ntimes-1, maxtime, delta)
+            for i in range(ntimes)]
+
 
 def iter_coal_states(tree, times):
     """Iterates through the coalescent states of a local tree"""

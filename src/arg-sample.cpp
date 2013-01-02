@@ -580,16 +580,16 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         //resample_arg_all(model, sequences, trees, config->prob_path_switch);
 
         Timer timer;
-        //resample_arg_mcmc_all(model, sequences, trees, frac_leaf,
-        //window, step, niters);
-        if (frand() < frac_leaf) {
-            resample_arg_leaf(model, sequences, trees);
-            printLog(LOG_LOW, "resample_arg_leaf: accept=%f\n", 1.0);
-        } else {
-            double accept_rate = resample_arg_regions(
-                model, sequences, trees, window, step, niters);
-            printLog(LOG_LOW, "resample_arg_regions: accept=%f\n", accept_rate);
-        }
+        resample_arg_mcmc_all(model, sequences, trees, frac_leaf,
+                               window, step, niters);
+        //if (frand() < frac_leaf) {
+        //    resample_arg_leaf(model, sequences, trees);
+        //    printLog(LOG_LOW, "resample_arg_leaf: accept=%f\n", 1.0);
+        //} else {
+        //    double accept_rate = resample_arg_regions(
+        //        model, sequences, trees, window, step, niters);
+        //    printLog(LOG_LOW, "resample_arg_regions: accept=%f\n", accept_rate);
+        //}
         printTimerLog(timer, LOG_LOW, "sample time:");
 
         

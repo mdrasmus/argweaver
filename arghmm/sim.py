@@ -45,7 +45,7 @@ def sample_tree(k, popsizes, times, start=0, end=1,
         coal_rate = (k2 * (k2-1) / 2) / float(n)
         t2 = random.expovariate(coal_rate)
 
-        if timei < ntimes-1 and t + t2 > times[timei+1]:
+        if timei < ntimes-2 and t + t2 > times[timei+1]:
             # advance to next time segment
             timei += 1
             t = times[timei]

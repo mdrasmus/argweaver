@@ -38,7 +38,7 @@ class Prog (unittest.TestCase):
         if not os.path.exists("test/data/test_prog_small/0.sites"):
             make_clean_dir("test/data/test_prog_small")
             os.system("""arg-sim \
-            -k 12 -L 200000 \
+            -k 4 -L 200000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 \
             --ntimes 20 --maxtime 400e3 \
             -o test/data/test_prog_small/0""")
@@ -48,8 +48,59 @@ class Prog (unittest.TestCase):
     -s test/data/test_prog_small/0.sites \
     -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
     --ntimes 20 --maxtime 400e3 -c 20 \
-    --climb 0 -n 0 \
+    --climb 0 -n 100 \
     -o test/data/test_prog_small/0.sample/out""")
+
+
+    def test_lineages(self):
+
+        popsize = 1e4
+        mu = 2.5e-8
+        rho = 1.5e-8
+
+        if not os.path.exists("test/data/test_lineages/0.sites"):
+            make_clean_dir("test/data/test_lineages")
+            os.system("""arg-sim \
+            -k 50 -L 1000 \
+            -N 1e4 -r 1.5e-50 -m 2.5e-6 \
+            --ntimes 20 --maxtime 400e3 \
+            -o test/data/test_lineages/0""")
+            os.system("""arg2smc --ntimes 50 --maxtime 400e3 \
+            test/data/test_lineages/0.arg \
+            test/data/test_lineages/0.smc""")
+
+        #-a test/data/test_linegaes/0.smc
+       
+        make_clean_dir("test/data/test_lineages/0.sample")        
+        '''
+        os.system("""subsites -n6 -s test/data/test_lineages/0.sites \
+        > test/data/test_lineages/0.core.sites; \
+        arg-sample \
+    -s test/data/test_lineages/0.core.sites \
+    -x 1 -N 1e4 -r 1.5e-50 -m 2.5e-6 \
+    --ntimes 20 --maxtime 400e3 -c 20 \
+    --climb 0 -n 100 \
+    -o test/data/test_lineages/0.core/out""")
+    '''
+
+        #    -a test/data/test_lineages/0.smc \
+        os.system("""arg-sample \
+    -s test/data/test_lineages/0.sites \
+    -x 1 -N 1e4 -r 1.5e-50 -m 2.5e-6 \
+    --ntimes 20 --maxtime 400e3 -c 1 \
+    --climb 0 -n 500 \
+    -o test/data/test_lineages/0.sample/out""")
+
+        data = read_delim(os.popen("""arg-diff-lineages \
+        --ntimes 20 --maxtime 400e3 \
+        test/data/test_lineages/0.arg \
+        test/data/test_lineages/0.sample/out.%d.smc.gz"""), parse=True)
+        write_delim("test/data/test_lineages/diff.txt", data)
+
+        x, y = transpose(data)
+        p = plot(x, y, style="lines")
+        pause()
+        
 
 
     def test_prog_infsites(self):
