@@ -106,6 +106,45 @@ def iter_coal_states(tree, times):
 
 def get_nlineages(tree, times):
     """
+    Count the number of lineages at each time step
+    """
+    if isinstance(tree, arglib.ARG):
+        nbranches = [0 for i in range(len(times))]
+        
+        for node in tree:
+            if node.parents:
+                p = times.index(node.parents[0].age)
+                n = times.index(node.age)
+
+                for i in range(n, p):
+                    nbranches[i] += 1
+            else:
+                for i in range(times.index(node.age), len(times)):
+                    nbranches[i] += 1
+        return nbranches
+        
+    else:
+        ages = treelib.get_tree_ages(tree)
+        for node, age in ages.items():
+            ages[node] = min(times, key=lambda x: abs(x - age))
+
+        nbranches = [0 for i in range(len(times))]
+
+        for node in tree:
+            if node.parent:
+                p = times.index(ages[node.parent])
+                n = times.index(ages[node])
+
+                for i in range(n, p):
+                    nbranches[i] += 1
+            else:
+                for i in range(times.index(ages[node]), len(times)):
+                    nbranches[i] += 1
+        return nbranches
+
+
+def get_nlineages2(tree, times):
+    """
     Count the number of lineages at each time point that can coal and recomb
     """
     

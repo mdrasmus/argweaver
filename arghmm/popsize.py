@@ -4,6 +4,7 @@ from itertools import izip
 from math import *
 
 from rasmus import stats, util
+from compbio import arglib
 
 import arghmm
 
@@ -287,7 +288,7 @@ class PopsizeEstimator (object):
 
         # add initial tree
         tree = arg.get_marginal_tree(arg.start)
-        starts, ends, time_steps = branch_counts_tree(tree, times)
+        starts, ends, time_steps = count_tree_lineages(tree, times)
         self.init_trees.append({"starts": starts,
                                 "ends": ends,
                                 "time_steps": time_steps})
@@ -353,7 +354,8 @@ class PopsizeEstimator (object):
             n = 50 * 1.0 / (101 - n) + 50
         p = (- self.time_steps2[i] * self.k_lineages[i] / (2.0*n)
                 - self.ncoals[i] * log(n))
-        
+
+        p = 0.0
         for init_tree in self.init_trees:
             p += log_prob_coal_counts(init_tree["starts"][i],
                                       init_tree["ends"][i],

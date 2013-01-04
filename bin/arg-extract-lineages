@@ -22,6 +22,7 @@ conf, args = o.parse_args()
 
 #=============================================================================
 
+'''
 def get_nlineages(tree, times):
     ages = treelib.get_tree_ages(tree)
     for node, age in ages.items():
@@ -40,7 +41,7 @@ def get_nlineages(tree, times):
             for i in range(times.index(ages[node]), len(times)):
                 nbranches[i] += 1
     return nbranches  
-
+'''
 
 def get_arg_lineages(arg, times):
     for (start, end), tree in arglib.iter_local_trees(arg):
@@ -54,7 +55,7 @@ def get_smc_lineages(smc, times, chrom="chr"):
             chrom = item["chrom"]
         elif item["tag"] == "TREE":
             tree = arghmm.parse_tree(item["tree"])
-            nbranches = get_nlineages(tree, times)
+            nbranches = arghmm.get_nlineages(tree, times)
             yield [chrom, item["start"], item["end"]] + nbranches
 
 
@@ -70,7 +71,7 @@ def get_smc_lineages2(smc, times, chrom="chr", step=10):
         elif item["tag"] == "TREE":
             for pos in get_pos(item["start"], item["end"], step):
                 tree = arghmm.parse_tree(item["tree"])
-                nbranches = get_nlineages(tree, times)
+                nbranches = arghmm.get_nlineages(tree, times)
                 yield [chrom, pos, pos] + nbranches
 
 
