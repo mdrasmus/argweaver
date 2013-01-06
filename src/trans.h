@@ -248,6 +248,9 @@ void calc_transition_probs_switch_internal2(
     TransMatrixSwitch *transmat_switch);
 
 
+double calc_state_priors(
+    int time, const int *nbranches, const int *ncoals, int minage,
+    const double *popsizes, const double *coal_time_steps, int ntimes);
 void calc_state_priors(const States &states, const LineageCounts *lineages, 
                        const ArgModel *model, double *priors,
                        const int minage=0);

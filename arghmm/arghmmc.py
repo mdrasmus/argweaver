@@ -202,6 +202,11 @@ if arghmmclib:
            [c_void_p, "trees", 
             c_double_list, "times", c_int, "ntimes", c_double_list, "popsizes",
             c_double, "rho"])
+    export(arghmmclib, "arghmm_tree_prior_prob", c_double,
+           [c_void_p, "trees", 
+            c_double_list, "times", c_int, "ntimes", c_double_list, "popsizes"])
+    export(arghmmclib, "prob_coal_counts_matrix", c_double,
+           [c_int, "a", c_int, "b", c_double, "t", c_double, "n"])
 
     # estimating population sizes
     export(arghmmclib, "arghmm_est_popsizes_trees", c_double,

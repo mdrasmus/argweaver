@@ -776,15 +776,41 @@ void calc_transition_probs_switch(
 // prior for state space
 
 
+double calc_state_priors(
+    int time, const int *nbranches, const int *ncoals, int minage,
+    const double *popsizes, const double *coal_time_steps, int ntimes)
+{
+    const int b = time;
+
+    if (b < minage)
+        return 0.0;
+
+    // probability of not coalescing before time b
+    double sum = 0.0;
+    for (int m=2*minage; m<2*b-1; m++)
+        sum += coal_time_steps[m] * nbranches[m/2] / (2.0 * popsizes[m/2]);
+    double p = exp(-sum) / ncoals[b];
+
+    // probability of coalescing in time interval b
+    if (b < ntimes - 2) {
+        double Z = 0.0;
+        if (b>minage)
+            Z = coal_time_steps[2*b-1]*nbranches[b-1]/(2.0*popsizes[b-1]);
+        p *= 1.0 - exp(-coal_time_steps[2*b] * nbranches[b] / 
+                       (2.0*popsizes[b]) - Z);
+    } else {
+        // b = ntimes -1, guaranteed coalescence
+    }
+    
+    return p;
+}
+
+
 void calc_state_priors(const States &states, const LineageCounts *lineages, 
                        const ArgModel *model, double *priors,
                        const int minage)
 {
     const int nstates = states.size();
-    const double *coal_time_steps = model->coal_time_steps;
-    const double *popsizes = model->popsizes;
-    const int *nbranches = lineages->nbranches;
-    const int *ncoals = lineages->ncoals;
     
     // special case
     if (nstates == 0) {
@@ -792,36 +818,10 @@ void calc_state_priors(const States &states, const LineageCounts *lineages,
         return;
     }
 
-    for (int i=0; i<nstates; i++) {
-        int b = states[i].time;
-
-        if (b < minage) {
-            priors[i] = 0.0;
-            continue;
-        }
-
-        // probability of not coalescing before time b
-        double sum = 0.0;
-        for (int m=2*minage; m<2*b-1; m++)
-            sum += coal_time_steps[m] * nbranches[m/2] / (2.0 * popsizes[m/2]);
-        double p = exp(-sum) / ncoals[b];
-
-        // probability of coalescing in time interval b
-        if (b < model->ntimes - 2) {
-            double Z = 0.0;
-            if (b>minage)
-                Z = coal_time_steps[2*b-1]*nbranches[b-1]/(2.0*popsizes[b-1]);
-            p *= 1.0 - exp(-coal_time_steps[2*b] * nbranches[b] / 
-                           (2.0*popsizes[b]) - Z);
-        }
-        
-        priors[i] = p;
-        
-        /*
-        priors[i] = (1.0 - exp(- coal_time_steps[b] * nbranches[b] /
-                               (2.0 * popsizes[b]))) / ncoals[b] * exp(-sum);
-        */
-    }
+    for (int i=0; i<nstates; i++)
+        priors[i] = calc_state_priors(
+            states[i].time, lineages->nbranches, lineages->ncoals, minage,
+            model->popsizes, model->coal_time_steps, model->ntimes);
 }
 
 
