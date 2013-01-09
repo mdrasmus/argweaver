@@ -18,6 +18,9 @@ namespace arghmm {
 // tree methods
 
 
+LocalNode null_node;
+
+
 // Counts the number of lineages in a tree for each time segment
 //
 // NOTE: Nodes in the tree are not allowed to exist at the top time point 
@@ -483,6 +486,16 @@ int get_recoal_node(const LocalTree *tree, const Spr &spr, const int *mapping)
 
     assert(false);
     return -1;
+}
+
+
+void get_inverse_mapping(const int *mapping, int size, int *inv_mapping)
+{
+    // make inverse mapping
+    fill(inv_mapping, inv_mapping + size, -1);
+    for (int i=0; i<size; i++)
+        if (mapping[i] != -1)
+            inv_mapping[mapping[i]] = i;
 }
 
 

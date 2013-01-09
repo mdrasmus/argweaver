@@ -132,6 +132,8 @@ public:
     int age;
 };
 
+extern LocalNode null_node;
+
 
 // A local tree in a set of local trees
 //
@@ -328,6 +330,20 @@ public:
     inline LocalNode &operator[](int name) const
     {
         return nodes[name];
+    }
+
+
+    inline LocalNode &get_node(int name) const
+    {
+        return nodes[name];
+    }
+
+    inline LocalNode &get_root() const
+    {
+        if (root == -1)
+            return null_node;
+        else
+            return nodes[root];
     }
 
 
@@ -603,6 +619,21 @@ public:
     }
     
     
+    // return local block containing site
+    const_iterator get_tree(int site) const 
+    {
+        int end = start_coord;
+        for (const_iterator it = begin(); it != this->end(); ++it) {
+            int start = end;
+            end += it->blocklen;        
+            if (start <= site && site < end)
+                return it;
+        }
+        return this->end();
+    }
+
+
+    
     string chrom;              // chromosome name of region
     int start_coord;           // start coordinate of whole tree list
     int end_coord;             // end coordinate of whole tree list
@@ -679,6 +710,7 @@ void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
 
 bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it);
 void remove_null_sprs(LocalTrees *trees);
+void get_inverse_mapping(const int *mapping, int size, int *inv_mapping);
 
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
                                   LocalTrees::iterator it, int it_start);

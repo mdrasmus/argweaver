@@ -204,14 +204,14 @@ class Prog (unittest.TestCase):
             
             os.system("""arg-sim \
             -k 12 -L 400000 --model dsmc \
-            -N 1e4 -r 1.16e-8 -m 2.20e-8 --infsites \
+            -N 1e4 -r 1.16e-8 -m 2.20e-8 \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
             
         make_clean_dir("test/data/test_prog/0.sample")
         os.system("""arg-sample \
     -s test/data/test_prog/0.sites \
-    -N 1e4 -r 1.16e-8 -m 2.20e-8 --infsites \
+    -N 1e4 -r 1.16e-8 -m 2.20e-8 \
     --ntimes 20 --maxtime 200e3 -c 20 \
     --climb 0 -n 1001 \
     -x 1 \

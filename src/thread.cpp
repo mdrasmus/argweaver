@@ -603,9 +603,7 @@ void get_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
                             int node, int next_nodes[2])
 {   
     const int recoal = get_recoal_node(tree1, spr2, mapping2);
-    //const int recoal = tree2->nodes[mapping2[spr2.recomb_node]].parent;
     
-
     // get passive transition
     next_nodes[0] = mapping2[node];
     if (next_nodes[0] == -1) {
@@ -1092,6 +1090,139 @@ double count_total_arg_removal_paths(const LocalTrees *trees)
 }
 
 
+//=============================================================================
+// branch cut sampling
+
+int get_local_trees_utmrca(const LocalTrees *trees)
+{
+    int utmrca = 0;
+    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it)
+        utmrca = max(utmrca, it->tree->get_root().age);
+    return utmrca;
+}
+
+
+void sample_arg_cut(const LocalTrees *trees, int ntimes,
+                    LocalTrees::const_iterator &it, int *time, int *branch)
+{
+    // sample site
+    int site = irand(trees->start_coord, trees->end_coord);
+
+    // sample time
+    *time = irand(ntimes-1);
+    
+    // find branches at site and time
+    it = trees->get_tree(site);
+    assert(it != trees->end());
+    const LocalTree *tree = it->tree;
+
+    // find branches that enter the time point
+    vector<int> branches;
+    for (int i=0; i<tree->nnodes; i++) {
+        if (tree->nodes[i].age < *time && 
+            (tree->nodes[i].parent == -1 ||
+             *time <= tree->nodes[tree->nodes[i].parent].age)) 
+            branches.push_back(i);
+    }
+
+    // sample branch
+    *branch = branches[irand(branches.size())];
+}
+
+// sample a removal path using the branch cut method
+void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes, 
+                                 int *path, int *cuttime, 
+                                 int *region_start, int *region_end)
+{
+    // sample branch to cut
+    LocalTrees::const_iterator center_it;
+    int branch;
+    sample_arg_cut(trees, ntimes, center_it, cuttime, &branch);
+
+    // find region where branch exists
+
+    // find equivalent branches to the right of cut site
+    LocalTrees::const_iterator it = center_it;
+    LocalTrees::const_iterator last_it = center_it;
+    ++it;
+    int branch2 = branch;
+    vector<int> right_branches;
+    while (it != trees->end() && last_it != trees->end()) {
+        right_branches.push_back(branch2);
+
+        // stop growing region if recombination occurs right below cut site
+        if (it->spr.recomb_node == branch2 && it->spr.recomb_time < *cuttime)
+            break;
+
+        // find equivalent branch in next tree
+        int next_nodes[2];
+        get_next_removal_nodes(last_it->tree, it->tree, it->spr, it->mapping,
+                               branch2, next_nodes);
+        LocalNode *nodes = it->tree->nodes;
+        int parent = nodes[next_nodes[0]].parent;
+        if (nodes[parent].age < *cuttime)
+            branch2 = next_nodes[1];
+        else
+            branch2 = next_nodes[0];
+
+        // advance local block iterators
+        last_it = it;
+        ++it;
+    }
+    LocalTrees::const_iterator right_it = last_it;
+    
+    // search left for recombination the removes branch below cuttime
+    it = center_it;
+    last_it = center_it;
+    --last_it;
+    vector<int> left_branches;
+    branch2 = branch;
+    while (last_it != trees->end()) {
+        // find equivalent branch in previous tree
+        int prev_nodes[2];
+        get_prev_removal_nodes(last_it->tree, it->tree, it->spr, it->mapping,
+                               branch2, prev_nodes);
+        LocalNode *nodes = last_it->tree->nodes;
+        int parent = nodes[prev_nodes[0]].parent;
+        if (nodes[parent].age < *cuttime)
+            branch2 = prev_nodes[1];
+        else
+            branch2 = prev_nodes[0];
+
+        // stop growing region if recombination occurs right below cut site
+        if (it->spr.recomb_node == branch2 && it->spr.recomb_time < *cuttime)
+            break;
+        
+        left_branches.push_back(branch2);
+
+        // advance local block iterators
+        it = last_it;
+        --last_it;
+    }
+    LocalTrees::const_iterator left_it = it;
+
+    // get removal path
+    int blocki = 0;
+    *region_start = trees->start_coord;
+    for (it=trees->begin(); it!=left_it; ++it) {
+        path[blocki++] = -1;
+        *region_start += it->blocklen;
+    }
+    *region_end = *region_start;
+    for (unsigned int i=0; i<left_branches.size(); i++) {
+        path[blocki++] = left_branches[i];
+        *region_end += it->blocklen;
+    }
+    for (unsigned int i=0; i<right_branches.size(); i++) {
+        path[blocki++] = right_branches[i];
+        *region_end += it->blocklen;
+    }
+    it = right_it; ++it;
+    for (; it!=trees->end(); ++it)
+        path[blocki++] = -1;
+}
+
+
 
 //=============================================================================
 // internal branch adding and removing
@@ -1242,8 +1373,7 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, const int *thread_path,
             apply_spr(tree, add_spr);
         } else {
             // set null state
-            state.node = -1;
-            state.time = -1;
+            state.set_null();
         }
 
         // fix spr
@@ -1328,12 +1458,6 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, const int *thread_path,
             it = trees->trees.insert(it, 
                 LocalTreeSpr(new_tree, spr2, block_end - pos, mapping2));
             
-
-            // assert tree and SPR
-            //assert(assert_tree(new_tree));
-            //assert(new_tree->nodes[newcoal].age == state.time);
-            //assert(assert_spr(tree, new_tree, &spr2, mapping2));
-
             // remember the previous tree for next iteration of loop
             tree = new_tree;
             nodes = tree->nodes;
@@ -1427,7 +1551,6 @@ void remove_arg_thread_path(LocalTrees *trees, const int *removal_path,
         int broken_child = tree->get_sibling(removal_node);
         Spr removal_spr(removal_node, nodes[removal_node].age,
                         tree->root, maxtime);
-
         apply_spr(tree, removal_spr);
 
             

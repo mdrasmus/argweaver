@@ -638,9 +638,8 @@ int max_hmm_posterior_step(const TransMatrixSwitch *matrix,
 
 
 void max_traceback(const LocalTrees *trees, const ArgModel *model, 
-                        ArgHmmMatrixIter *matrix_iter, 
-                        double **fw, int *path, 
-                        bool last_state_given, bool internal)
+                   ArgHmmMatrixIter *matrix_iter, double **fw, int *path, 
+                   bool last_state_given, bool internal)
 {
     States states;
 
@@ -761,7 +760,7 @@ void sample_arg_thread_internal(
     // compute forward table
     Timer time;
     arghmm_forward_alg(trees, model, sequences, &matrix_iter, &forward,
-                            false, internal);
+                       false, internal);
     int nstates = get_num_coal_states_internal(
         trees->front().tree, model->ntimes);
     printTimerLog(time, LOG_LOW, 

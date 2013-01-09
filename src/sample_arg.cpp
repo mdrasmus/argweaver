@@ -22,7 +22,7 @@ using namespace std;
 
 
 // sequentially sample an ARG from scratch
-// sequences are sampled in the order given
+// sequences are sampled in the order given unless random is true
 void sample_arg_seq(const ArgModel *model, const Sequences *sequences, 
                     LocalTrees *trees, bool random)
 {
@@ -111,7 +111,7 @@ void resample_arg(const ArgModel *model, const Sequences *sequences,
 void resample_arg_all(const ArgModel *model, const Sequences *sequences, 
                       LocalTrees *trees, double prob_path_switch=.1)
 {
-    const int maxtime = model->ntimes + 1;
+    const int maxtime = model->get_removed_root_time();
     int *removal_path = new int [trees->get_num_trees()];
     
     // ramdomly choose a removal path
@@ -130,7 +130,7 @@ void resample_arg_all(const ArgModel *model, const Sequences *sequences,
 void resample_arg_leaf(const ArgModel *model, const Sequences *sequences, 
                        LocalTrees *trees)
 {
-    const int maxtime = model->ntimes + 1;
+    const int maxtime = model->get_removed_root_time();
     int *removal_path = new int [trees->get_num_trees()];
     
     // ramdomly choose a removal path
@@ -149,7 +149,7 @@ void resample_arg_leaf(const ArgModel *model, const Sequences *sequences,
 bool resample_arg_mcmc(const ArgModel *model, const Sequences *sequences, 
                        LocalTrees *trees)
 {
-    const int maxtime = model->ntimes + 1;
+    const int maxtime = model->get_removed_root_time();
     int *removal_path = new int [trees->get_num_trees()];
     
     // save a copy of the local trees
@@ -180,6 +180,7 @@ bool resample_arg_mcmc(const ArgModel *model, const Sequences *sequences,
 }
 
 // resample the threading of an internal branch using MCMC
+// Also sometimes resample leaves specifically
 void resample_arg_mcmc_all(const ArgModel *model, const Sequences *sequences, 
                            LocalTrees *trees, double frac_leaf,
                            int window, int step, int niters)
@@ -200,7 +201,7 @@ void resample_arg_mcmc_all(const ArgModel *model, const Sequences *sequences,
 void resample_arg_recomb(const ArgModel *model, const Sequences *sequences, 
                          LocalTrees *trees, double recomb_preference)
 {
-    const int maxtime = model->ntimes + 1;
+    const int maxtime = model->get_removed_root_time();
     int *removal_path = new int [trees->get_num_trees()];
     
     // ramdomly choose a removal path weighted by recombinations
@@ -424,7 +425,7 @@ double resample_arg_region(
     LocalTrees *trees, int region_start, int region_end, int niters,
     bool open_ended)
 {
-    const int maxtime = model->ntimes + 1;
+    const int maxtime = model->get_removed_root_time();
 
     // special case: zero length region
     if (region_start == region_end)
@@ -546,6 +547,125 @@ double resample_arg_regions(
     return accept_rate;
 }
 
+
+// cut a branch in the ARG and resample branch
+double resample_arg_cut(
+    const ArgModel *model, const Sequences *sequences, LocalTrees *trees)
+{
+    const int maxtime = model->get_removed_root_time();
+    
+    // cut branch and remove thread
+    int cuttime;
+    int *removal_path = new int [trees->get_num_trees()];
+    int region_start, region_end;
+    sample_arg_removal_path_cut(trees, model->ntimes, removal_path, &cuttime,
+                                &region_start, &region_end);
+
+    // partion trees into three segments
+    LocalTrees *trees2 = partition_local_trees(trees, region_start);
+    LocalTrees *trees3 = partition_local_trees(trees2, region_end);
+    assert(trees2->length() == region_end - region_start);
+
+    // remove and resample region
+    remove_arg_thread_path(trees, removal_path, maxtime);
+    sample_arg_thread_internal(model, sequences, trees);
+
+    // rejoin trees
+    append_local_trees(trees, trees2);
+    append_local_trees(trees, trees3);
+    
+    // clean up
+    delete [] removal_path;
+    delete trees2;
+    delete trees3;
+    
+    
+    /*
+
+    // TODO: refactor
+    // extend stub (zero length block) if it happens to exist
+    bool stub = (trees2->trees.back().blocklen == 0);
+    if (stub) {
+        trees2->trees.back().blocklen += 1;
+        trees2->end_coord++;
+    }
+
+    // perform several iterations of resampling
+    int accepts = 0;
+    for (int i=0; i<niters; i++) {
+        printLog(LOG_LOW, "region sample: iter=%d, region=(%d, %d)\n", 
+                 i, region_start, region_end);
+
+        // save a copy of the local trees
+        LocalTrees old_trees2;
+        old_trees2.copy(*trees2);
+
+        // get starting and ending trees
+        LocalTree start_tree(*trees2->front().tree);
+        LocalTree end_tree(*trees2->back().tree);
+
+        // remove internal branch from trees2
+        int *removal_path = new int [trees2->get_num_trees()];
+        double npaths = sample_arg_removal_path_uniform(trees2, removal_path);
+        remove_arg_thread_path(trees2, removal_path, maxtime);
+        delete [] removal_path;
+        
+        // determine start and end states from start and end trees
+        LocalTree *start_tree_partial = trees2->front().tree;
+        LocalTree *end_tree_partial = trees2->back().tree;
+        State start_state = find_state_sub_tree_internal(
+            &start_tree, start_tree_partial, maxtime);
+        State end_state = find_state_sub_tree_internal(
+            &end_tree, end_tree_partial, maxtime);
+        
+        // set start/end state to null if open ended is requested
+        if (open_ended) {
+            if (region_start == trees->start_coord)
+                start_state.set_null();
+            if (region_end == trees3->end_coord)
+                end_state.set_null();
+        }
+
+        // sample new ARG conditional on start and end states
+        decLogLevel();
+        cond_sample_arg_thread_internal(model, sequences, trees2,
+                                        start_state, end_state);
+        incLogLevel();
+        assert_trees(trees2);
+        double npaths2 = count_total_arg_removal_paths(trees2);
+        
+        // perform reject if needed
+        double accept_prob = exp(npaths - npaths2);
+        bool accept = (frand() < accept_prob);
+        if (!accept)
+            trees2->copy(old_trees2);
+        else
+            accepts++;
+        
+        // logging
+        printLog(LOG_LOW, "accept_prob = exp(%lf - %lf) = %f, accept = %d\n", 
+                 npaths, npaths2, accept_prob, (int) accept);
+    }
+
+    // remove stub if it exists
+    if (stub) {
+        trees2->trees.back().blocklen -= 1;
+        trees2->end_coord--;
+    }
+    
+    // rejoin trees
+    append_local_trees(trees, trees2);
+    append_local_trees(trees, trees3);
+
+    // clean up
+    delete trees2;
+    delete trees3;
+
+    return accepts / double(niters);
+    */
+
+    return 1;
+}
 
 
 
