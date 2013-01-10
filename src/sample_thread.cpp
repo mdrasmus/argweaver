@@ -190,15 +190,16 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
     const LocalNode *nodes = tree->nodes;
 
     //  handle internal branch resampling special cases
-    int minage = 0;
+    //int minage = 0;
+    int minage = matrix->minage;
     int subtree_root = 0, maintree_root = 0;
     if (matrix->internal) {
         subtree_root = nodes[tree->root].child[0];
         maintree_root = nodes[tree->root].child[1];
-        const int subtree_age = nodes[subtree_root].age;
-        if (subtree_age > 0) {
-            minage = subtree_age;
-        }
+        //const int subtree_age = nodes[subtree_root].age;
+        //if (subtree_age > 0) {
+        //    minage = subtree_age;
+        //}
 
         if (nstates == 0) {
             // handle fully given case
@@ -428,11 +429,11 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
         if (pos == trees->start_coord) {
             // calculate prior of first state
             if (!prior_given) {
-                int minage = 0;
-                if (internal) {
-                    int subtree_root = tree->nodes[tree->root].child[0];
-                    minage = tree->nodes[subtree_root].age;
-                }
+                int minage = matrices.states_model.minage;
+                //if (internal) {
+                //    int subtree_root = tree->nodes[tree->root].child[0];
+                //    minage = tree->nodes[subtree_root].age;
+                //}
                 calc_state_priors(states, &lineages, &local_model, 
                                   fw[pos], minage);
             }

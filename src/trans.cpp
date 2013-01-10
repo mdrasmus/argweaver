@@ -25,7 +25,7 @@ void calc_coal_rates_partial_tree(const ArgModel *model, const LocalTree *tree,
 // Calculate transition probability within a local block
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     const States &states, const LineageCounts *lineages, TransMatrix *matrix,
-    bool internal)
+    bool internal, int minage)
 {
     // get model parameters
     const int ntimes = model->ntimes;
@@ -38,6 +38,7 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
 
     // set internal branch resampling flag
     matrix->internal = internal;
+    matrix->minage = minage;
 
     // get coalescent rates for each time sub-interval
     double coal_rates_alloc[2*ntimes+1];
@@ -65,6 +66,7 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
         root_age = times[root_age_index];
         // NOTE: subtree_age is discounted in advance to offset +times[b]
         treelen = get_treelen_internal(tree, times, ntimes) - subtree_age;
+        matrix->minage = max(matrix->minage, tree->nodes[subtree_root].age);
     } else {
         root_age_index = tree->nodes[tree->root].age;
         root_age = times[root_age_index];

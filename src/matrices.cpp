@@ -71,7 +71,7 @@ void calc_arghmm_matrices_internal(
     // calculate transmat and use it for rest of block
     matrices->transmat = new TransMatrix(model->ntimes, nstates);
     calc_transition_probs(tree, model, states, &lineages, matrices->transmat,
-                          internal);
+                          internal, matrices->states_model.minage);
 }
 
 
@@ -140,7 +140,7 @@ void calc_arghmm_matrices_external(
     // calculate transmat and use it for rest of block
     matrices->transmat = new TransMatrix(model->ntimes, nstates);
     calc_transition_probs(tree, model, states, &lineages, 
-                          matrices->transmat);
+                          matrices->transmat, false, matrices->states_model.minage);
 }
 
 

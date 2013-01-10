@@ -123,7 +123,9 @@ public:
         config.add(new ConfigSwitch
 		   ("", "--overwrite", &overwrite, 
                     "force an overwrite of a previous run"));
-
+        config.add(new ConfigSwitch
+		   ("", "--gibbs", &gibbs, 
+                    "use Gibbs sampling"));
         
         // misc
 	config.add(new ConfigParamComment("Miscellaneous"));
@@ -244,6 +246,7 @@ public:
     int resume_iter;
     int resample_window;
     int resample_window_iters;
+    bool gibbs;
 
     // misc
     int compress_seq;
@@ -577,19 +580,12 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     printLog(LOG_LOW, "--------------------------------------\n");
     for (int i=iter; i<=config->niters; i++) {
         printLog(LOG_LOW, "sample %d\n", i);
-        //resample_arg_all(model, sequences, trees, config->prob_path_switch);
-
         Timer timer;
-        resample_arg_mcmc_all(model, sequences, trees, frac_leaf,
-                               window, step, niters);
-        //if (frand() < frac_leaf) {
-        //    resample_arg_leaf(model, sequences, trees);
-        //    printLog(LOG_LOW, "resample_arg_leaf: accept=%f\n", 1.0);
-        //} else {
-        //    double accept_rate = resample_arg_regions(
-        //        model, sequences, trees, window, step, niters);
-        //    printLog(LOG_LOW, "resample_arg_regions: accept=%f\n", accept_rate);
-        //}
+        if (config->gibbs)
+            resample_arg_cut(model, sequences, trees);
+        else
+            resample_arg_mcmc_all(model, sequences, trees, frac_leaf,
+                                  window, step, niters);
         printTimerLog(timer, LOG_LOW, "sample time:");
 
         

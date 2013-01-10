@@ -798,13 +798,13 @@ class Sample (unittest.TestCase):
         Fully sample an ARG from stratch using API
         """
 
-        k = 6
+        k = 20
         n = 1e4
-        rho = 1.5e-8 * 20 / 3
+        rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
-        length = int(200e3) / 20
+        length = int(100e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-        refine = 10
+        refine = 100
 
         random.seed(10)
         arghmm.set_random_seed(10)

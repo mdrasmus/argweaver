@@ -131,6 +131,7 @@ public:
     double *G4;
     double *norecombs;
     bool internal;
+    int minage;
 };
 
 
@@ -209,16 +210,13 @@ public:
 
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     const States &states, const LineageCounts *lineages, TransMatrix *matrix,
-    bool internal=false);
+    bool internal=false, int minage=0);
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
                           const States &states, const LineageCounts *lineages,
                           double **transprob);
 void get_transition_probs(const LocalTree *tree, const ArgModel *model,
                            const States &states, const LineageCounts *lineages,
                            const TransMatrix *matrix, double **transprob);
-void calc_transition_probs_internal(const LocalTree *tree, 
-    const ArgModel *model, const States &states, const LineageCounts *lineages,
-    TransMatrix *matrix);
 
 
 void calc_transition_probs_switch(

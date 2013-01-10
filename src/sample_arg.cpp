@@ -652,9 +652,6 @@ double resample_arg_cut(
     LocalTrees *trees2 = partition_local_trees(trees, region_start, trim);
     LocalTrees *trees3 = partition_local_trees(trees2, region_end, trim);
     assert(trees2->length() == region_end - region_start);
-    
-    // TODO: refactor
-    // extend stub (zero length block) if it happens to exist
     assert(trees2->trees.back().blocklen > 0);
 
     // suppress first SPR of trees2
@@ -674,7 +671,8 @@ double resample_arg_cut(
     assert(removal_path2[ntrees-1] != -1);
     assert(trees3->length() == 0 || removal_path2[ntrees] == -1);
 
-    printf("cut time=%d, region=[%d,%d]\n", cuttime, region_start, region_end);
+    printLog(LOG_LOW, "branch cut: time=%d, region=[%d,%d]\n", 
+             cuttime, region_start, region_end);
     remove_arg_thread_path(trees2, removal_path2, maxtime);
     sample_arg_thread_internal(model, sequences, trees2, cuttime);
 
@@ -688,56 +686,16 @@ double resample_arg_cut(
         LocalTree *last_tree = trees->back().tree;
         LocalTree *tree = it->tree;
         repair_spr(last_tree, tree, spr, mapping);
-
-        /*
-        LocalTree *tree = it->tree;
-        int other = tree->get_sibling(mapping[spr.recomb_node]);
-        int inv_mapping[tree->nnodes];
-        get_inverse_mapping(mapping, tree->nnodes, inv_mapping);
-        spr.coal_node = inv_mapping[other];
-        spr.coal_time = tree->nodes[tree->nodes[removal_path2[0]].parent].age;
-        
-        //spr.coal_node = it->tree->get_sibling(removal_path2[0]);
-
-        LocalTree *last_tree = trees->back().tree;
-        int broken = last_tree->nodes[spr.recomb_node].parent;
-        if (spr.coal_node == broken)
-            spr.coal_node = last_tree->get_sibling(spr.recomb_node);
-        int parent = last_tree->nodes[spr.coal_node].parent;
-        if (parent != -1 && spr.coal_time > last_tree->nodes[parent].age)
-            spr.coal_node = parent;
-        */
         it->spr = spr;
         assert(assert_spr(last_tree, tree, &spr, mapping));
     }
 
     // setup first SPR in trees3
-    
     if (trees3->length() > 0) {
         it = trees3->begin();
         LocalTree *last_tree = trees2->back().tree;
         LocalTree *tree = it->tree;
         repair_spr(last_tree, tree, it->spr, it->mapping);
-        
-        /*
-        it = trees3->begin();
-        Spr &spr2 = it->spr;
-        int *mapping2 = it->mapping;
-        LocalTree *tree = it->tree;
-        //int recoal = get_recoal_node(tree, spr2, mapping2);
-        int other = tree->get_sibling(mapping2[spr2.recomb_node]);
-        int inv_mapping[tree->nnodes];
-        get_inverse_mapping(mapping2, tree->nnodes, inv_mapping);
-        spr2.coal_node = inv_mapping[other];
-
-        LocalTree *last_tree = trees2->back().tree;
-        int broken = last_tree->nodes[spr2.recomb_node].parent;
-        if (spr2.coal_node == broken)
-            spr2.coal_node = last_tree->get_sibling(spr2.recomb_node);
-        int parent = last_tree->nodes[spr2.coal_node].parent;
-        if (parent != -1 && spr2.coal_time > last_tree->nodes[parent].age)
-            spr2.coal_node = parent;
-        */
     }
 
     // rejoin trees
