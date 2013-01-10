@@ -620,16 +620,43 @@ public:
     
     
     // return local block containing site
-    const_iterator get_tree(int site) const 
+    const_iterator get_block(int site, int &start, int &end) const 
     {
-        int end = start_coord;
+        end = start_coord;
         for (const_iterator it = begin(); it != this->end(); ++it) {
-            int start = end;
+            start = end;
             end += it->blocklen;        
             if (start <= site && site < end)
                 return it;
         }
         return this->end();
+    }
+
+    // return local block containing site
+    const_iterator get_block(int site) const 
+    {
+        int start, end;
+        return get_block(site, start, end);
+    }
+
+    // return local block containing site
+    iterator get_block(int site, int &start, int &end)
+    {
+        end = start_coord;
+        for (iterator it = begin(); it != this->end(); ++it) {
+            start = end;
+            end += it->blocklen;        
+            if (start <= site && site < end)
+                return it;
+        }
+        return this->end();
+    }
+
+    // return local block containing site
+    iterator get_block(int site)
+    {
+        int start, end;
+        return get_block(site, start, end);
     }
 
 
@@ -713,9 +740,10 @@ void remove_null_sprs(LocalTrees *trees);
 void get_inverse_mapping(const int *mapping, int size, int *inv_mapping);
 
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
-                                  LocalTrees::iterator it, int it_start);
-LocalTrees *partition_local_trees(LocalTrees *trees, int pos);
-void append_local_trees(LocalTrees *trees, LocalTrees *trees2);
+                                  LocalTrees::iterator it, int it_start,
+                                  bool trim=true);
+LocalTrees *partition_local_trees(LocalTrees *trees, int pos, bool trim=true);
+void append_local_trees(LocalTrees *trees, LocalTrees *trees2, bool merge=true);
 
 void uncompress_local_trees(LocalTrees *trees, 
                             const SitesMapping *sites_mapping);

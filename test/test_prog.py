@@ -203,7 +203,7 @@ class Prog (unittest.TestCase):
             makedirs("test/data/test_prog")
             
             os.system("""arg-sim \
-            -k 12 -L 400000 --model dsmc \
+            -k 12 -L 300000 --model dsmc \
             -N 1e4 -r 1.16e-8 -m 2.20e-8 \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
@@ -223,7 +223,8 @@ class Prog (unittest.TestCase):
         arg = arglib.read_arg("test/data/test_prog/0.arg")
         arghmm.discretize_arg(arg, times, ignore_top=False, round_age="closer")
         arg = arglib.smcify_arg(arg)
-        seqs = fasta.read_fasta("test/data/test_prog/0.fa")
+        seqs = arghmm.sites2seqs(
+            arghmm.read_sites("test/data/test_prog/0.sites"))
 
         # compute true stats
         arglen = arglib.arglen(arg)

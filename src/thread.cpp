@@ -4,7 +4,7 @@
 
 namespace arghmm {
 
-
+    /*
 // assert that a thread is compatiable with an ARG
 bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
 {
@@ -51,6 +51,7 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
 
     return true;
 }
+    */
 
 
 // rename a node from src_node to dest_node while mantaining the 
@@ -309,7 +310,8 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
 
 
 // add a leaf thread to an ARG
-void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
+void add_arg_thread(LocalTrees *trees, const StatesModel &states_model,
+                    int ntimes, int *thread_path, int seqid,
                     vector<int> &recomb_pos, vector<NodePoint> &recombs)
 {
     unsigned int irecomb = 0;
@@ -339,7 +341,8 @@ void add_arg_thread(LocalTrees *trees, int ntimes, int *thread_path, int seqid,
         //Spr *spr = &(it->spr);
         int start = end;
         end += it->blocklen;
-        get_coal_states(tree, ntimes, states);
+        states_model.get_coal_states(tree, ntimes, states);
+        //get_coal_states(tree, ntimes, states);
         
         // add new branch to local tree
         it->ensure_capacity(nnodes2);
@@ -1109,17 +1112,21 @@ void sample_arg_cut(const LocalTrees *trees, int ntimes,
     int site = irand(trees->start_coord, trees->end_coord);
 
     // sample time
-    *time = irand(ntimes-1);
+    double weights[ntimes-1];
+    for (int i=0; i<ntimes-1; i++)
+        weights[i] = exp(-i / double(ntimes-2));
+    *time = sample(weights, ntimes-1);
+    //*time = irand(ntimes-1);
     
     // find branches at site and time
-    it = trees->get_tree(site);
+    it = trees->get_block(site);
     assert(it != trees->end());
     const LocalTree *tree = it->tree;
 
     // find branches that enter the time point
     vector<int> branches;
     for (int i=0; i<tree->nnodes; i++) {
-        if (tree->nodes[i].age < *time && 
+        if ((tree->nodes[i].is_leaf() || tree->nodes[i].age < *time) && 
             (tree->nodes[i].parent == -1 ||
              *time <= tree->nodes[tree->nodes[i].parent].age)) 
             branches.push_back(i);
@@ -1144,12 +1151,12 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
     // find equivalent branches to the right of cut site
     LocalTrees::const_iterator it = center_it;
     LocalTrees::const_iterator last_it = center_it;
+    LocalTrees::const_iterator right_it = center_it;
     ++it;
     int branch2 = branch;
     vector<int> right_branches;
-    while (it != trees->end() && last_it != trees->end()) {
-        right_branches.push_back(branch2);
-
+    right_branches.push_back(branch2);
+    while (it != trees->end()) {
         // stop growing region if recombination occurs right below cut site
         if (it->spr.recomb_node == branch2 && it->spr.recomb_time < *cuttime)
             break;
@@ -1160,34 +1167,45 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
                                branch2, next_nodes);
         LocalNode *nodes = it->tree->nodes;
         int parent = nodes[next_nodes[0]].parent;
-        if (nodes[parent].age < *cuttime)
+        if (parent != -1 && nodes[parent].age < *cuttime)
             branch2 = next_nodes[1];
         else
             branch2 = next_nodes[0];
+        assert(branch2 != -1);
+
+        right_branches.push_back(branch2);
 
         // advance local block iterators
+        right_it = it;
         last_it = it;
         ++it;
     }
-    LocalTrees::const_iterator right_it = last_it;
+
     
     // search left for recombination the removes branch below cuttime
     it = center_it;
     last_it = center_it;
+    LocalTrees::const_iterator left_it = center_it;
     --last_it;
     vector<int> left_branches;
     branch2 = branch;
     while (last_it != trees->end()) {
         // find equivalent branch in previous tree
         int prev_nodes[2];
+        LocalTree *last_tree = last_it->tree;
+        LocalTree *tree = it->tree;
+        int *mapping = it->mapping;
+        const Spr &spr = it->spr;
         get_prev_removal_nodes(last_it->tree, it->tree, it->spr, it->mapping,
                                branch2, prev_nodes);
+        //printf("branch2 %d\n", branch2);
         LocalNode *nodes = last_it->tree->nodes;
         int parent = nodes[prev_nodes[0]].parent;
-        if (nodes[parent].age < *cuttime)
+        if (parent != -1 && nodes[parent].age < *cuttime && prev_nodes[1] != -1)
             branch2 = prev_nodes[1];
         else
             branch2 = prev_nodes[0];
+        assert(branch2 != -1);
 
         // stop growing region if recombination occurs right below cut site
         if (it->spr.recomb_node == branch2 && it->spr.recomb_time < *cuttime)
@@ -1196,30 +1214,71 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
         left_branches.push_back(branch2);
 
         // advance local block iterators
+        left_it = last_it;
         it = last_it;
         --last_it;
     }
-    LocalTrees::const_iterator left_it = it;
+    
+
+    //printf("ntrees %d\n", trees->get_num_trees());
 
     // get removal path
     int blocki = 0;
+    int starti = 0;
     *region_start = trees->start_coord;
     for (it=trees->begin(); it!=left_it; ++it) {
         path[blocki++] = -1;
         *region_start += it->blocklen;
     }
+    starti = blocki;
+    //printf("blocki %d\n", blocki);
     *region_end = *region_start;
-    for (unsigned int i=0; i<left_branches.size(); i++) {
-        path[blocki++] = left_branches[i];
+    for (unsigned int i=0; i<left_branches.size(); i++, ++it) {
+        path[blocki++] = left_branches[left_branches.size()-1-i];
         *region_end += it->blocklen;
     }
-    for (unsigned int i=0; i<right_branches.size(); i++) {
+    assert(it == center_it);
+    //printf("blocki %d\n", blocki);
+    for (unsigned int i=0; i<right_branches.size(); i++, ++it) {
         path[blocki++] = right_branches[i];
         *region_end += it->blocklen;
     }
+    int endi = blocki;
+    --it;
+    assert(it == right_it);
+    //printf("blocki %d\n", blocki);
     it = right_it; ++it;
-    for (; it!=trees->end(); ++it)
+    int len = 0;
+    for (; it!=trees->end(); ++it) {
         path[blocki++] = -1;
+        len += it->blocklen;
+    }
+    //printf("blocki %d\n", blocki);
+    //printf("region_end %d, len %d, end_coord %d\n",
+    //       *region_end, len, trees->end_coord);
+    assert(*region_end + len == trees->end_coord);
+
+
+    // assert remove path
+    LocalTrees::const_iterator end = right_it;
+    right_it++;
+    int i = starti;
+    int x = path[i];
+    int next_nodes[2];
+    for (it=left_it; it!=end; ++it, i++) {
+        assert(x == path[i]);
+        LocalTrees::const_iterator it2 = it;
+        it2++;
+        if (i < endi - 1) {
+            assert(it2 != trees->end());
+            get_next_removal_nodes(it->tree, it2->tree, it2->spr, it2->mapping,
+                                   x, next_nodes);
+            if (next_nodes[0] == path[i+1])
+                x = next_nodes[0];
+            else
+                x = next_nodes[1];
+        }
+    }
 }
 
 
@@ -1339,7 +1398,8 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
 
 
 // Add a branch to a partial ARG
-void add_arg_thread_path(LocalTrees *trees, int ntimes, const int *thread_path, 
+void add_arg_thread_path(LocalTrees *trees, const StatesModel &states_model,
+                         int ntimes, const int *thread_path, 
                          vector<int> &recomb_pos, vector<NodePoint> &recombs)
 {
     States states;
@@ -1358,7 +1418,8 @@ void add_arg_thread_path(LocalTrees *trees, int ntimes, const int *thread_path,
         int start = end;
         end += it->blocklen;
         const int subtree_root = nodes[tree->root].child[0];
-        get_coal_states_internal(tree, ntimes, states);
+        states_model.get_coal_states(tree, ntimes, states);
+        //get_coal_states_internal(tree, ntimes, states);
         int nstates = states.size();
 
         

@@ -500,7 +500,8 @@ void get_inverse_mapping(const int *mapping, int size, int *inv_mapping)
 
 
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
-                                  LocalTrees::iterator it, int it_start)
+                                  LocalTrees::iterator it, int it_start,
+                                  bool trim)
 {
     // create new local trees
     LocalTrees *trees2 = new LocalTrees(pos, trees->end_coord, trees->nnodes);
@@ -510,35 +511,36 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
     // splice trees over
     trees2->trees.splice(trees2->begin(), trees->trees, it, trees->end());
     
-    // copy first tree back
     LocalTrees::iterator it2 = trees2->begin();
-    //if (pos > it_start) {
+    if (trim) {
+        // copy first tree back        
         LocalTree *tree = it2->tree;
         LocalTree *last_tree = new LocalTree(tree->nnodes, tree->capacity);
         last_tree->copy(*tree);
-
+    
         int *mapping = NULL;
         if (it2->mapping) {
             mapping = new int[trees->nnodes];
             for (int i=0; i<trees->nnodes; i++)
                 mapping[i] = it2->mapping[i];
         }
-        
+    
         trees->trees.push_back(
             LocalTreeSpr(last_tree, it2->spr, pos - it_start, mapping));
-    //}
+    
+        // modify first tree of trees2
+        if (it2->mapping)
+            delete [] it2->mapping;
+        it2->mapping = NULL;
+        it2->spr.set_null();
+    }
+    
     trees->end_coord = pos;
-
-    // modify first tree of trees2
-    if (it2->mapping)
-        delete [] it2->mapping;
-    it2->mapping = NULL;
-    it2->spr.set_null();
     it2->blocklen -= pos - it_start;
     assert(it2->blocklen > 0);
     
-    assert_trees(trees);
-    assert_trees(trees2);
+    //assert_trees(trees);
+    //assert_trees(trees2);
     
     return trees2;
 }
@@ -546,7 +548,7 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
 
 // breaks a list of local trees into two separate trees
 // Returns second list of local trees.
-LocalTrees *partition_local_trees(LocalTrees *trees, int pos)
+LocalTrees *partition_local_trees(LocalTrees *trees, int pos, bool trim)
 {
     // special case (pos at beginning of local trees)
     if (pos == trees->start_coord) {
@@ -554,16 +556,17 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos)
                                             trees->nnodes);
         trees2->seqids.insert(trees2->seqids.end(), trees->seqids.begin(),
                               trees->seqids.end());
-
         trees2->trees.splice(trees2->begin(), trees->trees, 
                              trees->begin(), trees->end());
         trees->end_coord = pos;
         return trees2;
-    }    
+    }
 
     // special case (pos at end of local trees)
     if (pos == trees->end_coord) {
         LocalTrees *trees2 = new LocalTrees(pos, pos, trees->nnodes);
+        trees2->seqids.insert(trees2->seqids.end(), trees->seqids.begin(),
+                              trees->seqids.end());
         trees2->seqids.insert(trees2->seqids.end(), trees->seqids.begin(),
                               trees->seqids.end());
         return trees2;
@@ -571,17 +574,11 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos)
 
 
     // find break point
-    int end = trees->start_coord;
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        int start = end;
-        end += it->blocklen;
-        
-        if (start <= pos && pos < end) {
-            // break point found, perform partition
-            return partition_local_trees(trees, pos, it, start);
-        }
-    }
-
+    int start, end;
+    LocalTrees::iterator it = trees->get_block(pos, start, end);
+    if (it != trees->end())
+        return partition_local_trees(trees, pos, it, start, trim);
+    
     // break point was not found
     return NULL;
 }
@@ -646,9 +643,8 @@ void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
 
 // appends the data in 'trees2' to 'trees'
 // trees2 is then empty
-// TODO: what if their seqids are incompatiable?
-// Do I have to remap the ids of one of them to match the other?
-void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
+// if merge is true, then merge identical neighboring local trees
+void append_local_trees(LocalTrees *trees, LocalTrees *trees2, bool merge)
 {
     const int ntrees = trees->get_num_trees();
     const int ntrees2 = trees2->get_num_trees();
@@ -667,18 +663,18 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2)
     trees2->end_coord = trees2->start_coord;
     
     // set the mapping the newly neighboring trees
-    if (ntrees > 0 && ntrees2 > 0) {
+    if (merge && ntrees > 0 && ntrees2 > 0) {
         LocalTrees::iterator it2 = it;
         ++it2;
         if (it2->mapping == NULL)
             it2->mapping = new int [trees2->nnodes];
         map_congruent_trees(it->tree, &trees->seqids[0],
                             it2->tree, &trees2->seqids[0], it2->mapping);
-        assert(remove_null_spr(trees, it));
+        remove_null_spr(trees, it);
     }
     
-    assert_trees(trees);
-    assert_trees(trees2);
+    //assert_trees(trees);
+    //assert_trees(trees2);
 }
 
 
@@ -708,7 +704,7 @@ void uncompress_local_trees(LocalTrees *trees,
     trees->start_coord = sites_mapping->old_start;
     trees->end_coord = sites_mapping->old_end;
 
-    assert_trees(trees);
+    //assert_trees(trees);
 }
 
 

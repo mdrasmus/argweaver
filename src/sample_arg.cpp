@@ -548,6 +548,92 @@ double resample_arg_regions(
 }
 
 
+void infer_mapping(LocalTree *tree1, LocalTree *tree2, 
+                   int recomb_node, int *mapping)
+{
+    const int nleaves1 = tree1->get_num_leaves();
+
+    // map leaves
+    for (int i=0; i<nleaves1; i++)
+        mapping[i] = i;
+
+    for (int i=nleaves1; i<tree1->nnodes; i++)
+        mapping[i] = -1;
+
+    // calculate mapping as much as possible
+    int order[tree1->nnodes];
+    tree1->get_postorder(order);
+    LocalNode *nodes = tree1->nodes;
+    for (int i=0; i<tree1->nnodes; i++) {
+        const int j = order[i];
+        const int *child = nodes[j].child;
+        if (!nodes[j].is_leaf() && mapping[child[0]] != -1 && 
+            mapping[child[1]] != -1) {
+            // both children mapping, see if they share parent
+            int a = tree2->nodes[mapping[child[0]]].parent;
+            int b = tree2->nodes[mapping[child[1]]].parent;
+            if (a == b)
+                mapping[j] = a;
+        }
+    }
+
+    // use mapping to find important nodes
+    int broken = tree1->nodes[recomb_node].parent;
+    int other = tree1->get_sibling(recomb_node);
+    int recomb = mapping[recomb_node];
+    assert(recomb != -1);
+    int recoal = tree2->nodes[recomb].parent;
+
+    // mapping remaining nodes
+    for (int i=0; i<tree1->nnodes; i++) {
+        const int j = order[i];
+        if (!nodes[j].is_leaf() && j != broken) {
+            int a = nodes[j].child[0];
+            int b = nodes[j].child[1];
+            if (a == broken) a = other;
+            if (b == broken) b = other;
+            int c = mapping[a];
+            int d = mapping[b];
+            c = tree2->nodes[c].parent;
+            d = tree2->nodes[d].parent;
+            if (c == recoal) c = tree2->nodes[c].parent;
+            if (d == recoal) d = tree2->nodes[d].parent;
+            assert(c == d);
+            mapping[j] = c;
+        }
+    }
+
+    mapping[broken] = -1;
+}
+
+
+// the local trees and recombination node must be correct
+// all other information is reconstructed 
+void repair_spr(LocalTree *last_tree, LocalTree *tree, Spr &spr, 
+                int *mapping)
+{
+    infer_mapping(last_tree, tree, spr.recomb_node, mapping);
+
+    int broken = last_tree->nodes[spr.recomb_node].parent;
+    int recomb = mapping[spr.recomb_node];
+    assert(recomb != -1);
+    int recoal = tree->nodes[recomb].parent;
+    spr.coal_time = tree->nodes[recoal].age;
+
+    int other = tree->get_sibling(recomb);
+    int inv_mapping[tree->nnodes];
+    get_inverse_mapping(mapping, tree->nnodes, inv_mapping);
+    spr.coal_node = inv_mapping[other];
+    
+    if (spr.coal_node == broken)
+        spr.coal_node = last_tree->get_sibling(spr.recomb_node);
+    int parent = last_tree->nodes[spr.coal_node].parent;
+    if (parent != -1 && spr.coal_time > last_tree->nodes[parent].age)
+        spr.coal_node = parent;
+}
+
+
+
 // cut a branch in the ARG and resample branch
 double resample_arg_cut(
     const ArgModel *model, const Sequences *sequences, LocalTrees *trees)
@@ -562,149 +648,111 @@ double resample_arg_cut(
                                 &region_start, &region_end);
 
     // partion trees into three segments
-    LocalTrees *trees2 = partition_local_trees(trees, region_start);
-    LocalTrees *trees3 = partition_local_trees(trees2, region_end);
+    const bool trim = false;
+    LocalTrees *trees2 = partition_local_trees(trees, region_start, trim);
+    LocalTrees *trees3 = partition_local_trees(trees2, region_end, trim);
     assert(trees2->length() == region_end - region_start);
+    
+    // TODO: refactor
+    // extend stub (zero length block) if it happens to exist
+    assert(trees2->trees.back().blocklen > 0);
+
+    // suppress first SPR of trees2
+    LocalTrees::iterator it = trees2->begin();
+    int *mapping = NULL;
+    if (it->mapping) {
+        mapping = it->mapping;
+        it->mapping = NULL;
+    }
+    Spr spr = it->spr;
+    it->spr.set_null();
 
     // remove and resample region
-    remove_arg_thread_path(trees, removal_path, maxtime);
-    sample_arg_thread_internal(model, sequences, trees);
+    int ntrees = trees2->get_num_trees();
+    int *removal_path2 = removal_path;
+    while (removal_path2[0] == -1) removal_path2++;
+    assert(removal_path2[ntrees-1] != -1);
+    assert(trees3->length() == 0 || removal_path2[ntrees] == -1);
+
+    printf("cut time=%d, region=[%d,%d]\n", cuttime, region_start, region_end);
+    remove_arg_thread_path(trees2, removal_path2, maxtime);
+    sample_arg_thread_internal(model, sequences, trees2, cuttime);
+
+    assert_trees(trees2);
+
+    // setup first SPR in trees2
+    if (trees->length() > 0) {
+        it = trees2->begin();
+        if (mapping)
+            it->mapping = mapping;
+        LocalTree *last_tree = trees->back().tree;
+        LocalTree *tree = it->tree;
+        repair_spr(last_tree, tree, spr, mapping);
+
+        /*
+        LocalTree *tree = it->tree;
+        int other = tree->get_sibling(mapping[spr.recomb_node]);
+        int inv_mapping[tree->nnodes];
+        get_inverse_mapping(mapping, tree->nnodes, inv_mapping);
+        spr.coal_node = inv_mapping[other];
+        spr.coal_time = tree->nodes[tree->nodes[removal_path2[0]].parent].age;
+        
+        //spr.coal_node = it->tree->get_sibling(removal_path2[0]);
+
+        LocalTree *last_tree = trees->back().tree;
+        int broken = last_tree->nodes[spr.recomb_node].parent;
+        if (spr.coal_node == broken)
+            spr.coal_node = last_tree->get_sibling(spr.recomb_node);
+        int parent = last_tree->nodes[spr.coal_node].parent;
+        if (parent != -1 && spr.coal_time > last_tree->nodes[parent].age)
+            spr.coal_node = parent;
+        */
+        it->spr = spr;
+        assert(assert_spr(last_tree, tree, &spr, mapping));
+    }
+
+    // setup first SPR in trees3
+    
+    if (trees3->length() > 0) {
+        it = trees3->begin();
+        LocalTree *last_tree = trees2->back().tree;
+        LocalTree *tree = it->tree;
+        repair_spr(last_tree, tree, it->spr, it->mapping);
+        
+        /*
+        it = trees3->begin();
+        Spr &spr2 = it->spr;
+        int *mapping2 = it->mapping;
+        LocalTree *tree = it->tree;
+        //int recoal = get_recoal_node(tree, spr2, mapping2);
+        int other = tree->get_sibling(mapping2[spr2.recomb_node]);
+        int inv_mapping[tree->nnodes];
+        get_inverse_mapping(mapping2, tree->nnodes, inv_mapping);
+        spr2.coal_node = inv_mapping[other];
+
+        LocalTree *last_tree = trees2->back().tree;
+        int broken = last_tree->nodes[spr2.recomb_node].parent;
+        if (spr2.coal_node == broken)
+            spr2.coal_node = last_tree->get_sibling(spr2.recomb_node);
+        int parent = last_tree->nodes[spr2.coal_node].parent;
+        if (parent != -1 && spr2.coal_time > last_tree->nodes[parent].age)
+            spr2.coal_node = parent;
+        */
+    }
 
     // rejoin trees
-    append_local_trees(trees, trees2);
-    append_local_trees(trees, trees3);
+    // NOTE: we disable merging 
+    append_local_trees(trees, trees2, false);
+    assert_trees(trees);
+    append_local_trees(trees, trees3, false);
+    assert_trees(trees);
     
     // clean up
     delete [] removal_path;
     delete trees2;
     delete trees3;
     
-    
-    /*
-
-    // TODO: refactor
-    // extend stub (zero length block) if it happens to exist
-    bool stub = (trees2->trees.back().blocklen == 0);
-    if (stub) {
-        trees2->trees.back().blocklen += 1;
-        trees2->end_coord++;
-    }
-
-    // perform several iterations of resampling
-    int accepts = 0;
-    for (int i=0; i<niters; i++) {
-        printLog(LOG_LOW, "region sample: iter=%d, region=(%d, %d)\n", 
-                 i, region_start, region_end);
-
-        // save a copy of the local trees
-        LocalTrees old_trees2;
-        old_trees2.copy(*trees2);
-
-        // get starting and ending trees
-        LocalTree start_tree(*trees2->front().tree);
-        LocalTree end_tree(*trees2->back().tree);
-
-        // remove internal branch from trees2
-        int *removal_path = new int [trees2->get_num_trees()];
-        double npaths = sample_arg_removal_path_uniform(trees2, removal_path);
-        remove_arg_thread_path(trees2, removal_path, maxtime);
-        delete [] removal_path;
-        
-        // determine start and end states from start and end trees
-        LocalTree *start_tree_partial = trees2->front().tree;
-        LocalTree *end_tree_partial = trees2->back().tree;
-        State start_state = find_state_sub_tree_internal(
-            &start_tree, start_tree_partial, maxtime);
-        State end_state = find_state_sub_tree_internal(
-            &end_tree, end_tree_partial, maxtime);
-        
-        // set start/end state to null if open ended is requested
-        if (open_ended) {
-            if (region_start == trees->start_coord)
-                start_state.set_null();
-            if (region_end == trees3->end_coord)
-                end_state.set_null();
-        }
-
-        // sample new ARG conditional on start and end states
-        decLogLevel();
-        cond_sample_arg_thread_internal(model, sequences, trees2,
-                                        start_state, end_state);
-        incLogLevel();
-        assert_trees(trees2);
-        double npaths2 = count_total_arg_removal_paths(trees2);
-        
-        // perform reject if needed
-        double accept_prob = exp(npaths - npaths2);
-        bool accept = (frand() < accept_prob);
-        if (!accept)
-            trees2->copy(old_trees2);
-        else
-            accepts++;
-        
-        // logging
-        printLog(LOG_LOW, "accept_prob = exp(%lf - %lf) = %f, accept = %d\n", 
-                 npaths, npaths2, accept_prob, (int) accept);
-    }
-
-    // remove stub if it exists
-    if (stub) {
-        trees2->trees.back().blocklen -= 1;
-        trees2->end_coord--;
-    }
-    
-    // rejoin trees
-    append_local_trees(trees, trees2);
-    append_local_trees(trees, trees3);
-
-    // clean up
-    delete trees2;
-    delete trees3;
-
-    return accepts / double(niters);
-    */
-
     return 1;
-}
-
-
-
-// resample the threading of all the chromosomes
-void remax_arg(const ArgModel *model, const Sequences *sequences, 
-               LocalTrees *trees, int nremove)
-{
-    const int nleaves = trees->get_num_leaves();
-
-    if (nremove == 1) {
-        // cycle through chromosomes
-
-        for (int chrom=0; chrom<nleaves; chrom++) {
-            // remove chromosome from ARG and resample its thread
-            remove_arg_thread(trees, chrom);
-            max_arg_thread(model, sequences, trees, chrom);
-        }
-    } else {
-        // clamp nremove
-        if (nremove <= 0)
-            return;
-        if (nremove > nleaves)
-            nremove = nleaves;
-
-        // randomly choose which chromosomes to remove
-        int chroms_avail[nleaves];
-        for (int i=0; i<nleaves; i++)
-            chroms_avail[i] = i;
-        shuffle(chroms_avail, nleaves);
-
-        // remove chromosomes from ARG
-        for (int i=0; i<nremove; i++) {
-            remove_arg_thread(trees, chroms_avail[i]);
-        }
-
-        // resample chromosomes
-        for (int i=0; i<nremove; i++)
-            max_arg_thread(model, sequences, trees, chroms_avail[i]);
-    }
 }
 
 
@@ -848,6 +896,26 @@ LocalTrees *arghmm_resample_arg_leaf(
 }
 
 
+LocalTrees *arghmm_resample_arg_cut(
+    LocalTrees *trees, double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int niters)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    
+    // gibbs sample
+    for (int i=0; i<niters; i++)
+        resample_arg_cut(&model, &sequences, trees);
+    
+    return trees;    
+}
+
+
+
+
+
 // resample ARG focused on recombinations
 LocalTrees *arghmm_resample_climb_arg(
     LocalTrees *trees, double *times, int ntimes,
@@ -886,6 +954,74 @@ LocalTrees *arghmm_resample_arg_region(
 }
 
 
+
+// DISABLED
+LocalTrees *arghmm_sample_arg_seq_gibbs(double *times, int ntimes,
+    double *popsizes, double rho, double mu,
+    char **seqs, int nseqs, int seqlen, int seqiters, int gibbsiters)
+{
+    // setup model, local trees, and sequences
+    ArgModel model(ntimes, times, popsizes, rho, mu);
+    Sequences sequences(seqs, nseqs, seqlen);
+    LocalTrees *trees = new LocalTrees();    
+
+    //sample_arg_seq_gibbs(&model, &sequences, trees, seqiters, gibbsiters);
+
+    return trees;
+}
+
+
+} // extern C
+
+} // namespace arghmm
+
+
+
+
+//=============================================================================
+
+
+/*
+// resample the threading of all the chromosomes
+void remax_arg(const ArgModel *model, const Sequences *sequences, 
+               LocalTrees *trees, int nremove)
+{
+    const int nleaves = trees->get_num_leaves();
+
+    if (nremove == 1) {
+        // cycle through chromosomes
+
+        for (int chrom=0; chrom<nleaves; chrom++) {
+            // remove chromosome from ARG and resample its thread
+            remove_arg_thread(trees, chrom);
+            max_arg_thread(model, sequences, trees, chrom);
+        }
+    } else {
+        // clamp nremove
+        if (nremove <= 0)
+            return;
+        if (nremove > nleaves)
+            nremove = nleaves;
+
+        // randomly choose which chromosomes to remove
+        int chroms_avail[nleaves];
+        for (int i=0; i<nleaves; i++)
+            chroms_avail[i] = i;
+        shuffle(chroms_avail, nleaves);
+
+        // remove chromosomes from ARG
+        for (int i=0; i<nremove; i++) {
+            remove_arg_thread(trees, chroms_avail[i]);
+        }
+
+        // resample chromosomes
+        for (int i=0; i<nremove; i++)
+            max_arg_thread(model, sequences, trees, chroms_avail[i]);
+    }
+}
+
+
+
 // remax an ARG with viterbi
 LocalTrees *arghmm_remax_arg(
     LocalTrees *trees, double *times, int ntimes,
@@ -907,22 +1043,5 @@ LocalTrees *arghmm_remax_arg(
 }
 
 
-// DISABLED
-LocalTrees *arghmm_sample_arg_seq_gibbs(double *times, int ntimes,
-    double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, int seqiters, int gibbsiters)
-{
-    // setup model, local trees, and sequences
-    ArgModel model(ntimes, times, popsizes, rho, mu);
-    Sequences sequences(seqs, nseqs, seqlen);
-    LocalTrees *trees = new LocalTrees();    
+*/
 
-    //sample_arg_seq_gibbs(&model, &sequences, trees, seqiters, gibbsiters);
-
-    return trees;
-}
-
-
-} // extern C
-
-} // namespace arghmm

@@ -128,10 +128,10 @@ if arghmmclib:
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
-    export(arghmmclib, "arghmm_max_thread", c_void_p,
-           [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
-            c_double_list, "popsizes", c_double, "rho", c_double, "mu",
-            c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
+    #export(arghmmclib, "arghmm_max_thread", c_void_p,
+    #       [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+    #        c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+    #        c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
     export(arghmmclib, "arghmm_sample_arg_thread_internal", c_int,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -168,11 +168,16 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "niters", c_double, "recomb_preference"])
-    export(arghmmclib, "arghmm_remax_arg", c_void_p,
+    export(arghmmclib, "arghmm_resample_arg_cut", c_void_p,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            c_int, "niters", c_int, "nremove"])
+            c_int, "niters"])
+    #export(arghmmclib, "arghmm_remax_arg", c_void_p,
+    #       [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
+    #        c_double_list, "popsizes", c_double, "rho", c_double, "mu",
+    #        c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
+    #        c_int, "niters", c_int, "nremove"])
     export(arghmmclib, "arghmm_resample_arg_region", c_void_p,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -943,8 +948,9 @@ def resample_mcmc_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
 
 
-def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
-                 refine=1, nremove=1, times=None, verbose=False):
+def resample_arg_cut(
+    arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
+    refine=1, times=None, verbose=False, carg=False):
     """
     Sample ARG for sequences
     """
@@ -965,28 +971,29 @@ def remax_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
     # get sequences in same order    
     # and add all other sequences not in arg yet
-    seqs2 = [seqs[name] for name in names]
-    leaves = set(arg.leaf_names())
-    for name, seq in seqs.items():
+    leaves = set(names)
+    names = list(names)
+    for name in seqs:
         if name not in leaves:
             names.append(name)
-            seqs2.append(seq)
+    seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
 
     # resample arg
-    seqlen = len(seqs[names[0]])
-    trees = arghmm_remax_arg(
-        trees, times, len(times),
-        popsizes, rho, mu,
-        (c_char_p * len(seqs2))(*seqs2), len(seqs2),
-        seqlen, refine, nremove)
+    trees = arghmm_resample_arg_cut(trees, times, len(times),
+                                    popsizes, rho, mu,
+                                    seqs2, nseqs, seqlen, refine)
 
-    # convert arg back to python
-    arg = ctrees2arg(trees, names, times, verbose=verbose)
+    if carg:
+        arg = (trees, names)
+    else:
+        # convert arg back to python
+        arg = ctrees2arg(trees, names, times, verbose=verbose)
 
     if verbose:
         util.toc()
     
     return arg
+
 
 
 def resample_arg_region(arg, seqs, region_start, region_end,

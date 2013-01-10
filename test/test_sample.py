@@ -793,6 +793,43 @@ class Sample (unittest.TestCase):
         #arg2.write("test/data/sample_arg2_out.arg")
 
 
+    def test_resample_arg_cut(self):
+        """
+        Fully sample an ARG from stratch using API
+        """
+
+        k = 6
+        n = 1e4
+        rho = 1.5e-8 * 20 / 3
+        mu = 2.5e-8 * 20
+        length = int(200e3) / 20
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        refine = 10
+
+        random.seed(10)
+        arghmm.set_random_seed(10)
+        
+        arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
+        muts = arglib.sample_arg_mutations(arg, mu)
+        seqs = arglib.make_alignment(arg, muts)
+        arg.write("test/data/sample_arg2.arg")
+        seqs.write("test/data/sample_arg2.fa")
+
+        print len(muts)
+        
+        util.tic("sample ARG")
+        arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
+                                 popsizes=n, verbose=True, carg=True)
+        arg2 = arghmm.resample_arg_cut(
+            arg2, seqs, rho=rho, mu=mu, popsizes=n,
+            refine=refine, times=times, verbose=True, carg=True)
+        
+        util.toc()
+
+        #arg2.write("test/data/sample_arg2_out.arg")
+
+
+
     def test_sample_arg_region(self):
         """
         Resample a region within an ARG
