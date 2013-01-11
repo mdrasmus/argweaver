@@ -24,13 +24,57 @@ void get_coal_time_steps(const double *times, int ntimes,
 
 
 
+// returns true if regions in track are flush with one another
+template <class T>
+bool check_map(const Track<T> &track, int start, int end)
+{
+    // check that track is not empty
+    typename Track<T>::const_iterator it = track.begin();
+    if (it == track.end()) {
+        printError("map is empty");
+        return false;
+    }
+    
+    // check that start and end cover desired range
+    if (it->start > start || track.back().end < end) {
+        printError("map does not cover entire region");
+        return false;
+    }
+
+    int last = it->end;
+    ++it;
+    for (; it != track.end(); ++it) {
+        if (it->start != last) {
+            printError("map is not complete at %s:%d", 
+                       it->chrom.c_str(), it->start);
+            return false;
+        }
+        last = it->end;
+    }
+
+    return true;
+}
+
+
+
 // Initializes mutation and recombination maps for use
-void ArgModel::setup_maps(string chrom, int start, int end) {
+bool ArgModel::setup_maps(string chrom, int start, int end) {
     // setup default maps
     if (mutmap.size() == 0)
         mutmap.append(chrom, start, end, mu);
     if (recombmap.size() == 0)
         recombmap.append(chrom, start, end, rho);
+
+    // check maps
+    if (!check_map(mutmap, start, end)) {
+        printError("mutation map has errors");
+        return false;
+    }
+    if (!check_map(recombmap, start, end)) {
+        printError("recombination map has errors");
+        return false;
+    }
+
 
     // create new mut and recomb maps that share common boundaries
     int pos = start, pos2;
@@ -39,23 +83,26 @@ void ArgModel::setup_maps(string chrom, int start, int end) {
     Track<double> mutmap2;
     Track<double> recombmap2;
     while (i < mutmap.size() || j < recombmap.size()) {
-        printf("recomb[%d] = (%d, %d, %e), mut[%d] = (%d, %d, %e)\n", 
-               j, recombmap[j].start, recombmap[j].end, recombmap[j].value,
-               i, mutmap[i].start, mutmap[i].end, mutmap[i].value);
+        //printf("recomb[%d] = (%d, %d, %e), mut[%d] = (%d, %d, %e)\n", 
+        //       j, recombmap[j].start, recombmap[j].end, recombmap[j].value,
+        //       i, mutmap[i].start, mutmap[i].end, mutmap[i].value);
 
         if (mutmap[i].end < recombmap[j].end) {
+            // mutation region ends first
             pos2 = mutmap[i].end;
             mutmap2.append(chrom, pos, pos2, mutmap[i].value);
             recombmap2.append(chrom, pos, pos2, recombmap[j].value);
             pos = pos2;
             i++;
         } else if (mutmap[i].end > recombmap[j].end) {
+            // recombination region ends first
             pos2 = recombmap[j].end;
             mutmap2.append(chrom, pos, pos2, mutmap[i].value);
             recombmap2.append(chrom, pos, pos2, recombmap[j].value);
             pos = pos2;
             j++;
         } else {
+            // mutation and region region end together
             pos2 = recombmap[j].end;
             mutmap2.append(chrom, pos, pos2, mutmap[i].value);
             recombmap2.append(chrom, pos, pos2, recombmap[j].value);
@@ -70,6 +117,8 @@ void ArgModel::setup_maps(string chrom, int start, int end) {
     recombmap.clear();
     mutmap.insert(mutmap.begin(), mutmap2.begin(), mutmap2.end());
     recombmap.insert(recombmap.begin(), recombmap2.begin(), recombmap2.end());
+
+    return true;
 }
 
 

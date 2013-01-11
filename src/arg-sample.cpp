@@ -814,8 +814,7 @@ int main(int argc, char **argv)
     if (!logger->openLogFile(log_filename.c_str(), log_mode)) {
         printError("could not open log file '%s'", log_filename.c_str());
         return 1;
-    }
-    
+    }    
     
     // log intro
     if (c.resume)
@@ -838,15 +837,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-
-    // setup model times
-    if (c.times_file != "") {
-        printError("not implemented yet");
-        return 1;
-    } else if (c.time_step)
-        c.model.set_linear_times(c.time_step, c.ntimes);
-    else
-        c.model.set_log_times(c.maxtime, c.ntimes);
 
     // read sequences
     Sequences sequences;
@@ -938,16 +928,74 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // mask sequences
+    TrackNullValue maskmap;
+    if (c.maskmap != "") {
+        CompressStream stream(c.maskmap.c_str(), "r");
+        if (!stream.stream ||
+            !read_track_filter(stream.stream, &maskmap,
+                               seq_region.chrom, seq_region.start, 
+                               seq_region.end)) {
+            printError("cannot read mask map '%s'", 
+                       c.maskmap.c_str());
+            return 1;
+        }
 
-    /*
-    // get coordinates (0-index)
-    int start = 0;
-    int end = sequences.length();
-    if (sites) {
-        start = sites->start_coord;
-        end = sites->end_coord;
+        // apply mask
+        if (sites_mapping)
+            compress_mask(maskmap, sites_mapping);
+
+        printLog(LOG_LOW, "applying sequence mask\n");
+        apply_mask_sequences(&sequences, maskmap);
     }
-    */
+
+
+    // setup model parameters
+    if (c.times_file != "") {
+        printError("not implemented yet");
+        return 1;
+    } else if (c.time_step)
+        c.model.set_linear_times(c.time_step, c.ntimes);
+    else
+        c.model.set_log_times(c.maxtime, c.ntimes);
+    c.model.rho = c.rho;
+    c.model.mu = c.mu;
+    if (c.infsites)
+        c.model.infsites_penalty = 1e-100; //0.0;
+    c.model.set_popsizes(c.popsize, c.model.ntimes);
+
+    // read model parameter maps if given
+    if (c.mutmap != "") {
+        CompressStream stream(c.mutmap.c_str(), "r");
+        if (!stream.stream || 
+            !read_track_filter(stream.stream, &c.model.mutmap,
+                               seq_region.chrom, seq_region.start, 
+                               seq_region.end)) {
+            printError("cannot read mutation rate map '%s'", c.mutmap.c_str());
+            return false;
+        }
+    }
+    if (c.recombmap != "") {
+        CompressStream stream(c.recombmap.c_str(), "r");
+        if (!stream.stream ||
+            !read_track_filter(stream.stream, &c.model.recombmap,
+                               seq_region.chrom, seq_region.start, 
+                               seq_region.end)) {
+            printError("cannot read recombination rate map '%s'", 
+                       c.recombmap.c_str());
+            return 1;
+        }
+    }
+    
+    // make compressed model
+    ArgModel model(c.model);
+    if (!model.setup_maps(seq_region.chrom, seq_region.start, seq_region.end))
+        return 1;
+    compress_model(&model, sites_mapping, c.compress_seq);
+    
+    // log original model
+    log_model(model);
+
     
     // setup init ARG
     LocalTrees *trees = NULL;
@@ -1009,63 +1057,6 @@ int main(int argc, char **argv)
         }
     }
 
-
-    // setup model
-    c.model.rho = c.rho;
-    c.model.mu = c.mu;
-    if (c.infsites)
-        c.model.infsites_penalty = 1e-100; //0.0;
-    c.model.set_popsizes(c.popsize, c.model.ntimes);
-
-    // read model parameter maps if given
-    if (c.mutmap != "") {
-        CompressStream stream(c.mutmap.c_str(), "r");
-        if (!stream.stream || 
-            !read_track_filter(stream.stream, &c.model.mutmap,
-                               seq_region.chrom, seq_region.start, 
-                               seq_region.end)) {
-            printError("cannot read mutation rate map '%s'", c.mutmap.c_str());
-            return false;
-        }
-    }
-    if (c.recombmap != "") {
-        CompressStream stream(c.recombmap.c_str(), "r");
-        if (!stream.stream ||
-            !read_track_filter(stream.stream, &c.model.recombmap,
-                               seq_region.chrom, seq_region.start, 
-                               seq_region.end)) {
-            printError("cannot read recombination rate map '%s'", 
-                       c.recombmap.c_str());
-            return 1;
-        }
-    }
-    TrackNullValue maskmap;
-    if (c.maskmap != "") {
-        CompressStream stream(c.maskmap.c_str(), "r");
-        if (!stream.stream ||
-            !read_track_filter(stream.stream, &maskmap,
-                               seq_region.chrom, seq_region.start, 
-                               seq_region.end)) {
-            printError("cannot read mask map '%s'", 
-                       c.maskmap.c_str());
-            return 1;
-        }
-
-        // apply mask
-        if (sites_mapping)
-            compress_mask(maskmap, sites_mapping);
-
-        apply_mask_sequences(&sequences, maskmap);
-    }
-
-    
-    // make compressed model
-    ArgModel model(c.model);
-    model.setup_maps(seq_region.chrom, seq_region.start, seq_region.end);
-    compress_model(&model, sites_mapping, c.compress_seq);
-    
-    // log original model
-    log_model(model);
     
     
     // init stats file

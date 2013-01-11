@@ -1116,20 +1116,29 @@ void sample_arg_cut(const LocalTrees *trees, int ntimes,
         window_end = trees->end_coord;
     int site = irand(window_start, window_end);
 
-    // sample time
-    double weights[ntimes-1];
-    //for (int i=0; i<ntimes-1; i++)
-    //    weights[i] = 2*exp(-i / double(ntimes-2));
-    for (int i=1; i<ntimes-1; i++)
-        weights[i] = 1;
-    weights[0] = ntimes - 2;
-    *time = sample(weights, ntimes-1);
-    
     // find branches at site and time
     it = trees->get_block(site);
     assert(it != trees->end());
     const LocalTree *tree = it->tree;
 
+    if (frand() < .5) {
+        // cut leaf
+        *time = 0;
+        vector<int> branches;
+        for (int i=0; i<tree->nnodes; i++) {
+            if (tree->nodes[i].is_leaf())
+                branches.push_back(i);
+        }
+        *branch = branches[irand(branches.size())];
+        return;
+    }
+
+    // sample time
+    double weights[ntimes-1];
+    for (int i=0; i<ntimes-1; i++)
+        weights[i] = exp(-i / double(ntimes-2));
+    *time = sample(weights, ntimes-1);
+    
     // find branches that enter the time point
     vector<int> branches;
     for (int i=0; i<tree->nnodes; i++) {
