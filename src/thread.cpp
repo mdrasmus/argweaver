@@ -1121,6 +1121,7 @@ void sample_arg_cut(const LocalTrees *trees, int ntimes,
     assert(it != trees->end());
     const LocalTree *tree = it->tree;
 
+    /*
     if (frand() < .5) {
         // cut leaf
         *time = 0;
@@ -1132,6 +1133,7 @@ void sample_arg_cut(const LocalTrees *trees, int ntimes,
         *branch = branches[irand(branches.size())];
         return;
     }
+    */
 
     // sample time
     double weights[ntimes-1];

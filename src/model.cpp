@@ -56,9 +56,56 @@ bool check_map(const Track<T> &track, int start, int end)
 }
 
 
+// returns true if regions in track are flush with one another
+template <class T>
+bool complete_map(Track<T> &track, string chrom, int start, int end, const T &default_value)
+{
+    // check for empty track
+    if (track.size() == 0) {
+        track.append(chrom, start, end, default_value);
+        return true;
+    }
+
+    // check that start and end cover desired range
+    typename Track<T>::iterator it = track.begin();
+    if (it->start > start)
+        track.insert(it, RegionValue<T>(chrom, start, it->start, default_value));
+    if (track.back().end < end)
+        track.append(chrom, track.back().end, end, default_value);
+
+    it = track.begin();
+    int last = it->end;
+    ++it;
+    for (; it != track.end(); ++it) {
+        if (it->start > last) {
+            it = track.insert(it, RegionValue<T>(chrom, last, it->start, default_value));
+        } else if (it->start < last) {
+            printError("map contains over laps %s:%d-%d",
+                       chrom.c_str(), it->start, last);
+            return false;
+        }
+        last = it->end;
+    }
+    
+    return true;
+}
+
+
 
 // Initializes mutation and recombination maps for use
 bool ArgModel::setup_maps(string chrom, int start, int end) {
+
+    // check maps
+    if (!complete_map(mutmap, chrom, start, end, mu)) {
+        printError("mutation map has errors");
+        return false;
+    }
+    if (!complete_map(recombmap, chrom, start, end, rho)) {
+        printError("recombination map has errors");
+        return false;
+    }
+    
+    /*
     // setup default maps
     if (mutmap.size() == 0)
         mutmap.append(chrom, start, end, mu);
@@ -74,7 +121,7 @@ bool ArgModel::setup_maps(string chrom, int start, int end) {
         printError("recombination map has errors");
         return false;
     }
-
+    */
 
     // create new mut and recomb maps that share common boundaries
     int pos = start, pos2;

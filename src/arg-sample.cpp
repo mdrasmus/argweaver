@@ -931,6 +931,7 @@ int main(int argc, char **argv)
     // mask sequences
     TrackNullValue maskmap;
     if (c.maskmap != "") {
+        // read mask
         CompressStream stream(c.maskmap.c_str(), "r");
         if (!stream.stream ||
             !read_track_filter(stream.stream, &maskmap,
@@ -944,9 +945,18 @@ int main(int argc, char **argv)
         // apply mask
         if (sites_mapping)
             compress_mask(maskmap, sites_mapping);
-
-        printLog(LOG_LOW, "applying sequence mask\n");
         apply_mask_sequences(&sequences, maskmap);
+
+        // report number of masked sites
+        bool *masked = new bool [sequences.length()];
+        find_masked_sites(sequences.get_seqs(), sequences.get_num_seqs(), 
+                          sequences.length(), masked);
+        int nmasked = 0;
+        for (int i=0; i<sequences.length(); i++)
+            nmasked += int(masked[i]);
+        delete [] masked;
+        printLog(LOG_LOW, "masked %d (%f%%) sites\n", nmasked, 
+                 100.0 * nmasked / double(sequences.length()));
     }
 
 

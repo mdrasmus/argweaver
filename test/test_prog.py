@@ -232,22 +232,23 @@ class Prog (unittest.TestCase):
             
             os.system("""arg-sim \
             -k 20 -L 1000000 --model dsmc \
-            -N 1e4 -r 1.16e-8 -m 2.20e-8 \
+            -N 1e4 -r 0.5e-8 -m 2.20e-8 \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
 
-        make_clean_dir("test/data/test_prog/0.sample")
-        os.system("""arg-sample \
+        if 1:
+            make_clean_dir("test/data/test_prog/0.sample")
+            os.system("""arg-sample \
     -s test/data/test_prog/0.sites \
-    -N 1e4 -r 1.16e-8 -m 2.20e-8 \
+    -N 1e4 -r 0.5e-8 -m 2.20e-8 \
     --ntimes 20 --maxtime 200e3 -c 20 \
-    -n 1000 -V 1 \
+    -n 1000 --gibbs --resample-window-iters 1 -V 2 \
     -o test/data/test_prog/0.sample/out""")
 
         
         
         # read true arg and seqs
-        times = arghmm.get_time_points(ntimes=20, maxtime=400000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         arg = arglib.read_arg("test/data/test_prog/0.arg")
         arghmm.discretize_arg(arg, times, ignore_top=False, round_age="closer")
         arg = arglib.smcify_arg(arg)
