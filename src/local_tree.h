@@ -734,6 +734,10 @@ double get_arglen(const LocalTrees *trees, const double *times);
 void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
                          const LocalTree *tree2, const int *seqids2, 
                          int *mapping);
+void infer_mapping(const LocalTree *tree1, const LocalTree *tree2, 
+                   int recomb_node, int *mapping);
+void repair_spr(const LocalTree *last_tree, const LocalTree *tree, Spr &spr, 
+                int *mapping);
 
 bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it);
 void remove_null_sprs(LocalTrees *trees);

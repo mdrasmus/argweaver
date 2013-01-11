@@ -641,6 +641,104 @@ void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
 }
 
 
+
+// infer the mapping between two trees that differ by an SPR with known
+// recombination node
+void infer_mapping(const LocalTree *tree1, const LocalTree *tree2, 
+                   int recomb_node, int *mapping)
+{
+    const int nleaves1 = tree1->get_num_leaves();
+
+    // map leaves
+    for (int i=0; i<nleaves1; i++)
+        mapping[i] = i;
+
+    for (int i=nleaves1; i<tree1->nnodes; i++)
+        mapping[i] = -1;
+
+    // calculate mapping as much as possible
+    int order[tree1->nnodes];
+    tree1->get_postorder(order);
+    LocalNode *nodes = tree1->nodes;
+    for (int i=0; i<tree1->nnodes; i++) {
+        const int j = order[i];
+        const int *child = nodes[j].child;
+        if (!nodes[j].is_leaf() && mapping[child[0]] != -1 && 
+            mapping[child[1]] != -1) {
+            // both children mapping, see if they share parent
+            int a = tree2->nodes[mapping[child[0]]].parent;
+            int b = tree2->nodes[mapping[child[1]]].parent;
+            if (a == b)
+                mapping[j] = a;
+        }
+    }
+
+    // use mapping to find important nodes
+    // at least the recombination node should be mapped
+    int broken = tree1->nodes[recomb_node].parent;
+    int other = tree1->get_sibling(recomb_node);
+    int recomb = mapping[recomb_node];
+    assert(recomb != -1);
+    int recoal = tree2->nodes[recomb].parent;
+
+    // map remaining nodes
+    for (int i=0; i<tree1->nnodes; i++) {
+        const int j = order[i];
+        if (!nodes[j].is_leaf() && j != broken) {
+            int a = nodes[j].child[0];
+            int b = nodes[j].child[1];
+            // skip over broken node
+            if (a == broken) a = other;
+            if (b == broken) b = other;
+            int c = mapping[a];
+            int d = mapping[b];
+            c = tree2->nodes[c].parent;
+            d = tree2->nodes[d].parent;
+            // skip over recoal node
+            if (c == recoal) c = tree2->nodes[c].parent;
+            if (d == recoal) d = tree2->nodes[d].parent;
+            assert(c == d);
+            mapping[j] = c;
+        }
+    }
+    
+    // ensure broken node maps to nothing
+    mapping[broken] = -1;
+}
+
+
+// Infer the SPR and mapping between two local trees.
+// The local trees and recombination node and time must be correct.
+// All other information is inferred.
+void repair_spr(const LocalTree *last_tree, const LocalTree *tree, Spr &spr, 
+                int *mapping)
+{
+    // infer the mapping between local trees using the recombination node
+    infer_mapping(last_tree, tree, spr.recomb_node, mapping);
+
+    // determine the coal time
+    int broken = last_tree->nodes[spr.recomb_node].parent;
+    int recomb = mapping[spr.recomb_node];
+    assert(recomb != -1);
+    int recoal = tree->nodes[recomb].parent;
+    spr.coal_time = tree->nodes[recoal].age;
+
+    // determine the coal node
+    int other = tree->get_sibling(recomb);
+    int inv_mapping[tree->nnodes];
+    get_inverse_mapping(mapping, tree->nnodes, inv_mapping);
+    spr.coal_node = inv_mapping[other];
+    
+    // adjust coal node due to branch movement
+    if (spr.coal_node == broken)
+        spr.coal_node = last_tree->get_sibling(spr.recomb_node);
+    int parent = last_tree->nodes[spr.coal_node].parent;
+    if (parent != -1 && spr.coal_time > last_tree->nodes[parent].age)
+        spr.coal_node = parent;
+}
+
+
+
 // appends the data in 'trees2' to 'trees'
 // trees2 is then empty
 // if merge is true, then merge identical neighboring local trees
@@ -666,11 +764,19 @@ void append_local_trees(LocalTrees *trees, LocalTrees *trees2, bool merge)
     if (merge && ntrees > 0 && ntrees2 > 0) {
         LocalTrees::iterator it2 = it;
         ++it2;
-        if (it2->mapping == NULL)
-            it2->mapping = new int [trees2->nnodes];
-        map_congruent_trees(it->tree, &trees->seqids[0],
-                            it2->tree, &trees2->seqids[0], it2->mapping);
-        remove_null_spr(trees, it);
+
+        if (it2->spr.is_null()) {
+            // there is no SPR between these trees
+            // infer a congruent mapping and remove redunant local blocks
+            if (it2->mapping == NULL)
+                it2->mapping = new int [trees2->nnodes];
+            map_congruent_trees(it->tree, &trees->seqids[0],
+                                it2->tree, &trees2->seqids[0], it2->mapping);
+            remove_null_spr(trees, it);
+        } else {
+            // there should be an SPR between these trees, repair it.
+            repair_spr(it->tree, it2->tree, it2->spr, it2->mapping);
+        }
     }
     
     //assert_trees(trees);

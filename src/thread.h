@@ -144,7 +144,8 @@ double count_total_arg_removal_paths(const LocalTrees *trees);
 // sample a removal path using the branch cut method
 void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes, 
                                  int *path, int *cuttime, 
-                                 int *region_start, int *region_end);
+                                 int *region_start, int *region_end,
+                                 int window_start=-1, int window_end=-1);
 
 
 

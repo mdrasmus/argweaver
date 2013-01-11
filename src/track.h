@@ -64,6 +64,10 @@ public:
 };
 
 
+typedef char NullValue;
+typedef RegionValue<char> RegionNullValue;
+
+
 // A track is a series of regions each associated with a value
 template <class T>
 class Track : public vector<RegionValue<T> > {
@@ -129,6 +133,8 @@ public:
     }
 };
 
+
+typedef Track<NullValue> TrackNullValue;
 
 // Reads one region from a map file
 template <class T>

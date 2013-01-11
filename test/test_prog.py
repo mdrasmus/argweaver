@@ -40,7 +40,7 @@ class Prog (unittest.TestCase):
             os.system("""arg-sim \
             -k 4 -L 200000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 \
-            --ntimes 20 --maxtime 400e3 \
+            --ntimes 20 --maxtime 400e3  \
             -o test/data/test_prog_small/0""")
 
         make_clean_dir("test/data/test_prog_small/0.sample")
@@ -48,7 +48,7 @@ class Prog (unittest.TestCase):
     -s test/data/test_prog_small/0.sites \
     -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
     --ntimes 20 --maxtime 400e3 -c 20 \
-    --climb 0 -n 100 \
+    -n 100  --gibbs \
     -o test/data/test_prog_small/0.sample/out""")
 
 
@@ -203,19 +203,24 @@ class Prog (unittest.TestCase):
             makedirs("test/data/test_prog")
             
             os.system("""arg-sim \
-            -k 12 -L 300000 --model dsmc \
+            -k 20 -L 100000 --model dsmc \
             -N 1e4 -r 1.16e-8 -m 2.20e-8 \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
+
+            mask = [["chr", 1000, 2000],
+                    ["chr", 3000, 4000]]
+            write_delim("test/data/test_prog/mask.bed", mask)
             
         make_clean_dir("test/data/test_prog/0.sample")
         os.system("""arg-sample \
     -s test/data/test_prog/0.sites \
     -N 1e4 -r 1.16e-8 -m 2.20e-8 \
     --ntimes 20 --maxtime 200e3 -c 20 \
-    -n 1001 \
-    -x 1 \
+    -n 10000 --gibbs --resample-window 10000 --resample-window-iters 10 -V 1 \
+    --maskmap test/data/test_prog/mask.bed \
     -o test/data/test_prog/0.sample/out""")
+
         
         
         # read true arg and seqs

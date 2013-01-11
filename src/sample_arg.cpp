@@ -548,95 +548,10 @@ double resample_arg_regions(
 }
 
 
-void infer_mapping(LocalTree *tree1, LocalTree *tree2, 
-                   int recomb_node, int *mapping)
-{
-    const int nleaves1 = tree1->get_num_leaves();
-
-    // map leaves
-    for (int i=0; i<nleaves1; i++)
-        mapping[i] = i;
-
-    for (int i=nleaves1; i<tree1->nnodes; i++)
-        mapping[i] = -1;
-
-    // calculate mapping as much as possible
-    int order[tree1->nnodes];
-    tree1->get_postorder(order);
-    LocalNode *nodes = tree1->nodes;
-    for (int i=0; i<tree1->nnodes; i++) {
-        const int j = order[i];
-        const int *child = nodes[j].child;
-        if (!nodes[j].is_leaf() && mapping[child[0]] != -1 && 
-            mapping[child[1]] != -1) {
-            // both children mapping, see if they share parent
-            int a = tree2->nodes[mapping[child[0]]].parent;
-            int b = tree2->nodes[mapping[child[1]]].parent;
-            if (a == b)
-                mapping[j] = a;
-        }
-    }
-
-    // use mapping to find important nodes
-    int broken = tree1->nodes[recomb_node].parent;
-    int other = tree1->get_sibling(recomb_node);
-    int recomb = mapping[recomb_node];
-    assert(recomb != -1);
-    int recoal = tree2->nodes[recomb].parent;
-
-    // mapping remaining nodes
-    for (int i=0; i<tree1->nnodes; i++) {
-        const int j = order[i];
-        if (!nodes[j].is_leaf() && j != broken) {
-            int a = nodes[j].child[0];
-            int b = nodes[j].child[1];
-            if (a == broken) a = other;
-            if (b == broken) b = other;
-            int c = mapping[a];
-            int d = mapping[b];
-            c = tree2->nodes[c].parent;
-            d = tree2->nodes[d].parent;
-            if (c == recoal) c = tree2->nodes[c].parent;
-            if (d == recoal) d = tree2->nodes[d].parent;
-            assert(c == d);
-            mapping[j] = c;
-        }
-    }
-
-    mapping[broken] = -1;
-}
-
-
-// the local trees and recombination node must be correct
-// all other information is reconstructed 
-void repair_spr(LocalTree *last_tree, LocalTree *tree, Spr &spr, 
-                int *mapping)
-{
-    infer_mapping(last_tree, tree, spr.recomb_node, mapping);
-
-    int broken = last_tree->nodes[spr.recomb_node].parent;
-    int recomb = mapping[spr.recomb_node];
-    assert(recomb != -1);
-    int recoal = tree->nodes[recomb].parent;
-    spr.coal_time = tree->nodes[recoal].age;
-
-    int other = tree->get_sibling(recomb);
-    int inv_mapping[tree->nnodes];
-    get_inverse_mapping(mapping, tree->nnodes, inv_mapping);
-    spr.coal_node = inv_mapping[other];
-    
-    if (spr.coal_node == broken)
-        spr.coal_node = last_tree->get_sibling(spr.recomb_node);
-    int parent = last_tree->nodes[spr.coal_node].parent;
-    if (parent != -1 && spr.coal_time > last_tree->nodes[parent].age)
-        spr.coal_node = parent;
-}
-
-
-
 // cut a branch in the ARG and resample branch
 double resample_arg_cut(
-    const ArgModel *model, const Sequences *sequences, LocalTrees *trees)
+    const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
+    int window_start, int window_end)
 {
     const int maxtime = model->get_removed_root_time();
     
@@ -645,16 +560,20 @@ double resample_arg_cut(
     int *removal_path = new int [trees->get_num_trees()];
     int region_start, region_end;
     sample_arg_removal_path_cut(trees, model->ntimes, removal_path, &cuttime,
-                                &region_start, &region_end);
+                                &region_start, &region_end,
+                                window_start, window_end);
 
     // partion trees into three segments
+    // trees2 will be resampled
+    // do not perform SPR trimming since we will manually adjust SPRs
     const bool trim = false;
     LocalTrees *trees2 = partition_local_trees(trees, region_start, trim);
     LocalTrees *trees3 = partition_local_trees(trees2, region_end, trim);
     assert(trees2->length() == region_end - region_start);
     assert(trees2->trees.back().blocklen > 0);
 
-    // suppress first SPR of trees2
+    // suppress first SPR and mapping of trees2
+    // since the resampling code excepts no SPR on first tree
     LocalTrees::iterator it = trees2->begin();
     int *mapping = NULL;
     if (it->mapping) {
@@ -663,46 +582,32 @@ double resample_arg_cut(
     }
     Spr spr = it->spr;
     it->spr.set_null();
-
-    // remove and resample region
+    
+    // ensure remove path is compatiable with trees2
     int ntrees = trees2->get_num_trees();
     int *removal_path2 = removal_path;
     while (removal_path2[0] == -1) removal_path2++;
     assert(removal_path2[ntrees-1] != -1);
     assert(trees3->length() == 0 || removal_path2[ntrees] == -1);
 
+    // remove and resample region
     printLog(LOG_LOW, "branch cut: time=%d, region=[%d,%d]\n", 
              cuttime, region_start, region_end);
     remove_arg_thread_path(trees2, removal_path2, maxtime);
     sample_arg_thread_internal(model, sequences, trees2, cuttime);
+    //assert_trees(trees2);
 
-    assert_trees(trees2);
-
-    // setup first SPR in trees2
-    if (trees->length() > 0) {
+    // restore previously suppressed spr and mapping
+    if (trees->length() > 0) {        
         it = trees2->begin();
         if (mapping)
             it->mapping = mapping;
-        LocalTree *last_tree = trees->back().tree;
-        LocalTree *tree = it->tree;
-        repair_spr(last_tree, tree, spr, mapping);
         it->spr = spr;
-        assert(assert_spr(last_tree, tree, &spr, mapping));
-    }
-
-    // setup first SPR in trees3
-    if (trees3->length() > 0) {
-        it = trees3->begin();
-        LocalTree *last_tree = trees2->back().tree;
-        LocalTree *tree = it->tree;
-        repair_spr(last_tree, tree, it->spr, it->mapping);
     }
 
     // rejoin trees
-    // NOTE: we disable merging 
-    append_local_trees(trees, trees2, false);
-    assert_trees(trees);
-    append_local_trees(trees, trees3, false);
+    append_local_trees(trees, trees2);
+    append_local_trees(trees, trees3);
     assert_trees(trees);
     
     // clean up
@@ -710,6 +615,25 @@ double resample_arg_cut(
     delete trees2;
     delete trees3;
     
+    return 1;
+}
+
+
+double resample_arg_cut(
+    const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
+    int window, int step, int niters)
+{
+    decLogLevel();
+    for (int start=trees->start_coord; 
+         start == trees->start_coord || start+window/2 <trees->end_coord; 
+         start+=step)
+    {
+        int end = min(start + window, trees->end_coord);
+        for (int i=0; i<niters; i++)
+            resample_arg_cut(model, sequences, trees, start, end);
+    }
+    incLogLevel();
+
     return 1;
 }
 

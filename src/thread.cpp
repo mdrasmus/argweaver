@@ -1106,17 +1106,21 @@ int get_local_trees_utmrca(const LocalTrees *trees)
 
 
 void sample_arg_cut(const LocalTrees *trees, int ntimes,
-                    LocalTrees::const_iterator &it, int *time, int *branch)
+                    LocalTrees::const_iterator &it, int *time, int *branch,
+                    int window_start, int window_end)
 {
     // sample site
-    int site = irand(trees->start_coord, trees->end_coord);
+    if (window_start == -1)
+        window_start = trees->start_coord;
+    if (window_end == -1)
+        window_end = trees->end_coord;
+    int site = irand(window_start, window_end);
 
     // sample time
     double weights[ntimes-1];
     for (int i=0; i<ntimes-1; i++)
-        weights[i] = exp(-i / double(ntimes-2));
+        weights[i] = 2*exp(-i / double(ntimes-2));
     *time = sample(weights, ntimes-1);
-    //*time = irand(ntimes-1);
     
     // find branches at site and time
     it = trees->get_block(site);
@@ -1139,12 +1143,14 @@ void sample_arg_cut(const LocalTrees *trees, int ntimes,
 // sample a removal path using the branch cut method
 void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes, 
                                  int *path, int *cuttime, 
-                                 int *region_start, int *region_end)
+                                 int *region_start, int *region_end,
+                                 int window_start, int window_end)
 {
     // sample branch to cut
     LocalTrees::const_iterator center_it;
     int branch;
-    sample_arg_cut(trees, ntimes, center_it, cuttime, &branch);
+    sample_arg_cut(trees, ntimes, center_it, cuttime, &branch,
+                   window_start, window_end);
 
     // find region where branch exists
 

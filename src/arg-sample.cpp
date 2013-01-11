@@ -107,6 +107,10 @@ public:
 		   ("-R", "--recombmap", "<recombination rate map file>", 
                     &recombmap, "",
                     "recombination map file (optional)"));
+	config.add(new ConfigParam<string>
+		   ("", "--maskmap", "<sites mask>", 
+                    &maskmap, "",
+                    "mask map file (optional)"));
 
 
         // search
@@ -233,6 +237,7 @@ public:
     string times_file;
     string mutmap;
     string recombmap;
+    string maskmap;
     ArgModel model;
 
     // search
@@ -377,6 +382,18 @@ void compress_track(Track<T> &track, SitesMapping *sites_mapping,
     if (is_rate) {
         for (unsigned int i=0; i<track.size(); i++)
             track[i].value *= compress_seq;
+    }
+}
+
+
+template<class T>
+void compress_mask(Track<T> &track, SitesMapping *sites_mapping)
+{
+    if (sites_mapping) {
+        for (unsigned int i=0; i<track.size(); i++) {
+            track[i].start = sites_mapping->compress(track[i].start);
+            track[i].end = sites_mapping->compress(track[i].end);
+        }
     }
 }
 
@@ -582,7 +599,7 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "sample %d\n", i);
         Timer timer;
         if (config->gibbs)
-            resample_arg_cut(model, sequences, trees);
+            resample_arg_cut(model, sequences, trees, window, step, niters);
         else
             resample_arg_mcmc_all(model, sequences, trees, frac_leaf,
                                   window, step, niters);
@@ -831,7 +848,6 @@ int main(int argc, char **argv)
     else
         c.model.set_log_times(c.maxtime, c.ntimes);
 
-
     // read sequences
     Sequences sequences;
     Sites *sites = NULL;
@@ -840,6 +856,7 @@ int main(int argc, char **argv)
     auto_ptr<SitesMapping> sites_mapping_ptr;
     Region seq_region;
     Region seq_region_compress;
+
     
     if (c.fasta_file != "") {
         // read FASTA file
@@ -1002,38 +1019,51 @@ int main(int argc, char **argv)
 
     // read model parameter maps if given
     if (c.mutmap != "") {
-        if (!read_track_filter(c.mutmap.c_str(), &c.model.mutmap,
+        CompressStream stream(c.mutmap.c_str(), "r");
+        if (!stream.stream || 
+            !read_track_filter(stream.stream, &c.model.mutmap,
                                seq_region.chrom, seq_region.start, 
-                               seq_region.end)) 
-        {
-            printError("cannot read mutation rate map");
-            return 1;
+                               seq_region.end)) {
+            printError("cannot read mutation rate map '%s'", c.mutmap.c_str());
+            return false;
         }
     }
     if (c.recombmap != "") {
-        if (!read_track_filter(c.recombmap.c_str(), &c.model.recombmap,
+        CompressStream stream(c.recombmap.c_str(), "r");
+        if (!stream.stream ||
+            !read_track_filter(stream.stream, &c.model.recombmap,
                                seq_region.chrom, seq_region.start, 
-                               seq_region.end))
-        {
-            printError("cannot read recombination rate map");
+                               seq_region.end)) {
+            printError("cannot read recombination rate map '%s'", 
+                       c.recombmap.c_str());
             return 1;
         }
     }
+    TrackNullValue maskmap;
+    if (c.maskmap != "") {
+        CompressStream stream(c.maskmap.c_str(), "r");
+        if (!stream.stream ||
+            !read_track_filter(stream.stream, &maskmap,
+                               seq_region.chrom, seq_region.start, 
+                               seq_region.end)) {
+            printError("cannot read mask map '%s'", 
+                       c.maskmap.c_str());
+            return 1;
+        }
+
+        // apply mask
+        if (sites_mapping)
+            compress_mask(maskmap, sites_mapping);
+
+        apply_mask_sequences(&sequences, maskmap);
+    }
+
     
     // make compressed model
     ArgModel model(c.model);
     model.setup_maps(seq_region.chrom, seq_region.start, seq_region.end);
     compress_model(&model, sites_mapping, c.compress_seq);
-
-    /*
-    for (unsigned int i=0; i<model.recombmap.size(); i++)
-        printf("recomb[%d] = (%d, %d, %e), mut[%d] = (%d, %d, %e)\n", 
-               i, model.recombmap[i].start, model.recombmap[i].end,
-               model.recombmap[i].value,
-               i, model.mutmap[i].start, model.mutmap[i].end,
-               model.mutmap[i].value);
-    */
-
+    
     // log original model
     log_model(model);
     

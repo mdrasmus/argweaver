@@ -34,6 +34,20 @@ bool read_track_line<int>(const char *line, RegionValue<int> &region)
 }
 
 
+template <>
+bool read_track_line<NullValue>(const char *line, RegionNullValue &region)
+{
+    const int CHROM_NAME_LENGTH = 1000;
+    char chrom2[CHROM_NAME_LENGTH+1];
+
+    if (sscanf(line, "%1000s\t%d\t%d", chrom2, &region.start, &region.end) != 3)
+        return false;
+    region.chrom = string(chrom2);
+    return true;
+}
+
+
+
 } // namespace arghmm
 
 
