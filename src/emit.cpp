@@ -9,6 +9,7 @@ namespace arghmm {
 
 //=============================================================================
 // invariant sites
+// TODO: make this mask aware
 
 
 // Returns true if position 'pos' is invariant
@@ -40,6 +41,19 @@ void find_invariant_sites(const char *const *seqs, int nseqs, int seqlen,
             }
         }
         invariant[i] = !mut;
+    }
+}
+
+
+void find_masked_sites(const char *const *seqs, int nseqs, int seqlen, 
+                       bool *masked, bool *invariant=NULL)
+{
+    if (invariant) {
+        for (int i=0; i<seqlen; i++)
+            masked[i] = (seqs[0][i] == 'N');
+    } else {
+        for (int i=0; i<seqlen; i++)
+            masked[i] = (seqs[0][i] == 'N' && is_invariant_site(seqs, nseqs, i));
     }
 }
 
@@ -350,7 +364,10 @@ void likelihood_sites(const LocalTree *tree, const ArgModel *model,
     for (int i=0; i<seqlen; i++) {
         if (invariant && invariant[i]) {
             // use precommuted invariant site likelihood
-            emit[i][statei] = invariant_lk;            
+            if (seqs[0][i] == 'N')
+                emit[i][statei] = 1.0; // masked case
+            else
+                emit[i][statei] = invariant_lk;            
         } else {
             emit[i][statei] = likelihood_site_inner(
                 tree, seqs, i, order, norder, muts, nomuts, table[i]);
@@ -579,7 +596,10 @@ void calc_emissions(const States &states, const LocalTree *tree,
     
     // find invariant sites
     bool *invariant = new bool [seqlen];
+    bool *masked = new bool [seqlen];
     find_invariant_sites(seqs, nseqs, seqlen, invariant);
+    find_masked_sites(seqs, nseqs, seqlen, masked, invariant);
+
 
     // compute inner and outer likelihood tables
     LikelihoodTable inner(seqlen, tree->nnodes);
@@ -687,9 +707,14 @@ void calc_emissions(const States &states, const LocalTree *tree,
 
         // fill in row of emission table
         for (int i=0; i<seqlen; i++) {
-            if (invariant[i]) {
+            if (masked[i]) {
+                // masked site
+                emit[i][j] = 1.0;
+            } else if (invariant[i]) {
+                // invariant site
                 emit[i][j] = invariant_lk;
             } else {
+                // variant site
                 lk_row *in = inner.data[i];
                 lk_row *out = outer.data[i];
                 lk_row *in2 = internal ? in : inner_subtree.data[i];
@@ -737,6 +762,7 @@ void calc_emissions(const States &states, const LocalTree *tree,
 
     // clean up
     delete [] invariant;
+    delete [] masked;
 }
 
 // calculate emissions for external branch resampling
@@ -917,9 +943,15 @@ int parsimony_cost_seq(const LocalTree *tree, const char * const *seqs,
     for (int i=0; i<nnodes; i++) {
         int node = postorder[i];
         if (tree->nodes[node].is_leaf()) {
-            for (int a=0; a<4; a++)
-                costs[node][a] = maxcost;
-            costs[node][dna2int[(int)seqs[node][pos]]] = 0;
+            char c = seqs[node][pos];
+            if (c == 'N') {
+                for (int a=0; a<4; a++)
+                    costs[node][a] = 0;
+            } else {
+                for (int a=0; a<4; a++)
+                    costs[node][a] = maxcost;
+                costs[node][dna2int[(int)c]] = 0;
+            }
         } else {
             int *left_costs = costs[nodes[node].child[0]];
             int *right_costs = costs[nodes[node].child[1]];
@@ -956,7 +988,8 @@ int count_noncompat(const LocalTree *tree, const char * const *seqs,
     
     int noncompat = 0;
     for (int i=0; i<seqlen; i++)
-        noncompat += int(parsimony_cost_seq(tree, seqs, nseqs, i, postorder) > 1);
+        if (!is_invariant_site(seqs, nseqs, i))
+            noncompat += int(parsimony_cost_seq(tree, seqs, nseqs, i, postorder) > 1);
     
     return noncompat;
 }

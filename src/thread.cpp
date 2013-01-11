@@ -1118,8 +1118,11 @@ void sample_arg_cut(const LocalTrees *trees, int ntimes,
 
     // sample time
     double weights[ntimes-1];
-    for (int i=0; i<ntimes-1; i++)
-        weights[i] = 2*exp(-i / double(ntimes-2));
+    //for (int i=0; i<ntimes-1; i++)
+    //    weights[i] = 2*exp(-i / double(ntimes-2));
+    for (int i=1; i<ntimes-1; i++)
+        weights[i] = 1;
+    weights[0] = ntimes - 2;
     *time = sample(weights, ntimes-1);
     
     // find branches at site and time

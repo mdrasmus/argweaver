@@ -190,7 +190,35 @@ class Prog (unittest.TestCase):
     -x 1 --resume \
     -o test/data/test_prog_small/0.sample/out""")
 
+
+    def test_prog_mask(self):
         
+        popsize = 1e4
+        mu = 2.20e-8
+        rho = 1.16e-8
+        
+        if not os.path.exists("test/data/test_prog_mask/0.sites"):
+            makedirs("test/data/test_prog_mask")
+            
+            os.system("""arg-sim \
+            -k 12 -L 10000 --model dsmc \
+            -N 1e4 -r 1.16e-8 -m 2.20e-8 \
+            --ntimes 20 --maxtime 200e3 \
+            -o test/data/test_prog_mask/0""")
+
+            mask = [["chr", 1000, 2000],
+                    ["chr", 3000, 4000]]
+            write_delim("test/data/test_prog_mask/mask.bed", mask)
+            
+        make_clean_dir("test/data/test_prog_mask/0.sample")
+        os.system("""arg-sample \
+    -s test/data/test_prog_mask/0.sites \
+    -N 1e4 -r 1.16e-8 -m 2.20e-8 \
+    --ntimes 20 --maxtime 200e3 -c 20 \
+    -n 10 \
+    --maskmap test/data/test_prog_mask/mask.bed \
+    -o test/data/test_prog_mask/0.sample/out""")
+
 
 
     def test_prog(self):
@@ -208,17 +236,12 @@ class Prog (unittest.TestCase):
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
 
-            mask = [["chr", 1000, 2000],
-                    ["chr", 3000, 4000]]
-            write_delim("test/data/test_prog/mask.bed", mask)
-            
         make_clean_dir("test/data/test_prog/0.sample")
         os.system("""arg-sample \
     -s test/data/test_prog/0.sites \
     -N 1e4 -r 1.16e-8 -m 2.20e-8 \
     --ntimes 20 --maxtime 200e3 -c 20 \
-    -n 10000 --gibbs --resample-window 10000 --resample-window-iters 10 -V 1 \
-    --maskmap test/data/test_prog/mask.bed \
+    -n 1000 --gibbs -V 2 \
     -o test/data/test_prog/0.sample/out""")
 
         
