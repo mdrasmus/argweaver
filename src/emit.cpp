@@ -46,7 +46,7 @@ void find_invariant_sites(const char *const *seqs, int nseqs, int seqlen,
 
 
 void find_masked_sites(const char *const *seqs, int nseqs, int seqlen, 
-                       bool *masked, bool *invariant=NULL)
+                       bool *masked, bool *invariant)
 {
     if (invariant) {
         for (int i=0; i<seqlen; i++)
