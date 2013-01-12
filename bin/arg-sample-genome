@@ -60,8 +60,9 @@ while reg_start < end:
     #outdir = os.path.dirname(outprefix)
     #if not os.path.exists(outdir):
     #    os.makedirs(outdir)
-    
-    args2 = args + ["--sites", conf.sites,
+
+    args3 = [(x % reg_start if "%d" in x else x) for x in args]
+    args2 = args3 + ["--sites", conf.sites,
                     "--region", "%d-%d" % (start2, end2),
                     "--output", outprefix]
     print " ".join(args2)
