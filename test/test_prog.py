@@ -242,7 +242,7 @@ class Prog (unittest.TestCase):
     -s test/data/test_prog/0.sites \
     -N 1e4 -r 0.5e-8 -m 2.20e-8 \
     --ntimes 20 --maxtime 200e3 -c 20 \
-    -n 1000 --gibbs --resample-window-iters 1 -V 2 \
+    -n 1000 \
     -o test/data/test_prog/0.sample/out""")
 
         
