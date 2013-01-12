@@ -47,7 +47,7 @@ step = conf.step
 if conf.dont_align_step:
     reg_start = start
 else:
-    reg_start = 0
+    reg_start = 1
     while reg_start + step < start:
         reg_start += step
 
@@ -57,9 +57,9 @@ while reg_start < end:
     end2 = min(reg_start + step - 1 + conf.flank, end)
     outprefix = conf.output % reg_start
 
-    outdir = os.path.dirname(outprefix)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    #outdir = os.path.dirname(outprefix)
+    #if not os.path.exists(outdir):
+    #    os.makedirs(outdir)
     
     args2 = args + ["--sites", conf.sites,
                     "--region", "%d-%d" % (start2, end2),
