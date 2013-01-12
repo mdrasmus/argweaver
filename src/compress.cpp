@@ -32,6 +32,9 @@ string quote_arg(string text)
 
 FILE *read_compress(const char *filename, const char *command)
 {
+    bool exists = !access(filename, F_OK);
+    if (!exists)
+        return NULL;
     const char *command2 = (command ? command : UNZIP_COMMAND);
     string cmd = string(command2) + " < " + quote_arg(filename);
     return popen(cmd.c_str(), "r");
@@ -40,6 +43,7 @@ FILE *read_compress(const char *filename, const char *command)
 
 FILE *write_compress(const char *filename, const char *command)
 {
+    // TODO: add check to prevent write error
     const char *command2 = (command ? command : ZIP_COMMAND);
     string cmd = string(command2) + " > " + quote_arg(filename);
     return popen(cmd.c_str(), "w");
