@@ -593,7 +593,7 @@ def iter_sites(filename):
     infile.close()
 
 
-def read_sites(filename):
+def read_sites(filename, region=None):
     """Read a sites file"""
 
     reader = iter_sites(filename)
@@ -601,8 +601,11 @@ def read_sites(filename):
 
     sites = Sites(names=header["names"], chrom=header["chrom"],
                   region=header["region"])
+    if region:
+        sites.region = region
 
     for pos, col in reader:
+        if region and (pos < region[0] or pos > region[1]): continue
         sites.append(pos, col)
 
     return sites
