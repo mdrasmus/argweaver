@@ -5,19 +5,15 @@
 import sys
 from compbio import arglib
 from compbio.vis import argvis
+import arghmm
 
 
-treesfile = sys.argv[1]
+argfile = sys.argv[1]
 
-tree_track = arglib.read_tree_tracks(treesfile)
+if argfile.endswith(".smc.gz"):
+    arg = arghmm.read_arg(argfile)
+else:
+    arg = arglib.read_arg(argfile)
 
-argvis.show_coal_track(tree_track)
 
-'''
-print "reading trees..."
-arg = arglib.read_arg(argfile)
-
-print "drawing arg..."
-argvis.show_coal_tracks(arg)
-'''
-
+argvis.show_coal_track(arglib.iter_local_trees(arg, convert=True))

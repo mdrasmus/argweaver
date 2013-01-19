@@ -2,6 +2,9 @@
 # Wed Dec 19 00:34:37 EST 2012
 
 import sys
+import optparse
+
+from rasmus import util
 from compbio import arglib
 from compbio.vis import argvis
 import arghmm
@@ -12,28 +15,76 @@ from summon.core import *
 
 #=============================================================================
 
-argfile = sys.argv[1]
-if len(sys.argv) > 2:
-    sitefile = sys.argv[2]
-else:
-    sitefile = None
+def read_chrom_colors(filename):
+    chrom_colors = {}
+    for row in util.read_delim(filename):
+        if len(row) == 4:
+            r, g, b = map(float, row[1:])
+            a = 1.0
+        elif len(row) == 5:
+            r, g, b, a = map(float, row[1:])
+        else:
+            raise Exception("wrong number of fields in chrom color file")
+        chrom_colors[row[0]] = [r, g, b, a]
+    return chrom_colors
+
+#=============================================================================
+# arguments
+
+o = optparse.OptionParser()
+o.add_option("-a", "--arg")
+o.add_option("-s", "--sites")
+o.add_option("-c", "--chrom-color")
+o.add_option("-p", "--pos", type="int", default=None)
+o.add_option("-r", "--region", metavar="START-END", default=None)
+conf, args = o.parse_args()
 
 #=============================================================================
 # reading
 
-if argfile.endswith(".smc.gz"):
-    arg = arghmm.read_arg(argfile)
+util.tic("reading ARG")
+if conf.arg.endswith(".smc.gz"):
+    arg = arghmm.read_arg(conf.arg)
 else:
-    arg = arglib.read_arg(argfile)
+    arg = arglib.read_arg(conf.arg)
+util.toc()
 
-if sitefile:
-    sites = arghmm.read_sites(sitefile)
+if conf.sites:
+    util.tic("reading sites")
+    sites = arghmm.read_sites(conf.sites)
+    util.toc()
 else:
     sites = None
 
+if conf.region:
+    start, end = map(int,conf.region.split("-"))
+else:
+    start, end = None, None
+
 #=============================================================================
 
-blocks, leaf_layout = argvis.layout_chroms(arg)
+util.tic("layout chromosomes")
+blocks, leaf_layout = argvis.layout_chroms(arg, start, end)
+util.toc()
+
+# color chromosomes based on file
+chrom_colors = None
+if conf.chrom_color:
+    chrom_colors = read_chrom_colors(conf.chrom_color)
+
+# color chromosomes based on position
+if conf.pos:
+    for i in range(len(blocks)):
+        if blocks[i][0] <= conf.pos < blocks[i][1]:
+            items = leaf_layout[i].items()
+            items.sort(key=lambda x: x[1])
+            order = util.cget(items, 0)
+            break
+    cmap = util.rainbow_color_map(low=0, high=len(order)-1)
+    chrom_colors = {}
+    for i, name in enumerate(order):
+        chrom_colors[name] = cmap.get(i)
+
 
 win = summon.Window()
 win.set_bgcolor(.2,.2,.2)
@@ -42,14 +93,17 @@ win.set_binding(input_click("left", "up"), lambda: argvis.mouse_click(win))
 
 snp_colors = {"compat": [1, 0, 0],
               "noncompat": [0, 1, 0]}
-chrom_color = None
-            
+
+util.tic("drawing")
 g = win.add_group(group())
 argvis.draw_arg_threads(arg, blocks, leaf_layout, sites=sites,
-                        chrom_colors=chrom_color,
+                        chrom_color=[.2,.2,1,.8],
+                        chrom_colors=chrom_colors,
                         #compat=True,
                         snp_colors={"compat": [1, 1, 1],
                                     "noncompat": [0, 1, 0]},
                         spr_alpha=1, spr_trim=5,
                         draw_group=g, win=win)
 win.home("exact")
+util.toc()
+
