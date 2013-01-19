@@ -605,7 +605,8 @@ def read_sites(filename, region=None):
         sites.region = region
 
     for pos, col in reader:
-        if region and (pos < region[0] or pos > region[1]): continue
+        if region and (pos < region[0]): continue
+        if region and (pos > region[1]): break
         sites.append(pos, col)
 
     return sites
