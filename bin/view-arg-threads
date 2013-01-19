@@ -14,6 +14,18 @@ from summon.hud import RulerHud
 from summon.core import *
 
 #=============================================================================
+# arguments
+
+o = optparse.OptionParser()
+o.add_option("-a", "--arg")
+o.add_option("-s", "--sites")
+o.add_option("-c", "--chrom-color")
+o.add_option("-p", "--pos", type="int", default=None)
+o.add_option("-r", "--region", metavar="START-END", default=None)
+conf, args = o.parse_args()
+
+
+#=============================================================================
 
 def read_chrom_colors(filename):
     chrom_colors = {}
@@ -28,19 +40,10 @@ def read_chrom_colors(filename):
         chrom_colors[row[0]] = [r, g, b, a]
     return chrom_colors
 
-#=============================================================================
-# arguments
-
-o = optparse.OptionParser()
-o.add_option("-a", "--arg")
-o.add_option("-s", "--sites")
-o.add_option("-c", "--chrom-color")
-o.add_option("-p", "--pos", type="int", default=None)
-o.add_option("-r", "--region", metavar="START-END", default=None)
-conf, args = o.parse_args()
 
 #=============================================================================
 # reading
+
 
 util.tic("reading ARG")
 if conf.arg.endswith(".smc.gz"):
@@ -49,22 +52,28 @@ else:
     arg = arglib.read_arg(conf.arg)
 util.toc()
 
+if conf.region:
+    region = map(int, conf.region.split("-"))
+else:
+    region = [None, None]
+
+util.tic("read sites")
 if conf.sites:
     util.tic("reading sites")
-    sites = arghmm.read_sites(conf.sites)
+    if region:
+        sites = arghmm.read_sites(conf.sites, region)
+    else:
+        sites = arghmm.read_sites(conf.sites)
     util.toc()
 else:
     sites = None
+util.toc()
 
-if conf.region:
-    start, end = map(int,conf.region.split("-"))
-else:
-    start, end = None, None
 
 #=============================================================================
 
 util.tic("layout chromosomes")
-blocks, leaf_layout = argvis.layout_chroms(arg, start, end)
+blocks, leaf_layout = argvis.layout_chroms(arg, region[0], region[1])
 util.toc()
 
 # color chromosomes based on file

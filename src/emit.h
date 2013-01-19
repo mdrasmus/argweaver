@@ -7,6 +7,8 @@
 
 namespace arghmm {
 
+void find_masked_sites(const char *const *seqs, int nseqs, int seqlen, 
+                       bool *masked, bool *invariant=NULL);
 
 void parsimony_ancestral_seq(const LocalTree *tree, const char *const *seqs, 
                              int nseqs, int pos, char *ancestral,

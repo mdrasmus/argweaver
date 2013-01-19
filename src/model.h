@@ -250,7 +250,7 @@ public:
     }
 
     // Initializes mutation and recombination maps for use
-    void setup_maps(string chrom, int start, int end);
+    bool setup_maps(string chrom, int start, int end);
     
     // set model parameters from map position
     void set_map_pos(int pos) {

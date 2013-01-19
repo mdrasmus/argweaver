@@ -62,6 +62,7 @@ ARGHMM_SRC = \
     src/model.cpp \
     src/newick.cpp \
     src/parsing.cpp \
+    src/prior.cpp \
     src/ptree.cpp \
     src/recomb.cpp \
     src/sample_arg.cpp \
@@ -74,7 +75,9 @@ ARGHMM_SRC = \
     src/track.cpp \
     src/trans.cpp \
     src/Tree.cpp \
-    src/t2exp.cpp
+    src/t2exp.cpp \
+    src/expm/matrix_exponential.cpp \
+    src/expm/r8lib.cpp
 
 ALL_SRC = \
     $(ARGHMM_SRC) \

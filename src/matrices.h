@@ -80,10 +80,16 @@ public:
         emit = NULL;
     }
 
+    void set_states(bool internal, int minage=0)
+    {
+        states_model.set(internal, minage);
+    }
+
     
     int nstates1; // number of states in previous block
     int nstates2; // number of states in this block
     int blocklen; // block length
+    StatesModel states_model;
     TransMatrix* transmat; // transition matrix within this block
     TransMatrixSwitch* transmat_switch; // transition matrix from previous block
     double **emit; // emission matrix
@@ -94,7 +100,7 @@ void calc_arghmm_matrices(
     const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
     const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
     const int start, const int end, const int new_chrom,
-    const bool internal, ArgHmmMatrices *matrices);
+    const StatesModel &states_model, ArgHmmMatrices *matrices);
 
 
 
@@ -212,7 +218,6 @@ public:
         seqs(seqs),
         trees(trees),
         new_chrom(_new_chrom),
-        internal(false),
         blocks(model, trees)
     {
         if (new_chrom == -1)
@@ -232,9 +237,11 @@ public:
     virtual void clear() {}
     
     // calculate matrix for internal branch resampling
-    void set_internal(bool _internal)
+    void set_internal(bool _internal, int _minage=0)
     {
-        internal = _internal;
+        states_model.set(_internal, _minage);
+        //internal = _internal;
+        //minage = _minage;
     }
 
     //==================================================
@@ -319,6 +326,14 @@ public:
     void get_local_model(ArgModel &local_model) {
         model->get_local_model(blocks.at(block_index).start, local_model);
     }
+
+    void get_coal_states(const LocalTree *tree, int ntimes, States &states) const {
+        states_model.get_coal_states(tree, ntimes, states);
+    }
+
+
+    
+    StatesModel states_model;
     
 protected:
 
@@ -333,7 +348,7 @@ protected:
         
         arghmm::calc_arghmm_matrices(
             &local_model, seqs, trees, last_tree_spr, block.tree_spr,
-            block.start, block.end, new_chrom, internal, matrices);
+            block.start, block.end, new_chrom, states_model, matrices);
     }
 
 
@@ -342,7 +357,10 @@ protected:
     const Sequences *seqs;
     const LocalTrees *trees;
     int new_chrom;
-    bool internal;
+
+    
+    //int minage;
+    //bool internal;
     
     ArgHmmMatrices mat;
 
@@ -437,184 +455,3 @@ protected:
 #endif // ARGHMM_MATRICES_H
 
 
-//=============================================================================
-// OLD CODE
-
-/*
-// iterates through matricies for the ArgHmm
-class ArgHmmMatrixIter3
-{
-public:
-    ArgHmmMatrixIter3(const ArgModel *model, const Sequences *seqs, 
-                     const LocalTrees *trees, 
-                     int _new_chrom=-1) :
-        model(model),
-        seqs(seqs),
-        trees(trees),
-        new_chrom(_new_chrom),
-        internal(false),
-        pos(trees->start_coord),
-        lineages(model->ntimes)
-    {
-        if (new_chrom == -1)
-            new_chrom = trees->get_num_leaves();
-    }
-
-    virtual ~ArgHmmMatrixIter3() 
-    {
-        mat.clear();
-    }
-
-
-    virtual void setup() {}
-
-    virtual void clear() {}
-
-    // initializes iterator
-    virtual void begin()
-    {
-        begin(trees->begin(), trees->start_coord);
-    }
-
-    virtual void rbegin()
-    {
-        LocalTrees::const_iterator it = --trees->end();
-        rbegin(it, trees->end_coord - it->blocklen);
-    }
-    
-protected:
-    virtual void begin(LocalTrees::const_iterator start, int start_coord)
-    {
-        tree_iter = start;
-        pos = start_coord;
-
-        // setup last_tree information
-        if (start_coord == trees->start_coord) {
-            // no last tree
-            last_tree = NULL;
-            last_states = NULL;
-            states = &states1;
-        } else {
-            LocalTrees::const_iterator tree_iter2 = tree_iter;
-            --tree_iter2;
-            last_states = &states2;
-            last_tree = tree_iter2->tree;
-            states = &states1;
-            if (internal)
-                get_coal_states_internal(
-                    last_tree, model->ntimes, *last_states);
-            else
-                get_coal_states(last_tree, model->ntimes, *last_states);
-        }
-    }
-    
-    virtual void rbegin(LocalTrees::const_iterator start, int start_coord)
-    {
-        begin(start, start_coord);
-    }
-
-public:
-    virtual bool next()
-    {
-        // update pointers
-        last_tree = tree_iter->tree;
-        last_states = states;
-        states = ((states == &states1) ? &states2 : &states1);
-        pos += tree_iter->blocklen;
-
-        ++tree_iter;
-        return tree_iter != trees->end();
-    }
-
-
-    // moves iterator to previous block
-    virtual bool prev()
-    {
-        --tree_iter;
-        LocalTrees::const_iterator it = tree_iter;
-        --it;
-
-        if (it != trees->end()) {
-            last_tree = it->tree;
-            last_states = &states2;
-            if (internal)
-                get_coal_states_internal(
-                    last_tree, model->ntimes, *last_states);
-            else
-                get_coal_states(last_tree, model->ntimes, *last_states);
-            pos -= tree_iter->blocklen;
-        } else {
-            last_tree = NULL;
-            last_states = NULL;
-            pos = trees->start_coord;
-        }
-        
-        return tree_iter != trees->end();
-    }
-    
-
-    // returns true if there are more blocks
-    virtual bool more() const
-    {
-        return tree_iter != trees->end();
-    }
-
-    virtual ArgHmmMatrices &ref_matrices()
-    {
-        mat.clear();
-        calc_matrices(&mat);
-        return mat;
-    }
-
-    
-    const LocalTreeSpr *get_tree_spr() const {
-        return &(*tree_iter);
-    }
-    
-    int get_block_start() const {
-        return pos;
-    }
-
-    int get_block_end() const {
-        return pos + tree_iter->blocklen;
-    }
-
-    int get_blocklen() const {
-        return tree_iter->blocklen;
-    }
-
-    void set_internal(bool _internal)
-    {
-        internal = _internal;
-    }
-
-protected:
-    
-    // calculate transition and emission matrices for current block
-    void calc_matrices(ArgHmmMatrices *matrices);
-
-    // calculate transition and emission matrices for current block
-    void calc_matrices_internal(ArgHmmMatrices *matrices);
-
-
-    // references to model, arg, sequences
-    const ArgModel *model;
-    ArgModel local_model;
-    const Sequences *seqs;
-    const LocalTrees *trees;
-    int new_chrom;
-    bool internal;
-    
-    // data for current block
-    ArgHmmMatrices mat;
-    int pos;
-    LocalTrees::const_iterator tree_iter;
-    States states1;
-    States states2;
-    States *states;
-    States *last_states;
-    LocalTree *last_tree;
-    LineageCounts lineages;
-};
-
-*/

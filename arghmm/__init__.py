@@ -593,7 +593,7 @@ def iter_sites(filename):
     infile.close()
 
 
-def read_sites(filename):
+def read_sites(filename, region=None):
     """Read a sites file"""
 
     reader = iter_sites(filename)
@@ -601,8 +601,12 @@ def read_sites(filename):
 
     sites = Sites(names=header["names"], chrom=header["chrom"],
                   region=header["region"])
+    if region:
+        sites.region = region
 
     for pos, col in reader:
+        if region and (pos < region[0]): continue
+        if region and (pos > region[1]): break
         sites.append(pos, col)
 
     return sites
@@ -963,25 +967,25 @@ def read_arg(smc_filename):
     return smc2arg(iter_smc_file(smc_filename, parse_trees=True))
 
 
-
 def iter_smc_trees(smc_file, pos):
     """
     Iterate through local trees at positions 'pos' in filename 'smc_file'
     """
     
-    smc = SMCReader(smc_file)
+    smc = arghmm.SMCReader(smc_file)
     try:
         piter = iter(pos)
         item = smc.next()
         for p in piter:
-            while (item["tag"] != "TREE" or
-                   item["start"] > p or
+            while (item["tag"] != "TREE" or                   
                    item["end"] < p):
                 item = smc.next()
-            yield smc.parse_tree(item["tree"])
+            if item["start"] <= p:
+                yield smc.parse_tree(item["tree"])
     except StopIteration:
         pass
     smc.close()
+
 
 
 #=============================================================================

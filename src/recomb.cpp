@@ -66,10 +66,11 @@ void sample_recombinations(
         ArgHmmMatrices &matrices = matrix_iter->ref_matrices();
         LocalTree *tree = matrix_iter->get_tree_spr()->tree;
         lineages.count(tree, internal);
-        if (internal)
-            get_coal_states_internal(tree, model->ntimes, states);
-        else
-            get_coal_states(tree, model->ntimes, states);
+        matrices.states_model.get_coal_states(tree, model->ntimes, states);
+        //if (internal)
+        //    get_coal_states_internal(tree, model->ntimes, states);
+        //else
+        //    get_coal_states(tree, model->ntimes, states);
         int next_recomb = -1;
 
         // don't sample recombination if there is no state space

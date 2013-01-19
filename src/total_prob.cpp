@@ -8,6 +8,7 @@
 #include "emit.h"
 #include "local_tree.h"
 #include "sequences.h"
+#include "trans.h"
 
 
 using namespace std;
@@ -99,7 +100,8 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
     return lnl;
 }
 
-
+//=============================================================================
+// ARG prior
 
 
 // The probabiluty of going from 'a' lineages to 'b' lineages in time 't'
@@ -157,6 +159,34 @@ double calc_tree_prior(const ArgModel *model, const LocalTree *tree,
     }
 
     // TODO: top prior
+    
+    return lnl;
+}
+
+
+double calc_tree_prior_approx(const ArgModel *model, const LocalTree *tree,
+                              LineageCounts &lineages)
+{
+    lineages.count(tree);
+    double lnl = 0.0;
+    
+    for (int i=0; i<tree->nnodes; i++) {
+        if (tree->nodes[i].is_leaf())
+            continue;
+        int time = tree->nodes[i].age;
+
+        // remove lineage counts
+        for (int j=0; j<time; j++)
+            lineages.nbranches[j]--;
+
+        lnl += log(calc_state_priors(time, lineages.nbranches, lineages.ncoals,
+                                     0, model->popsizes, model->coal_time_steps,
+                                     model->ntimes));
+        lnl += log(lineages.ncoals[time]);
+    }
+
+    if (isnan(lnl))
+        lnl = 0.0;
     
     return lnl;
 }
@@ -318,6 +348,20 @@ double arghmm_prior_prob(LocalTrees *trees,
     // setup model, local trees, sequences
     ArgModel model(ntimes, times, popsizes, rho, 0.0);
     return calc_arg_prior(&model, trees);
+}
+
+
+double arghmm_tree_prior_prob(LocalTrees *trees,
+                              double *times, int ntimes, double *popsizes)
+{
+    // setup model, local trees, sequences
+    ArgModel model(ntimes, times, popsizes, 0.0, 0.0);
+    LineageCounts lineages(ntimes);
+
+    //printf("%f\n", calc_tree_prior_approx(&model, trees->front().tree,
+    //                                      lineages));
+
+    return calc_tree_prior(&model, trees->front().tree, lineages);
 }
 
 

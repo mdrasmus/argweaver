@@ -56,6 +56,14 @@ double resample_arg_region(
     LocalTrees *trees, int region_start, int region_end, int niters,
     bool open_ended=true);
 
+double resample_arg_cut(
+    const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
+    int window_start=-1, int window_end=-1);
+
+double resample_arg_cut(
+    const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
+    int window, int step, int niters);
+
 double resample_arg_regions(
     const ArgModel *model, const Sequences *sequences, 
     LocalTrees *trees, int window, int step, int niters=1);

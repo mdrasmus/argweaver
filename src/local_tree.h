@@ -132,6 +132,8 @@ public:
     int age;
 };
 
+extern LocalNode null_node;
+
 
 // A local tree in a set of local trees
 //
@@ -328,6 +330,20 @@ public:
     inline LocalNode &operator[](int name) const
     {
         return nodes[name];
+    }
+
+
+    inline LocalNode &get_node(int name) const
+    {
+        return nodes[name];
+    }
+
+    inline LocalNode &get_root() const
+    {
+        if (root == -1)
+            return null_node;
+        else
+            return nodes[root];
     }
 
 
@@ -603,6 +619,48 @@ public:
     }
     
     
+    // return local block containing site
+    const_iterator get_block(int site, int &start, int &end) const 
+    {
+        end = start_coord;
+        for (const_iterator it = begin(); it != this->end(); ++it) {
+            start = end;
+            end += it->blocklen;        
+            if (start <= site && site < end)
+                return it;
+        }
+        return this->end();
+    }
+
+    // return local block containing site
+    const_iterator get_block(int site) const 
+    {
+        int start, end;
+        return get_block(site, start, end);
+    }
+
+    // return local block containing site
+    iterator get_block(int site, int &start, int &end)
+    {
+        end = start_coord;
+        for (iterator it = begin(); it != this->end(); ++it) {
+            start = end;
+            end += it->blocklen;        
+            if (start <= site && site < end)
+                return it;
+        }
+        return this->end();
+    }
+
+    // return local block containing site
+    iterator get_block(int site)
+    {
+        int start, end;
+        return get_block(site, start, end);
+    }
+
+
+    
     string chrom;              // chromosome name of region
     int start_coord;           // start coordinate of whole tree list
     int end_coord;             // end coordinate of whole tree list
@@ -676,14 +734,20 @@ double get_arglen(const LocalTrees *trees, const double *times);
 void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
                          const LocalTree *tree2, const int *seqids2, 
                          int *mapping);
+void infer_mapping(const LocalTree *tree1, const LocalTree *tree2, 
+                   int recomb_node, int *mapping);
+void repair_spr(const LocalTree *last_tree, const LocalTree *tree, Spr &spr, 
+                int *mapping);
 
 bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it);
 void remove_null_sprs(LocalTrees *trees);
+void get_inverse_mapping(const int *mapping, int size, int *inv_mapping);
 
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
-                                  LocalTrees::iterator it, int it_start);
-LocalTrees *partition_local_trees(LocalTrees *trees, int pos);
-void append_local_trees(LocalTrees *trees, LocalTrees *trees2);
+                                  LocalTrees::iterator it, int it_start,
+                                  bool trim=true);
+LocalTrees *partition_local_trees(LocalTrees *trees, int pos, bool trim=true);
+void append_local_trees(LocalTrees *trees, LocalTrees *trees2, bool merge=true);
 
 void uncompress_local_trees(LocalTrees *trees, 
                             const SitesMapping *sites_mapping);

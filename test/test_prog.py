@@ -40,7 +40,7 @@ class Prog (unittest.TestCase):
             os.system("""arg-sim \
             -k 4 -L 200000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 \
-            --ntimes 20 --maxtime 400e3 \
+            --ntimes 20 --maxtime 400e3  \
             -o test/data/test_prog_small/0""")
 
         make_clean_dir("test/data/test_prog_small/0.sample")
@@ -48,7 +48,7 @@ class Prog (unittest.TestCase):
     -s test/data/test_prog_small/0.sites \
     -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
     --ntimes 20 --maxtime 400e3 -c 20 \
-    --climb 0 -n 100 \
+    -n 100  --gibbs \
     -o test/data/test_prog_small/0.sample/out""")
 
 
@@ -190,7 +190,35 @@ class Prog (unittest.TestCase):
     -x 1 --resume \
     -o test/data/test_prog_small/0.sample/out""")
 
+
+    def test_prog_mask(self):
         
+        popsize = 1e4
+        mu = 2.20e-8
+        rho = 1.16e-8
+        
+        if not os.path.exists("test/data/test_prog_mask/0.sites"):
+            makedirs("test/data/test_prog_mask")
+            
+            os.system("""arg-sim \
+            -k 12 -L 10000 --model dsmc \
+            -N 1e4 -r 1.16e-8 -m 2.20e-8 \
+            --ntimes 20 --maxtime 200e3 \
+            -o test/data/test_prog_mask/0""")
+
+            mask = [["chr", 1000, 2000],
+                    ["chr", 3000, 4000]]
+            write_delim("test/data/test_prog_mask/mask.bed", mask)
+            
+        make_clean_dir("test/data/test_prog_mask/0.sample")
+        os.system("""arg-sample \
+    -s test/data/test_prog_mask/0.sites \
+    -N 1e4 -r 1.16e-8 -m 2.20e-8 \
+    --ntimes 20 --maxtime 200e3 -c 20 \
+    -n 10 \
+    --maskmap test/data/test_prog_mask/mask.bed \
+    -o test/data/test_prog_mask/0.sample/out""")
+
 
 
     def test_prog(self):
@@ -203,27 +231,29 @@ class Prog (unittest.TestCase):
             makedirs("test/data/test_prog")
             
             os.system("""arg-sim \
-            -k 12 -L 400000 --model dsmc \
-            -N 1e4 -r 1.16e-8 -m 2.20e-8 --infsites \
+            -k 20 -L 1000000 --model dsmc \
+            -N 1e4 -r 0.5e-8 -m 2.20e-8 \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
-            
-        make_clean_dir("test/data/test_prog/0.sample")
-        os.system("""arg-sample \
+
+        if 1:
+            make_clean_dir("test/data/test_prog/0.sample")
+            os.system("""arg-sample \
     -s test/data/test_prog/0.sites \
-    -N 1e4 -r 1.16e-8 -m 2.20e-8 --infsites \
+    -N 1e4 -r 0.5e-8 -m 2.20e-8 \
     --ntimes 20 --maxtime 200e3 -c 20 \
-    --climb 0 -n 1001 \
-    -x 1 \
+    -n 1000 \
     -o test/data/test_prog/0.sample/out""")
+
         
         
         # read true arg and seqs
-        times = arghmm.get_time_points(ntimes=20, maxtime=400000)
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         arg = arglib.read_arg("test/data/test_prog/0.arg")
         arghmm.discretize_arg(arg, times, ignore_top=False, round_age="closer")
         arg = arglib.smcify_arg(arg)
-        seqs = fasta.read_fasta("test/data/test_prog/0.fa")
+        seqs = arghmm.sites2seqs(
+            arghmm.read_sites("test/data/test_prog/0.sites"))
 
         # compute true stats
         arglen = arglib.arglen(arg)

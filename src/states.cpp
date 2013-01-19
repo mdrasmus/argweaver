@@ -106,7 +106,8 @@ int get_num_coal_states_external(const LocalTree *tree, int ntimes)
 // NOTE: Do not allow coalescing at top time
 // states for the same branch are clustered together and ages are given
 // in increasing order
-void get_coal_states_internal(const LocalTree *tree, int ntimes, States &states)
+void get_coal_states_internal(const LocalTree *tree, int ntimes, 
+                              States &states, int minage)
 {
     states.clear();
     const int nnodes = tree->nnodes;
@@ -118,7 +119,7 @@ void get_coal_states_internal(const LocalTree *tree, int ntimes, States &states)
     }
 
     int subtree_root = nodes[tree->root].child[0];
-    int minage = nodes[subtree_root].age;
+    minage = max(minage, nodes[subtree_root].age);
 
     // ignore root and whole subtree
     bool ignore[nnodes];

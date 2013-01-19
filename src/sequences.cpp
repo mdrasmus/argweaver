@@ -291,6 +291,22 @@ void make_sequences_from_sites(const Sites *sites, Sequences *sequences,
 }
 
 
+template<>
+void apply_mask_sequences<NullValue>(Sequences *sequences, 
+                                     const TrackNullValue &maskmap)
+{
+    const char maskchar = 'N';
+    
+    for (unsigned int k=0; k<maskmap.size(); k++) {
+        for (int i=maskmap[k].start; i<maskmap[k].end; i++) {
+            for (int j=0; j<sequences->get_num_seqs(); j++)
+                sequences->seqs[j][i] = maskchar;
+        }
+    }
+}
+
+
+
 // Returns true if alignment column is invariant
 static inline bool is_invariant_site(const char *const *seqs, 
                                      const int nseqs, const int pos)

@@ -131,6 +131,7 @@ public:
     double *G4;
     double *norecombs;
     bool internal;
+    int minage;
 };
 
 
@@ -209,16 +210,13 @@ public:
 
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     const States &states, const LineageCounts *lineages, TransMatrix *matrix,
-    bool internal=false);
+    bool internal=false, int minage=0);
 void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
                           const States &states, const LineageCounts *lineages,
                           double **transprob);
 void get_transition_probs(const LocalTree *tree, const ArgModel *model,
                            const States &states, const LineageCounts *lineages,
                            const TransMatrix *matrix, double **transprob);
-void calc_transition_probs_internal(const LocalTree *tree, 
-    const ArgModel *model, const States &states, const LineageCounts *lineages,
-    TransMatrix *matrix);
 
 
 void calc_transition_probs_switch(
@@ -248,6 +246,9 @@ void calc_transition_probs_switch_internal2(
     TransMatrixSwitch *transmat_switch);
 
 
+double calc_state_priors(
+    int time, const int *nbranches, const int *ncoals, int minage,
+    const double *popsizes, const double *coal_time_steps, int ntimes);
 void calc_state_priors(const States &states, const LineageCounts *lineages, 
                        const ArgModel *model, double *priors,
                        const int minage=0);

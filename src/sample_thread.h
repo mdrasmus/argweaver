@@ -132,19 +132,10 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
     ArgHmmForwardTable *forward, bool prior_given=false, 
     bool internal=false, bool slow=false);
 
-
-//=============================================================================
-// thread path sampling
-
 double stochastic_traceback(
     const LocalTrees *trees, const ArgModel *model, 
     ArgHmmMatrixIter *matrix_iter, 
     double **fw, int *path, bool last_state_given=false, bool internal=false);
-
-void max_traceback(const LocalTrees *trees, const ArgModel *model, 
-                   ArgHmmMatrixIter *matrix_iter, 
-                   double **fw, int *path, 
-                   bool last_state_given=false, bool internal=false);
 
 //=============================================================================
 // ARG thread sampling
@@ -154,13 +145,11 @@ void sample_arg_thread(
     int new_chrom);
 
 void sample_arg_thread_internal(
-    const ArgModel *model, const Sequences *sequences, LocalTrees *trees);
+   const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
+   int minage=0);
 
 void resample_arg_thread(const ArgModel *model, const Sequences *sequences, 
     LocalTrees *trees, int chrom);
-
-void max_arg_thread(const ArgModel *model, const Sequences *sequences, 
-                    LocalTrees *trees, int new_chrom);
 
 void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences, 
                             LocalTrees *trees, int new_chrom,

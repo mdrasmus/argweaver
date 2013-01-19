@@ -2,6 +2,7 @@
 import unittest, random
 
 import arghmm
+import arghmm.popsize
 
 from rasmus.common import *
 from rasmus import stats, hmm
@@ -273,6 +274,43 @@ class Basic (unittest.TestCase):
         print prior
         print sum(map(exp, prior))
         fequal(sum(map(exp, prior)), 1.0, rel=.01)
+
+
+    def test_prior_counts(self):
+        """
+        Calculate initial tree prior
+        """
+
+        a = 10
+        n = 1e4
+        t = 1e3
+        
+        for b in range(1, a):
+            print arghmm.prob_coal_counts_matrix(a, b, t, 2*n)
+            print arghmm.popsize.prob_coal_counts(a, b, t, 2*n)
+            print
+
+        # large value
+        a = 500; b = 100
+        print "large"
+        print arghmm.prob_coal_counts_matrix(a, b, t, 2*n)
+        print arghmm.popsize.prob_coal_counts(a, b, t, 2*n)
+
+
+    def test_prior_tree(self):
+
+        k = 10
+        n = 1e4
+        popsizes = [n] * 20
+        length = 10
+        times = arghmm.get_time_points(ntimes=20, maxtime=1000000)
+
+        arg = arghmm.sample_arg_dsmc(k, 2*n, 1e-50, start=0, end=length,
+                                     times=times)
+        trees, names = arghmm.arg2ctrees(arg, times)
+        
+        print arghmm.arghmm_tree_prior_prob(trees, times, len(times), popsizes)
+
 
 
     def test_trans_single(self):
