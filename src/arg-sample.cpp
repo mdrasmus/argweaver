@@ -955,7 +955,7 @@ int main(int argc, char **argv)
         for (int i=0; i<sequences.length(); i++)
             nmasked += int(masked[i]);
         delete [] masked;
-        printLog(LOG_LOW, "masked %d (%f%%) sites\n", nmasked, 
+        printLog(LOG_LOW, "masked %d (%.1f%%) sites\n", nmasked, 
                  100.0 * nmasked / double(sequences.length()));
     }
 

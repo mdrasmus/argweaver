@@ -11,8 +11,8 @@ o.add_option("-w", "--window", default=10000, type="int")
 o.add_option("-s", "--start", default=0, type="int")
 o.add_option("-e", "--end", default=5000, type="int")
 o.add_option("-d", "--step", default=1, type="int")
-o.add_option("-n", "--normalize", action="store_true",
-             help="normalize by generations")
+#o.add_option("-n", "--normalize", action="store_true",
+#             help="normalize by generations")
 
 conf, args = o.parse_args()
 

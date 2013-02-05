@@ -72,7 +72,7 @@ def cons_smc(trees, attr, positions=None):
 
     yield {"tag": "NAMES", "names": attr["names"]}
     yield {"tag": "REGION", "chrom": attr["region"][0],
-           "start": attr["region"][1], "end": attr["region"][2]}
+           "start": attr["region"][1]+1, "end": attr["region"][2]}
 
     i = 0
     

@@ -70,11 +70,13 @@ def filter_trees(trees, pts):
     try:
         item = trees.next()
         for pos in pts:
+            #print >>sys.stderr, item[0], item[1], pos
             if item[0] > pos:
                 continue
             while item[1] <= pos:
                 item = trees.next()
             if item[0] <= pos < item[1]:
+                #print >>sys.stderr, "yield", item[0], item[1], pos
                 yield pos, item
 
     except StopIteration:
@@ -167,8 +169,10 @@ step = (end - start) / conf.ntrees
 pts = range(start + step/2, end, step)
 
 error = []
+seen = 0
 for (pos1, item1), (pos2, item2) in izip(
     filter_trees(trees1, pts), filter_trees(trees2, pts)):
+    seen += 1
 
     assert pos1 == pos2, (pos1, pos2)
     tree1 = parse_tree(item1[3], attr1["names"])
@@ -197,6 +201,8 @@ for (pos1, item1), (pos2, item2) in izip(
 
     if not conf.quiet:
         print_row(pos1, *row)
+
+assert seen == conf.ntrees
 
 error = transpose(error)
 print_row(*map(mean, error))
