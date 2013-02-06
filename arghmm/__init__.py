@@ -704,8 +704,42 @@ class SMCReader (object):
         self._infile.close()
             
 
-def iter_smc_file(filename, parse_trees=False, apply_spr=False):
+def iter_smc_file(filename, parse_trees=False, apply_spr=False,
+                  region=None):
     """Iterates through a SMC file"""
+
+    print region
+
+    if region:
+        tree = None
+        spr = None
+
+        for item in iter_smc_file(filename):           
+            if item["tag"] == "NAMES":
+                yield item
+            elif item["tag"] == "REGION":
+                item["start"] = max(region[0], item["start"])
+                item["end"] = min(region[1], item["end"])
+                yield item
+            elif item["tag"] == "SPR":
+                spr = item
+                if region[0] <= item["pos"] < region[1]:
+                    yield item
+            elif item["tag"] == "TREE":
+                if item["start"] <= region[1] and item["end"] >= region[0]:
+                    item["start"] = max(region[0], item["start"])
+                    item["end"] = min(region[1], item["end"])
+
+                    if parse_trees:
+                        if apply_spr and tree is not None and spr is not None:
+                            smc_apply_spr(tree, spr)
+                        else:
+                            tree = parse_tree(item["tree"])    
+                        item["tree"] = tree
+                    
+                    yield item
+        return
+
 
     with open_stream(filename) as infile:
         spr = None
@@ -962,9 +996,9 @@ def arg2smc(arg):
     raise Exception("not implemented yet")
     
 
-def read_arg(smc_filename):
+def read_arg(smc_filename, region=None):
     """Read an ARG from an SMC file"""
-    return smc2arg(iter_smc_file(smc_filename, parse_trees=True))
+    return smc2arg(iter_smc_file(smc_filename, parse_trees=True, region=region))
 
 
 def iter_smc_trees(smc_file, pos):
