@@ -714,30 +714,18 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False,
         tree = None
         spr = None
 
-        for item in iter_smc_file(filename):           
-            if item["tag"] == "NAMES":
-                yield item
-            elif item["tag"] == "REGION":
-                item["start"] = max(region[0], item["start"])
-                item["end"] = min(region[1], item["end"])
-                yield item
-            elif item["tag"] == "SPR":
-                spr = item
-                if region[0] <= item["pos"] < region[1]:
-                    yield item
-            elif item["tag"] == "TREE":
-                if item["start"] <= region[1] and item["end"] >= region[0]:
-                    item["start"] = max(region[0], item["start"])
-                    item["end"] = min(region[1], item["end"])
+        for item in iter_subsmc(iter_smc_file(filename), region):
 
-                    if parse_trees:
-                        if apply_spr and tree is not None and spr is not None:
-                            smc_apply_spr(tree, spr)
-                        else:
-                            tree = parse_tree(item["tree"])    
-                        item["tree"] = tree
-                    
-                    yield item
+            if item["tag"] == "SPR":
+                spr = item
+            elif item["tag"] == "TREE":
+                if parse_trees:
+                    if apply_spr and tree is not None and spr is not None:
+                        smc_apply_spr(tree, spr)
+                    else:
+                        tree = parse_tree(item["tree"])    
+                    item["tree"] = tree
+            yield item
         return
 
 
@@ -784,6 +772,28 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False,
                        "coal_node": int(tokens[4]),
                        "coal_time": float(tokens[5])}
                 yield spr
+
+
+def iter_subsmc(smc, region):
+    for item in smc:           
+        if item["tag"] == "NAMES":
+            yield item
+            
+        elif item["tag"] == "REGION":
+            item["start"] = max(region[0], item["start"])
+            item["end"] = min(region[1], item["end"])
+            yield item
+            
+        elif item["tag"] == "SPR":
+            if region[0] <= item["pos"] < region[1]:
+                yield item
+                
+        elif item["tag"] == "TREE":
+            if item["start"] <= region[1] and item["end"] >= region[0]:
+                item["start"] = max(region[0], item["start"])
+                item["end"] = min(region[1], item["end"])
+
+                yield item
 
 
 def read_smc(filename, parse_trees=False):
