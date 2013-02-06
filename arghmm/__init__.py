@@ -707,9 +707,7 @@ class SMCReader (object):
 def iter_smc_file(filename, parse_trees=False, apply_spr=False,
                   region=None):
     """Iterates through a SMC file"""
-
-    print region
-
+    
     if region:
         tree = None
         spr = None
@@ -796,8 +794,9 @@ def iter_subsmc(smc, region):
                 yield item
 
 
-def read_smc(filename, parse_trees=False):
-    return list(iter_smc_file(filename, parse_trees=parse_trees))
+def read_smc(filename, parse_trees=False, apply_spr=False):
+    return list(iter_smc_file(filename, parse_trees=parse_trees,
+                              apply_spr=apply_spr))
 
 
 def smc_apply_spr(tree, spr):
@@ -1008,7 +1007,8 @@ def arg2smc(arg):
 
 def read_arg(smc_filename, region=None):
     """Read an ARG from an SMC file"""
-    return smc2arg(iter_smc_file(smc_filename, parse_trees=True, region=region))
+    return smc2arg(iter_smc_file(smc_filename, parse_trees=True,
+                                 apply_spr=True, region=region))
 
 
 def iter_smc_trees(smc_file, pos):
