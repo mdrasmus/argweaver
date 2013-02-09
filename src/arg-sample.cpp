@@ -970,8 +970,9 @@ int main(int argc, char **argv)
         c.model.set_log_times(c.maxtime, c.ntimes);
     c.model.rho = c.rho;
     c.model.mu = c.mu;
+    const double infsites_penalty = 1e-100; // TODO: make configurable
     if (c.infsites)
-        c.model.infsites_penalty = 1e-100; //0.0;
+        c.model.infsites_penalty = infsites_penalty;
     c.model.set_popsizes(c.popsize, c.model.ntimes);
 
     // read model parameter maps if given

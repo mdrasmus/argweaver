@@ -511,8 +511,7 @@ void get_infinite_sites_states(const States &states, const LocalTree *tree,
                 }
             }
             if (!valid) {
-                printError("unable to satisfy infinite sites assumption");
-                abort();
+                printLog(LOG_LOW, "unable to satisfy infinite sites assumption");
             }
         }
         
@@ -564,8 +563,7 @@ void get_infinite_sites_states(const States &states, const LocalTree *tree,
                 }
             }
             if (!valid) {
-                printError("unable to satisfy infinite sites assumption");
-                abort();
+                printLog(LOG_LOW, "unable to satisfy infinite sites assumption");
             }
         }
     }
