@@ -522,7 +522,9 @@ class Sites (object):
         if end is None:
             j = None
         else:
-            _, j = util.binsearch(self.positions, end)
+            j2, j = util.binsearch(self.positions, end)
+            if j == j2:
+                j += 1
         def func():
             if i is None:
                 return
