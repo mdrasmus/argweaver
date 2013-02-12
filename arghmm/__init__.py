@@ -706,8 +706,28 @@ class SMCReader (object):
         self._infile.close()
             
 
-def iter_smc_file(filename, parse_trees=False, apply_spr=False):
+def iter_smc_file(filename, parse_trees=False, apply_spr=False,
+                  region=None):
     """Iterates through a SMC file"""
+    
+    if region:
+        tree = None
+        spr = None
+
+        for item in iter_subsmc(iter_smc_file(filename), region):
+
+            if item["tag"] == "SPR":
+                spr = item
+            elif item["tag"] == "TREE":
+                if parse_trees:
+                    if apply_spr and tree is not None and spr is not None:
+                        smc_apply_spr(tree, spr)
+                    else:
+                        tree = parse_tree(item["tree"])    
+                    item["tree"] = tree
+            yield item
+        return
+
 
     with open_stream(filename) as infile:
         spr = None
@@ -754,8 +774,31 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False):
                 yield spr
 
 
-def read_smc(filename, parse_trees=False):
-    return list(iter_smc_file(filename, parse_trees=parse_trees))
+def iter_subsmc(smc, region):
+    for item in smc:           
+        if item["tag"] == "NAMES":
+            yield item
+            
+        elif item["tag"] == "REGION":
+            item["start"] = max(region[0], item["start"])
+            item["end"] = min(region[1], item["end"])
+            yield item
+            
+        elif item["tag"] == "SPR":
+            if region[0] <= item["pos"] < region[1]:
+                yield item
+                
+        elif item["tag"] == "TREE":
+            if item["start"] <= region[1] and item["end"] >= region[0]:
+                item["start"] = max(region[0], item["start"])
+                item["end"] = min(region[1], item["end"])
+
+                yield item
+
+
+def read_smc(filename, parse_trees=False, apply_spr=False):
+    return list(iter_smc_file(filename, parse_trees=parse_trees,
+                              apply_spr=apply_spr))
 
 
 def smc_apply_spr(tree, spr):
@@ -964,9 +1007,10 @@ def arg2smc(arg):
     raise Exception("not implemented yet")
     
 
-def read_arg(smc_filename):
+def read_arg(smc_filename, region=None):
     """Read an ARG from an SMC file"""
-    return smc2arg(iter_smc_file(smc_filename, parse_trees=True))
+    return smc2arg(iter_smc_file(smc_filename, parse_trees=True,
+                                 apply_spr=True, region=region))
 
 
 def iter_smc_trees(smc_file, pos):

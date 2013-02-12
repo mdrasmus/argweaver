@@ -264,7 +264,7 @@ double calc_arg_prior(const ArgModel *model, const LocalTrees *trees)
     LineageCounts lineages(model->ntimes);
     
     // first tree prior
-    lnl += calc_tree_prior(model, trees->front().tree, lineages);
+    //lnl += calc_tree_prior(model, trees->front().tree, lineages);
 
     int end = trees->start_coord;
     for (LocalTrees::const_iterator it=trees->begin(); it != trees->end();) {
