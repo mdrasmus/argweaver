@@ -677,9 +677,11 @@ class SMCReader (object):
     Reads an SMC file
     """
     
-    def __init__(self, filename):
+    def __init__(self, filename, parse_trees=False, apply_spr=False):
         self._filename = filename
-        self._infile = iter_smc_file(filename)
+        self._infile = iter_smc_file(filename,
+                                     parse_trees=parse_trees,
+                                     apply_spr=apply_spr)
         self._stream = util.PushIter(self._infile)
 
         # read header
@@ -901,10 +903,7 @@ def parse_tree_data(node, data):
             node.name = int(data)
 
 
-def parse_tree(text, names=None):
-    """Parse a newick string into a tree"""
-    tree = treelib.parse_newick(text, read_data=parse_tree_data)
-
+def rename_tree(tree, names=None):
     # rename leaves to integers
     for node in list(tree):
         if node.is_leaf():
@@ -916,6 +915,12 @@ def parse_tree(text, names=None):
             tree.rename(i, name)
             
     return tree
+    
+
+def parse_tree(text, names=None):
+    """Parse a newick string into a tree"""
+    tree = treelib.parse_newick(text, read_data=parse_tree_data)
+    return rename_tree(tree, names)
 
 
 def format_tree(tree):
