@@ -9,7 +9,7 @@ import arghmm
 
 
 o = optparse.OptionParser()
-o.add_option("", "--ntimes", type="int", default=20)
+o.add_option("-t", "--ntimes", type="int", default=20)
 o.add_option("", "--maxtime", type="float", default=180e3)
 
 conf, args = o.parse_args()
@@ -24,6 +24,7 @@ smc_file = args[1]
 
 arg = arglib.read_arg(arg_file)
 arghmm.discretize_arg(arg, times)
+arg = arglib.smcify_arg(arg)
 trees, names = arghmm.arg2ctrees(arg, times)
 arghmm.write_local_trees(smc_file, trees, names, times, len(times))
 

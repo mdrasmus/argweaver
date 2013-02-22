@@ -745,7 +745,7 @@ bool setup_resume(Config &config)
     }
 
     if (arg_file == "") {
-        printLog(LOG_LOW, "Could not find any previously writen ARG files. Try disabling resume\n");
+        printLog(LOG_LOW, "Could not find any previously written ARG files. Try disabling resume\n");
         return false;
     }
     config.arg_file = arg_file;
@@ -831,10 +831,15 @@ int main(int argc, char **argv)
     printLog(LOG_LOW, "random seed: %d\n", c.randseed);
 
 
-    // setup resuming
+    // try to resume a previous run
     if (!setup_resume(c)) {
         printError("resume failed.");
-        return 1;
+        if (c.overwrite) {
+            c.resume = false;
+            printLog(LOG_LOW, "Resume failed.  Sampling will start from scratch since overwrite is enabled.\n");
+        } else {
+            return 1;
+        }
     }
 
 
