@@ -50,11 +50,30 @@ void find_masked_sites(const char *const *seqs, int nseqs, int seqlen,
 {
     if (invariant) {
         for (int i=0; i<seqlen; i++)
-            masked[i] = (seqs[0][i] == 'N');
+            masked[i] = (seqs[0][i] == 'N' && invariant[i]);
     } else {
         for (int i=0; i<seqlen; i++)
             masked[i] = (seqs[0][i] == 'N' && is_invariant_site(seqs, nseqs, i));
     }
+}
+
+
+int count_alleles(const char *const *seqs, 
+                  const int nseqs, const int pos)
+{
+    int counts[4] = {0, 0, 0, 0};
+    
+    for (int j=0; j<nseqs; j++) {
+        int c = dna2int[(int) seqs[j][pos]];
+        if (c != -1)
+            counts[c]++;
+    }
+    int alleles = int(counts[0] > 0) + 
+        int(counts[1] > 0) + 
+        int(counts[2] > 0) + 
+        int(counts[3] > 0);
+    
+    return alleles;
 }
 
 
@@ -986,8 +1005,17 @@ int count_noncompat(const LocalTree *tree, const char * const *seqs,
     
     int noncompat = 0;
     for (int i=0; i<seqlen; i++)
-        if (!is_invariant_site(seqs, nseqs, i))
-            noncompat += int(parsimony_cost_seq(tree, seqs, nseqs, i, postorder) > 1);
+        if (!is_invariant_site(seqs, nseqs, i)) {
+            int a = count_alleles(seqs, nseqs, i);
+            int c = parsimony_cost_seq(tree, seqs, nseqs, i, postorder);
+            noncompat += int(c > a + 1);
+            //if (c > a + 1) {
+            //    printf(">> %d: %d %d\n", i, c, a);
+            //    for (int j=0; j<nseqs; j++)
+            //        fputc(seqs[j][i], stdout);
+            //    fputc('\n', stdout);
+            //}
+        }
     
     return noncompat;
 }

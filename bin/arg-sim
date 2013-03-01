@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, optparse
+import sys, os, optparse
 
 from rasmus import util
 from compbio import fasta, arglib
@@ -22,6 +22,10 @@ o.add_option("", "--model", default="dsmc",
 o.add_option("", "--infsites", action="store_true", default=False)
 o.add_option("-R", "--recombmap", metavar="<recombination rate map file>", 
              help="recombination map file")
+
+if len(sys.argv) == 1:
+    o.print_help()
+    sys.exit(1)
 
 conf, args = o.parse_args()
 
