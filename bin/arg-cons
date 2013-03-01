@@ -13,6 +13,7 @@ o.add_option("-e", "--end", default=5000, type="int")
 o.add_option("-d", "--step", default=1, type="int")
 o.add_option("-n", "--ntrees", default=-1, type="int")
 o.add_option("-b", "--binary", action="store_true")
+o.add_option("-r", "--region")
 
 conf, args = o.parse_args()
 
@@ -22,10 +23,11 @@ def treelen(tree):
     return sum(x.dist for x in tree)
 
 
-def iter_trees(filename, attr):
+def iter_trees(filename, attr, region=None):
     chrom = "chr"
     
-    for item in arghmm.iter_smc_file(filename, parse_trees=False):
+    for item in arghmm.iter_smc_file(filename, parse_trees=False,
+                                     region=region):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
             attr["region"] = [item["chrom"], item["start"]-1, item["end"]]
@@ -35,8 +37,11 @@ def iter_trees(filename, attr):
             yield item["start"]-1, item["end"], chrom, item["tree"]
 
 
-def iter_trees_arg(filename, attr):
+def iter_trees_arg(filename, attr, region=None):
     arg = arglib.read_arg(filename)
+    if region:
+        arg = arglib.smcify_arg(arg, region[0], region[1])
+    
     attr["names"] = list(arg.leaf_names())
     attr["region"] = ["chr", arg.start, arg.end]
     
@@ -104,6 +109,11 @@ def cons_smc(trees, attr, positions=None):
 
 #=============================================================================
 
+region = None
+if conf.region:
+    region = map(int, conf.region.split("-"))
+
+
 # get filenames
 filename = args[0]
 if "%d" in filename:
@@ -120,9 +130,9 @@ trees = []
 for filename in filenames:
     print >>sys.stderr, filename
     if filename.endswith(".arg"):
-        trees.extend(iter_trees_arg(filename, attr))
+        trees.extend(iter_trees_arg(filename, attr, region))
     else:
-        trees.extend(iter_trees(filename, attr))
+        trees.extend(iter_trees(filename, attr, region))
 trees.sort()
 
 if conf.ntrees:
