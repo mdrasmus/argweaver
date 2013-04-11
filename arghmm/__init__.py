@@ -1022,7 +1022,7 @@ def iter_smc_trees(smc_file, pos):
     """
     Iterate through local trees at positions 'pos' in filename 'smc_file'
     """
-    
+
     smc = arghmm.SMCReader(smc_file)
     try:
         piter = iter(pos)

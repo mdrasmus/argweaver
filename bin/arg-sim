@@ -74,7 +74,7 @@ sites = arghmm.seqs2sites(seqs)
 sites.chrom = conf.chrom
 
 # write output
-print "writing output: ", conf.output + ".{fa,sites,arg}"
+print "writing output: ", conf.output + ".{sites,arg}"
 
 path = os.path.dirname(conf.output)
 util.makedirs(path)
