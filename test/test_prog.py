@@ -7,6 +7,7 @@ import arghmm
 from rasmus.common import *
 from rasmus import stats, hmm
 from rasmus.testing import *
+rplot_set_viewer("evince")
 
 from compbio import coal, arglib, fasta
 
@@ -231,7 +232,7 @@ class Prog (unittest.TestCase):
             makedirs("test/data/test_prog")
             
             os.system("""arg-sim \
-            -k 20 -L 100000 --model dsmc \
+            -k 2 -L 1000000 --model dsmc \
             -N 1e4 -r 0.5e-8 -m 2.20e-8 \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
@@ -241,8 +242,8 @@ class Prog (unittest.TestCase):
             os.system("""arg-sample \
     -s test/data/test_prog/0.sites \
     -N 1e4 -r 0.5e-8 -m 2.20e-8 \
-    --ntimes 20 --maxtime 200e3 -c 20 \
-    -n 1000 \
+    --ntimes 20 --maxtime 200e3 -c 10 \
+    -n 40 \
     -o test/data/test_prog/0.sample/out""")
 
         
@@ -274,6 +275,7 @@ class Prog (unittest.TestCase):
         y2 = joint
         y = data.cget("joint")
         rplot_start("test/data/test_prog/0.trace.joint.pdf", width=8, height=5)
+        #rp.pdf(file="test/data/test_prog/0.trace.joint.pdf", width=8, height=5)
         rp.plot(y, t="l", ylim=[min(min(y), y2), max(max(y), y2)],
                 main="joint probability",
                 xlab="iterations",

@@ -29,6 +29,8 @@ using namespace std;
 //=============================================================================
 // Forward algorithm for thread path
 
+
+/*
 // compute one block of forward algorithm with compressed transition matrices
 // NOTE: first column of forward table should be pre-populated
 void arghmm_forward_block_new(const LocalTree *tree, const int ntimes,
@@ -176,6 +178,7 @@ void arghmm_forward_block_new(const LocalTree *tree, const int ntimes,
             col2[k] /= norm;
     }
 }
+*/
 
 
 // compute one block of forward algorithm with compressed transition matrices
@@ -190,16 +193,10 @@ void arghmm_forward_block(const LocalTree *tree, const int ntimes,
     const LocalNode *nodes = tree->nodes;
 
     //  handle internal branch resampling special cases
-    //int minage = 0;
     int minage = matrix->minage;
-    int subtree_root = 0, maintree_root = 0;
+    int maintree_root = 0;
     if (matrix->internal) {
-        subtree_root = nodes[tree->root].child[0];
         maintree_root = nodes[tree->root].child[1];
-        //const int subtree_age = nodes[subtree_root].age;
-        //if (subtree_age > 0) {
-        //    minage = subtree_age;
-        //}
 
         if (nstates == 0) {
             // handle fully given case
@@ -405,7 +402,6 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
     double **fw = forward->get_table();
 
     // forward algorithm over local trees
-    LocalTree *last_tree = NULL;
     for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
         // get block information
         LocalTree *tree = matrix_iter->get_tree_spr()->tree;
@@ -421,22 +417,15 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
         double **fw_block = &fw[pos];
 
         matrices.states_model.get_coal_states(tree, model->ntimes, states);
-        //get_coal_states(tree, model->ntimes, states, internal);
         lineages.count(tree, internal);
 
         // use switch matrix for first column of forward table
         // if we have a previous state space (i.e. not first block)
         if (pos == trees->start_coord) {
             // calculate prior of first state
-            if (!prior_given) {
-                int minage = matrices.states_model.minage;
-                //if (internal) {
-                //    int subtree_root = tree->nodes[tree->root].child[0];
-                //    minage = tree->nodes[subtree_root].age;
-                //}
+            if (!prior_given)
                 calc_state_priors(states, &lineages, &local_model, 
-                                  fw[pos], minage);
-            }
+                                  fw[pos], matrices.states_model.minage);
         } else if (matrices.transmat_switch) {
             // perform one column of forward algorithm with transmat_switch
             arghmm_forward_switch(fw[pos-1], fw[pos], 
@@ -466,8 +455,6 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
         // safety check
         double top2 = max_array(fw[pos + matrices.blocklen - 1], nstates);
         assert(top2 > 0.0);
-
-        last_tree = tree;
     }
 }
 
