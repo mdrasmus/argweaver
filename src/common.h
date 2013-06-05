@@ -183,26 +183,21 @@ inline double logsum(const double *vals, int nvals, const double threshold=-15)
 {
     if (nvals == 0)
         return 1.0;
-
-    double maxval = vals[0];
-    int maxi = 0;
-
-    // find maxval
-    for (int i=1; i<nvals; i++) {
-        if (vals[i] > maxval) {
-            maxval = vals[i];
-            maxi = i;
-        }
-    }
     
-    // NOTE: for i = maxi, exp(vals[i] - maxval) = 1.0
+    // find maxval
+    double maxval = vals[0];
+    for (int i=1; i<nvals; i++)
+        if (vals[i] > maxval)
+            maxval = vals[i];
+    
+    // NOTE: for vals[i] = maxval, exp(vals[i] - maxval) = 1.0
     // inorder to discount for this value, we start the expsum at 0.0 
     // instead of 1.0
     double expsum = 0.0;
     for (int i=0; i<nvals; i++)
         if (vals[i] - maxval > threshold)
             expsum += t2exp(vals[i] - maxval);
-  
+    
     return maxval + log(expsum);        
 }
 

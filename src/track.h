@@ -241,7 +241,7 @@ bool read_track(FILE *infile, Track<T> *track)
 
 
 // Reads a track from a map stream
-// NOTE: only regions with chrom:start-end are kept
+// NOTE: only regions within chrom:start-end are kept
 template <class T>
 bool read_track_filter(FILE *infile, Track<T> *track,
                        string chrom, int start, int end)
@@ -269,6 +269,13 @@ bool read_track_filter(FILE *infile, Track<T> *track,
     }
     
     return true;
+}
+
+template <class T>
+bool read_track_filter(FILE *infile, Track<T> *track, const Region &region)
+{
+    return read_track_filter<T>(infile, track,
+                                region.chrom, region.start, region.end);
 }
 
 

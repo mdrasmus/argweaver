@@ -41,6 +41,10 @@ const char *LOG_SUFFIX = ".log";
 const int DEBUG_OPT = 1;
 
 
+const int EXIT_ERROR = 1;
+
+
+
 // parsing command-line options
 class Config
 {
@@ -194,25 +198,25 @@ public:
 	if (!config.parse(argc, (const char**) argv)) {
 	    if (argc < 2)
 		config.printHelp();
-	    return 1;
+	    return EXIT_ERROR;
 	}
     
 	// display help
 	if (help) {
 	    config.printHelp();
-	    return 1;
+	    return EXIT_ERROR;
 	}
 
         // display debug help
         if (help_debug) {
             config.printHelp(stderr, DEBUG_OPT);
-            return 1;
+            return EXIT_ERROR;
         }
     
 	// display version info
 	if (version) {
 	    printf(VERSION_INFO);
-	    return 1;
+	    return EXIT_ERROR;
 	}
         
 	return 0;
@@ -274,12 +278,9 @@ public:
 
 
 
-bool parse_region(const char *region, int *start, int *end, 
-                  bool zero_index=false)
+bool parse_region(const char *region, int *start, int *end)
 {
     return sscanf(region, "%d-%d", start, end) == 2;
-    if (zero_index)
-        *start--; // convert to 0-index
 }
 
 //=============================================================================
@@ -599,7 +600,7 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         printLog(LOG_LOW, "sample %d\n", i);
         Timer timer;
         if (config->gibbs)
-            resample_arg_cut(model, sequences, trees, window, step, niters);
+            resample_arg(model, sequences, trees);
         else
             resample_arg_mcmc_all(model, sequences, trees, frac_leaf,
                                   window, step, niters);
@@ -776,27 +777,38 @@ bool check_overwrite(Config &config)
 }
 
 
+bool ensure_output_dir(const char *outdir)
+{
+    char *path = strdup(outdir);
+    char *dir = dirname(path);
+    bool result = true;
+    if (!makedirs(dir)) {
+        printError("could not make directory for output files '%s'", dir);
+        result = false;
+    }
+    free(path);
+    return result;
+}
+
+
 //=============================================================================
+
 
 int main(int argc, char **argv)
 {
+    // parse command line arguments
     Config c;
     int ret = c.parse_args(argc, argv);
     if (ret)
 	return ret;
 
     // ensure output dir
-    char *path = strdup(c.out_prefix.c_str());
-    char *dir = dirname(path);
-    if (!makedirs(dir)) {
-        printError("could not make directory for output files '%s'", dir);
-        return 1;
-    }
-    free(path);
-
+    if (!ensure_output_dir(c.out_prefix.c_str()))
+        return EXIT_ERROR;
+    
     // check overwriting
     if (!check_overwrite(c))
-        return 1;
+        return EXIT_ERROR;
     
     // setup logging
     setLogLevel(c.verbose);
@@ -813,7 +825,7 @@ int main(int argc, char **argv)
     const char *log_mode = (c.resume ? "a" : "w");
     if (!logger->openLogFile(log_filename.c_str(), log_mode)) {
         printError("could not open log file '%s'", log_filename.c_str());
-        return 1;
+        return EXIT_ERROR;
     }    
     
     // log intro
@@ -838,15 +850,14 @@ int main(int argc, char **argv)
             c.resume = false;
             printLog(LOG_LOW, "Resume failed.  Sampling will start from scratch since overwrite is enabled.\n");
         } else {
-            return 1;
+            return EXIT_ERROR;
         }
     }
 
 
     // read sequences
+    Sites sites;
     Sequences sequences;
-    Sites *sites = NULL;
-    auto_ptr<Sites> sites_ptr;
     SitesMapping *sites_mapping = NULL;
     auto_ptr<SitesMapping> sites_mapping_ptr;
     Region seq_region;
@@ -858,27 +869,16 @@ int main(int argc, char **argv)
         
         if (!read_fasta(c.fasta_file.c_str(), &sequences)) {
             printError("could not read fasta file");
-            return 1;
+            return EXIT_ERROR;
         }
         seq_region.set("chr", 0, sequences.length());
 
         printLog(LOG_LOW, "read input sequences (nseqs=%d, length=%d)\n",
                  sequences.get_num_seqs(), sequences.length());
         
-
-        // compress sequence if requested
-        if (c.compress_seq > 1) {
-            // sequence compress requested
-            sites_mapping = new SitesMapping();
-            sites_mapping_ptr = auto_ptr<SitesMapping>(sites_mapping);
-            sites = new Sites();
-            sites_ptr = auto_ptr<Sites>(sites);
-            make_sites_from_sequences(&sequences, sites);
-            find_compress_cols(sites, c.compress_seq, sites_mapping);
-            compress_sites(sites, sites_mapping);
-            make_sequences_from_sites(sites, &sequences);
-        }
-        seq_region_compress.set(seq_region.chrom, 0, sequences.length());
+        // if compress requested, make sites object
+        if (c.compress_seq > 1)
+            make_sites_from_sequences(&sequences, &sites);
         
     } else if (c.sites_file != "") {
         // read sites file
@@ -887,51 +887,52 @@ int main(int argc, char **argv)
         int subregion[2] = {-1, -1};
         if (c.subregion_str != "") {
             if (!parse_region(c.subregion_str.c_str(), 
-                              &subregion[0], &subregion[1], true)) {
+                              &subregion[0], &subregion[1])) {
                 printError("subregion is not specified as 'start-end'");
-                return 1;
+                return EXIT_ERROR;
             }
             subregion[0] -= 1; // convert to 0-index
         }
 
         // read sites
-        sites = new Sites();
-        sites_ptr = auto_ptr<Sites>(sites);
         CompressStream stream(c.sites_file.c_str());
         if (!stream.stream || 
-            !read_sites(stream.stream, sites, subregion[0], subregion[1])) {
+            !read_sites(stream.stream, &sites, subregion[0], subregion[1])) {
             printError("could not read sites file");
-            return 1;
+            return EXIT_ERROR;
         }
         stream.close();
 
         printLog(LOG_LOW, "read input sites (chrom=%s, start=%d, end=%d, length=%d, nseqs=%d, nsites=%d)\n",
-                 sites->chrom.c_str(), sites->start_coord, sites->end_coord,
-                 sites->length(), sites->get_num_seqs(),
-                 sites->get_num_sites());
+                 sites.chrom.c_str(), sites.start_coord, sites.end_coord,
+                 sites.length(), sites.get_num_seqs(),
+                 sites.get_num_sites());
 
         // sanity check for sites
-        if (sites->get_num_sites() == 0) {
+        if (sites.get_num_sites() == 0) {
             printLog(LOG_LOW, "no sites given.  terminating.\n");
-            return 1;
+            return EXIT_ERROR;
         }
-        seq_region.set(sites->chrom, sites->start_coord, sites->end_coord);
-
-        // compress sequence
-        //if (c.compress_seq > 1) {
-        sites_mapping = new SitesMapping();
-        sites_mapping_ptr = auto_ptr<SitesMapping>(sites_mapping);
-        find_compress_cols(sites, c.compress_seq, sites_mapping);
-        compress_sites(sites, sites_mapping);
-        //}
-        make_sequences_from_sites(sites, &sequences);
-        seq_region_compress.set(seq_region.chrom, 0, sequences.length());
+        seq_region.set(sites.chrom, sites.start_coord, sites.end_coord);
             
     } else {
         // no input sequence specified
         printError("must specify sequences (use --fasta or --sites)");
-        return 1;
+        return EXIT_ERROR;
     }
+
+    // compress sequences
+    if (sites.get_num_sites() > 0) {
+        sites_mapping = new SitesMapping();
+        sites_mapping_ptr = auto_ptr<SitesMapping>(sites_mapping);
+
+        find_compress_cols(&sites, c.compress_seq, sites_mapping);
+        compress_sites(&sites, sites_mapping);
+        make_sequences_from_sites(&sites, &sequences);
+    }
+    seq_region_compress.set(seq_region.chrom, 0, sequences.length());
+
+
 
     // mask sequences
     TrackNullValue maskmap;
@@ -939,12 +940,10 @@ int main(int argc, char **argv)
         // read mask
         CompressStream stream(c.maskmap.c_str(), "r");
         if (!stream.stream ||
-            !read_track_filter(stream.stream, &maskmap,
-                               seq_region.chrom, seq_region.start, 
-                               seq_region.end)) {
+            !read_track_filter(stream.stream, &maskmap, seq_region)) {
             printError("cannot read mask map '%s'", 
                        c.maskmap.c_str());
-            return 1;
+            return EXIT_ERROR;
         }
 
         // apply mask
@@ -968,7 +967,7 @@ int main(int argc, char **argv)
     // setup model parameters
     if (c.times_file != "") {
         printError("not implemented yet");
-        return 1;
+        return EXIT_ERROR;
     } else if (c.time_step)
         c.model.set_linear_times(c.time_step, c.ntimes);
     else
@@ -984,29 +983,25 @@ int main(int argc, char **argv)
     if (c.mutmap != "") {
         CompressStream stream(c.mutmap.c_str(), "r");
         if (!stream.stream || 
-            !read_track_filter(stream.stream, &c.model.mutmap,
-                               seq_region.chrom, seq_region.start, 
-                               seq_region.end)) {
+            !read_track_filter(stream.stream, &c.model.mutmap, seq_region)) {
             printError("cannot read mutation rate map '%s'", c.mutmap.c_str());
-            return false;
+            return EXIT_ERROR;
         }
     }
     if (c.recombmap != "") {
         CompressStream stream(c.recombmap.c_str(), "r");
         if (!stream.stream ||
-            !read_track_filter(stream.stream, &c.model.recombmap,
-                               seq_region.chrom, seq_region.start, 
-                               seq_region.end)) {
+            !read_track_filter(stream.stream, &c.model.recombmap, seq_region)) {
             printError("cannot read recombination rate map '%s'", 
                        c.recombmap.c_str());
-            return 1;
+            return EXIT_ERROR;
         }
     }
     
     // make compressed model
     ArgModel model(c.model);
     if (!model.setup_maps(seq_region.chrom, seq_region.start, seq_region.end))
-        return 1;
+        return EXIT_ERROR;
     compress_model(&model, sites_mapping, c.compress_seq);
     
     // log original model
@@ -1024,12 +1019,12 @@ int main(int argc, char **argv)
         vector<string> seqnames;
         if (!read_init_arg(c.arg_file.c_str(), &c.model, trees, seqnames)) {
             printError("could not read ARG");
-            return 1;
+            return EXIT_ERROR;
         }
 
         if (!trees->set_seqids(seqnames, sequences.names)) {
             printError("input ARG's sequence names do not match input sequences");
-            return 1;
+            return EXIT_ERROR;
         }
         
         printLog(LOG_LOW, "read input ARG (chrom=%s, start=%d, end=%d, nseqs=%d)\n",
@@ -1042,10 +1037,10 @@ int main(int argc, char **argv)
             printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d) [compressed coordinates]", 
                        trees->start_coord, trees->end_coord, 
                        seq_region.start, seq_region.end);
-            return 1;
+            return EXIT_ERROR;
         }
 
-        // compress input tree if compression is requested
+        // compress input ARG if compression is requested
         if (sites_mapping)
             compress_local_trees(trees, sites_mapping, true);
         
@@ -1061,11 +1056,12 @@ int main(int argc, char **argv)
     // check for region sample
     if (c.resample_region_str != "") {
         if (!parse_region(c.resample_region_str.c_str(), 
-                          &c.resample_region[0], &c.resample_region[1], true))
+                          &c.resample_region[0], &c.resample_region[1]))
         {
             printError("--resample-region is not specified as 'start-end'");
-            return 1;
+            return EXIT_ERROR;
         }
+        c.resample_region[0] -= 1; // convert to 0-index
 
         if (sites_mapping) {
             c.resample_region[0] = sites_mapping->compress(c.resample_region[0]);
@@ -1080,7 +1076,7 @@ int main(int argc, char **argv)
     const char *stats_mode = (c.resume ? "a" : "w");
     if (!(c.stats_file = fopen(stats_filename.c_str(), stats_mode))) {
         printError("could not open stats file '%s'", stats_filename.c_str());
-        return 1;
+        return EXIT_ERROR;
     }
 
     // get memory usage in MB

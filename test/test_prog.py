@@ -7,6 +7,7 @@ import arghmm
 from rasmus.common import *
 from rasmus import stats, hmm
 from rasmus.testing import *
+rplot_set_viewer("evince")
 
 from compbio import coal, arglib, fasta
 
@@ -48,7 +49,7 @@ class Prog (unittest.TestCase):
     -s test/data/test_prog_small/0.sites \
     -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
     --ntimes 20 --maxtime 400e3 -c 20 \
-    -n 100  --gibbs \
+    -n 100 \
     -o test/data/test_prog_small/0.sample/out""")
 
 
@@ -231,7 +232,118 @@ class Prog (unittest.TestCase):
             makedirs("test/data/test_prog")
             
             os.system("""arg-sim \
-            -k 20 -L 1000000 --model dsmc \
+            -k 2 -L 1000000 --model dsmc \
+            -N 1e4 -r 0.5e-8 -m 2.20e-8 \
+            --ntimes 20 --maxtime 200e3 \
+            -o test/data/test_prog/0""")
+
+        if 1:
+            make_clean_dir("test/data/test_prog/0.sample")
+            os.system("""arg-sample \
+    -s test/data/test_prog/0.sites \
+    -N 1e4 -r 0.5e-8 -m 2.20e-8 \
+    --ntimes 20 --maxtime 200e3 -c 10 \
+    -n 40 \
+    -o test/data/test_prog/0.sample/out""")
+
+        
+        
+        # read true arg and seqs
+        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+        arg = arglib.read_arg("test/data/test_prog/0.arg")
+        arghmm.discretize_arg(arg, times, ignore_top=False, round_age="closer")
+        arg = arglib.smcify_arg(arg)
+        seqs = arghmm.sites2seqs(
+            arghmm.read_sites("test/data/test_prog/0.sites"))
+
+        # compute true stats
+        arglen = arglib.arglen(arg)
+        arg = arghmm.arg2ctrees(arg, times)
+        nrecombs = arghmm.get_local_trees_ntrees(arg[0]) - 1
+        lk = arghmm.calc_likelihood(
+            arg, seqs, mu=mu, times=times, 
+            delete_arg=False)
+        prior = arghmm.calc_prior_prob(
+            arg, rho=rho, times=times, popsizes=popsize,
+                            delete_arg=False)
+        joint = lk + prior
+        
+        data = read_table("test/data/test_prog/0.sample/out.stats")
+
+        
+        # joint
+        y2 = joint
+        y = data.cget("joint")
+        rplot_start("test/data/test_prog/0.trace.joint.pdf", width=8, height=5)
+        #rp.pdf(file="test/data/test_prog/0.trace.joint.pdf", width=8, height=5)
+        rp.plot(y, t="l", ylim=[min(min(y), y2), max(max(y), y2)],
+                main="joint probability",
+                xlab="iterations",
+                ylab="joint probability")
+        rp.lines([0, len(y)], [y2, y2], col="gray")
+        rplot_end(True)
+
+        # lk
+        y2 = lk
+        y = data.cget("likelihood")
+        rplot_start("test/data/test_prog/0.trace.lk.pdf", width=8, height=5)
+        rp.plot(y, t="l", ylim=[min(min(y), y2), max(max(y), y2)],
+                main="likelihood",
+                xlab="iterations",
+                ylab="likelihood")
+        rp.lines([0, len(y)], [y2, y2], col="gray")
+        rplot_end(True)
+
+        # prior
+        y2 = prior
+        y = data.cget("prior")
+        rplot_start("test/data/test_prog/0.trace.prior.pdf", width=8, height=5)
+        rp.plot(y, t="l", ylim=[min(min(y), y2), max(max(y), y2)],
+                main="prior probability",
+                xlab="iterations",
+                ylab="prior probability")
+        rp.lines([0, len(y)], [y2, y2], col="gray")
+        rplot_end(True)
+
+
+        # nrecombs
+        y2 = nrecombs
+        y = data.cget("recombs")
+        rplot_start("test/data/test_prog/0.trace.nrecombs.pdf",
+                    width=8, height=5)
+        rp.plot(y, t="l", ylim=[min(min(y), y2), max(max(y), y2)],
+                main="number of recombinations",
+                xlab="iterations",
+                ylab="number of recombinations")
+        rp.lines([0, len(y)], [y2, y2], col="gray")
+        rplot_end(True)
+
+
+        # arglen
+        y2 = arglen
+        y = data.cget("arglen")
+        rplot_start("test/data/test_prog/0.trace.arglen.pdf",
+                    width=8, height=5)
+        rp.plot(y, t="l", ylim=[min(min(y), y2), max(max(y), y2)],
+                main="ARG branch length",
+                xlab="iterations",
+                ylab="ARG branch length")
+        rp.lines([0, len(y)], [y2, y2], col="gray")
+        rplot_end(True)
+
+
+
+    def test_prog_gibbs(self):
+        
+        popsize = 1e4
+        mu = 2.20e-8
+        rho = 1.16e-8
+        
+        if not os.path.exists("test/data/test_prog/0.sites"):
+            makedirs("test/data/test_prog")
+            
+            os.system("""arg-sim \
+            -k 6 -L 100000 --model dsmc \
             -N 1e4 -r 0.5e-8 -m 2.20e-8 \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
@@ -242,7 +354,7 @@ class Prog (unittest.TestCase):
     -s test/data/test_prog/0.sites \
     -N 1e4 -r 0.5e-8 -m 2.20e-8 \
     --ntimes 20 --maxtime 200e3 -c 20 \
-    -n 1000 \
+    -n 1000 --gibbs \
     -o test/data/test_prog/0.sample/out""")
 
         
@@ -328,6 +440,7 @@ class Prog (unittest.TestCase):
                 ylab="ARG branch length")
         rp.lines([0, len(y)], [y2, y2], col="gray")
         rplot_end(True)
+
 
 
 

@@ -10,6 +10,7 @@ import random
 import StringIO
 import subprocess
 from itertools import chain, izip
+from contextlib import contextmanager, closing
 
 # rasmus combio libs
 from rasmus import hmm, util, stats, treelib
@@ -387,13 +388,14 @@ def open_stream(filename, mode="r"):
                                         stdout=subprocess.PIPE,
                                         stderr=null).stdout
             elif mode == "w":
-                with open(filename, "w") as out:
+                with closing(open(filename, "w")) as out:
                     return subprocess.Popen(["gzip", "-"],
                                             stdout=out,
                                             stdin=subprocess.PIPE,
                                             stderr=null).stdin
             else:
                 raise Exception("unknown mode '%s'" % mode)
+            
     return util.open_stream(filename, mode)
 
 
@@ -731,7 +733,7 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False,
         return
 
 
-    with open_stream(filename) as infile:
+    with closing(open_stream(filename)) as infile:
         spr = None
         tree = None
 
@@ -777,6 +779,7 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False,
 
 
 def iter_subsmc(smc, region):
+    """Iterate through a region of an SMC stream"""
     for item in smc:           
         if item["tag"] == "NAMES":
             yield item
@@ -799,11 +802,13 @@ def iter_subsmc(smc, region):
 
 
 def read_smc(filename, parse_trees=False, apply_spr=False):
+    """Read an SMC file"""
     return list(iter_smc_file(filename, parse_trees=parse_trees,
                               apply_spr=apply_spr))
 
 
 def smc_apply_spr(tree, spr):
+    """Apply an SPR operation to a local tree"""
 
     recomb = tree[spr["recomb_node"]]
     coal = tree[spr["coal_node"]]
@@ -851,7 +856,7 @@ def smc_apply_spr(tree, spr):
 
 
 def write_smc(filename, smc):
-    """Writes an *.smc file"""
+    """Writes a SMC file"""
 
     out = open_stream(filename, "w")
 
@@ -904,6 +909,8 @@ def parse_tree_data(node, data):
 
 
 def rename_tree(tree, names=None):
+    """Rename the leaves of a tree from ints to names"""
+    
     # rename leaves to integers
     for node in list(tree):
         if node.is_leaf():
@@ -1018,12 +1025,15 @@ def read_arg(smc_filename, region=None):
                                  apply_spr=True, region=region))
 
 
-def iter_smc_trees(smc_file, pos):
+def iter_smc_trees(smc, pos):
     """
     Iterate through local trees at positions 'pos' in filename 'smc_file'
     """
-    
-    smc = arghmm.SMCReader(smc_file)
+
+    need_close = False
+    if isinstance(smc, basestring):
+        need_close = True
+        smc = arghmm.SMCReader(smc)        
     try:
         piter = iter(pos)
         item = smc.next()
@@ -1035,7 +1045,8 @@ def iter_smc_trees(smc_file, pos):
                 yield smc.parse_tree(item["tree"])
     except StopIteration:
         pass
-    smc.close()
+    if need_close:
+        smc.close()
 
 
 
