@@ -1179,10 +1179,11 @@ def find_tree_next_recomb(arg, pos, tree=False):
     if tree:
         nodes = iter(arg)
     else:
-        nodes = arg.postorder_marginal_tree(pos-.5)
+        #nodes = arg.postorder_marginal_tree(pos-.5)
+        nodes = arg.postorder_marginal_tree(pos)
 
     for node in nodes:
-        if node.event == "recomb" and node.pos >= pos and node.pos < nextpos:
+        if node.event == "recomb" and node.pos > pos and node.pos < nextpos:
             recomb = node
             nextpos = node.pos
 
@@ -1194,7 +1195,8 @@ def iter_visible_recombs(arg, start=None, end=None):
     
     pos = start if start is not None else 0
     while True:
-        recomb = find_tree_next_recomb(arg, pos+1)
+        #recomb = find_tree_next_recomb(arg, pos+1)
+        recomb = find_tree_next_recomb(arg, pos)
         if recomb:
             yield recomb
             pos = recomb.pos
