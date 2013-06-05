@@ -55,7 +55,7 @@ util.toc()
 if conf.region:
     region = map(int, conf.region.split("-"))
 else:
-    region = [None, None]
+    region = [arg.start, arg.end]
 
 util.tic("read sites")
 if conf.sites:
@@ -111,7 +111,7 @@ argvis.draw_arg_threads(arg, blocks, leaf_layout, sites=sites,
                         #compat=True,
                         snp_colors={"compat": [1, 1, 1],
                                     "noncompat": [0, 1, 0]},
-                        spr_alpha=1, spr_trim=5,
+                        spr_alpha=1, spr_trim=20,
                         draw_group=g, win=win)
 win.home("exact")
 util.toc()
