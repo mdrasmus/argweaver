@@ -388,7 +388,7 @@ def open_stream(filename, mode="r"):
                                         stdout=subprocess.PIPE,
                                         stderr=null).stdout
             elif mode == "w":
-                with open(filename, "w") as out:
+                with closing(open(filename, "w")) as out:
                     return subprocess.Popen(["gzip", "-"],
                                             stdout=out,
                                             stdin=subprocess.PIPE,
@@ -396,7 +396,7 @@ def open_stream(filename, mode="r"):
             else:
                 raise Exception("unknown mode '%s'" % mode)
             
-    return closing(util.open_stream(filename, mode))
+    return util.open_stream(filename, mode)
 
 
 #=============================================================================
@@ -733,7 +733,7 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False,
         return
 
 
-    with open_stream(filename) as infile:
+    with closing(open_stream(filename)) as infile:
         spr = None
         tree = None
 
