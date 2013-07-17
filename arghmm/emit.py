@@ -77,7 +77,7 @@ def calc_emission(tree, model, pos, new_name):
                 # unwrap top branch
                 c = parent.children
                 sib = (c[1] if node == c[0] else c[0])
-                
+
                 v = seqs[new_name][pos]
                 x = local_site[node.name]
                 p = local_site[sib.name]
@@ -102,7 +102,7 @@ def calc_emission(tree, model, pos, new_name):
             p = x
 
         time = max(time, mintime)
-        
+
         if v == x == p:
             # no mutation
             emit.append(- mu * time)

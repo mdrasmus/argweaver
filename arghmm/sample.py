@@ -16,14 +16,14 @@ import arghmm
 # TODO: update this method
 def sample_recombinations_thread(model, thread, use_times=True):
     """Samples new recombination for a thread"""
-    
+
     r = 0
-    
+
     # assumes that recomb_pos starts with -1 and ends with arg.end
     arg_recomb = model.recomb_pos
     time_lookup = util.list2lookup(model.times)
     minlen = model.time_steps[0]
-    
+
     tree = model.arg.get_marginal_tree(-.5)
     treelen = None #arghmm.get_treelen(tree, model.times)
     new_node = model.new_name
@@ -32,11 +32,11 @@ def sample_recombinations_thread(model, thread, use_times=True):
     selftrans = None
 
     next_recomb = -1
-    
+
     for pos, state in enumerate(thread):
         node, node_time = state
         timei = time_lookup[node_time]
-        
+
         # update local tree if needed
         while r < len(arg_recomb) and arg_recomb[r] < pos:
             r += 1
@@ -54,7 +54,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
             nstates = len(model.states[pos])
             statei = model.states[pos].index((node, timei))
             selftrans = transmat[statei][statei]
-            
+
 
         if pos == 0 or arg_recomb[r-1] == pos - 1:
             # previous arg recomb is right behind us, sample no recomb
@@ -67,22 +67,22 @@ def sample_recombinations_thread(model, thread, use_times=True):
         last_node, last_time = last_state
         last_timei = time_lookup[last_time]
         last_tree = tree
-        
+
         if state == last_state:
             if pos > next_recomb:
                 # sample the next recomb pos
                 last_treelen = arghmm.get_treelen(last_tree, model.times,
-                    use_basal=False)                
+                    use_basal=False)
                 last_treelen2 = arghmm.get_treelen_branch(
                     last_tree, model.times, last_node, last_time,
                     use_basal=False)
-                
+
                 rate = max(1.0 - exp(-model.rho * (last_treelen2 - last_treelen)
                                      - selftrans), model.rho)
-                
+
                 next_recomb = pos + int(random.expovariate(rate))
                 #next_recomb = pos + int(random.expovariate(rate2))
-                
+
             if pos < next_recomb:
                 continue
 
@@ -106,7 +106,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
             node_timei = time_lookup[tree[node].age]
             for k in range(node_timei, min(timei, last_timei)+1):
                 recombs.append((node, k))
-    
+
         # y = v, k in [0, min(timei, last_timei)]
         for k in range(0, min(timei, last_timei)+1):
             recombs.append((new_node, k))
@@ -124,7 +124,7 @@ def sample_recombinations_thread(model, thread, use_times=True):
                          (1.0 - exp(-model.rho * last_treelen2)) *
                          exp(-C[j] + C[k]))
         recomb_node, recomb_time = recombs[stats.sample(probs)]
-        
+
         if use_times:
             recomb_time = model.times[recomb_time]
         yield (pos, recomb_node, recomb_time)
@@ -139,7 +139,7 @@ def py_sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     """
     Sample ARG for sequences
     """
-    
+
     def add_chrom(arg, new_name):
         if verbose:
             util.tic("adding %s..." % new_name)
@@ -185,9 +185,9 @@ def py_sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
             except:
                 if not force:
                     raise
-        
+
     util.toc()
-    
+
     return arg
 
 
@@ -245,7 +245,7 @@ def py_resample_arg_all(arg, seqs, ntimes=20,
     if verbose:
         util.toc()
     return arg
-    
+
 
 '''
 def py_resample_arg_max(arg, seqs, new_name,
@@ -288,7 +288,7 @@ def py_resample_arg_max(arg, seqs, new_name,
         util.toc()
 
     return arg
- 
+
 '''
 
 
@@ -306,16 +306,16 @@ def py_forward_algorithm(model, n, verbose=False):
     nstates = model.get_num_states(0)
     probs.append([model.prob_prior(0, j) + model.prob_emission(0, j)
                   for j in xrange(nstates)])
-    
+
     if n > 20:
         step = (n // 20)
     else:
         step = 1
-    
+
     # loop through positions
     nstates1 = nstates
     i = 1
-    next_print = step    
+    next_print = step
     while i < n:
         while verbose and i > next_print:
             next_print += step
@@ -328,7 +328,7 @@ def py_forward_algorithm(model, n, verbose=False):
             trans = model.transmat_switch
         else:
             trans = model.transmat
-        
+
         col1 = probs[i-1]
 
         # find total transition and emission
@@ -340,7 +340,7 @@ def py_forward_algorithm(model, n, verbose=False):
                 p = col1[j] + trans[j][k] + emit
                 tot = logadd(tot, p)
             col2.append(tot)
-                
+
         probs.append(col2)
         nstates1 = nstates2
         i += 1
@@ -366,10 +366,10 @@ def py_forward_algorithm(model, n, verbose=False):
                     for node in nodes if node.is_leaf()]
             seqs.append(model.seqs[model.new_name][i-1:block[1]])
             seqlen = blocklen + 1
-            
+
             emit = arghmm.new_emissions(
                 ((c_int * 2) * nstates)
-                (* ((c_int * 2)(n, t) for n, t in int_states)), nstates, 
+                (* ((c_int * 2)(n, t) for n, t in int_states)), nstates,
                 ptree, len(ptree), ages,
                 (c_char_p * len(seqs))(*seqs), len(seqs), seqlen,
                 model.times, len(model.times), model.mu)
@@ -378,11 +378,11 @@ def py_forward_algorithm(model, n, verbose=False):
                 c_double,
                 [[model.prob_transition(i-1, j, i, k)
                   for k in xrange(nstates)] for j in xrange(nstates)])
-            
+
             fw = [probs[-1]]
             for pos in xrange(i, block[1]):
                 fw.append([0.0 for k in xrange(nstates)])
-                
+
             arghmm.forward_alg(blocklen+1, nstates, trans, emit, fw)
 
             arghmm.delete_emissions(emit, blocklen)
@@ -391,14 +391,14 @@ def py_forward_algorithm(model, n, verbose=False):
                 probs.append(col[:nstates])
             nstates1 = nstates
             i = block[1]
-            
+
     return probs
 
 
 def py_forward_algorithm2(model, n, verbose=False, matrices=None):
     """
     Python-based forward algorithm
-    
+
     Uses matrix iteration strategy
     """
     probs = []
@@ -429,7 +429,7 @@ def py_forward_algorithm2(model, n, verbose=False, matrices=None):
         if block[0] > 0:
             nstates1 = len(transmat_switch)
             nstates2 = len(transmat_switch[0])
-            
+
             col1 = probs[-1]
             col2 = []
             for k in xrange(nstates2):
@@ -443,20 +443,20 @@ def py_forward_algorithm2(model, n, verbose=False, matrices=None):
         fw = [probs[-1]]
         for pos in xrange(block[0]+1, block[1]):
             fw.append([0.0 for k in xrange(nstates)])
-        
+
         arghmm.forward_alg(blocklen, nstates, transmat, emit, fw)
 
         if not matrices_given:
             arghmm.delete_emissions(emit, blocklen)
             arghmm.delete_transition_probs(transmat, nstates)
-        
+
         for col in fw[1:]:
             probs.append(col[:nstates])
 
 
     if verbose:
         util.toc()
-            
+
     return probs
 
 
@@ -477,7 +477,7 @@ def py_sample_posterior(model, n, probs_forward=None, verbose=False):
     tot = stats.logsum(A)
     path[i] = stats.sample([exp(x - tot) for x in A])
     #path[i] = stats.sample(map(exp, A))
-  
+
     # recurse
     for i in xrange(n-2, -1, -1):
         C = []
@@ -492,6 +492,6 @@ def py_sample_posterior(model, n, probs_forward=None, verbose=False):
         tot = stats.logsum(A)
         path[i] = j = stats.sample([exp(x - tot) for x in A])
         #path[i] = j = stats.sample(map(exp, A))
-    
+
     return path
 

@@ -103,7 +103,7 @@ def iter_blocks(start, end, breaks):
         yield (prev, b)
         prev = b
     yield (prev, end)
-    
+
 
 
 
@@ -126,7 +126,7 @@ def get_split_tracks(conflicts, left, right, breaks):
             tracks[i][1] = n-.5
         else:
             tracks[i][1] = max(b for b in breaks if b < right[i])
-        
+
 
     # set left endpoints
     for i in xrange(n):
@@ -137,7 +137,7 @@ def get_split_tracks(conflicts, left, right, breaks):
             tracks[i][0] = max(tracks[k][1] for k in all_lefts[i])
 
     return tracks
-    
+
 
 
 def get_split_sets(splits, tracks, breaks):
@@ -173,8 +173,8 @@ def get_split_sets(splits, tracks, breaks):
             blocks[i].append(split)
 
     return blocks
-        
-    
+
+
 
 def assert_splits(blocks, split_sets, mut_splits, mut_pos):
 
@@ -194,15 +194,15 @@ def assert_splits(blocks, split_sets, mut_splits, mut_pos):
                 assert arglib.is_split_compatible(mut_splits[i], split), \
                     (mut_splits[i], split)
             i += 1
-            
+
 
 
 def infer_parsimonious_splits(splits, mut_pos, start, end):
-    
+
     # get conflict edges
     conflicts, left, right = get_unique_conflicts(splits)
 
-    # find max parsimonious break points 
+    # find max parsimonious break points
     breaks = find_break_points(conflicts)
 
     # determine split tracks
@@ -221,7 +221,7 @@ def iter_parsimonous_tree(split_sets, leaves, rooted=True):
 
     # make inferred trees
     for split_set in split_sets:
-        splits2 = [(map(str, s), tuple(str(i) for i in leaves 
+        splits2 = [(map(str, s), tuple(str(i) for i in leaves
                                        if i not in s))
                    for s in split_set]
         tree = phylo.splits2tree(splits2, rooted=rooted)
@@ -230,7 +230,7 @@ def iter_parsimonous_tree(split_sets, leaves, rooted=True):
         for node in tree:
             if "boot" in node.data:
                 del node.data["boot"]
-        
+
         yield tree
 
 
@@ -245,7 +245,7 @@ def get_mutation_split_tracks(arg, mut_splits, mut_pos):
 
     # find regions for splits
     i = 0
-    for block, tree in izip(arglib.iter_recomb_blocks(arg), 
+    for block, tree in izip(arglib.iter_recomb_blocks(arg),
                             arglib.iter_marginal_trees(arg)):
         for node in tree:
             if len(node.children) != 2 or node.children[0] == node.children[1]:

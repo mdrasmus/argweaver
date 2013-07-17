@@ -30,13 +30,13 @@ class SitesDB (object):
     def init_tables(self):
         self.con.execute(u"""CREATE TABLE IF NOT EXISTS Sites (
                              chrom TEXT,
-                             pos INTEGER, 
+                             pos INTEGER,
                              col TEXT,
                              UNIQUE(chrom, pos) ON CONFLICT REPLACE);
                              """)
-        self.con.execute(u"""CREATE INDEX IF NOT EXISTS IdxSites 
+        self.con.execute(u"""CREATE INDEX IF NOT EXISTS IdxSites
                              ON Sites (chrom, pos);""")
-        
+
         self.con.execute(u"""CREATE TABLE IF NOT EXISTS SitesSequences (
                              name TEXT,
                              seq_order INTEGER)""")
@@ -44,7 +44,7 @@ class SitesDB (object):
     def add_seq_names(self, names):
 
         names2 = self._query_names()
-        
+
         if len(names2) == 0:
             # insert names
             for i, name in enumerate(names):
@@ -57,7 +57,7 @@ class SitesDB (object):
     def _query_names(self):
         res = self.con.execute("SELECT name FROM SitesSequences ORDER BY seq_order")
         return [row[0] for row in res]
-        
+
 
     def get_names(self):
         if self._names is None:
@@ -68,20 +68,20 @@ class SitesDB (object):
         it = arghmm.iter_sites(filename)
         header = it.next()
         self.add_seq_names(header["names"])
-        
+
         self.add_sites(header["chrom"], it)
 
     def add_sites(self, chrom, sites_iter):
         for pos, col in sites_iter:
             self.con.execute("INSERT INTO Sites VALUES (?, ?, ?);",
                              (chrom, pos, col))
-        
+
     def get_sites(self, chrom, start, end, names=None):
         res = self.con.execute("""SELECT pos, col FROM Sites
                                   WHERE chrom = ? and ? <= pos and pos <= ?
                                   ORDER BY pos;""",
                                (chrom, start, end))
-        
+
         def subset_by_names(res, ind):
             for pos, col in res:
                 yield pos, "".join(col[i] for i in ind)
@@ -92,7 +92,7 @@ class SitesDB (object):
             lookup = dict((n, i) for i, n in enumerate(self.get_names()))
             ind = [lookup[n] for n in names]
             return subset_by_names(res, ind)
-    
+
 
 class ArgDB (object):
 
@@ -126,7 +126,7 @@ class ArgDB (object):
                              tree TEXT,
                              UNIQUE(sample, chrom, start, end) ON CONFLICT REPLACE);
                              """)
-        self.con.execute(u"""CREATE INDEX IF NOT EXISTS IdxArgTrees 
+        self.con.execute(u"""CREATE INDEX IF NOT EXISTS IdxArgTrees
                              ON ArgTrees (sample, chrom, start);""")
 
         self.con.execute(u"""CREATE TABLE IF NOT EXISTS ArgSprs (
@@ -139,9 +139,9 @@ class ArgDB (object):
                              coal_time FLOAT,
                              UNIQUE(sample, chrom, pos) ON CONFLICT REPLACE);
                              """)
-        self.con.execute(u"""CREATE INDEX IF NOT EXISTS IdxArgSprs 
+        self.con.execute(u"""CREATE INDEX IF NOT EXISTS IdxArgSprs
                              ON ArgSprs (sample, chrom, pos);""")
-        
+
         self.con.execute(u"""CREATE TABLE IF NOT EXISTS ArgSequences (
                              name TEXT,
                              seq_order INTEGER)""")
@@ -149,7 +149,7 @@ class ArgDB (object):
     def add_seq_names(self, names):
 
         names2 = self._query_names()
-        
+
         if len(names2) == 0:
             # insert names
             for i, name in enumerate(names):
@@ -162,7 +162,7 @@ class ArgDB (object):
     def _query_names(self):
         res = self.con.execute("SELECT name FROM ArgSequences ORDER BY seq_order")
         return [row[0] for row in res]
-        
+
 
     def get_names(self):
         if self._names is None:
@@ -188,7 +188,7 @@ class ArgDB (object):
                     (sample, chrom, item["pos"],
                      item["recomb_node"], item["recomb_time"],
                      item["coal_node"], item["coal_time"]))
-        
+
     def get_trees(self, chrom, start, end, sample=0):
         for row in self.con.execute(
             """SELECT start, end, tree FROM ArgTrees

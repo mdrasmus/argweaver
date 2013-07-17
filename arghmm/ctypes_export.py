@@ -86,7 +86,7 @@ class Exporter (object):
             if isinstance(arg, c_out):
                 # this a output argument
                 arg = arg.c_type
-            
+
             if isinstance(arg, tuple):
                 # use special conversion function
                 arg_types[i] = arg[0]
@@ -114,7 +114,7 @@ class Exporter (object):
             cargs = [f(a) for f, a in zip(converts, args)]
 
             # call c function
-            ret = cfunc(*cargs)        
+            ret = cfunc(*cargs)
 
             # pass back arguments
             # used for pointers to arrays

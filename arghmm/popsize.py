@@ -28,7 +28,7 @@ def kahan_sum(vals):
 def safesum(x):
 
     n = len(x)
-    
+
     while n > 2:
         x.sort(key=abs)
         y = []
@@ -43,7 +43,7 @@ def safesum(x):
 def safelogsum(x):
 
     n = len(x)
-    
+
     while n > 1:
         x.sort(key=lambda z: z[1])
         y = []
@@ -69,7 +69,7 @@ def prob_coal_counts_slow(a, b, t, n):
 
     Implemented more directly, but slower.  Good for testing against.
     """
-    
+
     s = 0.0
     for k in xrange(b, a+1):
         i = exp(-k*(k-1)*t/2.0/n) * \
@@ -133,7 +133,7 @@ def log_prob_coal_counts(a, b, t, n, minprob=1e-200,
 
     # provide a smooth boundary for n
     n = smooth_boundary(n, boundary1, boundary2)
-    
+
     #p = max(abs(prob_coal_counts(a, b, t, n)), minprob)
     #p = max(abs(prob_coal_counts_frac(a, b, t, n)), minprob)
     p = max(prob_coal_counts(a, b, t, n), minprob)
@@ -172,7 +172,7 @@ def mle_prob_many_coal_counts(As, Bs, t, n0):
     As = []; Bs = []; Cs = []
     for (a,b), c in counts.items():
         As.append(a); Bs.append(b); Cs.append(c)
-    
+
     def f(x):
         return - log_prob_many_coal_counts(As, Bs, t, x[0], Cs=Cs)
     return scipy.optimize.fmin(f, n0, disp=False)[0]
@@ -200,7 +200,7 @@ def count_tree_lineages(tree, times):
     # count lineages
     nbranches = arghmm.get_nlineages(tree, times)
     nleaves = util.ilen(tree.leaves())
-        
+
     for j in range(ntimes-1):
         starts.append(nbranches[j-1] if j > 0 else nleaves)
         ends.append(nbranches[j])
@@ -234,7 +234,7 @@ def est_popsize_trees(trees, times, n0=1e4):
 
     ntimes = len(times)
     starts, ends, time_steps = count_trees_lineages(trees, times)
-                
+
     popsize = []
     for j in range(ntimes-1):
         popsize.append(mle_prob_many_coal_counts(
@@ -251,7 +251,7 @@ class PopsizeEstimator (object):
     def __init__(self, times):
 
         ntimes = len(times)
-        
+
         self.times = times
         self.time_steps = [times[i] -  times[i-1] for i in range(1, ntimes)]
         self.ncoals = [0] * ntimes
@@ -264,10 +264,10 @@ class PopsizeEstimator (object):
         self.time_steps2 = [midpoints[i+1] - midpoints[i]
                             for i in range(ntimes-1)]
 
-        
+
 
     def add_arg(self, arg):
-        
+
         nleaves = len(list(arg.leaves()))
         times = self.times
         assert times
@@ -292,7 +292,7 @@ class PopsizeEstimator (object):
         self.init_trees.append({"starts": starts,
                                 "ends": ends,
                                 "time_steps": time_steps})
-        
+
         # loop through sprs
         for recomb_pos, (rnode, rtime), (cnode, ctime), local in arglib.iter_arg_sprs(arg, use_local=True):
             i, _ = util.binsearch(times, ctime)
@@ -333,7 +333,7 @@ class PopsizeEstimator (object):
                     counts.append((last_lineages, a - last_time))
                     s = sum(u * v for u, v in counts)
                     total_time = sum(v for u, v in counts)
-                    if s == 0.0:                    
+                    if s == 0.0:
                         lineages_per_time.append(last_lineages)
                     else:
                         lineages_per_time.append(s / total_time)
@@ -360,7 +360,7 @@ class PopsizeEstimator (object):
             p += log_prob_coal_counts(init_tree["starts"][i],
                                       init_tree["ends"][i],
                                       self.time_steps2[i], 2*n)
-        
+
         return p
 
     def mle_popsize(self, i, n0=1e4):

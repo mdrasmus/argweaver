@@ -36,7 +36,7 @@ if arghmmclib:
             c_out(c_double_matrix), "bw"])
     export(arghmmclib, "sample_hmm_posterior", c_int,
            [c_int, "n", c_int, "nstates",
-            c_double_p_p, "trans", c_double_p_p, "emit", 
+            c_double_p_p, "trans", c_double_p_p, "emit",
             c_out(c_double_matrix), "fw", c_out(c_int_list), "path"])
 
     # transition matrices calculation
@@ -47,7 +47,7 @@ if arghmmclib:
             c_int, "ntimes", c_double_list, "times",
             c_double_list, "time_steps",
             c_int_list, "nbranches", c_int_list, "nrecombs",
-            c_int_list, "ncoals", 
+            c_int_list, "ncoals",
             c_double_list, "popsizes", c_double, "rho"])
     export(arghmmclib, "new_transition_probs_switch", c_double_p_p,
            [c_int_list, "ptree", c_int_list, "last_ptree", c_int, "nnodes",
@@ -60,33 +60,33 @@ if arghmmclib:
             c_int, "ntimes", c_double_list, "times",
             c_double_list, "time_steps",
             c_int_list, "nbranches", c_int_list, "nrecombs",
-            c_int_list, "ncoals", 
+            c_int_list, "ncoals",
             c_double_list, "popsizes", c_double, "rho"])
     export(arghmmclib, "delete_transition_probs", c_int,
            [c_double_p_p, "transition_probs", c_int, "nstates"])
     export(arghmmclib, "arghmm_assert_transmat", c_bool,
-           [c_int, "nnodes", c_int_list, "ptree", c_int_list, "ages", 
-            c_int, "ntimes", c_double_list, "times", 
+           [c_int, "nnodes", c_int_list, "ptree", c_int_list, "ages",
+            c_int, "ntimes", c_double_list, "times",
             c_double_list, "popsizes", c_double, "rho"])
     export(arghmmclib, "arghmm_assert_transmat_switch", c_bool,
            [c_int, "nnodes", c_int_list, "ptree", c_int_list, "ages",
             c_int, "recomb_name", c_int, "recomb_time",
             c_int, "coal_name", c_int, "coal_time",
-            c_int, "ntimes", c_double_list, "times", 
+            c_int, "ntimes", c_double_list, "times",
             c_double_list, "popsizes", c_double, "rho"])
     export(arghmmclib, "arghmm_assert_transmat_internal", c_bool,
-           [c_int, "nnodes", c_int_list, "ptree", c_int_list, "ages", 
-            c_int, "ntimes", c_double_list, "times", 
+           [c_int, "nnodes", c_int_list, "ptree", c_int_list, "ages",
+            c_int, "ntimes", c_double_list, "times",
             c_double_list, "popsizes", c_double, "rho"])
     export(arghmmclib, "arghmm_assert_transmat_switch_internal", c_bool,
-           [c_void_p, "trees", c_int, "ntimes", c_double_list, "times", 
+           [c_void_p, "trees", c_int, "ntimes", c_double_list, "times",
             c_double_list, "popsizes", c_double, "rho"])
 
 
     # emission calculation
     export(arghmmclib, "new_emissions", c_double_p_p,
            [POINTER(c_int * 2), "states",
-            c_int, "nstates", 
+            c_int, "nstates",
             c_int_list, "ptree", c_int, "nnodes", c_int_list, "ages",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_double_list, "times", c_int, "ntimes",
@@ -94,11 +94,11 @@ if arghmmclib:
     export(arghmmclib, "delete_emissions", c_int,
            [c_double_p_p, "emit", c_int, "seqlen"])
     export(arghmmclib, "arghmm_assert_emit", c_bool,
-           [c_void_p, "trees", c_int, "ntimes", c_double_list, "times", 
+           [c_void_p, "trees", c_int, "ntimes", c_double_list, "times",
             c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
     export(arghmmclib, "arghmm_assert_emit_internal", c_bool,
-           [c_void_p, "trees", c_int, "ntimes", c_double_list, "times", 
+           [c_void_p, "trees", c_int, "ntimes", c_double_list, "times",
             c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
 
@@ -119,11 +119,11 @@ if arghmmclib:
     export(arghmmclib, "arghmm_sample_posterior", POINTER(c_int *2),
            [c_int_matrix, "ptrees", c_int_matrix, "ages",
             c_int_matrix, "sprs", c_int_list, "blocklens",
-            c_int, "ntrees", c_int, "nnodes", 
+            c_int, "ntrees", c_int, "nnodes",
             c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
-            POINTER(POINTER(c_int *2)), "path"])    
+            POINTER(POINTER(c_int *2)), "path"])
     export(arghmmclib, "arghmm_sample_thread", c_void_p,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
@@ -137,7 +137,7 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_out(c_int_list), "thread_path"])
-    
+
     # ARG sampling
     export(arghmmclib, "arghmm_sample_arg_seq", c_void_p,
            [c_double_list, "times", c_int, "ntimes",
@@ -188,7 +188,7 @@ if arghmmclib:
             c_double_list, "popsizes", c_double, "rho", c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen",
             c_int, "seqiters", c_int, "gibbsiters"])
-    
+
     # ARG probability
     export(arghmmclib, "arghmm_likelihood", c_double,
            [c_void_p, "trees", c_double_list, "times", c_int, "ntimes",
@@ -199,23 +199,23 @@ if arghmmclib:
             c_double, "mu",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
     export(arghmmclib, "arghmm_joint_prob", c_double,
-           [c_void_p, "trees", 
+           [c_void_p, "trees",
             c_double_list, "times", c_int, "ntimes", c_double_list, "popsizes",
             c_double, "mu", c_double, "rho",
             c_char_p_p, "seqs", c_int, "nseqs", c_int, "seqlen"])
     export(arghmmclib, "arghmm_prior_prob", c_double,
-           [c_void_p, "trees", 
+           [c_void_p, "trees",
             c_double_list, "times", c_int, "ntimes", c_double_list, "popsizes",
             c_double, "rho"])
     export(arghmmclib, "arghmm_tree_prior_prob", c_double,
-           [c_void_p, "trees", 
+           [c_void_p, "trees",
             c_double_list, "times", c_int, "ntimes", c_double_list, "popsizes"])
     export(arghmmclib, "prob_coal_counts_matrix", c_double,
            [c_int, "a", c_int, "b", c_double, "t", c_double, "n"])
 
     # estimating population sizes
     export(arghmmclib, "arghmm_est_popsizes_trees", c_double,
-           [c_void_p, "trees", 
+           [c_void_p, "trees",
             c_double_list, "times", c_int, "ntimes", c_int, "step",
             c_out(c_double_list), "popsizes"])
 
@@ -301,7 +301,7 @@ def set_random_seed(num):
 
 def calc_transition_probs_c(tree, states, nlineages, times,
                             time_steps, popsizes, rho, raw=True):
-    
+
     nbranches, nrecombs, ncoals = nlineages
 
     times_lookup = dict((t, i) for i, t in enumerate(times))
@@ -315,11 +315,11 @@ def calc_transition_probs_c(tree, states, nlineages, times,
     #treelen = sum(x.dist for x in tree2)
     treelen = arghmm.get_treelen(tree, times)
     transmat = new_transition_probs(
-        len(nodes), ptree, ages_index, treelen, 
+        len(nodes), ptree, ages_index, treelen,
         ((c_int * 2) * nstates)
         (* ((c_int * 2)(n, t) for n, t in int_states)), nstates,
         len(time_steps), times, time_steps,
-        nbranches, nrecombs, ncoals, 
+        nbranches, nrecombs, ncoals,
         popsizes, rho)
 
     if raw:
@@ -340,7 +340,7 @@ def calc_transition_probs_switch_c(tree, last_tree, recomb_name,
     nbranches, nrecombs, ncoals = nlineages
     (recomb_branch, recomb_time), (coal_branch, coal_time) = \
         arghmm.find_recomb_coal(tree, last_tree, recomb_name=recomb_name)
-    
+
     recomb_time = times.index(recomb_time)
     coal_time = times.index(coal_time)
 
@@ -370,14 +370,14 @@ def calc_transition_probs_switch_c(tree, last_tree, recomb_name,
     # get recomb and coal branches
     recomb_name = last_nodelookup[last_tree2[recomb_branch]]
     coal_name = last_nodelookup[last_tree2[coal_branch]]
-    
+
     int_states1 = [[last_nodelookup[last_tree2[node]], timei]
                   for node, timei in states1]
     nstates1 = len(int_states1)
     int_states2 = [[nodelookup[tree2[node]], timei]
                   for node, timei in states2]
     nstates2 = len(int_states2)
-    
+
     last_ages_index = [times_lookup[last_tree[node.name].age]
                        for node in last_nodes]
     ages_index = [times_lookup[tree[node.name].age]
@@ -385,7 +385,7 @@ def calc_transition_probs_switch_c(tree, last_tree, recomb_name,
 
     last_treelen = sum(x.dist for x in last_tree2)
     treelen = sum(x.dist for x in tree2)
-    
+
     transmat = new_transition_probs_switch(
         ptree, last_ptree, len(nodes),
         recomb_name, recomb_time, coal_name, coal_time,
@@ -393,12 +393,12 @@ def calc_transition_probs_switch_c(tree, last_tree, recomb_name,
         ages_index, last_ages_index,
         treelen, last_treelen,
         ((c_int * 2) * nstates1)
-        (* ((c_int * 2)(n, t) for n, t in int_states1)), nstates1, 
+        (* ((c_int * 2)(n, t) for n, t in int_states1)), nstates1,
         ((c_int * 2) * nstates2)
         (* ((c_int * 2)(n, t) for n, t in int_states2)), nstates2,
-        
+
         len(time_steps), times, time_steps,
-        nbranches, nrecombs, ncoals, 
+        nbranches, nrecombs, ncoals,
         popsizes, rho)
 
     if raw:
@@ -419,28 +419,28 @@ def delete_trans_emit_matrices(matrices):
 
 
 def assert_transition_probs(tree, times, popsizes, rho):
-    
+
     times_lookup = dict((t, i) for i, t in enumerate(times))
     tree2 = tree.get_tree()
     ptree, nodes, nodelookup = make_ptree(tree2)
     ages = [times_lookup[tree[node.name].age] for node in nodes]
-    
-    return arghmm_assert_transmat(len(ptree), ptree, ages, 
+
+    return arghmm_assert_transmat(len(ptree), ptree, ages,
                                   len(times), times, popsizes, rho)
 
 def assert_transition_probs_internal(tree, times, popsizes, rho):
-    
+
     times_lookup = dict((t, i) for i, t in enumerate(times))
     tree2 = tree.get_tree()
     ptree, nodes, nodelookup = make_ptree(tree2)
     ages = [times_lookup[tree[node.name].age] for node in nodes]
-    
-    return arghmm_assert_transmat_internal(len(ptree), ptree, ages, 
+
+    return arghmm_assert_transmat_internal(len(ptree), ptree, ages,
                                            len(times), times, popsizes, rho)
 
-    
+
 def assert_transition_switch_probs(tree, spr, times, popsizes, rho):
-    
+
     times_lookup = dict((t, i) for i, t in enumerate(times))
     tree2 = tree.get_tree()
     ptree, nodes, nodelookup = make_ptree(tree2)
@@ -451,7 +451,7 @@ def assert_transition_switch_probs(tree, spr, times, popsizes, rho):
     coal_name = nodelookup[tree2[c]]
     recomb_time = times_lookup[rt]
     coal_time = times_lookup[ct]
-    
+
     return arghmm_assert_transmat_switch(
         len(ptree), ptree, ages,
         recomb_name, recomb_time, coal_name, coal_time,
@@ -459,7 +459,7 @@ def assert_transition_switch_probs(tree, spr, times, popsizes, rho):
 
 
 def assert_transition_probs_switch_internal(trees, times, popsizes, rho):
-    
+
     return arghmm_assert_transmat_switch_internal(
         trees, len(times), times, popsizes, rho)
 
@@ -473,7 +473,7 @@ def assert_transition_probs_switch_internal(trees, times, popsizes, rho):
 def arghmm_forward_algorithm(arg, seqs, rho=1.5e-8,
                              mu=2.5e-8, popsizes=1e4, times=None,
                              ntimes=20, maxtime=180000,
-                             verbose=False, 
+                             verbose=False,
                              prior=[], internal=False, slow=False):
     if times is None:
         times = arghmm.get_time_points(ntimes=ntimes, maxtime=maxtime, delta=.01)
@@ -489,13 +489,13 @@ def arghmm_forward_algorithm(arg, seqs, rho=1.5e-8,
         trees, names = arg
     else:
         trees, names = arg2ctrees(arg, times)
-    
+
     seqs2 = [seqs[node] for node in names]
     for name in seqs.keys():
         if name not in names:
             seqs2.append(seqs[name])
     seqlen = len(seqs2[0])
-    
+
     fw = arghmm_forward_alg(trees, times, len(times),
                             popsizes, rho, mu,
                             (c_char_p * len(seqs2))(*seqs2), len(seqs2),
@@ -504,14 +504,14 @@ def arghmm_forward_algorithm(arg, seqs, rho=1.5e-8,
 
     nstates = [0] * seqlen
     arghmm_get_nstates(trees, len(times), internal, nstates)
-    
+
     probs = [row[:n] for row, n in zip(fw, nstates)]
-    
+
     delete_forward_matrix(fw, seqlen)
 
     if verbose:
         util.toc()
-            
+
     return probs
 
 
@@ -537,13 +537,13 @@ def sample_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4, times=None,
     names.append(new_name)
     seqs2.append(seqs[new_name])
     seqlen = len(seqs2[0])
-    
+
     trees = arghmm_sample_thread(
         trees, times, len(times),
         popsizes, rho, mu,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen, None)
     arg = ctrees2arg(trees, names, times, verbose=verbose)
-    
+
     if verbose:
         util.toc()
 
@@ -568,14 +568,14 @@ def max_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4, times=None,
     names.append(new_name)
     seqs2.append(seqs[new_name])
     seqlen = len(seqs2[0])
-    
+
     trees = arghmm_max_thread(
         trees, times, len(times),
         popsizes, rho, mu,
         (c_char_p * len(seqs2))(*seqs2), len(seqs2),
         seqlen, None)
     arg = ctrees2arg(trees, names, times, verbose=verbose)
-    
+
     if verbose:
         util.toc()
 
@@ -598,18 +598,18 @@ def sample_posterior(model, n, verbose=False):
     seqs.append(model.seqs[model.new_name])
     path = arghmm_sample_posterior(
         ptrees, ages, sprs, blocklens,
-        len(ptrees), len(ptrees[0]), 
+        len(ptrees), len(ptrees[0]),
         model.times, len(model.times),
         model.popsizes, model.rho, model.mu,
         (c_char_p * len(seqs))(*seqs), len(seqs),
         seqlen, None)
-    
+
     path2 = []
     for k, (start, end) in enumerate(blocks):
         states = model.states[start]
         lookup = util.list2lookup(states)
         nodes = all_nodes[k]
-        
+
         for i in range(start, end):
             s = (nodes[path[i][0]], path[i][1])
             path2.append(lookup[s])
@@ -658,10 +658,10 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     else:
         # convert to python
         arg = ctrees2arg(trees, names, times, verbose=verbose)
-    
+
     if verbose:
         util.toc()
-    
+
     return arg
 
 
@@ -685,7 +685,7 @@ def sample_arg_seq_gibbs(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     trees = arghmm_sample_arg_seq_gibbs(
         times, len(times),
         popsizes, rho, mu,
-        (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]), 
+        (c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]),
         seqiters, gibbsiters)
 
     if carg:
@@ -693,10 +693,10 @@ def sample_arg_seq_gibbs(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     else:
         # convert to python
         arg = ctrees2arg(trees, names, times, verbose=verbose)
-    
+
     if verbose:
         util.toc()
-    
+
     return arg
 
 
@@ -721,7 +721,7 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     if verbose:
         util.toc()
 
-    # get sequences in same order    
+    # get sequences in same order
     # and add all other sequences not in arg yet
     seqs2 = [seqs[name] for name in names]
     leaves = set(names) #set(arg.leaf_names())
@@ -747,7 +747,7 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
     if verbose:
         util.toc()
-    
+
     return arg
 
 
@@ -775,7 +775,7 @@ def sample_all_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     if verbose:
         util.toc()
 
-    # get sequences in same order    
+    # get sequences in same order
     # and add all other sequences not in arg yet
     seqs2 = [seqs[name] for name in names]
     leaves = set(names)
@@ -800,7 +800,7 @@ def sample_all_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
     if verbose:
         util.toc()
-    
+
     return arg
 
 
@@ -825,13 +825,13 @@ def resample_all_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     if verbose:
         util.toc()
 
-    # get sequences in same order    
+    # get sequences in same order
     # and add all other sequences not in arg yet
     leaves = set(names)
     names = list(names)
     for name in seqs:
         if name not in leaves:
-            names.append(name)    
+            names.append(name)
     seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
 
     # resample arg
@@ -848,7 +848,7 @@ def resample_all_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
     if verbose:
         util.toc()
-    
+
     return arg
 
 
@@ -873,7 +873,7 @@ def resample_climb_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8,
     if verbose:
         util.toc()
 
-    # get sequences in same order    
+    # get sequences in same order
     # and add all other sequences not in arg yet
     leaves = set(names)
     for name, seq in seqs.items():
@@ -885,8 +885,8 @@ def resample_climb_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8,
     trees = arghmm_resample_climb_arg(
         trees, times, len(times),
         popsizes, rho, mu, seqs2, nseqs, seqlen, refine, recomb_pref)
-    
-    
+
+
     if carg:
         arg = (trees, names)
     else:
@@ -895,7 +895,7 @@ def resample_climb_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8,
 
     if verbose:
         util.toc()
-    
+
     return arg
 
 
@@ -920,7 +920,7 @@ def resample_mcmc_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     if verbose:
         util.toc()
 
-    # get sequences in same order    
+    # get sequences in same order
     # and add all other sequences not in arg yet
     leaves = set(names)
     names = list(names)
@@ -943,7 +943,7 @@ def resample_mcmc_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
     if verbose:
         util.toc()
-    
+
     return arg
 
 
@@ -969,7 +969,7 @@ def resample_arg_cut(
     if verbose:
         util.toc()
 
-    # get sequences in same order    
+    # get sequences in same order
     # and add all other sequences not in arg yet
     leaves = set(names)
     names = list(names)
@@ -991,7 +991,7 @@ def resample_arg_cut(
 
     if verbose:
         util.toc()
-    
+
     return arg
 
 
@@ -1018,14 +1018,14 @@ def resample_arg_region(arg, seqs, region_start, region_end,
     if verbose:
         util.toc()
 
-    # get sequences in same order    
+    # get sequences in same order
     # and add all other sequences not in arg yet
     leaves = set(names)
     for name, seq in seqs.items():
         if name not in leaves:
             names.append(name)
     seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
-    
+
     # resample arg
     seqlen = len(seqs[names[0]])
 
@@ -1033,7 +1033,7 @@ def resample_arg_region(arg, seqs, region_start, region_end,
         trees, times, len(times),
         popsizes, rho, mu, seqs2, nseqs, seqlen,
         region_start, region_end, refine)
-    
+
     #trees = arghmm_resample_arg_region(
     #    trees, times, len(times),
     #    popsizes, rho, mu, seqs2, nseqs, seqlen,
@@ -1047,7 +1047,7 @@ def resample_arg_region(arg, seqs, region_start, region_end,
 
     if verbose:
         util.toc()
-    
+
     return arg
 
 
@@ -1064,7 +1064,7 @@ def resample_arg_regions(arg, seqs, niters, width=1000,
         recomb_pos = list(x.pos for x in arg2 if x.event == "recomb")
     else:
         recomb_pos = list(x.pos for x in arg if x.event == "recomb")
-    
+
     for it in range(niters):
         maxr = 0
         for i,j,a,b in stats.iter_window_index(recomb_pos, width):
@@ -1095,7 +1095,7 @@ def resample_arg_regions(arg, seqs, niters, width=1000,
 #=============================================================================
 # ARG probabilities
 
-def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8, 
+def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8,
                     times=None, delete_arg=True, verbose=False):
     """
     Calculate arg_likelihood
@@ -1108,18 +1108,18 @@ def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8,
 
     trees, names = arg2ctrees(arg, times)
     seqs, nseqs, seqlen = seqs2cseqs(seqs, names)
-    
+
     lk = arghmm_likelihood(trees, times, len(times), mu, seqs, nseqs, seqlen)
     if delete_arg:
         delete_local_trees(trees)
 
     if verbose:
         util.toc()
-    
+
     return lk
 
 
-def calc_likelihood_parsimony(arg, seqs, ntimes=20, mu=2.5e-8, 
+def calc_likelihood_parsimony(arg, seqs, ntimes=20, mu=2.5e-8,
                               times=None, delete_arg=True, verbose=False):
     """
     Calculate arg_likelihood
@@ -1140,7 +1140,7 @@ def calc_likelihood_parsimony(arg, seqs, ntimes=20, mu=2.5e-8,
 
     if verbose:
         util.toc()
-    
+
     return lk
 
 
@@ -1158,14 +1158,14 @@ def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsizes=1e4,
         util.tic("calc likelihood")
 
     trees, names = arg2ctrees(arg, times)
-    
+
     p = arghmm_prior_prob(trees, times, len(times), popsizes, rho)
     if delete_arg:
         delete_local_trees(trees)
 
     if verbose:
         util.toc()
-    
+
     return p
 
 
@@ -1184,7 +1184,7 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsizes=1e4,
 
     trees, names = arg2ctrees(arg, times)
     seqs, nseqs, seqlen = seqs2cseqs(seqs, names)
-    
+
     p = arghmm_joint_prob(
         trees, times, len(times), popsizes, mu, rho, seqs, nseqs, seqlen)
     if delete_arg:
@@ -1192,7 +1192,7 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsizes=1e4,
 
     if verbose:
         util.toc()
-    
+
     return p
 
 
@@ -1215,7 +1215,7 @@ def est_popsizes_trees(arg, times, step, verbose=False):
 
     if not is_carg(arg):
         delete_local_trees(trees)
-        
+
     return popsizes
 
 
@@ -1236,7 +1236,7 @@ def make_ptree(tree, skip_single=True, nodes=None):
         else:
             nodes = list(tree.postorder())
         assert nodes[-1] == tree.root
-    
+
     # ensure sort is stable
     def leafsort(a, b):
         if a.is_leaf():
@@ -1249,10 +1249,10 @@ def make_ptree(tree, skip_single=True, nodes=None):
                 return 1
             else:
                 return 0
-    
+
     # bring leaves to front
     nodes.sort(cmp=leafsort)
-    
+
     # make lookup
     nodelookup = {}
     for i, n in enumerate(nodes):
@@ -1268,7 +1268,7 @@ def make_ptree(tree, skip_single=True, nodes=None):
                 while len(parent.children) == 1:
                     parent = parent.parent
             ptree.append(nodelookup[parent])
-        
+
     return ptree, nodes, nodelookup
 
 
@@ -1291,12 +1291,12 @@ def arg2ctrees(arg, times):
         arg, times)
     blocklens = [x[1] - x[0] for x in blocks]
     seqlen = sum(blocklens)
-    
+
     names = []
     for node in all_nodes[0]:
         if arg[node].is_leaf():
             names.append(node)
-            
+
     trees = arghmm_new_trees(
         ptrees, ages, sprs, blocklens,
         len(ptrees), len(ptrees[0]), arg.start)
@@ -1327,14 +1327,14 @@ def ctrees2arg(trees, names, times, verbose=False, delete_arg=True):
         sprs.append([0, 0, 0, 0])
 
     # populate data structures
-    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)    
+    get_local_trees_ptrees(trees, ptrees, ages, sprs, blocklens)
 
     # fully convert to python
     for i in range(ntrees):
         ptrees[i] = ptrees[i][:nnodes]
         ages[i] = ages[i][:nnodes]
         sprs[i] = sprs[i][:4]
-    
+
     # convert treeset to arg data structure
     blocks = []
     start = 0
@@ -1344,7 +1344,7 @@ def ctrees2arg(trees, names, times, verbose=False, delete_arg=True):
         start = end
 
     assert len(names) == ((nnodes + 1) / 2)
-    
+
     arg = treeset2arg(ptrees, ages, sprs, blocks, names, times)
 
     if delete_arg:
@@ -1361,7 +1361,7 @@ def iter_arg_sprs_ids(arg, start=None, end=None):
 
     for pos, (rnode, rtime), (cnode, ctime), local in arglib.iter_arg_sprs(arg, start=start, end=end, use_local=True):
         pass
-'''        
+'''
 
 
 
@@ -1374,7 +1374,7 @@ def iter_arg_sprs(arg, start=None, end=None):
         start = arg.start
     if end is None:
         end = arg.end
-    
+
     last_tree_full = None
     last_tree = None
     for block, tree_full in arglib.iter_tree_tracks(arg, start, end):
@@ -1384,7 +1384,7 @@ def iter_arg_sprs(arg, start=None, end=None):
                                    recomb_name=recomb.name)
         else:
             spr = None
-        
+
         tree = tree_full.copy()
         tree = arglib.remove_single_lineages(tree)
 
@@ -1395,7 +1395,7 @@ def iter_arg_sprs(arg, start=None, end=None):
         if b == end:
             b -= 1
         block = [a+1, b+1]
-        
+
         yield block, tree, last_tree, spr
 
         last_tree_full = tree_full
@@ -1415,7 +1415,7 @@ def get_treeset(arg, times, start=None, end=None):
     for block, tree, last_tree, spr in iter_arg_sprs(arg, start, end):
 
         tree2 = tree.get_tree()
-        
+
         if last_tree is None:
             # get frist ptree
             ptree, nodes, nodelookup = make_ptree(tree2)
@@ -1425,7 +1425,7 @@ def get_treeset(arg, times, start=None, end=None):
         else:
             (rname, rtime), (cname, ctime) = spr
             assert rname != cname
-            
+
             # find old node and new node
             recomb_parent = last_tree2[rname].parent
             recoal = [x for x in tree2 if x.name not in last_tree2][0]
@@ -1466,7 +1466,7 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
     seqlen = blocks[-1][1]
     arg = arglib.ARG(0, seqlen)
 
-    
+
     # build first tree
     lookup = {}
     for i, p in enumerate(ptrees[0]):
@@ -1476,7 +1476,7 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
                                      event="gene")
         else:
             lookup[i] = arg.new_node(age=times[ages[0][i]], event="coal")
-    
+
     # set parents of new tree
     for i, p in enumerate(ptrees[0]):
         node = lookup[i]
@@ -1486,7 +1486,7 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
         else:
             arg.root = node
 
-    
+
     # convert sprs
     sprs2 = []
     for i, (rinode, ritime, cinode, citime) in enumerate(sprs):
@@ -1511,16 +1511,16 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
                 tree.add_child(parent, lookup[j])
             else:
                 tree.root = lookup[j]
-        
+
         #phylo.hash_order_tree(tree)
         #print pos+1, tree.get_one_line_newick()
-        
+
         # get leaf sets
         rleaves = lookup[rinode].leaf_names()
         cleaves = lookup[cinode].leaf_names()
         assert ritime >= ages[i-1][rinode], (pos, ritime, ages[i-1][rinode])
         assert citime >= ages[i-1][cinode], (pos, citime, ages[i-1][cinode])
-        
+
         sprs2.append((pos, (rleaves, times[ritime]), (cleaves, times[citime])))
 
     #assert against local ptree and leading edge of ARG.
@@ -1528,7 +1528,7 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
     arglib.make_arg_from_sprs(arg, sprs2)
     #arglib.assert_arg(arg)
     return arg
-    
+
 
 def seqs2cseqs(seqs, names):
     seqs2 = [seqs[name] for name in names]

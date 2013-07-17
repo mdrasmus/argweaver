@@ -20,7 +20,7 @@ def find_region(pos, track):
     """
     Returns the region in 'track' that containts position 'pos'
     """
-    
+
     for i, region in enumerate(track):
         if pos >= region[1] and pos < region[2]:
             return i, region
@@ -51,7 +51,7 @@ def sample_tree(k, popsizes, times, start=0, end=1,
             t = times[timei]
             n = popsizes[timei]
             continue
-        
+
         t += t2
         coal_times.append(t)
         events.append("coal")
@@ -67,14 +67,14 @@ def sample_next_recomb(treelen, rho, pos=None, recombmap=None, minlen=1):
     """
     Sample when next recombination will occur along the genome
     """
-    
+
     if recombmap:
         pos2 = 0
         i, region = find_region(pos, recombmap)
         if not region:
             # no more regions
             return sample_next_recomb(treelen, recombmap[-1][3])
-        
+
         while True:
             rho = region[3]
 
@@ -95,8 +95,8 @@ def sample_next_recomb(treelen, rho, pos=None, recombmap=None, minlen=1):
                 return sample_next_recomb(treelen, recombmap[-1][3])
             region = recombmap[i]
 
-            
-        
+
+
     else:
         blocklen = 0
         while blocklen < minlen:
@@ -105,10 +105,10 @@ def sample_next_recomb(treelen, rho, pos=None, recombmap=None, minlen=1):
 
 
 
-def get_coal_times(times):    
+def get_coal_times(times):
     # get midpoints
     ntimes = len(times) - 1
-    times2 = []    
+    times2 = []
     for i in range(ntimes):
         times2.append(times[i])
         times2.append(((times[i+1]+1)*(times[i]+1))**.5)
@@ -119,12 +119,12 @@ def get_coal_times(times):
 def get_coal_time_steps(times):
     # get midpoints
     ntimes = len(times) - 1
-    times2 = []    
+    times2 = []
     for i in range(ntimes):
         times2.append(times[i])
         times2.append(((times[i+1]+1)*(times[i]+1))**.5)
     times2.append(times[ntimes])
-    
+
     coal_time_steps = []
     for i in range(0, len(times2), 2):
         coal_time_steps.append(times2[min(i+1, len(times2)-1)] -
@@ -152,7 +152,7 @@ def sample_dsmc_sprs_round_down(k, popsize, rho, recombmap=None,
 
     assert times is not None
     ntimes = len(times) - 1
-    time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]    
+    time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]
     if hasattr(popsize, "__len__"):
         popsizes = popsize
     else:
@@ -168,7 +168,7 @@ def sample_dsmc_sprs_round_down(k, popsize, rho, recombmap=None,
                                 names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
-    
+
 
     # sample SPRs
     pos = start
@@ -197,7 +197,7 @@ def sample_dsmc_sprs_round_down(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == recomb_time_index and
                     x[0] != tree.root.name]
         recomb_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # choose coal time
         j = recomb_time_index
         while j < ntimes - 1:
@@ -212,7 +212,7 @@ def sample_dsmc_sprs_round_down(k, popsize, rho, recombmap=None,
             j += 1
         coal_time_index = j
         coal_time = times[j]
-        
+
         # choose coal node
         # since coal points collapse, exclude parent node, but allow sibling
         exclude = []
@@ -227,12 +227,12 @@ def sample_dsmc_sprs_round_down(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == coal_time_index and
                     x[0] not in exclude and x != exclude2]
         coal_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # yield SPR
         rleaves = list(tree.leaf_names(recomb_node))
         cleaves = list(tree.leaf_names(coal_node))
-        
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)        
+
+        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
 
         # apply SPR to local tree
         broken = recomb_node.parents[0]
@@ -248,7 +248,7 @@ def sample_dsmc_sprs_round_down(k, popsize, rho, recombmap=None,
             coal_node.parents[0] = recoal
         else:
             coal_node.parents.append(recoal)
-            
+
 
         # remove broken node
         broken_child = broken.children[0]
@@ -282,7 +282,7 @@ def sample_dsmc_sprs_round_both(k, popsize, rho, recombmap=None,
 
     assert times is not None
     ntimes = len(times) - 1
-    time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]    
+    time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]
     if hasattr(popsize, "__len__"):
         popsizes = popsize
     else:
@@ -298,7 +298,7 @@ def sample_dsmc_sprs_round_both(k, popsize, rho, recombmap=None,
                                 names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
-    
+
 
     # sample SPRs
     pos = start
@@ -327,7 +327,7 @@ def sample_dsmc_sprs_round_both(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == recomb_time_index and
                     x[0] != tree.root.name]
         recomb_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # choose coal time
         j = recomb_time_index
         while j < ntimes - 1:
@@ -344,7 +344,7 @@ def sample_dsmc_sprs_round_both(k, popsize, rho, recombmap=None,
             j += 1
         coal_time_index = j
         coal_time = times[j]
-        
+
         # choose coal node
         # since coal points collapse, exclude parent node, but allow sibling
         exclude = []
@@ -359,12 +359,12 @@ def sample_dsmc_sprs_round_both(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == coal_time_index and
                     x[0] not in exclude and x != exclude2]
         coal_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # yield SPR
         rleaves = list(tree.leaf_names(recomb_node))
         cleaves = list(tree.leaf_names(coal_node))
-        
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)        
+
+        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
 
         # apply SPR to local tree
         broken = recomb_node.parents[0]
@@ -380,7 +380,7 @@ def sample_dsmc_sprs_round_both(k, popsize, rho, recombmap=None,
             coal_node.parents[0] = recoal
         else:
             coal_node.parents.append(recoal)
-            
+
 
         # remove broken node
         broken_child = broken.children[0]
@@ -425,7 +425,7 @@ def sample_dsmc_sprs_round_closer2(k, popsize, rho, recombmap=None,
 
     ntimes2 = len(times2) - 1
     time_steps2 = [times2[i] -  times2[i-1] for i in range(1, ntimes2+1)]
-    
+
     if hasattr(popsize, "__len__"):
         popsizes = popsize
     else:
@@ -441,7 +441,7 @@ def sample_dsmc_sprs_round_closer2(k, popsize, rho, recombmap=None,
                                 names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
-    
+
 
     # sample SPRs
     pos = start
@@ -470,7 +470,7 @@ def sample_dsmc_sprs_round_closer2(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == recomb_time_index and
                     x[0] != tree.root.name]
         recomb_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # choose coal time
         j = recomb_time_index
         j2 = j * 2
@@ -487,8 +487,8 @@ def sample_dsmc_sprs_round_closer2(k, popsize, rho, recombmap=None,
             j2 += 1
         coal_time_index = (j2 + 1) // 2
         coal_time = times[coal_time_index]
-        
-        
+
+
         # choose coal node
         # since coal points collapse, exclude parent node, but allow sibling
         exclude = []
@@ -503,12 +503,12 @@ def sample_dsmc_sprs_round_closer2(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == coal_time_index and
                     x[0] not in exclude and x != exclude2]
         coal_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # yield SPR
         rleaves = list(tree.leaf_names(recomb_node))
         cleaves = list(tree.leaf_names(coal_node))
-        
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)        
+
+        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
 
         # apply SPR to local tree
         broken = recomb_node.parents[0]
@@ -524,7 +524,7 @@ def sample_dsmc_sprs_round_closer2(k, popsize, rho, recombmap=None,
             coal_node.parents[0] = recoal
         else:
             coal_node.parents.append(recoal)
-            
+
 
         # remove broken node
         broken_child = broken.children[0]
@@ -561,7 +561,7 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
     time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]
     times2 = get_coal_times(times)
     time_steps2 = get_coal_time_steps(times)
-    
+
     if hasattr(popsize, "__len__"):
         popsizes = popsize
     else:
@@ -577,7 +577,7 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
                                 names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
-    
+
 
     # sample SPRs
     pos = start
@@ -608,7 +608,7 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == recomb_time_index and
                     x[0] != tree.root.name]
         recomb_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # choose coal time
         j = recomb_time_index
         last_kj = nbranches[max(j-1,0)]
@@ -631,7 +631,7 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
             last_kj = kj
         coal_time_index = j
         coal_time = times[j]
-        
+
         # choose coal node
         # since coal points collapse, exclude parent node, but allow sibling
         exclude = []
@@ -646,12 +646,12 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == coal_time_index and
                     x[0] not in exclude and x != exclude2]
         coal_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # yield SPR
         rleaves = list(tree.leaf_names(recomb_node))
         cleaves = list(tree.leaf_names(coal_node))
-        
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)        
+
+        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
 
         # apply SPR to local tree
         broken = recomb_node.parents[0]
@@ -667,7 +667,7 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
             coal_node.parents[0] = recoal
         else:
             coal_node.parents.append(recoal)
-            
+
 
         # remove broken node
         broken_child = broken.children[0]
@@ -705,7 +705,7 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
     time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]
     times2 = get_coal_times(times)
     time_steps2 = get_coal_time_steps(times)
-    
+
     if hasattr(popsize, "__len__"):
         popsizes = popsize
     else:
@@ -721,7 +721,7 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
                                 names=names, make_names=make_names)
         arghmm.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
-    
+
 
     # sample SPRs
     pos = start
@@ -752,7 +752,7 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == recomb_time_index and
                     x[0] != tree.root.name]
         recomb_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # choose coal time
         j = recomb_time_index
         last_kj = nbranches[max(j-1,0)]
@@ -775,7 +775,7 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
             last_kj = kj
         coal_time_index = j
         coal_time = times[j]
-        
+
         # choose coal node
         # since coal points collapse, exclude parent node, but allow sibling
         exclude = []
@@ -790,12 +790,12 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
         branches = [x for x in states if x[1] == coal_time_index and
                     x[0] not in exclude and x != exclude2]
         coal_node = tree[random.sample(branches, 1)[0][0]]
-        
+
         # yield SPR
         rleaves = list(tree.leaf_names(recomb_node))
         cleaves = list(tree.leaf_names(coal_node))
-        
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)        
+
+        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
 
         # apply SPR to local tree
         broken = recomb_node.parents[0]
@@ -811,7 +811,7 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
             coal_node.parents[0] = recoal
         else:
             coal_node.parents.append(recoal)
-            
+
 
         # remove broken node
         broken_child = broken.children[0]
@@ -829,18 +829,18 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
 
 
 def sample_arg_dsmc(k, popsize, rho, recombmap=None,
-                    start=0.0, end=0.0, times=None, 
+                    start=0.0, end=0.0, times=None,
                     init_tree=None, names=None, make_names=True):
     """
     Returns an ARG sampled from the Discrete Sequentially Markovian Coalescent (SMC)
-    
+
     k   -- chromosomes
     popsize -- effective population size
     rho -- recombination rate (recombinations / site / generation)
     recombmap -- map for variable recombination rate
     start -- staring chromosome coordinate
     end   -- ending chromsome coordinate
-    
+
     names -- names to use for leaves (default: None)
     make_names -- make names using strings (default: True)
     """
@@ -850,14 +850,14 @@ def sample_arg_dsmc(k, popsize, rho, recombmap=None,
         delta = .01
         ntimes = 20
         times = arghmm.get_time_points(ntimes, maxtime, delta)
-    
+
     it = sample_dsmc_sprs(
         k, popsize, rho, recombmap=recombmap,
-        start=start, end=end, times=times, 
+        start=start, end=end, times=times,
         init_tree=init_tree, names=names, make_names=make_names)
     tree = it.next()
     arg = arglib.make_arg_from_sprs(tree, it)
-    
+
     return arg
 
 
@@ -895,11 +895,11 @@ def make_sites(arg, mutations, chrom="chr"):
 
     # sort mutations by position
     mutations.sort(key=lambda x: x[2])
-    
+
     for mut_group in util.iter_groups(mutations, key=lambda x: int(x[2])):
         ancestral = "ACGT"[random.randint(0, 3)]
         pos = int(mut_group[0][2])
-        
+
         # count mutations per branch
         mut_count = defaultdict(lambda: 0)
         for mut in mut_group:
@@ -907,8 +907,8 @@ def make_sites(arg, mutations, chrom="chr"):
 
         tree = arg.get_marginal_tree(pos-.5)
         bases = {tree.root.name: ancestral}
-        
-        for node in tree.preorder():                
+
+        for node in tree.preorder():
             if not node.parents:
                 continue
 
@@ -931,7 +931,7 @@ def make_sites(arg, mutations, chrom="chr"):
 
         col = "".join(bases[l] for l in leaves)
         sites.append(pos+1, col)
-    
+
     return sites
 
 
@@ -947,11 +947,11 @@ def make_alignment(arg, mutations, infsites=False):
 
     # make align matrix
     mat = []
-    
+
     muti = 0
     for i in xrange(alnlen):
         ancestral = "ACGT"[random.randint(0, 3)]
-        
+
         if muti >= len(mutations) or i < int(mutations[muti][2]):
             # no mut
             mat.append(ancestral * nleaves)
@@ -965,14 +965,14 @@ def make_alignment(arg, mutations, infsites=False):
             # enforce infinite sites
             if infsites:
                 mut_count = {random.sample(mut_count.items(), 1)[0][0]: 1}
-            
+
             tree = arg.get_marginal_tree(i-.5)
             bases = {tree.root.name: ancestral}
-            
-            for node in tree.preorder():                
+
+            for node in tree.preorder():
                 if not node.parents:
                     continue
-                
+
                 ancestral = bases[node.parents[0].name]
                 if node.name in mut_count:
                     c = mut_count[node.name]
@@ -985,13 +985,13 @@ def make_alignment(arg, mutations, infsites=False):
                         if i == c:
                             break
                         ancestral = derived
-                        
+
                     bases[node.name] = derived
                 else:
                     bases[node.name] = ancestral
 
             mat.append("".join(bases[l] for l in leaves))
-    
+
     # make fasta
     for i, leaf in enumerate(leaves):
         aln[leaf] = "".join(x[i] for x in mat)
