@@ -1,6 +1,9 @@
 
-#include "compress.h"
+#include <unistd.h>
 #include <string>
+
+#include "compress.h"
+
 
 namespace arghmm {
 

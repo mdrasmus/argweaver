@@ -1216,7 +1216,7 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
         LocalTree *tree = it->tree;
         int *mapping = it->mapping;
         const Spr &spr = it->spr;
-        get_prev_removal_nodes(last_it->tree, it->tree, it->spr, it->mapping,
+        get_prev_removal_nodes(last_tree, tree, spr, mapping, 
                                branch2, prev_nodes);
         //printf("branch2 %d\n", branch2);
         LocalNode *nodes = last_it->tree->nodes;

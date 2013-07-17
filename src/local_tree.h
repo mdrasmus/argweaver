@@ -149,12 +149,12 @@ public:
         nodes(NULL) 
     {}
 
-    LocalTree(int nnodes, int capacity=-1) :
+    LocalTree(int nnodes, unsigned int capacity=0) :
         nnodes(nnodes),
         capacity(capacity),
         root(-1)
     {
-        if (capacity < nnodes)
+        if (capacity < (unsigned) nnodes)
             capacity = nnodes;
         nodes = new LocalNode [capacity];
     }

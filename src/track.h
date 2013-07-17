@@ -116,7 +116,7 @@ public:
 
     // Adds one region to the track
     void append(string chrom, int start, int end, T value) {
-        push_back(RegionValue<T>(chrom, start, end, value));
+        this->push_back(RegionValue<T>(chrom, start, end, value));
     }
 
     // Reads one region from a map file and adds it to the track

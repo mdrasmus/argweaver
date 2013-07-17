@@ -4,6 +4,7 @@
 #include <time.h>
 #include <memory>
 #include <sys/stat.h>
+#include <unistd.h>
 
 // arghmm includes
 #include "compress.h"
