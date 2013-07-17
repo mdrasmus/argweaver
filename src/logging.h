@@ -75,7 +75,7 @@ public:
     {
         start(false);
     }
-    
+
     // return total time so far
     float time() const
     {
@@ -91,7 +91,7 @@ public:
 };
 
 
-class Logger 
+class Logger
 {
 public:
     Logger(FILE *stream, int level):
@@ -105,10 +105,10 @@ public:
             delete chain;
     }
 
-    
+
     void printLog(int level, const char *fmt, ...)
     {
-        va_list ap;   
+        va_list ap;
 
         if (level <= loglevel) {
             va_start(ap, fmt);
@@ -116,7 +116,7 @@ public:
             fflush(logstream);
             va_end(ap);
         }
-        
+
         if (chain && chain->isLogLevel(level)) {
             va_start(ap, fmt);
             chain->printLog(level, fmt, ap);
@@ -160,7 +160,7 @@ public:
         return level <= loglevel;
     }
 
-    void printTimerLog(const Timer &timer, int level, const char *fmt, 
+    void printTimerLog(const Timer &timer, int level, const char *fmt,
                        va_list ap);
     void printTimerLog(const Timer &timer, int level, const char *fmt, ...);
 
@@ -171,7 +171,7 @@ public:
     bool openLogFile(const char *filename, const char *mode="w")
     {
         FILE *stream = fopen(filename, mode);
-        
+
         if (stream != NULL) {
             logstream = stream;
             return true;

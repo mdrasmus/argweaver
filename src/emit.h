@@ -7,29 +7,29 @@
 
 namespace arghmm {
 
-void find_masked_sites(const char *const *seqs, int nseqs, int seqlen, 
+void find_masked_sites(const char *const *seqs, int nseqs, int seqlen,
                        bool *masked, bool *invariant=NULL);
 
-void parsimony_ancestral_seq(const LocalTree *tree, const char *const *seqs, 
+void parsimony_ancestral_seq(const LocalTree *tree, const char *const *seqs,
                              int nseqs, int pos, char *ancestral,
                              int *postorder=NULL);
-void parsimony_ancestral_set(const LocalTree *tree, const char * const *seqs, 
+void parsimony_ancestral_set(const LocalTree *tree, const char * const *seqs,
                              int pos, int *postorder, int npostorder,
                              char *ancestral);
-int parsimony_cost_seq(const LocalTree *tree, const char * const *seqs, 
+int parsimony_cost_seq(const LocalTree *tree, const char * const *seqs,
                        int nseqs, int pos, int *postorder);
 void calc_emissions_external(const States &states, const LocalTree *tree,
-                             const char * const*seqs, int nseqs, int seqlen, 
+                             const char * const*seqs, int nseqs, int seqlen,
                              const ArgModel *model, double **emit);
 void calc_emissions_internal(const States &states, const LocalTree *tree,
-                             const char *const *seqs, int nseqs, int seqlen, 
+                             const char *const *seqs, int nseqs, int seqlen,
                              const ArgModel *model, double **emit);
 
 double likelihood_tree(const LocalTree *tree, const ArgModel *model,
                        const char *const *seqs, const int nseqs,
                        const int start, const int end);
 
-int count_noncompat(const LocalTrees *trees, const char * const *seqs, 
+int count_noncompat(const LocalTrees *trees, const char * const *seqs,
                     int nseqs, int seqlen);
 
 
@@ -37,9 +37,9 @@ int count_noncompat(const LocalTrees *trees, const char * const *seqs,
 // C interface
 extern "C" {
 
-double **new_emissions(intstate *istates, int nstates, 
+double **new_emissions(intstate *istates, int nstates,
                        int *ptree, int nnodes, int *ages_index,
-                       char **seqs, int nseqs, int seqlen, 
+                       char **seqs, int nseqs, int seqlen,
                        double *times, int ntimes,
                        double mu);
 void delete_emissions(double **emit, int seqlen);

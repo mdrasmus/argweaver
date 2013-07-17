@@ -2,7 +2,7 @@
 #define ARGHMM_COMMON_H
 
 
-// headers c++ 
+// headers c++
 #include <math.h>
 #include <stdio.h>
 #include <assert.h>
@@ -63,10 +63,10 @@ template <class KeyType, class ValueType>
 struct RankSortCmp
 {
     RankSortCmp(ValueType *values): values(values) {}
-    
+
     bool operator()(KeyType i, KeyType j)
     { return values[i] < values[j]; }
-    
+
     ValueType *values;
 };
 
@@ -84,11 +84,11 @@ template <class T>
 void permute(T* array, int *perm, int size)
 {
     T *tmp = new T [size];
-    
+
     // transfer permutation to temp array
     for (int i=0; i<size; i++)
         tmp[i] = array[perm[i]];
-    
+
     // copy permutation back to original array
     for (int i=0; i<size; i++)
         array[i] = tmp[i];
@@ -111,13 +111,13 @@ inline double frand(double min, double max)
 
 inline int irand(int max)
 {
-    const int i = int(rand() / float(RAND_MAX) * max); 
+    const int i = int(rand() / float(RAND_MAX) * max);
     return (i == max) ? max - 1 : i;
 }
 
 inline int irand(int min, int max)
 {
-    const int i = min + int(rand() / float(RAND_MAX) * (max - min)); 
+    const int i = min + int(rand() / float(RAND_MAX) * (max - min));
     return (i == max) ? max - 1 : i;
 }
 
@@ -150,7 +150,7 @@ inline double logadd(double lna, double lnb)
     else
          return lna;
 }
-*/ 
+*/
 
 
 // computes log(a + b) given log(a) and log(b)
@@ -183,22 +183,22 @@ inline double logsum(const double *vals, int nvals, const double threshold=-15)
 {
     if (nvals == 0)
         return 1.0;
-    
+
     // find maxval
     double maxval = vals[0];
     for (int i=1; i<nvals; i++)
         if (vals[i] > maxval)
             maxval = vals[i];
-    
+
     // NOTE: for vals[i] = maxval, exp(vals[i] - maxval) = 1.0
-    // inorder to discount for this value, we start the expsum at 0.0 
+    // inorder to discount for this value, we start the expsum at 0.0
     // instead of 1.0
     double expsum = 0.0;
     for (int i=0; i<nvals; i++)
         if (vals[i] - maxval > threshold)
             expsum += t2exp(vals[i] - maxval);
-    
-    return maxval + log(expsum);        
+
+    return maxval + log(expsum);
 }
 
 
@@ -306,7 +306,7 @@ inline bool fequal(double f1, double f2, double rel=.0001, double eabs=1e-12)
 {
     if (f1 == f2)
         return true;
-    
+
     double err;
     double diff = fabs(f1 - f2);
     if (f2 == 0.0)

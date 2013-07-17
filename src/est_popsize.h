@@ -6,7 +6,7 @@
 
 namespace arghmm {
 
-void est_popsize_local_trees(const ArgModel *model, const LocalTrees *trees, 
+void est_popsize_local_trees(const ArgModel *model, const LocalTrees *trees,
                              double *popsizes);
 
 } // namespace arghmm

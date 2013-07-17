@@ -52,9 +52,9 @@ public:
         emit(emit)
     {}
 
-    ~ArgHmmMatrices() 
+    ~ArgHmmMatrices()
     {}
-    
+
     // delete all matrices
     void clear()
     {
@@ -73,7 +73,7 @@ public:
     }
 
     // release ownership of underlying data
-    void detach() 
+    void detach()
     {
         transmat = NULL;
         transmat_switch = NULL;
@@ -85,7 +85,7 @@ public:
         states_model.set(internal, minage);
     }
 
-    
+
     int nstates1; // number of states in previous block
     int nstates2; // number of states in this block
     int blocklen; // block length
@@ -110,7 +110,7 @@ class ArgModelBlock
 public:
     ArgModelBlock() {}
 
-    ArgModelBlock(int start, int end, const LocalTreeSpr *tree_spr, 
+    ArgModelBlock(int start, int end, const LocalTreeSpr *tree_spr,
                   int model_index) :
         start(start),
         end(end),
@@ -137,44 +137,44 @@ public:
         model(model),
         trees(trees)
     {}
-        
+
     void setup() {
         int start = trees->start_coord;
         int tree_start = start;
         LocalTrees::const_iterator tree_iter = trees->begin();
         int tree_end = tree_start + tree_iter->blocklen;
-        
+
         int model_index = -1;
         int model_end = trees->end_coord;
         if (model->has_mutmap()) {
             model_index = model->mutmap.index(start);
-            model_end = model->mutmap[model_index].end; 
+            model_end = model->mutmap[model_index].end;
         }
-        
+
         // record all common blocks
         while (start < trees->end_coord) {
             // determine next block end
             int end = min(tree_end, model_end);
-            
+
             // record block
-            blocks.push_back(ArgModelBlock(start, end, 
+            blocks.push_back(ArgModelBlock(start, end,
                                            &(*tree_iter), model_index));
-            
+
             if (tree_end <= model_end) {
                 // tree block end is next
                 tree_start += tree_iter->blocklen;
                 ++tree_iter;
-            } 
+            }
 
             if (tree_end >= model_end) {
                 // model block end is next
                 model_index++;
             }
-            
+
             // check if no more blocks
             if (tree_iter == trees->end())
                 break;
-            
+
             // compute new block ends
             tree_end = tree_start + tree_iter->blocklen;
             if (model->has_mutmap()) {
@@ -201,7 +201,7 @@ public:
 protected:
     const ArgModel *model;
     const LocalTrees *trees;
-    
+
     vector<ArgModelBlock> blocks;
 };
 
@@ -211,8 +211,8 @@ protected:
 class ArgHmmMatrixIter
 {
 public:
-    ArgHmmMatrixIter(const ArgModel *model, const Sequences *seqs, 
-                      const LocalTrees *trees, 
+    ArgHmmMatrixIter(const ArgModel *model, const Sequences *seqs,
+                      const LocalTrees *trees,
                       int _new_chrom=-1) :
         model(model),
         seqs(seqs),
@@ -224,7 +224,7 @@ public:
             new_chrom = trees->get_num_leaves();
     }
 
-    virtual ~ArgHmmMatrixIter() 
+    virtual ~ArgHmmMatrixIter()
     {
         mat.clear();
     }
@@ -235,7 +235,7 @@ public:
     }
 
     virtual void clear() {}
-    
+
     // calculate matrix for internal branch resampling
     void set_internal(bool _internal, int _minage=0)
     {
@@ -254,7 +254,7 @@ public:
             setup();
         block_index = 0;
     }
-    
+
     virtual void rbegin()
     {
         if (blocks.size() == 0)
@@ -332,20 +332,20 @@ public:
     }
 
 
-    
+
     StatesModel states_model;
-    
+
 protected:
 
     void calc_matrices(ArgHmmMatrices *matrices)
     {
         ArgModel local_model;
         ArgModelBlock &block = blocks.at(block_index);
-        
+
         //model->get_local_model(block.start, local_model);
         model->get_local_model_index(block.model_index, local_model);
         const LocalTreeSpr * last_tree_spr = get_last_tree_spr();
-        
+
         arghmm::calc_arghmm_matrices(
             &local_model, seqs, trees, last_tree_spr, block.tree_spr,
             block.start, block.end, new_chrom, states_model, matrices);
@@ -358,10 +358,10 @@ protected:
     const LocalTrees *trees;
     int new_chrom;
 
-    
+
     //int minage;
     //bool internal;
-    
+
     ArgHmmMatrices mat;
 
     // record of common blocks
@@ -375,28 +375,28 @@ protected:
 class ArgHmmMatrixList : public ArgHmmMatrixIter
 {
 public:
-    ArgHmmMatrixList(const ArgModel *model, const Sequences *seqs, 
-                     const LocalTrees *trees, 
+    ArgHmmMatrixList(const ArgModel *model, const Sequences *seqs,
+                     const LocalTrees *trees,
                      int new_chrom=-1) :
-        ArgHmmMatrixIter(model, seqs, trees, 
+        ArgHmmMatrixIter(model, seqs, trees,
                          new_chrom)
     {}
-    virtual ~ArgHmmMatrixList() 
+    virtual ~ArgHmmMatrixList()
     {
         clear();
     }
 
     // precompute all matrices
-    virtual void setup() 
+    virtual void setup()
     {
         ArgHmmMatrixIter::setup();
-     
+
         for (begin(); more(); next()) {
             matrices.push_back(ArgHmmMatrices());
             calc_matrices(&matrices.back());
         }
     }
-    
+
     // free all computed matrices
     virtual void clear()
     {
@@ -413,7 +413,7 @@ public:
         ArgHmmMatrixIter::begin();
         matrix_index = 0;
     }
-    
+
     virtual void rbegin()
     {
         ArgHmmMatrixIter::rbegin();
@@ -436,13 +436,13 @@ public:
 
     //==================================================
     // accessors
-    
+
     virtual ArgHmmMatrices &ref_matrices()
     {
         return matrices[matrix_index];
     }
 
-    
+
 protected:
     int matrix_index;
     vector<ArgHmmMatrices> matrices;

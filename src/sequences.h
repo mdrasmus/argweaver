@@ -38,7 +38,7 @@ public:
     }
 
     // initialize from a subset of another Sequences alignment
-    Sequences(const Sequences *sequences, int nseqs=-1, int _seqlen=-1, 
+    Sequences(const Sequences *sequences, int nseqs=-1, int _seqlen=-1,
               int offset=0) :
         seqlen(_seqlen), owned(false)
     {
@@ -47,7 +47,7 @@ public:
             nseqs = sequences->get_num_seqs();
         if (seqlen == -1)
             seqlen = sequences->length();
-        
+
         for (int i=0; i<nseqs; i++)
             append(sequences->names[i], &sequences->seqs[i][offset]);
     }
@@ -56,7 +56,7 @@ public:
     {
         clear();
     }
-    
+
     inline int get_num_seqs() const
     {
         return seqs.size();
@@ -103,7 +103,7 @@ public:
             names.push_back(_names[i]);
         }
     }
-    
+
     bool append(string name, char *seq, int new_seqlen=-1)
     {
         // check sequence length
@@ -111,10 +111,10 @@ public:
             if (seqs.size() > 0) {
                 if (new_seqlen != seqlen)
                     return false;
-            } else 
+            } else
                 seqlen = new_seqlen;
         }
-        
+
         seqs.push_back(seq);
         names.push_back(name);
         return true;
@@ -182,7 +182,7 @@ public:
     {
         return end_coord - start_coord;
     }
-    
+
     inline int get_num_sites() const
     {
         return positions.size();
@@ -192,8 +192,8 @@ public:
     {
         return names.size();
     }
-    
-    
+
+
     string chrom;
     int start_coord;
     int end_coord;
@@ -204,7 +204,7 @@ public:
 
 
 // mapping of sites between a compressed and uncompressed alignment
-class SitesMapping 
+class SitesMapping
 {
 public:
     SitesMapping() {}
@@ -238,15 +238,15 @@ public:
         int new_seqlen = new_end - new_start;
 
         int end = old_start;
-        for (vector<int>::const_iterator it=blocks.begin(); 
+        for (vector<int>::const_iterator it=blocks.begin();
              it != blocks.end(); ++it)
         {
             end += *it;
-        
+
             if (end < old_end) {
                 int cur2 = cur;
                 for (; cur2 < new_seqlen && all_sites[cur2] < end; cur2++) {}
-                
+
                 blocks2.push_back(cur2 - cur);
                 cur = cur2;
             } else {
@@ -257,16 +257,16 @@ public:
     }
 
     // uncompress a series of block lengths
-    void uncompress_blocks(const vector<int> &blocks, 
+    void uncompress_blocks(const vector<int> &blocks,
                            vector<int> &blocks2) const
     {
         int cur = old_start;
         int end = new_start;
-        for (vector<int>::const_iterator it=blocks.begin(); 
+        for (vector<int>::const_iterator it=blocks.begin();
              it != blocks.end(); ++it)
         {
             end += *it;
-            
+
             if (end < new_end) {
                 // use median for placing block ends
                 int cur2 = (all_sites[end-1] + 1 + all_sites[end]) / 2;
@@ -307,12 +307,12 @@ bool check_seq_name(const char *name);
 void resample_align(Sequences *aln, Sequences *aln2);
 
 // sites functions
-bool read_sites(FILE *infile, Sites *sites, 
+bool read_sites(FILE *infile, Sites *sites,
                  int subregion_start=-1, int subregion_end=-1);
 bool read_sites(const char *filename, Sites *sites,
                  int subregion_start=-1, int subregion_end=-1);
 
-void make_sequences_from_sites(const Sites *sites, Sequences *sequencess, 
+void make_sequences_from_sites(const Sites *sites, Sequences *sequencess,
                                char default_char='A');
 void make_sites_from_sequences(const Sequences *sequences, Sites *sites);
 
@@ -320,7 +320,7 @@ template<class T>
 void apply_mask_sequences(Sequences *sequences, const Track<T> &maskmap);
 
 // sequence compression
-void find_compress_cols(const Sites *sites, int compress, 
+void find_compress_cols(const Sites *sites, int compress,
                         SitesMapping *sites_mapping);
 void compress_sites(Sites *sites, const SitesMapping *sites_mapping);
 void uncompress_sites(Sites *sites, const SitesMapping *sites_mapping);

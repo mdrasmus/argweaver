@@ -2,7 +2,7 @@
 
   Matt Rasmussen
   Copyright 2010-2011
-  
+
   Tree datastructure
 
 =============================================================================*/
@@ -23,7 +23,7 @@ using namespace std;
 /*
 
     Parent Array Format (ptree)
-    
+
 
            4
           / \
@@ -72,31 +72,31 @@ public:
         if (nchildren != 0)
             allocChildren(nchildren);
     }
-    
+
     ~Node()
     {
         if (children)
             delete [] children;
     }
-    
+
     // Sets and allocates the number of children '_nchildren'
     void setChildren(int _nchildren)
     {
         children = resize(children, nchildren, _nchildren);
         nchildren = _nchildren;
     }
-    
+
     // Allocates the number of children '_nchildren'
     void allocChildren(int _nchildren)
     {
         children = new Node* [_nchildren];
     }
-    
+
     // Returns whether the node is a leaf
     bool isLeaf() const {
         return nchildren == 0;
     }
-    
+
     // Adds a node 'node' to be a child
     void addChild(Node *node)
     {
@@ -130,7 +130,7 @@ public:
             // removing last child, update last pointer
             child->prev = node->prev;
         }
-        
+
         if (node != child) {
             // introduce your left sibling your right sibling
             node->prev->next = node->next;
@@ -139,7 +139,7 @@ public:
             // NOTE: node->next could be NULL and that is OK
             child = node->next;
         }
-        
+
         // remove old links
         node->parent = NULL;
         node->next = NULL;
@@ -154,7 +154,7 @@ public:
         newchild->parent = this;
         newchild->next = oldchild->next;
         newchild->prev = oldchild->prev;
-    
+
         // introduce newchild to siblings of old child
         if (newchild->next)
             newchild->next->prev = newchild;
@@ -167,14 +167,14 @@ public:
                 newchild->prev = newchild;
         } else
             newchild->prev->next = newchild;
-    
+
         oldchild->parent = NULL;
         oldchild->next = NULL;
         oldchild->prev = NULL;
     }
     */
 
-    
+
     int name;           // node name id (matches index in tree.nodes)
     Node *parent;       // parent pointer
     //Node *child;        // first child
@@ -201,13 +201,13 @@ public:
         for (int i=0; i<nnodes; i++)
             nodes[i] = new Node();
     }
-    
+
     virtual ~Tree()
     {
         for (int i=0; i<nnodes; i++)
             delete nodes[i];
     }
-    
+
     // Sets the branch lengths of the tree
     //  Arguments:
     //      dists: array of lengths (size = nnodes)
@@ -216,8 +216,8 @@ public:
         for (int i=0; i<nnodes; i++)
             nodes[i]->dist = dists[i];
     }
-    
-    
+
+
     // Gets the branch lengths of the tree
     //  Arguments:
     //      dists: output array (size = nnodes) for storing branch lengths
@@ -226,7 +226,7 @@ public:
         for (int i=0; i<nnodes; i++)
             dists[i] = nodes[i]->dist;
     }
-    
+
     // Sets the leaf names of the tree
     //  Arguments:
     //      names:      array of names (size > # leaves)
@@ -240,9 +240,9 @@ public:
                 nodes[i]->longname = names[i];
         }
     }
-    
+
     void reorderLeaves(string *names);
-    
+
     // Gets leaf names of the nodes of a tree
     // Internal nodes are often named "" (empty string)
     //  Arguments:
@@ -254,19 +254,19 @@ public:
             if (!leavesOnly || nodes[i]->isLeaf())
                 names[i] = nodes[i]->longname;
     }
-        
+
     // Returns whether tree is rooted
     bool isRooted()
     {
         return (root != NULL && root->nchildren == 2);
     }
-    
+
     // Returns the pointer to a node given is name id 'name'
     Node *getNode(int name)
     {
         return nodes[name];
     }
-    
+
     // Adds a node 'node' to the tree
     // This will also set the node's name id
     Node *addNode(Node *node)
@@ -276,59 +276,59 @@ public:
         nnodes = nodes.size();
         return node;
     }
-    
+
     // Compute a topology hash of the tree
     //  Arguments:
     //      key: output array (size = nnodes) containing a unique sequence of
     //           integers for the tree
     void hashkey(int *key);
-    
+
     bool sameTopology(Tree *other);
-    
+
     // set the topology to match another tree
     void setTopology(Tree *other);
-    
+
     // Roots the tree on branch 'newroot'
     void reroot(Node *newroot, bool onBranch=true);
-    
+
     // Roots the tree on branch connecting 'node1' and 'node2'
     void reroot(Node *node1, Node *node2);
-    
+
     // Returns a new copy of the tree
     Tree *copy();
-       
+
     // Returns whether the tree is self consistent
     bool assertTree();
-        
-public:    
+
+public:
     int nnodes;                 // number of nodes in tree
     Node *root;                 // root of the tree (NULL if no nodes)
     ExtendArray<Node*> nodes;   // array of nodes (size = nnodes)
 };
-                               
+
 
 // A hash function for a topology key to an integer
 struct HashTopology {
     static unsigned int hash(const ExtendArray<int> &key)
     {
         unsigned int h = 0, g;
-        
+
         for (int i=0; i<key.size(); i++) {
             h = (h << 4) + key[i];
             if ((g = h & 0xF0000000))
                 h ^= g >> 24;
             h &= ~g;
         }
-        
+
         return h;
-    }    
+    }
 };
 
 
 //=============================================================================
 // Tree traversals
 
-void getTreeSortedPostOrder(Tree *tree, ExtendArray<Node*> *nodes, 
+void getTreeSortedPostOrder(Tree *tree, ExtendArray<Node*> *nodes,
                             int *ordering, Node *node=NULL);
 void getTreePostOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node=NULL);
 void getTreePreOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node=NULL);

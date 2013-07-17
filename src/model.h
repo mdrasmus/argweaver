@@ -22,7 +22,7 @@ inline double get_time_point(int i, int ntimes, double maxtime, double delta=10)
 }
 
 // Returns a list of discretized time points
-inline void get_time_points(int ntimes, double maxtime, 
+inline void get_time_points(int ntimes, double maxtime,
                             double *times, double delta=.01)
 {
     for (int i=0; i<ntimes; i++)
@@ -30,13 +30,13 @@ inline void get_time_points(int ntimes, double maxtime,
 }
 
 
-void get_coal_time_steps(const double *times, int ntimes, 
+void get_coal_time_steps(const double *times, int ntimes,
                          double *coal_time_steps);
 
 
 
 // The model parameters and time discretization scheme
-class ArgModel 
+class ArgModel
 {
 public:
     ArgModel(int ntimes=0, double rho=0, double mu=0) :
@@ -52,7 +52,7 @@ public:
     {}
 
     // Model with constant population sizes and log-spaced time points
-    ArgModel(int ntimes, double maxtime, double popsize, 
+    ArgModel(int ntimes, double maxtime, double popsize,
              double rho, double mu) :
         owned(true),
         ntimes(ntimes),
@@ -69,7 +69,7 @@ public:
     }
 
     // Model with variable population sizes and log-space time points
-    ArgModel(int ntimes, double maxtime, double *_popsizes, 
+    ArgModel(int ntimes, double maxtime, double *_popsizes,
              double rho, double mu) :
         owned(true),
         ntimes(ntimes),
@@ -86,9 +86,9 @@ public:
             set_popsizes(_popsizes, ntimes);
     }
 
-        
+
     // Model with custom time points and variable population sizes
-    ArgModel(int ntimes, double *_times, double *_popsizes, 
+    ArgModel(int ntimes, double *_times, double *_popsizes,
              double rho, double mu) :
         owned(true),
         ntimes(ntimes),
@@ -105,7 +105,7 @@ public:
             set_popsizes(_popsizes, ntimes);
     }
 
-        
+
     // share data reference
     ArgModel(const ArgModel &other, double rho, double mu) :
         owned(false),
@@ -118,7 +118,7 @@ public:
         mu(mu),
         infsites_penalty(other.infsites_penalty)
     {}
-    
+
 
     // Copy constructor
     ArgModel(const ArgModel &other) :
@@ -140,7 +140,7 @@ public:
         clear();
     }
 
-    
+
     // deallocate all data
     void clear() {
         if (owned) {
@@ -152,14 +152,14 @@ public:
         }
     }
 
-protected:    
+protected:
     void clear_array(double **array) {
         if (owned && *array)
             delete [] *array;
         *array = NULL;
     }
 
-    
+
 public:
     // Copy parameters from another model
     void copy(const ArgModel &other)
@@ -173,10 +173,10 @@ public:
         set_times(other.times, ntimes);
         if (other.popsizes)
             set_popsizes(other.popsizes, ntimes);
-        
+
         // copy maps
         mutmap.insert(mutmap.begin(), other.mutmap.begin(), other.mutmap.end());
-        recombmap.insert(recombmap.begin(), 
+        recombmap.insert(recombmap.begin(),
                          other.recombmap.begin(), other.recombmap.end());
     }
 
@@ -251,7 +251,7 @@ public:
 
     // Initializes mutation and recombination maps for use
     bool setup_maps(string chrom, int start, int end);
-    
+
     // set model parameters from map position
     void set_map_pos(int pos) {
         mu = mutmap.find(pos, mu);
@@ -290,7 +290,7 @@ public:
         model.popsizes = popsizes;
     }
 
-    
+
 
 protected:
 
@@ -302,7 +302,7 @@ protected:
         for (int i=0; i<ntimes-1; i++)
             time_steps[i] = times[i+1] - times[i];
         time_steps[ntimes-1] = INFINITY;
-        
+
         clear_array(&coal_time_steps);
         coal_time_steps = new double [2*ntimes];
         get_coal_time_steps(times, ntimes, coal_time_steps);

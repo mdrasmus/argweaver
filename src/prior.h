@@ -20,7 +20,7 @@ public:
         maxlineages(maxlineages),
         tavare(NULL),
         matrix(NULL)
-    {        
+    {
     }
 
     ~CoalCountsMatrix()
@@ -38,7 +38,7 @@ public:
         if (!tavare)
             tavare = new double [maxlineages*maxlineages];
         make_tavare_matrix(maxlineages, n/t, tavare);
-     
+
         if (matrix)
             free(matrix);
         matrix = expm11(maxlineages, tavare);

@@ -35,7 +35,7 @@ public:
         time = -1;
     }
 
-    bool is_null() const 
+    bool is_null() const
     {
         return node == -1 && time -1;
     }
@@ -65,7 +65,7 @@ public:
         node_offset = new int[nnodes];
         state_lookup = new int[nstates];
         nstates_per_node = new int[nnodes];
-        
+
         // count number of states per node and mintime per node
         int node_mintimes[nnodes];
 
@@ -78,7 +78,7 @@ public:
         for (int i=0; i<nstates; i++) {
             state_lookup[i] = -1;
             nstates_per_node[states[i].node]++;
-            node_mintimes[states[i].node] = min(node_mintimes[states[i].node], 
+            node_mintimes[states[i].node] = min(node_mintimes[states[i].node],
                                                 states[i].time);
         }
 
@@ -166,14 +166,14 @@ public:
         internal = _internal;
         minage = _minage;
     }
-    
+
     void get_coal_states(const LocalTree *tree, int ntimes, States &states) const {
         if (!internal)
             get_coal_states_external(tree, ntimes, states);
         else
             get_coal_states_internal(tree, ntimes, states, minage);
     }
-    
+
     bool internal;
     int minage;
 };

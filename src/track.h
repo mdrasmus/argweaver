@@ -125,7 +125,7 @@ public:
         string chrom;
         int start, end;
         T value;
-        
+
         if (!read_track_line(line, chrom, start, end, value))
             return false;
         append(chrom, start, end, value);
@@ -145,7 +145,7 @@ bool read_track_line(const char *line, RegionValue<T> &region);
 template <class T>
 class TrackReader {
 public:
-    TrackReader() : 
+    TrackReader() :
         has_error(false),
         line(NULL),
         linesize(1024),
@@ -163,20 +163,20 @@ public:
             printError("cannot read file '%s'", filename);
             return false;
         }
-        
+
         lineno = 0;
         has_error = false;
-        
+
         return true;
     }
-    
+
     // open a map file by stream
     bool open(FILE *_infile) {
         infile = _infile;
         has_error = false;
         return true;
     }
-    
+
     // Fetches the next RegionValue from a map file
     // Returns true if region read, false otherwise
     bool next(RegionValue<T> &region) {
@@ -185,7 +185,7 @@ public:
             // ignore track lines
             //if (!strncmp(line, "track", 5))
             //    continue;
-            
+
             if (!read_track_line(line, region)) {
                 // error reading line
                 has_error = true;
@@ -195,7 +195,7 @@ public:
             // no more lines in file
             return false;
         }
-        
+
         // line has been successfully read
         return true;
     }
@@ -235,7 +235,7 @@ bool read_track(FILE *infile, Track<T> *track)
         printError("could not read track line %d", reader.line_number());
         return false;
     }
-    
+
     return true;
 }
 
@@ -247,19 +247,19 @@ bool read_track_filter(FILE *infile, Track<T> *track,
                        string chrom, int start, int end)
 {
     TrackReader<T> reader;
-    RegionValue<T> region; 
+    RegionValue<T> region;
     reader.open(infile);
 
     while (reader.next(region)) {
         // only keep regions that overlap desired region
-        if (region.chrom == chrom && 
+        if (region.chrom == chrom &&
             region.end > start && region.start < end) {
             // trim region
             if (region.start < start)
                 region.start = start;
             if (region.end > end)
                 region.end = end;
-            
+
             track->push_back(region);
         }
     }
@@ -267,7 +267,7 @@ bool read_track_filter(FILE *infile, Track<T> *track,
         printError("could not read track line %d", reader.line_number());
         return false;
     }
-    
+
     return true;
 }
 
@@ -288,9 +288,9 @@ bool read_track(const char *filename, Track<T> *track)
         printError("cannot read file '%s'", filename);
         return false;
     }
-    
+
     bool result = read_track(infile, track);
-    
+
     fclose(infile);
     return result;
 }
@@ -306,9 +306,9 @@ bool read_track_filter(const char *filename, Track<T> *track,
         printError("cannot read file '%s'", filename);
         return false;
     }
-    
+
     bool result = read_track_filter(infile, track, chrom, start, end);
-    
+
     fclose(infile);
     return result;
 }

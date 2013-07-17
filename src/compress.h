@@ -16,7 +16,7 @@ FILE *read_compress(const char *filename, const char *command=UNZIP_COMMAND);
 
 FILE *write_compress(const char *filename, const char *command=ZIP_COMMAND);
 
-FILE *open_compress(const char *filename, const char *mode, 
+FILE *open_compress(const char *filename, const char *mode,
                     const char *command=ZIP_COMMAND);
 
 int close_compress(FILE *stream);
@@ -25,12 +25,12 @@ int close_compress(FILE *stream);
 class CompressStream
 {
 public:
-    CompressStream(const char *filename, const char *mode="r", 
+    CompressStream(const char *filename, const char *mode="r",
                    const char *command=NULL)
     {
         int len = strlen(filename);
         compress = false;
-        
+
         if (len > 3 && strcmp(&filename[len - 3], ".gz") == 0) {
             compress = true;
             if (mode[0] == 'r')

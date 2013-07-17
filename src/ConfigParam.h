@@ -42,15 +42,15 @@ public:
         debug(debug)
     {
     }
-    
+
     virtual ~ConfigParamBase()
     {}
-    
+
     virtual int parse(int argc, const char **argv)
     {
         return -1;
     }
-    
+
     int kind;
     string shortarg;
     string longarg;
@@ -69,15 +69,15 @@ public:
     {
         kind = OPTION_COMMENT;
     }
-    
+
     virtual ~ConfigParamComment()
     {}
-    
+
     virtual int parse(int argc, const char **argv)
     {
         return -1;
     }
-    
+
     string msg;
 };
 
@@ -93,7 +93,7 @@ public:
         hasDefault(false)
     {
     }
-    
+
     ConfigParam(string shortarg, string longarg, string argstr,
                 T *value, T defaultValue, string help, int debug=0) :
         ConfigParamBase(shortarg, longarg, argstr, help, debug),
@@ -102,8 +102,8 @@ public:
         hasDefault(true)
     {
         *value = defaultValue;
-    }    
-    
+    }
+
     virtual int parse(int argc, const char **argv)
     {
         if (argc > 0) {
@@ -114,7 +114,7 @@ public:
             return -1;
         }
     }
-    
+
     T *value;
     T defaultValue;
     bool hasDefault;
@@ -124,20 +124,20 @@ public:
 class ConfigSwitch : public ConfigParamBase
 {
 public:
-    ConfigSwitch(string shortarg, string longarg, 
+    ConfigSwitch(string shortarg, string longarg,
                 bool *value, string help, int debug=0) :
         ConfigParamBase(shortarg, longarg, "", help, debug),
         value(value)
     {
         *value = false;
     }
-    
+
     virtual int parse(int argc, const char **argv)
     {
         *value = true;
         return 0;
     }
-    
+
     bool *value;
 };
 
@@ -147,12 +147,12 @@ int ConfigParam<int>::parse(int argc, const char **argv)
 {
     if (argc > 0) {
         if (sscanf(argv[0], "%d", value) != 1) {
-            fprintf(stderr, "error: int expected '%s'\n", argv[0]);        
+            fprintf(stderr, "error: int expected '%s'\n", argv[0]);
             return -1;
         }
         return 1;
     } else {
-        fprintf(stderr, "error: argument value expected\n");    
+        fprintf(stderr, "error: argument value expected\n");
         return -1;
     }
 }
@@ -197,34 +197,34 @@ class ConfigParser
 public:
     ConfigParser()
     {}
-    
+
     ~ConfigParser()
     {
         clear();
     }
-    
-    
+
+
     bool parse(int argc, const char **argv)
     {
         assert(argc > 0);
-        
+
         char *argdup = strdup(argv[0]);
-        prog = basename(argdup); 
+        prog = basename(argdup);
         free(argdup);
-        
+
         if (argc < 2)
             return false;
-        
+
         int i;
         for (i=1; i<argc; i++) {
             bool parsed = false;
-            
+
             // detect stop parsing options
             if (!strcmp(argv[i], "--")) {
                 i++;
                 break;
             }
-            
+
             for (unsigned int j=0; j<rules.size(); j++) {
                 if (strcmp(argv[i], "") &&
                     (argv[i] == rules[j]->shortarg ||
@@ -238,7 +238,7 @@ public:
                     break;
                 }
             }
-            
+
             // report error if no arguments are matched
             if (!parsed) {
                 if (argv[i][0] == '-') {
@@ -250,19 +250,19 @@ public:
                 }
             }
         }
-        
-        
+
+
         // remaining arguments are "rest" arguments
         for (; i<argc; i++)
             rest.push_back(argv[i]);
-        
+
         return true;
     }
-    
+
     void printHelp(FILE *stream=stderr, int debug=0)
     {
         fprintf(stream, "Usage: %s [OPTION]\n\n", prog.c_str());
-    
+
         for (unsigned int i=0; i<rules.size(); i++) {
 
             // skip rules that are for debug only if debug mode is not enabled
@@ -273,24 +273,24 @@ public:
                 fprintf(stream, "  ");
                 if (rules[i]->shortarg != "")
                     fprintf(stream, "%s,", rules[i]->shortarg.c_str());
-                fprintf(stream, "%s  %s\n    %s\n\n", 
-                        rules[i]->longarg.c_str(), 
+                fprintf(stream, "%s  %s\n    %s\n\n",
+                        rules[i]->longarg.c_str(),
                         rules[i]->argstr.c_str(), rules[i]->help.c_str());
             } else if (rules[i]->kind == OPTION_COMMENT)
-                fprintf(stream, "%s\n", 
+                fprintf(stream, "%s\n",
                         ((ConfigParamComment*) rules[i])->msg.c_str());
             else
                 assert(0);
         }
     }
-    
+
 
     // add rule
     void add(ConfigParamBase *rule)
     {
         rules.push_back(rule);
     }
-    
+
 
     // remove all rules
     void clear()
@@ -298,7 +298,7 @@ public:
         for (unsigned int i=0; i<rules.size(); i++)
             delete rules[i];
     }
-    
+
     string prog;
     vector<ConfigParamBase*> rules;
     vector<string> rest;

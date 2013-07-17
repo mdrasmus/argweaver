@@ -60,7 +60,7 @@ public:
         int blocklen = end - start;
         double *block = new double [blocklen * nstates];
         blocks.push_back(block);
-        
+
         // link block to fw table
         for (int i=start; i<end; i++) {
             assert(i-start_coord >= 0 && i-start_coord < seqlen);
@@ -128,35 +128,35 @@ public:
 // Forward algorithm for thread path
 
 void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
-    const Sequences *sequences, ArgHmmMatrixIter *matrix_iter, 
-    ArgHmmForwardTable *forward, bool prior_given=false, 
+    const Sequences *sequences, ArgHmmMatrixIter *matrix_iter,
+    ArgHmmForwardTable *forward, bool prior_given=false,
     bool internal=false, bool slow=false);
 
 double stochastic_traceback(
-    const LocalTrees *trees, const ArgModel *model, 
-    ArgHmmMatrixIter *matrix_iter, 
+    const LocalTrees *trees, const ArgModel *model,
+    ArgHmmMatrixIter *matrix_iter,
     double **fw, int *path, bool last_state_given=false, bool internal=false);
 
 //=============================================================================
 // ARG thread sampling
 
 void sample_arg_thread(
-    const ArgModel *model, const Sequences *sequences, LocalTrees *trees, 
+    const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
     int new_chrom);
 
 void sample_arg_thread_internal(
    const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
    int minage=0);
 
-void resample_arg_thread(const ArgModel *model, const Sequences *sequences, 
+void resample_arg_thread(const ArgModel *model, const Sequences *sequences,
     LocalTrees *trees, int chrom);
 
-void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences, 
+void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences,
                             LocalTrees *trees, int new_chrom,
                             State start_state, State end_state);
 
 void cond_sample_arg_thread_internal(
-    const ArgModel *model, const Sequences *sequences, 
+    const ArgModel *model, const Sequences *sequences,
     LocalTrees *trees, State start_state, State end_state);
 
 

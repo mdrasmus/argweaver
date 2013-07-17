@@ -2,7 +2,7 @@
 #define ARGHMM_PARSING_H
 
 
-// headers c++ 
+// headers c++
 #include <stdio.h>
 #include <string.h>
 #include <string>
