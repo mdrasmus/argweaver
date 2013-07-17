@@ -16,16 +16,16 @@ using namespace std;
 namespace arghmm {
 
 
-double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences, 
+double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
                            const LocalTrees *trees)
 {
     double lnl = 0.0;
     int nseqs = sequences->get_num_seqs();
-    
+
     // special case for truck genealogies
     if (trees->nnodes < 3)
         return lnl += log(.25) * sequences->length();
-    
+
     // get sequences for trees
     char *seqs[nseqs];
     for (int j=0; j<nseqs; j++)
@@ -45,8 +45,8 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
 
 
 // NOTE: trees should be uncompressed and sequences compressed
-double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences, 
-                           const LocalTrees *trees, 
+double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
+                           const LocalTrees *trees,
                            const SitesMapping* sites_mapping)
 {
     if (!sites_mapping)
@@ -55,11 +55,11 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
     double lnl = 0.0;
     int nseqs = sequences->get_num_seqs();
     const char default_char = 'A';
-    
+
     // special case for truck genealogies
     if (trees->nnodes < 3)
         return lnl += log(.25) * sequences->length();
-    
+
     int end = trees->start_coord;
     for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it) {
         int start = end;
@@ -75,10 +75,10 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
 
         // find first site within this block
         unsigned int i2 = 0;
-        
+
         // copy sites into new alignment
         for (int i=start; i<end; i++) {
-            while (i2 < sites_mapping->all_sites.size() && 
+            while (i2 < sites_mapping->all_sites.size() &&
                    sites_mapping->all_sites[i2] < i)
                 i2++;
             if (i == sites_mapping->all_sites[i2]) {
@@ -109,7 +109,7 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
 double prob_coal_counts(int a, int b, double t, double n)
 {
     double C = 1.0;
-    
+
     for (int y=0; y<b; y++)
         C *= (b+y)*(a-y)/double(a+y);
 
@@ -120,7 +120,7 @@ double prob_coal_counts(int a, int b, double t, double n)
         C *= double(b+k1)*(a-k1)/(a+k1)/(b-k);
         s += exp(-k*k1*t/2.0/n) * (2*k-1) / double(k1+b) * C;
     }
-    
+
     for (int i=1; i<=b; i++)
         s /= i;
 
@@ -151,7 +151,7 @@ double calc_tree_prior(const ArgModel *model, const LocalTree *tree,
         times[i] = t1 + t2;
         popsizes[i] = (t1 + t2) / (t1/n1 + t2/n2);
     }
-    
+
     for (int i=0; i<model->ntimes-1; i++) {
         int a = (i == 0 ? nleaves : lineages.nbranches[i-1]);
         int b = lineages.nbranches[i];
@@ -159,7 +159,7 @@ double calc_tree_prior(const ArgModel *model, const LocalTree *tree,
     }
 
     // TODO: top prior
-    
+
     return lnl;
 }
 
@@ -169,7 +169,7 @@ double calc_tree_prior_approx(const ArgModel *model, const LocalTree *tree,
 {
     lineages.count(tree);
     double lnl = 0.0;
-    
+
     for (int i=0; i<tree->nnodes; i++) {
         if (tree->nodes[i].is_leaf())
             continue;
@@ -187,12 +187,12 @@ double calc_tree_prior_approx(const ArgModel *model, const LocalTree *tree,
 
     if (isnan(lnl))
         lnl = 0.0;
-    
+
     return lnl;
 }
 
 
-void calc_coal_rates_full_tree(const ArgModel *model, const LocalTree *tree, 
+void calc_coal_rates_full_tree(const ArgModel *model, const LocalTree *tree,
                       const Spr &spr, LineageCounts &lineages,
                       double *coal_rates)
 {
@@ -200,14 +200,14 @@ void calc_coal_rates_full_tree(const ArgModel *model, const LocalTree *tree,
 
     for (int i=0; i<2*model->ntimes; i++) {
         int nbranches = lineages.nbranches[i/2] - int(i/2 < broken_age);
-        coal_rates[i] = model->coal_time_steps[i] * nbranches / 
+        coal_rates[i] = model->coal_time_steps[i] * nbranches /
             (2.0 * model->popsizes[i/2]);
     }
 }
 
 
-double calc_spr_prob(const ArgModel *model, const LocalTree *tree, 
-                     const Spr &spr, LineageCounts &lineages, 
+double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
+                     const Spr &spr, LineageCounts &lineages,
                      double treelen)
 {
     assert(spr.recomb_node != tree->root);
@@ -223,9 +223,9 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
     lineages.count(tree);
     lineages.nrecombs[root_age]--;
 
-    
+
     double lnl = 0.0;
-            
+
     // probability of recombination location in tree
     int k = spr.recomb_time;
     lnl += log(lineages.nbranches[k] * model->time_steps[k] /
@@ -238,19 +238,19 @@ double calc_spr_prob(const ArgModel *model, const LocalTree *tree,
     int broken_age = nodes[nodes[spr.recomb_node].parent].age;
 
     // probability of recoalescence on choosen branch
-    int ncoals_j = lineages.ncoals[j] 
+    int ncoals_j = lineages.ncoals[j]
         - int(j <= broken_age) - int(j == broken_age);
     lnl -= log(ncoals_j);
 
     // probability of recoalescing in choosen time interval
     if (j < model->ntimes - 2)
-        lnl += log(1.0 - exp(- coal_rates[2*j] - 
+        lnl += log(1.0 - exp(- coal_rates[2*j] -
                              (j>k ? coal_rates[2*j-1] : 0.0)));
-    
+
     // probability of not coalescing before time interval j
     for (int m=2*k; m<2*j-1; m++)
         lnl -= coal_rates[m];
-    
+
     assert(!isinf(lnl));
     return lnl;
 }
@@ -262,7 +262,7 @@ double calc_arg_prior(const ArgModel *model, const LocalTrees *trees)
 {
     double lnl = 0.0;
     LineageCounts lineages(model->ntimes);
-    
+
     // first tree prior
     //lnl += calc_tree_prior(model, trees->front().tree, lineages);
 
@@ -280,7 +280,7 @@ double calc_arg_prior(const ArgModel *model, const LocalTrees *trees)
             // not last block
             // probability of recombining after blocklen
             lnl += log(recomb_rate) - recomb_rate * blocklen;
-            
+
             // get SPR move information
             ++it;
             const Spr *spr = &it->spr;
@@ -294,12 +294,12 @@ double calc_arg_prior(const ArgModel *model, const LocalTrees *trees)
         }
     }
 
-    return lnl;    
+    return lnl;
 }
 
 
 // calculate the probability of the sequences given an ARG
-double calc_arg_joint_prob(const ArgModel *model, const Sequences *sequences, 
+double calc_arg_joint_prob(const ArgModel *model, const Sequences *sequences,
                            const LocalTrees *trees)
 {
     return calc_arg_likelihood(model, sequences, trees) +
@@ -315,7 +315,7 @@ extern "C" {
 
 double arghmm_likelihood(LocalTrees *trees,
                          double *times, int ntimes,
-                         double mu, 
+                         double mu,
                          char **seqs, int nseqs, int seqlen)
 {
     // setup model, local trees, sequences
@@ -327,7 +327,7 @@ double arghmm_likelihood(LocalTrees *trees,
 
 double arghmm_likelihood_parsimony(LocalTrees *trees,
                                    double *times, int ntimes,
-                                   double mu, 
+                                   double mu,
                                    char **seqs, int nseqs, int seqlen)
 {
     /*

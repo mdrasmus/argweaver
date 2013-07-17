@@ -12,7 +12,7 @@
 namespace arghmm {
 
 
-const int dna2int [256] = 
+const int dna2int [256] =
 {
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,   // 9
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,   // 19
@@ -44,12 +44,12 @@ const int dna2int [256] =
 
 const char *int2dna = "ACGT";
 
-int dnatype[] = { 
+int dnatype[] = {
     DNA_PURINE,     // A
     DNA_PRYMIDINE,  // C
     DNA_PURINE,     // G
     DNA_PRYMIDINE   // T
-};    
+};
 
 
 // compute background frequencies
@@ -57,7 +57,7 @@ void computeBgfreq(int nseqs, char **seqs, float *bgfreq)
 {
     // initialize with pseudo counts
     for (int i=0; i<4; i++)
-        bgfreq[i] = 1.0;    
+        bgfreq[i] = 1.0;
 
     int count = 4;
 

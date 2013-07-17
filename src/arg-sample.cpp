@@ -65,20 +65,20 @@ public:
 
         // input/output
 	config.add(new ConfigParam<string>
-		   ("-s", "--sites", "<sites alignment>", &sites_file, 
+		   ("-s", "--sites", "<sites alignment>", &sites_file,
 		    "sequence alignment in sites format"));
 	config.add(new ConfigParam<string>
-		   ("-f", "--fasta", "<fasta alignment>", &fasta_file, 
+		   ("-f", "--fasta", "<fasta alignment>", &fasta_file,
 		    "sequence alignment in FASTA format"));
 	config.add(new ConfigParam<string>
-		   ("-o", "--output", "<output prefix>", &out_prefix, 
+		   ("-o", "--output", "<output prefix>", &out_prefix,
                     "arg-sample",
                     "prefix for all output filenames (default='arg-sample')"));
         config.add(new ConfigParam<string>
                    ("-a", "--arg", "<SMC file>", &arg_file, "",
                     "initial ARG file (*.smc) for resampling (optional)"));
         config.add(new ConfigParam<string>
-                   ("", "--region", "<start>-<end>", 
+                   ("", "--region", "<start>-<end>",
                     &subregion_str, "",
                     "sample ARG for only a region of the sites (optional)"));
 
@@ -109,11 +109,11 @@ public:
 		   ("-M", "--mutmap", "<mutation rate map file>", &mutmap, "",
                     "mutation map file (optional)"));
 	config.add(new ConfigParam<string>
-		   ("-R", "--recombmap", "<recombination rate map file>", 
+		   ("-R", "--recombmap", "<recombination rate map file>",
                     &recombmap, "",
                     "recombination map file (optional)"));
 	config.add(new ConfigParam<string>
-		   ("", "--maskmap", "<sites mask>", 
+		   ("", "--maskmap", "<sites mask>",
                     &maskmap, "",
                     "mask map file (optional)"));
 
@@ -124,32 +124,32 @@ public:
 		   ("-n", "--iters", "<# of iterations>", &niters, 1000,
                     "(default=1000)"));
         config.add(new ConfigParam<string>
-                   ("", "--resample-region", "<start>-<end>", 
+                   ("", "--resample-region", "<start>-<end>",
                     &resample_region_str, "",
                     "region to resample of input ARG (optional)"));
         config.add(new ConfigSwitch
 		   ("", "--resume", &resume, "resume a previous run"));
         config.add(new ConfigSwitch
-		   ("", "--overwrite", &overwrite, 
+		   ("", "--overwrite", &overwrite,
                     "force an overwrite of a previous run"));
         config.add(new ConfigSwitch
-		   ("", "--gibbs", &gibbs, 
+		   ("", "--gibbs", &gibbs,
                     "use Gibbs sampling"));
-        
+
         // misc
 	config.add(new ConfigParamComment("Miscellaneous"));
  	config.add(new ConfigParam<int>
-		   ("-c", "--compress-seq", "<compression factor>", 
+		   ("-c", "--compress-seq", "<compression factor>",
                     &compress_seq, 1,
                     "alignment compression factor (default=1)"));
 	config.add(new ConfigParam<int>
 		   ("", "--climb", "<# of climb iterations>", &nclimb, 0,
                     "(default=0)"));
         config.add(new ConfigParam<int>
-		   ("", "--sample-step", "<sample step size>", &sample_step, 
+		   ("", "--sample-step", "<sample step size>", &sample_step,
                     10, "number of iterations between steps (default=10)"));
  	config.add(new ConfigSwitch
-		   ("", "--no-compress-output", &no_compress_output, 
+		   ("", "--no-compress-output", &no_compress_output,
                     "do not use compressed output"));
         config.add(new ConfigParam<int>
                    ("-x", "--randseed", "<random seed>", &randseed, 0,
@@ -158,19 +158,19 @@ public:
         // advance options
         config.add(new ConfigParamComment("Advanced Options", DEBUG_OPT));
         config.add(new ConfigParam<double>
-                   ("", "--prob-path-switch", "<probability>", 
+                   ("", "--prob-path-switch", "<probability>",
                     &prob_path_switch, .1,
                     "removal path switch (default=.1)", DEBUG_OPT));
         config.add(new ConfigSwitch
-                   ("", "--infsites", &infsites, 
-                    "assume infinite sites model (at most one mutation per site)", 
+                   ("", "--infsites", &infsites,
+                    "assume infinite sites model (at most one mutation per site)",
                     DEBUG_OPT));
         config.add(new ConfigParam<int>
-                   ("", "--resample-window", "<window size>", 
+                   ("", "--resample-window", "<window size>",
                     &resample_window, 100000,
                     "sliding window for resampling (default=100000)", DEBUG_OPT));
         config.add(new ConfigParam<int>
-                   ("", "--resample-window-iters", "<iterations>", 
+                   ("", "--resample-window-iters", "<iterations>",
                     &resample_window_iters, 10,
                     "number of iterations per sliding window for resampling (default=10)", DEBUG_OPT));
 
@@ -178,18 +178,18 @@ public:
         // help information
 	config.add(new ConfigParamComment("Information"));
 	config.add(new ConfigParam<int>
-		   ("-V", "--verbose", "<verbosity level>", 
-		    &verbose, LOG_LOW, 
+		   ("-V", "--verbose", "<verbosity level>",
+		    &verbose, LOG_LOW,
 		    "verbosity level 0=quiet, 1=low, 2=medium, 3=high"));
 	config.add(new ConfigSwitch
 		   ("-q", "--quiet", &quiet, "suppress logging to stderr"));
 	config.add(new ConfigSwitch
 		   ("-v", "--version", &version, "display version information"));
 	config.add(new ConfigSwitch
-		   ("-h", "--help", &help, 
-		    "display help information"));        
+		   ("-h", "--help", &help,
+		    "display help information"));
         config.add(new ConfigSwitch
-                   ("", "--help-advanced", &help_debug, 
+                   ("", "--help-advanced", &help_debug,
                     "display help information about advanced options"));
     }
 
@@ -201,7 +201,7 @@ public:
 		config.printHelp();
 	    return EXIT_ERROR;
 	}
-    
+
 	// display help
 	if (help) {
 	    config.printHelp();
@@ -213,13 +213,13 @@ public:
             config.printHelp(stderr, DEBUG_OPT);
             return EXIT_ERROR;
         }
-    
+
 	// display version info
 	if (version) {
 	    printf(VERSION_INFO);
 	    return EXIT_ERROR;
 	}
-        
+
 	return 0;
     }
 
@@ -265,7 +265,7 @@ public:
     int randseed;
     double prob_path_switch;
     bool infsites;
-    
+
     // help/information
     bool quiet;
     int verbose;
@@ -291,7 +291,7 @@ bool parse_region(const char *region, int *start, int *end)
 void log_intro(int level)
 {
     time_t t = time(NULL);
-    
+
     printLog(level, "arg-sample " VERSION_TEXT "\n");
     printLog(level, "start time: %s", ctime(&t));  // newline is in ctime
 }
@@ -327,7 +327,7 @@ void log_model(const ArgModel &model)
     if (isLogLevel(LOG_HIGH)) {
         printLog(LOG_HIGH, "mutmap = [\n");
         for (unsigned int i=0; i<model.mutmap.size(); i++) {
-            printLog(LOG_HIGH, "%d\t%d\t%e\n", 
+            printLog(LOG_HIGH, "%d\t%d\t%e\n",
                      model.mutmap[i].start, model.mutmap[i].end,
                      model.mutmap[i].value);
         }
@@ -335,7 +335,7 @@ void log_model(const ArgModel &model)
 
         printLog(LOG_HIGH, "recombmap = [\n");
         for (unsigned int i=0; i<model.recombmap.size(); i++) {
-            printLog(LOG_HIGH, "%d\t%d\t%e\n", 
+            printLog(LOG_HIGH, "%d\t%d\t%e\n",
                      model.recombmap[i].start, model.recombmap[i].end,
                      model.recombmap[i].value);
         }
@@ -354,13 +354,13 @@ void compress_track(Track<T> &track, SitesMapping *sites_mapping,
                     double compress_seq, bool is_rate)
 {
     Track<T> track2;
-    
+
     if (sites_mapping) {
         // get block lengths
         vector<int> blocks;
         for (unsigned int i=0; i<track.size(); i++)
             blocks.push_back(track[i].length());
-        
+
         // compress block lengths
         vector<int> blocks2;
         sites_mapping->compress_blocks(blocks, blocks2);
@@ -423,7 +423,7 @@ void print_stats_header(FILE *stats_file)
 
 
 void print_stats(FILE *stats_file, const char *stage, int iter,
-                 ArgModel *model, 
+                 ArgModel *model,
                  const Sequences *sequences, LocalTrees *trees,
                  const SitesMapping* sites_mapping, const Config *config)
 {
@@ -442,7 +442,7 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
 
 
     // calculate likelihood, prior, and joint probabilities
-    // uncompressed local trees 
+    // uncompressed local trees
     if (sites_mapping)
         uncompress_local_trees(trees, sites_mapping);
 
@@ -455,7 +455,7 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
     // recompress local trees
     if (sites_mapping)
         compress_local_trees(trees, sites_mapping);
-    
+
     // output stats
     fprintf(stats_file, "%s\t%d\t%f\t%f\t%f\t%d\t%d\t%f\n",
             stage, iter,
@@ -479,7 +479,7 @@ void print_stats(FILE *stats_file, const char *stage, int iter,
 
 
 // Returns the iteration-specific ARG filename
-string get_out_arg_file(const Config &config, int iter) 
+string get_out_arg_file(const Config &config, int iter)
 {
     char iterstr[10];
     snprintf(iterstr, 10, ".%d", iter);
@@ -490,7 +490,7 @@ string get_out_arg_file(const Config &config, int iter)
 bool log_local_trees(
     const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
     const SitesMapping* sites_mapping, const Config *config, int iter)
-{    
+{
     string out_arg_file = get_out_arg_file(*config, iter);
     if (!config->no_compress_output)
         out_arg_file += ".gz";
@@ -505,20 +505,20 @@ bool log_local_trees(
         printError("cannot write '%s'", out_arg_file.c_str());
         return false;
     }
-        
+
 
     write_local_trees(stream.stream, trees, sequences, model->times);
-    
+
     if (sites_mapping)
         compress_local_trees(trees, sites_mapping);
-    
+
     return true;
 }
 
 
 //=============================================================================
 
-bool read_init_arg(const char *arg_file, const ArgModel *model, 
+bool read_init_arg(const char *arg_file, const ArgModel *model,
                    LocalTrees *trees, vector<string> &seqnames)
 {
     CompressStream stream(arg_file, "r");
@@ -594,7 +594,7 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
     }
 
 
-    printLog(LOG_LOW, "Resample All Branches (%d iterations)\n", 
+    printLog(LOG_LOW, "Resample All Branches (%d iterations)\n",
              config->niters);
     printLog(LOG_LOW, "--------------------------------------\n");
     for (int i=iter; i<=config->niters; i++) {
@@ -607,7 +607,7 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
                                   window, step, niters);
         printTimerLog(timer, LOG_LOW, "sample time:");
 
-        
+
         // logging
         print_stats(config->stats_file, "resample", i, model, sequences, trees,
                     sites_mapping, config);
@@ -629,27 +629,27 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 
     // build initial arg by sequential sampling
     seq_sample_arg(model, sequences, trees, sites_mapping, config);
-    
+
     if (config->resample_region[0] != -1) {
         // region sampling
         printLog(LOG_LOW, "Resample Region (%d-%d, %d iterations)\n",
-                 config->resample_region[0], config->resample_region[1], 
+                 config->resample_region[0], config->resample_region[1],
                  config->niters);
         printLog(LOG_LOW, "--------------------------------------------\n");
 
-        print_stats(config->stats_file, "resample_region", 0, 
+        print_stats(config->stats_file, "resample_region", 0,
                     model, sequences, trees, sites_mapping, config);
 
-        resample_arg_region(model, sequences, trees, 
-                            config->resample_region[0], 
-                            config->resample_region[1], 
+        resample_arg_region(model, sequences, trees,
+                            config->resample_region[0],
+                            config->resample_region[1],
                             config->niters);
 
         // logging
         print_stats(config->stats_file, "resample_region", config->niters,
                     model, sequences, trees, sites_mapping, config);
         log_local_trees(model, sequences, trees, sites_mapping, config, 0);
-        
+
     } else{
         // climb sampling
         climb_arg(model, sequences, trees, sites_mapping, config);
@@ -663,7 +663,7 @@ void sample_arg(ArgModel *model, Sequences *sequences, LocalTrees *trees,
 
 bool parse_status_line(const char* line, const Config &config,
                        string &stage, int &iter, string &arg_file)
-{    
+{
     // parse stage and last iter
     vector<string> tokens;
     split(line, "\t", tokens);
@@ -671,7 +671,7 @@ bool parse_status_line(const char* line, const Config &config,
         printError("incomplete line in status file");
         return false;
     }
-        
+
     string stage2 = tokens[0];
     int iter2;
     if (sscanf(tokens[1].c_str(), "%d", &iter2) != 1) {
@@ -712,9 +712,9 @@ bool setup_resume(Config &config)
 
     printLog(LOG_LOW, "Resuming previous run\n");
 
-    // open stats file    
+    // open stats file
     string stats_filename = config.out_prefix + STATS_SUFFIX;
-    printLog(LOG_LOW, "Checking previous run from stats file: %s\n", 
+    printLog(LOG_LOW, "Checking previous run from stats file: %s\n",
              stats_filename.c_str());
 
     FILE *stats_file;
@@ -734,7 +734,7 @@ bool setup_resume(Config &config)
         return false;
     }
     delete [] line;
-    
+
     // loop through status lines
     string arg_file = "";
     while ((line = fgetline(stats_file))) {
@@ -751,8 +751,8 @@ bool setup_resume(Config &config)
         return false;
     }
     config.arg_file = arg_file;
-    
-    printLog(LOG_LOW, "resuming at stage=%s, iter=%d, arg=%s\n", 
+
+    printLog(LOG_LOW, "resuming at stage=%s, iter=%d, arg=%s\n",
              config.resume_stage.c_str(), config.resume_iter,
              config.arg_file.c_str());
 
@@ -765,7 +765,7 @@ bool setup_resume(Config &config)
 
 bool check_overwrite(Config &config)
 {
-    // check for stats file    
+    // check for stats file
     string stats_filename = config.out_prefix + STATS_SUFFIX;
     bool exists = !access(stats_filename.c_str(), F_OK);
     if (config.resume || config.overwrite || !exists) {
@@ -806,11 +806,11 @@ int main(int argc, char **argv)
     // ensure output dir
     if (!ensure_output_dir(c.out_prefix.c_str()))
         return EXIT_ERROR;
-    
+
     // check overwriting
     if (!check_overwrite(c))
         return EXIT_ERROR;
-    
+
     // setup logging
     setLogLevel(c.verbose);
     string log_filename = c.out_prefix + LOG_SUFFIX;
@@ -827,8 +827,8 @@ int main(int argc, char **argv)
     if (!logger->openLogFile(log_filename.c_str(), log_mode)) {
         printError("could not open log file '%s'", log_filename.c_str());
         return EXIT_ERROR;
-    }    
-    
+    }
+
     // log intro
     if (c.resume)
         printLog(LOG_LOW, "RESUME\n");
@@ -864,10 +864,10 @@ int main(int argc, char **argv)
     Region seq_region;
     Region seq_region_compress;
 
-    
+
     if (c.fasta_file != "") {
         // read FASTA file
-        
+
         if (!read_fasta(c.fasta_file.c_str(), &sequences)) {
             printError("could not read fasta file");
             return EXIT_ERROR;
@@ -876,18 +876,18 @@ int main(int argc, char **argv)
 
         printLog(LOG_LOW, "read input sequences (nseqs=%d, length=%d)\n",
                  sequences.get_num_seqs(), sequences.length());
-        
+
         // if compress requested, make sites object
         if (c.compress_seq > 1)
             make_sites_from_sequences(&sequences, &sites);
-        
+
     } else if (c.sites_file != "") {
         // read sites file
-        
+
         // parse subregion if given
         int subregion[2] = {-1, -1};
         if (c.subregion_str != "") {
-            if (!parse_region(c.subregion_str.c_str(), 
+            if (!parse_region(c.subregion_str.c_str(),
                               &subregion[0], &subregion[1])) {
                 printError("subregion is not specified as 'start-end'");
                 return EXIT_ERROR;
@@ -897,7 +897,7 @@ int main(int argc, char **argv)
 
         // read sites
         CompressStream stream(c.sites_file.c_str());
-        if (!stream.stream || 
+        if (!stream.stream ||
             !read_sites(stream.stream, &sites, subregion[0], subregion[1])) {
             printError("could not read sites file");
             return EXIT_ERROR;
@@ -915,7 +915,7 @@ int main(int argc, char **argv)
             return EXIT_ERROR;
         }
         seq_region.set(sites.chrom, sites.start_coord, sites.end_coord);
-            
+
     } else {
         // no input sequence specified
         printError("must specify sequences (use --fasta or --sites)");
@@ -942,7 +942,7 @@ int main(int argc, char **argv)
         CompressStream stream(c.maskmap.c_str(), "r");
         if (!stream.stream ||
             !read_track_filter(stream.stream, &maskmap, seq_region)) {
-            printError("cannot read mask map '%s'", 
+            printError("cannot read mask map '%s'",
                        c.maskmap.c_str());
             return EXIT_ERROR;
         }
@@ -954,13 +954,13 @@ int main(int argc, char **argv)
 
         // report number of masked sites
         bool *masked = new bool [sequences.length()];
-        find_masked_sites(sequences.get_seqs(), sequences.get_num_seqs(), 
+        find_masked_sites(sequences.get_seqs(), sequences.get_num_seqs(),
                           sequences.length(), masked);
         int nmasked = 0;
         for (int i=0; i<sequences.length(); i++)
             nmasked += int(masked[i]);
         delete [] masked;
-        printLog(LOG_LOW, "masked %d (%.1f%%) sites\n", nmasked, 
+        printLog(LOG_LOW, "masked %d (%.1f%%) sites\n", nmasked,
                  100.0 * nmasked / double(sequences.length()));
     }
 
@@ -983,7 +983,7 @@ int main(int argc, char **argv)
     // read model parameter maps if given
     if (c.mutmap != "") {
         CompressStream stream(c.mutmap.c_str(), "r");
-        if (!stream.stream || 
+        if (!stream.stream ||
             !read_track_filter(stream.stream, &c.model.mutmap, seq_region)) {
             printError("cannot read mutation rate map '%s'", c.mutmap.c_str());
             return EXIT_ERROR;
@@ -993,28 +993,28 @@ int main(int argc, char **argv)
         CompressStream stream(c.recombmap.c_str(), "r");
         if (!stream.stream ||
             !read_track_filter(stream.stream, &c.model.recombmap, seq_region)) {
-            printError("cannot read recombination rate map '%s'", 
+            printError("cannot read recombination rate map '%s'",
                        c.recombmap.c_str());
             return EXIT_ERROR;
         }
     }
-    
+
     // make compressed model
     ArgModel model(c.model);
     if (!model.setup_maps(seq_region.chrom, seq_region.start, seq_region.end))
         return EXIT_ERROR;
     compress_model(&model, sites_mapping, c.compress_seq);
-    
+
     // log original model
     log_model(model);
 
-    
+
     // setup init ARG
     LocalTrees *trees = NULL;
     auto_ptr<LocalTrees> trees_ptr;
     if (c.arg_file != "") {
         // init ARG from file
-        
+
         trees = new LocalTrees();
         trees_ptr = auto_ptr<LocalTrees>(trees);
         vector<string> seqnames;
@@ -1027,16 +1027,16 @@ int main(int argc, char **argv)
             printError("input ARG's sequence names do not match input sequences");
             return EXIT_ERROR;
         }
-        
+
         printLog(LOG_LOW, "read input ARG (chrom=%s, start=%d, end=%d, nseqs=%d)\n",
-                 trees->chrom.c_str(), trees->start_coord, trees->end_coord, 
+                 trees->chrom.c_str(), trees->start_coord, trees->end_coord,
                  trees->get_num_leaves());
 
         // check ARG matches sites/sequences
-        if (trees->start_coord != seq_region.start || 
+        if (trees->start_coord != seq_region.start ||
             trees->end_coord != seq_region.end) {
-            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d) [compressed coordinates]", 
-                       trees->start_coord, trees->end_coord, 
+            printError("trees range does not match sites: tree(start=%d, end=%d), sites(start=%d, end=%d) [compressed coordinates]",
+                       trees->start_coord, trees->end_coord,
                        seq_region.start, seq_region.end);
             return EXIT_ERROR;
         }
@@ -1044,19 +1044,19 @@ int main(int argc, char **argv)
         // compress input ARG if compression is requested
         if (sites_mapping)
             compress_local_trees(trees, sites_mapping, true);
-        
+
     } else {
         // create new init ARG
-        trees = new LocalTrees(seq_region_compress.start, 
+        trees = new LocalTrees(seq_region_compress.start,
                                seq_region_compress.end);
         trees->chrom = seq_region.chrom;
         trees_ptr = auto_ptr<LocalTrees>(trees);
     }
-    
+
 
     // check for region sample
     if (c.resample_region_str != "") {
-        if (!parse_region(c.resample_region_str.c_str(), 
+        if (!parse_region(c.resample_region_str.c_str(),
                           &c.resample_region[0], &c.resample_region[1]))
         {
             printError("--resample-region is not specified as 'start-end'");
@@ -1070,8 +1070,7 @@ int main(int argc, char **argv)
         }
     }
 
-    
-    
+
     // init stats file
     string stats_filename = c.out_prefix + STATS_SUFFIX;
     const char *stats_mode = (c.resume ? "a" : "w");
@@ -1087,7 +1086,7 @@ int main(int argc, char **argv)
     // sample ARG
     printLog(LOG_LOW, "\n");
     sample_arg(&model, &sequences, trees, sites_mapping, &c);
-    
+
     // final log message
     maxrss = get_max_memory_usage() / 1000.0;
     printTimerLog(timer, LOG_LOW, "sampling time: ");
@@ -1096,7 +1095,6 @@ int main(int argc, char **argv)
 
     // clean up
     fclose(c.stats_file);
-    
-    
+
     return 0;
 }

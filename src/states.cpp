@@ -54,12 +54,12 @@ void get_coal_states_external(const LocalTree *tree, int ntimes, States &states)
 {
     states.clear();
     const LocalNode *nodes = tree->nodes;
-    
+
     // iterate over the branches of the tree
     for (int i=0; i<tree->nnodes; i++) {
         int time = nodes[i].age;
         const int parent = nodes[i].parent;
-        
+
         if (parent == -1) {
             // no parent, allow coalescing up basal branch until ntimes-2
             for (; time<ntimes-1; time++)
@@ -78,12 +78,12 @@ int get_num_coal_states_external(const LocalTree *tree, int ntimes)
 {
     int nstates = 0;
     const LocalNode *nodes = tree->nodes;
-    
+
     // iterate over the branches of the tree
     for (int i=0; i<tree->nnodes; i++) {
         int time = nodes[i].age;
         const int parent = nodes[i].parent;
-        
+
         if (parent == -1) {
             // no parent, allow coalescing up basal branch until ntimes-2
             for (; time<ntimes-1; time++)
@@ -106,7 +106,7 @@ int get_num_coal_states_external(const LocalTree *tree, int ntimes)
 // NOTE: Do not allow coalescing at top time
 // states for the same branch are clustered together and ages are given
 // in increasing order
-void get_coal_states_internal(const LocalTree *tree, int ntimes, 
+void get_coal_states_internal(const LocalTree *tree, int ntimes,
                               States &states, int minage)
 {
     states.clear();
@@ -141,13 +141,13 @@ void get_coal_states_internal(const LocalTree *tree, int ntimes,
             stack[stacki++] = nodes[node].child[1];
         }
     }
-    
-    
+
+
     // iterate over the branches of the tree
     for (int i=0; i<nnodes; i++) {
         int time = max(nodes[i].age, minage);
         const int parent = nodes[i].parent;
-        
+
         // skip subtree and root node
         if (ignore[i])
             continue;
@@ -173,12 +173,12 @@ int get_num_coal_states_internal(const LocalTree *tree, int ntimes)
     const LocalNode *nodes = tree->nodes;
     int subtree_root = nodes[tree->root].child[0];
     int minage = nodes[subtree_root].age;
-    
+
     // iterate over the branches of the tree
     for (int i=0; i<tree->nnodes; i++) {
         int time = max(nodes[i].age, minage);
         const int parent = nodes[i].parent;
-        
+
         // skip subtree root branch and root node
         if (i == subtree_root || i == tree->root)
             continue;
@@ -210,7 +210,7 @@ void arghmm_get_nstates(LocalTrees *trees, int ntimes, bool internal,
                         int *nstates)
 {
     States states;
-    
+
     // iterate over local trees
     int i = 0;
     for (LocalTrees::iterator it=trees->begin(); it != trees->end(); it++) {
@@ -229,7 +229,7 @@ void arghmm_get_nstates(LocalTrees *trees, int ntimes, bool internal,
 intstate **get_state_spaces(LocalTrees *trees, int ntimes, bool internal)
 {
     States states;
-    
+
     // allocate state space
     intstate **all_states = new intstate* [trees->get_num_trees()];
 
@@ -240,7 +240,7 @@ intstate **get_state_spaces(LocalTrees *trees, int ntimes, bool internal)
         get_coal_states(tree, ntimes, states);
         int nstates = states.size();
         all_states[i] = new intstate [nstates];
-        
+
         for (int j=0; j<nstates; j++) {
             all_states[i][j][0] = states[j].node;
             all_states[i][j][1] = states[j].time;

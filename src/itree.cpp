@@ -10,18 +10,18 @@ namespace dlcoal {
 intnode *make_itree(int nnodes, int *ptree)
 {
     intnode *itree = new intnode [nnodes];
-    
+
     // initialize
     for (int i=0; i<nnodes; i++) {
         itree[i].parent = ptree[i];
         itree[i].child[0] = -1;
         itree[i].child[1] = -1;
     }
-    
+
     // populate
     for (int i=0; i<nnodes; i++) {
         int parent = ptree[i];
-        
+
         if (parent != -1) {
             if (itree[parent].child[0] == -1)
                 itree[parent].child[0] = i;

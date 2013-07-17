@@ -11,7 +11,7 @@ using namespace std;
 
 string quote_arg(string text)
 {
-    int j = 0; 
+    int j = 0;
     char text2[text.size() * 4 + 3];
     text2[j++] = '\'';
 
@@ -28,7 +28,7 @@ string quote_arg(string text)
     // terminate string
     text2[j++] = '\'';
     text2[j++] = '\0';
-    
+
     return string(text2);
 }
 
@@ -53,7 +53,7 @@ FILE *write_compress(const char *filename, const char *command)
 }
 
 
-FILE *open_compress(const char *filename, const char *mode, 
+FILE *open_compress(const char *filename, const char *mode,
                     const char *command)
 {
     string cmd;

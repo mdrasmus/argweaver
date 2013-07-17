@@ -34,7 +34,7 @@ bool makedirs(const char *path, mode_t mode)
     char *sp;
     bool status = true;
     char *copypath = strdup(path);
-    
+
     pp = copypath;
     while (status && (sp = strchr(pp, '/')) != 0) {
         if (sp != pp) {

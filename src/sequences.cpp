@@ -29,20 +29,20 @@ bool read_fasta(FILE *infile, Sequences *seqs)
             clear();
         }
     };
-    
-    
+
+
     // init sequences
     seqs->clear();
     seqs->set_owned(true);
 
-    char *line;    
+    char *line;
     string key;
     vector<char*> seq;
     Discard discard;
-    
+
     while ((line = fgetline(infile))) {
         chomp(line);
-        
+
         if (line[0] == '>') {
             // parse key line
 
@@ -59,7 +59,7 @@ bool read_fasta(FILE *infile, Sequences *seqs)
                 seq.clear();
                 discard.clean();
             }
-        
+
             // new key found
             key = string(&line[1]);
             delete [] line;
@@ -70,7 +70,7 @@ bool read_fasta(FILE *infile, Sequences *seqs)
             discard.push_back(line);
         }
     }
-    
+
     // add last sequence
     if (seq.size() > 0) {
         char *full_seq = concat_strs(&seq[0], seq.size());
@@ -83,22 +83,22 @@ bool read_fasta(FILE *infile, Sequences *seqs)
         }
         discard.clean();
     }
-    
+
     return true;
 }
 
 
 bool read_fasta(const char *filename, Sequences *seqs)
 {
-    FILE *infile = NULL;    
+    FILE *infile = NULL;
     if ((infile = fopen(filename, "r")) == NULL) {
         printError("cannot read file '%s'", filename);
         return false;
     }
-    
+
     bool result = read_fasta(infile, seqs);
     fclose(infile);
-    
+
     return result;
 }
 
@@ -107,14 +107,14 @@ bool read_fasta(const char *filename, Sequences *seqs)
 bool write_fasta(const char *filename, Sequences *seqs)
 {
     FILE *stream = NULL;
-    
+
     if ((stream = fopen(filename, "w")) == NULL) {
         fprintf(stderr, "cannot open '%s'\n", filename);
         return false;
     }
 
     write_fasta(stream, seqs);
-    
+
     fclose(stream);
     return true;
 }
@@ -145,18 +145,18 @@ bool validate_site_column(char *col, int nseqs)
 
 
 // Read a Sites stream
-bool read_sites(FILE *infile, Sites *sites, 
+bool read_sites(FILE *infile, Sites *sites,
                 int subregion_start, int subregion_end)
 {
     const char *delim = "\t";
     char *line;
     int nseqs = 0;
-    
+
     sites->clear();
     bool error = false;
-    
+
     // parse lines
-    int lineno = 0;    
+    int lineno = 0;
     while (!error && (line = fgetline(infile))) {
         chomp(line);
         lineno++;
@@ -169,7 +169,7 @@ bool read_sites(FILE *infile, Sites *sites,
         } else if (strncmp(line, "REGION\t", 7) == 0) {
             // parse RANGE line
             char chrom[51];
-            if (sscanf(line, "REGION\t%50s\t%d\t%d", 
+            if (sscanf(line, "REGION\t%50s\t%d\t%d",
                        chrom,
                        &sites->start_coord, &sites->end_coord) != 3) {
                 printError("bad REGION format");
@@ -184,18 +184,18 @@ bool read_sites(FILE *infile, Sites *sites,
                 sites->start_coord = subregion_start;
             if (subregion_end != -1)
                 sites->end_coord = subregion_end;
-            
+
 
         } else if (strncmp(line, "RANGE\t", 6) == 0) {
             // parse RANGE line
-            
+
             printError("deprecated RANGE line detected (use REGION instead)");
             delete [] line;
             return false;
 
         } else {
             // parse a site line
-            
+
             // parse site
             int position;
             if (sscanf(line, "%d\t", &position) != 1) {
@@ -204,12 +204,12 @@ bool read_sites(FILE *infile, Sites *sites,
                 return false;
             }
 
-            // skip site if not in region            
+            // skip site if not in region
             if (position < sites->start_coord || position >= sites->end_coord) {
                 delete [] line;
                 continue;
             }
-            
+
             // skip first word
             int i=0;
             for (; line[i] != '\t'; i++) {}
@@ -233,16 +233,16 @@ bool read_sites(FILE *infile, Sites *sites,
             // convert to 0-index
             sites->append(position - 1, col, true);
         }
-        
+
         delete [] line;
     }
-    
+
     return true;
 }
 
 
 // Read a Sites alignment file
-bool read_sites(const char *filename, Sites *sites, 
+bool read_sites(const char *filename, Sites *sites,
                 int subregion_start, int subregion_end)
 {
     FILE *infile;
@@ -250,30 +250,30 @@ bool read_sites(const char *filename, Sites *sites,
         printError("cannot read file '%s'", filename);
         return false;
     }
-    
+
     bool result = read_sites(infile, sites, subregion_start, subregion_end);
 
     fclose(infile);
-    
+
     return result;
 }
 
 
 // Converts a Sites alignment to a Sequences alignment
-void make_sequences_from_sites(const Sites *sites, Sequences *sequences, 
+void make_sequences_from_sites(const Sites *sites, Sequences *sequences,
                                char default_char)
 {
     int nseqs = sites->names.size();
     int seqlen = sites->length();
     int start = sites->start_coord;
     int nsites = sites->get_num_sites();
-    
+
     sequences->clear();
     sequences->set_owned(true);
-    
+
     for (int i=0; i<nseqs; i++) {
         char *seq = new char [seqlen];
-        
+
         int col = 0;
         for (int j=0; j<seqlen; j++) {
             if (col < nsites && start+j == sites->positions[col]) {
@@ -292,11 +292,11 @@ void make_sequences_from_sites(const Sites *sites, Sequences *sequences,
 
 
 template<>
-void apply_mask_sequences<NullValue>(Sequences *sequences, 
+void apply_mask_sequences<NullValue>(Sequences *sequences,
                                      const TrackNullValue &maskmap)
 {
     const char maskchar = 'N';
-    
+
     for (unsigned int k=0; k<maskmap.size(); k++) {
         for (int i=maskmap[k].start; i<maskmap[k].end; i++) {
             for (int j=0; j<sequences->get_num_seqs(); j++)
@@ -308,7 +308,7 @@ void apply_mask_sequences<NullValue>(Sequences *sequences,
 
 
 // Returns true if alignment column is invariant
-static inline bool is_invariant_site(const char *const *seqs, 
+static inline bool is_invariant_site(const char *const *seqs,
                                      const int nseqs, const int pos)
 {
     const char c = seqs[0][pos];
@@ -327,7 +327,7 @@ void make_sites_from_sequences(const Sequences *sequences, Sites *sites)
     int nseqs = sequences->get_num_seqs();
     int seqlen = sequences->length();
     const char * const *seqs = sequences->get_seqs();
-    
+
     sites->clear();
     sites->start_coord = 0;
     sites->end_coord = seqlen;
@@ -347,7 +347,7 @@ void make_sites_from_sequences(const Sequences *sequences, Sites *sites)
 
 
 // compress the sites by a factor of 'compress'
-void find_compress_cols(const Sites *sites, int compress, 
+void find_compress_cols(const Sites *sites, int compress,
                         SitesMapping *sites_mapping)
 {
     const int ncols = sites->get_num_sites();
@@ -355,7 +355,7 @@ void find_compress_cols(const Sites *sites, int compress,
     int blocki = 0;
     int next_block = sites->start_coord + compress;
     int half_block = compress / 2;
-    
+
     // record old coords
     sites_mapping->init(sites);
 
@@ -376,7 +376,7 @@ void find_compress_cols(const Sites *sites, int compress,
         sites_mapping->new_end = sites->length();
         return;
     }
-    
+
     // iterate through variant sites
     for (int i=0; i<ncols; i++) {
         int col = sites->positions[i];
@@ -412,12 +412,12 @@ void find_compress_cols(const Sites *sites, int compress,
     sites_mapping->new_start = 0;
     int new_end = sites->length() / compress;
     if (ncols > 0)
-        sites_mapping->new_end = max(sites_mapping->new_sites[ncols-1]+1, 
+        sites_mapping->new_end = max(sites_mapping->new_sites[ncols-1]+1,
                                      new_end);
     else
         sites_mapping->new_end = new_end;
 
-    //assert(sites_mapping->all_sites.size() == sites_mapping->new_end - 
+    //assert(sites_mapping->all_sites.size() == sites_mapping->new_end -
     //       sites_mapping->new_start);
 }
 
@@ -427,7 +427,7 @@ void compress_sites(Sites *sites, const SitesMapping *sites_mapping)
     const int ncols = sites->cols.size();
     sites->start_coord = sites_mapping->new_start;
     sites->end_coord = sites_mapping->new_end;
-    
+
     for (int i=0; i<ncols; i++)
         sites->positions[i] = sites_mapping->new_sites[i];
 }
@@ -438,7 +438,7 @@ void uncompress_sites(Sites *sites, const SitesMapping *sites_mapping)
     const int ncols = sites->cols.size();
     sites->start_coord = sites_mapping->old_start;
     sites->end_coord = sites_mapping->old_end;
-    
+
     for (int i=0; i<ncols; i++)
         sites->positions[i] = sites_mapping->old_sites[i];
 }
@@ -476,7 +476,7 @@ bool check_sequences(int nseqs, int seqlen, char **seqs)
             }
         }
     }
-    
+
     return true;
 }
 
@@ -507,7 +507,7 @@ bool check_seq_names(Sequences *seqs)
 bool check_seq_name(const char *name)
 {
     int len = strlen(name);
-    
+
     if (len == 0) {
         printError("name is zero length");
         return false;
@@ -560,7 +560,7 @@ void resample_align(Sequences *aln, Sequences *aln2)
     for (int j=0; j<aln2->length(); j++) {
         // randomly choose a column (with replacement)
         int col = irand(aln->length());
-        
+
         // copy column
         for (int i=0; i<aln2->get_num_seqs(); i++) {
             seqs2[i][j] = seqs[i][col];

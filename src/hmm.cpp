@@ -10,11 +10,11 @@ extern "C" {
 
 
 // run forward algorithm for one column of the table
-void forward_step(double *col1, double* col2, 
+void forward_step(double *col1, double* col2,
                   int nstates1, int nstates2, double **trans, double *emit)
 {
     double tmp[nstates1];
-    
+
     for (int k=0; k<nstates2; k++) {
         for (int j=0; j<nstates1; j++)
             tmp[j] = col1[j] + trans[j][k];
@@ -22,9 +22,9 @@ void forward_step(double *col1, double* col2,
     }
 }
 
-// run forward algorithm 
+// run forward algorithm
 // NOTE: first column of fw table must already be calculated
-void forward_alg(int n, int nstates, double **trans, double **emit, 
+void forward_alg(int n, int nstates, double **trans, double **emit,
                  double **fw)
 {
     double vec[nstates];
@@ -45,7 +45,7 @@ void forward_alg(int n, int nstates, double **trans, double **emit,
 
 // run backward algorithm
 // NOTE: last column of bw table must already be calculated
-void backward_alg(int n, int nstates, double **trans, double **emit, 
+void backward_alg(int n, int nstates, double **trans, double **emit,
                   double **bw)
 {
     double vec[nstates];
@@ -64,11 +64,11 @@ void backward_alg(int n, int nstates, double **trans, double **emit,
 }
 
 
-void sample_hmm_posterior(int n, int nstates, double **trans, 
+void sample_hmm_posterior(int n, int nstates, double **trans,
                           double **fw, int *path)
 {
     // NOTE: path[n-1] must already be sampled
-    
+
     double A[nstates];
 
     // recurse
@@ -88,7 +88,7 @@ int sample_hmm_posterior_step(int nstates1, double **trans, double *col1,
                               int state2)
 {
     double A[nstates1];
-    
+
     for (int j=0; j<nstates1; j++)
         A[j] = col1[j] + trans[j][state2];
     double total = logsum(A, nstates1);

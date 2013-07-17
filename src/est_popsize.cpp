@@ -9,14 +9,14 @@ namespace arghmm {
 using namespace std;
 
 
-void est_popsize_arg(const ArgModel *model, const LocalTrees *trees, 
+void est_popsize_arg(const ArgModel *model, const LocalTrees *trees,
                      double *popsizes)
 {
-    
+
 }
 
 
-void est_popsize_trees2(const ArgModel *model, const LocalTree *const *trees, 
+void est_popsize_trees2(const ArgModel *model, const LocalTree *const *trees,
                        int ntrees, double *popsizes)
 {
     assert(ntrees > 0);
@@ -24,7 +24,7 @@ void est_popsize_trees2(const ArgModel *model, const LocalTree *const *trees,
     const int ntimes = model->ntimes;
     const int nleaves = trees[0]->get_num_leaves();
     LineageCounts lineages(ntimes);
-    
+
     int total_ncoals[ntimes];
     int total_pairs[ntimes];
     int total_ncoals_pairs[ntimes];
@@ -38,7 +38,7 @@ void est_popsize_trees2(const ArgModel *model, const LocalTree *const *trees,
     // count lineages
     for (int i=0; i<ntrees; i++) {
         lineages.count(trees[i]);
-        
+
         for (int j=0; j<ntimes-1; j++) {
             int start = (j == 0) ? nleaves : lineages.nbranches[j-1];
             int end = lineages.nbranches[j];
@@ -66,7 +66,7 @@ void est_popsize_trees2(const ArgModel *model, const LocalTree *const *trees,
 
 
 
-void est_popsize_trees(const ArgModel *model, const LocalTree *const *trees, 
+void est_popsize_trees(const ArgModel *model, const LocalTree *const *trees,
                        int ntrees, double *popsizes)
 {
     assert(ntrees > 0);
@@ -74,7 +74,7 @@ void est_popsize_trees(const ArgModel *model, const LocalTree *const *trees,
     const int ntimes = model->ntimes;
     const int nleaves = trees[0]->get_num_leaves();
     LineageCounts lineages(ntimes);
-    
+
     int total_ncoals[ntimes];
     int total_pairs[ntimes];
 
@@ -86,7 +86,7 @@ void est_popsize_trees(const ArgModel *model, const LocalTree *const *trees,
     // count lineages
     for (int i=0; i<ntrees; i++) {
         lineages.count(trees[i]);
-        
+
         for (int j=0; j<ntimes-1; j++) {
             int start = (j == 0) ? nleaves : lineages.nbranches[j-1];
             int end = lineages.nbranches[j];
@@ -102,7 +102,7 @@ void est_popsize_trees(const ArgModel *model, const LocalTree *const *trees,
         if (total_ncoals[j] == 0)
             popsizes[j] = 0.0;
         else
-            popsizes[j] = .5 * model->time_steps[j] * total_pairs[j] / 
+            popsizes[j] = .5 * model->time_steps[j] * total_pairs[j] /
                 double(total_ncoals[j]);
         printf("> %d %d\n", total_pairs[j], total_ncoals[j]);
         printf("popsize %f\n", popsizes[j]);
@@ -114,15 +114,15 @@ void est_popsize_trees(const ArgModel *model, const LocalTrees *trees,
                        int step, double *popsizes)
 {
     vector<LocalTree*> indep_trees;
-    
+
     int end = trees->start_coord;
     int pos = end;
-    for (LocalTrees::const_iterator it=trees->begin(); 
-         it != trees->end(); ++it) 
+    for (LocalTrees::const_iterator it=trees->begin();
+         it != trees->end(); ++it)
     {
         int start = end;
         end += it->blocklen;
-        
+
         while (start <= pos && pos < end) {
             // record tree
             indep_trees.push_back(it->tree);
@@ -140,7 +140,7 @@ void est_popsize_trees(const ArgModel *model, const LocalTrees *trees,
 extern "C" {
 
 // estimate population sizes
-void arghmm_est_popsizes_trees(LocalTrees *trees, double *times, int ntimes, 
+void arghmm_est_popsizes_trees(LocalTrees *trees, double *times, int ntimes,
                                int step, double *popsizes)
 {
     // setup model, local trees, sequences

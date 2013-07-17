@@ -21,7 +21,7 @@ int fgetline(char **lineptr, int *linesize, FILE *stream)
         // use existing line buffer
         line = *lineptr;
     }
-    
+
     char *start = line;
     int capacity = *linesize;
 
@@ -35,41 +35,41 @@ int fgetline(char **lineptr, int *linesize, FILE *stream)
             // ensure eol is present
             start[0] = '\0';
         }
-        
+
         // check to see if line is longer than buffer
         if (*end != '\0' && *end != '\n') {
             readsize += capacity - 1;
-            
+
             // resize buffer
             int newsize = *linesize * 2;
             char *tmp = new char [newsize];
-    
+
             // failed to get memory
             if (!tmp)
                 return -1;
-            
+
             // copy over line read so far
             memcpy(tmp, line, *linesize);
 
             // update sizes
             capacity = newsize - *linesize;
             *linesize = newsize;
-            
+
             // update pointers
             delete [] line;
             line = tmp;
             start = &line[readsize];
-            
+
             continue;
         }
         break;
-    } 
+    }
 
     // line is shorter than buffer, return it
 
     // determine how much was read
     readsize += strlen(start);
-    
+
     *lineptr = line;
     return readsize;
 }
@@ -82,7 +82,7 @@ char *fgetline(FILE *stream)
     int linesize = DEFAULT_LINE_SIZE;
     char *line = NULL;
     fgetline(&line, &linesize, stream);
-    
+
     // detect eof
     if (line[0] == '\0' && feof(stream)) {
         delete [] line;
@@ -98,13 +98,13 @@ void split(const char *str, const char *delim, vector<string> &tokens)
     tokens.clear();
     int i = 0;
     bool end = false;
-    
+
     while (!end) {
         // walk to end of next token
         int j = i;
         for (; str[j] && !inChars(str[j], delim); j++);
         end = !str[j];
-        
+
         // save token
         tokens.push_back(string(&str[i], j-i));
         i = j + 1;
@@ -124,7 +124,7 @@ char *concat_strs(char **strs, int nstrs)
         lens[i] = strlen(strs[i]);
         total_len += lens[i];
     }
-    
+
     char *str = new char [total_len + 1];
 
     // copy strings

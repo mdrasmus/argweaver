@@ -35,7 +35,7 @@ void Logger::printTimerLog(const Timer &timer, int level, const char *fmt, ...)
 }
 
 
-void Logger::printTimerLog(const Timer &timer, int level, const char *fmt, 
+void Logger::printTimerLog(const Timer &timer, int level, const char *fmt,
                            va_list ap)
 {
     if (level <= loglevel) {
@@ -54,7 +54,7 @@ void Logger::printTimerLog(const Timer &timer, int level, const char *fmt,
             fprintf(logstream, " %5.1f m", time / 60.0);
         else
             fprintf(logstream, " %5.1f h", time / 3600.0);
-        
+
         fprintf(logstream, "\n");
         fflush(logstream);
     }
@@ -109,7 +109,7 @@ void printError(const char *fmt, va_list ap)
 
 void printError(const char *fmt, ...)
 {
-    va_list ap;   
+    va_list ap;
     va_start(ap, fmt);
     fprintf(stderr, "error: ");
     vfprintf(stderr, fmt, ap);
@@ -127,5 +127,5 @@ void setLogLevel(int level)
 { return g_logger.setLogLevel(level); }
 
 } // extern "C"
-    
+
 } // namespace spidir

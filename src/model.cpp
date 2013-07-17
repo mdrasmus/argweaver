@@ -6,9 +6,9 @@
 namespace arghmm {
 
 
-void get_coal_time_steps(const double *times, int ntimes, 
+void get_coal_time_steps(const double *times, int ntimes,
                           double *coal_time_steps)
-{    
+{
     // get midpoints
     double times2[2*ntimes+1];
     for (int i=0; i<ntimes-1; i++) {
@@ -16,7 +16,7 @@ void get_coal_time_steps(const double *times, int ntimes,
         times2[2*i+1] = sqrt((times[i+1]+1.0)*(times[i]+1.0));
     }
     times2[2*ntimes] = times[ntimes-1];
-    
+
     for (int i=0; i<2*ntimes-2; i++)
         coal_time_steps[i] = times2[min(i+1, 2*ntimes)] - times2[i];
     coal_time_steps[2*ntimes-2] = INFINITY;
@@ -34,7 +34,7 @@ bool check_map(const Track<T> &track, int start, int end)
         printError("map is empty");
         return false;
     }
-    
+
     // check that start and end cover desired range
     if (it->start > start || track.back().end < end) {
         printError("map does not cover entire region");
@@ -45,7 +45,7 @@ bool check_map(const Track<T> &track, int start, int end)
     ++it;
     for (; it != track.end(); ++it) {
         if (it->start != last) {
-            printError("map is not complete at %s:%d", 
+            printError("map is not complete at %s:%d",
                        it->chrom.c_str(), it->start);
             return false;
         }
@@ -86,7 +86,7 @@ bool complete_map(Track<T> &track, string chrom, int start, int end, const T &de
         }
         last = it->end;
     }
-    
+
     return true;
 }
 
@@ -104,7 +104,7 @@ bool ArgModel::setup_maps(string chrom, int start, int end) {
         printError("recombination map has errors");
         return false;
     }
-    
+
     /*
     // setup default maps
     if (mutmap.size() == 0)
@@ -130,7 +130,7 @@ bool ArgModel::setup_maps(string chrom, int start, int end) {
     Track<double> mutmap2;
     Track<double> recombmap2;
     while (i < mutmap.size() || j < recombmap.size()) {
-        //printf("recomb[%d] = (%d, %d, %e), mut[%d] = (%d, %d, %e)\n", 
+        //printf("recomb[%d] = (%d, %d, %e), mut[%d] = (%d, %d, %e)\n",
         //       j, recombmap[j].start, recombmap[j].end, recombmap[j].value,
         //       i, mutmap[i].start, mutmap[i].end, mutmap[i].value);
 

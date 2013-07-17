@@ -35,11 +35,11 @@ char readChar(FILE *stream, int &depth)
             return '\0';
         }
     } while (chr == ' ' || chr == '\n');
-    
+
     // keep track of paren depth
     if (chr == '(') depth++;
     if (chr == ')') depth--;
-    
+
     return chr;
 }
 
@@ -52,7 +52,7 @@ char readUntil(FILE *stream, string &token, const char *stops, int &depth)
         chr = readChar(stream, depth);
         if (!chr)
             return chr;
-        
+
         // compare char to stop characters
         for (const char *i=stops; *i; i++) {
             if (chr == *i)
@@ -67,7 +67,7 @@ int nodeNameCmp(const void *_a, const void *_b)
 {
     Node *a = *((Node**) _a);
     Node *b = *((Node**) _b);
-    
+
     if (a->nchildren == 0) {
         if (b->nchildren == 0)
             return 0;
@@ -93,23 +93,23 @@ Node *readNewickNode(FILE *infile, Tree *tree, Node *parent, int &depth)
         printError("unexpected end of file");
         return NULL;
     }
-    
-    
+
+
     if (char1 == '(') {
         // read internal node
-    
+
         int depth2 = depth;
         node = tree->addNode(new Node());
         if (parent)
             parent->addChild(node);
-        
+
         // read all child nodes at this depth
         while (depth == depth2) {
             Node *child = readNewickNode(infile, tree, node, depth);
             if (!child)
                 return NULL;
         }
-        
+
         // read name and distance for this node
         char chr = readUntil(infile, token, "):,;", depth);
 
@@ -130,20 +130,20 @@ Node *readNewickNode(FILE *infile, Tree *tree, Node *parent, int &depth)
             if (!(chr = readUntil(infile, token, "):,", depth)))
                 return NULL;
         }
-        
+
         return node;
     } else {
         // read leaf
-        
+
         node = tree->addNode(new Node());
         if (parent)
             parent->addChild(node);
-        
+
         // read name
         if (!(chr = readUntil(infile, token, ":),", depth)))
             return NULL;
         node->longname = char1 + trim(token);
-        
+
         // read distance for this node
         if (chr == ':') {
             if (!readDist(infile, &node->dist)) {
@@ -153,7 +153,7 @@ Node *readNewickNode(FILE *infile, Tree *tree, Node *parent, int &depth)
             if (!(chr = readUntil(infile, token, ":),", depth)))
                 return NULL;
         }
-        
+
         return node;
     }
 }
@@ -169,24 +169,24 @@ Tree *readNewickTree(FILE *infile, Tree *tree)
 
     int depth = 0;
     tree->root = readNewickNode(infile, tree, NULL, depth);
-    
+
     // renumber nodes in a valid order
     // 1. leaves come first
     // 2. root is last
-    
+
     if (tree->root != NULL) {
-        tree->nodes[tree->root->name] = tree->nodes[tree->nnodes-1];    
+        tree->nodes[tree->root->name] = tree->nodes[tree->nnodes-1];
         tree->nodes[tree->nnodes-1] = tree->root;
         tree->nodes[tree->root->name]->name = tree->root->name;
         tree->root->name = tree->nnodes - 1;
-        
+
         qsort((void*) tree->nodes.get(), tree->nodes.size(), sizeof(Node*),
                nodeNameCmp);
-        
+
         // update names
         for (int i=0; i<tree->nnodes; i++)
             tree->nodes[i]->name = i;
-        
+
         return tree;
     } else {
         if (newTree)
@@ -205,7 +205,7 @@ Tree *readNewickTree(const char *filename, Tree *tree)
     }
 
     FILE *infile = NULL;
-    
+
     if ((infile = fopen(filename, "r")) == NULL) {
         printError("cannot read file '%s'\n", filename);
         if (newTree)
@@ -214,15 +214,15 @@ Tree *readNewickTree(const char *filename, Tree *tree)
     }
 
     Tree *tree2 = readNewickTree(infile, tree);
-    
+
     if (!tree2) {
         printError("format error in '%s'\n", filename);
         if (newTree)
             delete tree;
     }
-    
+
     fclose(infile);
-    
+
     return tree2;
 }
 
@@ -243,7 +243,7 @@ void writeNewickNode(FILE *out, Node *node, int depth, bool oneline)
             for (int i=0; i<depth; i++) fprintf(out, "  ");
             fprintf(out, "(\n");
         }
-        
+
         for (int i=0; i<node->nchildren - 1; i++) {
             writeNewickNode(out, node->children[i], depth+1, oneline);
             if (oneline)
@@ -251,15 +251,15 @@ void writeNewickNode(FILE *out, Node *node, int depth, bool oneline)
             else
                 fprintf(out, ",\n");
         }
-        
-        writeNewickNode(out, node->children[node->nchildren-1], 
+
+        writeNewickNode(out, node->children[node->nchildren-1],
                         depth+1, oneline);
         if (!oneline) {
-            fprintf(out, "\n");            
+            fprintf(out, "\n");
             for (int i=0; i<depth; i++) fprintf(out, "  ");
         }
         fprintf(out, ")");
-        
+
         if (depth > 0)
             fprintf(out, "%s:%f", node->longname.c_str(), node->dist);
         else
@@ -282,7 +282,7 @@ void writeNewickTree(FILE *out, Tree *tree, int depth, bool oneline)
 bool writeNewickTree(const char *filename, Tree *tree, bool oneline)
 {
     FILE *out = NULL;
-    
+
     if ((out = fopen(filename, "w")) == NULL) {
         printError("cannot write file '%s'\n", filename);
         return false;
