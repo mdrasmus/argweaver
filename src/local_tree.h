@@ -22,11 +22,11 @@ using namespace std;
 
 
 // A block within a sequence alignment
-class Block 
+class Block
 {
 public:
     Block() {}
-    Block(int start, int end) : 
+    Block(int start, int end) :
         start(start), end(end) {}
     int start;
     int end;
@@ -42,7 +42,7 @@ class Spr
 {
 public:
     Spr() {}
-    Spr(int recomb_node, int recomb_time, 
+    Spr(int recomb_node, int recomb_time,
         int coal_node, int coal_time) :
         recomb_node(recomb_node), recomb_time(recomb_time),
         coal_node(coal_node), coal_time(coal_time) {}
@@ -82,7 +82,7 @@ public:
 
 
 // A node in a local tree
-class LocalNode 
+class LocalNode
 {
 public:
     LocalNode() {}
@@ -124,7 +124,7 @@ public:
         parent = other.parent;
         age = other.age;
         child[0] = other.child[0];
-        child[1] = other.child[1];        
+        child[1] = other.child[1];
     }
 
     int parent;
@@ -146,22 +146,25 @@ public:
         nnodes(0),
         capacity(0),
         root(-1),
-        nodes(NULL) 
+        nodes(NULL)
     {}
 
-    LocalTree(int nnodes, unsigned int capacity=0) :
+    LocalTree(int nnodes, int capacity=0) :
         nnodes(nnodes),
         capacity(capacity),
         root(-1)
     {
-        if (capacity < (unsigned) nnodes)
+        if (capacity < nnodes)
             capacity = nnodes;
         nodes = new LocalNode [capacity];
     }
 
 
     LocalTree(int *ptree, int nnodes, int *ages=NULL, int capacity=-1) :
-        nodes(NULL) 
+        nnodes(nnodes),
+        capacity(0),
+        root(-1),
+        nodes(NULL)
     {
         set_ptree(ptree, nnodes, ages, capacity);
     }
@@ -170,7 +173,7 @@ public:
         nnodes(0),
         capacity(0),
         root(-1),
-        nodes(NULL)        
+        nodes(NULL)
     {
         copy(other);
     }
@@ -184,7 +187,7 @@ public:
     }
 
     // initialize a local tree by on a parent array
-    void set_ptree(int *ptree, int _nnodes, int *ages=NULL, int _capacity=-1) 
+    void set_ptree(int *ptree, int _nnodes, int *ages=NULL, int _capacity=-1)
     {
         nnodes = _nnodes;
         if (_capacity >= 0)
@@ -209,11 +212,11 @@ public:
             for (int i=0; i<nnodes; i++)
                 nodes[i].age = ages[i];
 
-    
+
         // populate children pointers
         for (int i=0; i<nnodes; i++) {
             const int parent = ptree[i];
-        
+
             if (parent != -1) {
                 int *child = nodes[parent].child;
                 if (child[0] == -1)
@@ -226,7 +229,7 @@ public:
         }
     }
 
-    
+
     // Sets the root of the tree by finding node without a parent
     void set_root()
     {
@@ -244,12 +247,12 @@ public:
     {
         if (_capacity == capacity)
             return;
-        
+
         LocalNode *tmp = new LocalNode[_capacity];
         assert(tmp);
 
         // copy over nodes
-        std::copy(nodes, nodes + capacity, tmp);   
+        std::copy(nodes, nodes + capacity, tmp);
         delete [] nodes;
 
         nodes = tmp;
@@ -264,8 +267,8 @@ public:
         if (capacity < _capacity)
             set_capacity(_capacity);
     }
-    
-    
+
+
 
     // Returns the postorder traversal of the nodes
     void get_postorder(int *order) const
@@ -283,14 +286,14 @@ public:
                 break;
             order[i] = i;
         }
-        
+
         // add the remaining nodes
         int end = i;
         for (i=0; i<nnodes; i++) {
             int parent = nodes[order[i]].parent;
             if (parent != -1) {
                 visit[parent]++;
-                
+
                 // add parent to queue if both children have been seen
                 if (visit[parent] == 2)
                     order[end++] = parent;
@@ -325,7 +328,7 @@ public:
         return (nnodes + 1) / 2;
     }
 
-    
+
     // Convenience method for accessing nodes
     inline LocalNode &operator[](int name) const
     {
@@ -347,7 +350,7 @@ public:
     }
 
 
-    inline double get_dist(int node, const double *times) const 
+    inline double get_dist(int node, const double *times) const
     {
         int parent = nodes[node].parent;
         if (parent != -1)
@@ -373,16 +376,16 @@ public:
         nnodes = 0;
         root = -1;
     }
-    
+
 
     // Copy tree structure from another tree
     inline void copy(const LocalTree &other)
     {
         // copy tree info
-        nnodes = other.nnodes;        
+        nnodes = other.nnodes;
         ensure_capacity(other.capacity);
         root = other.root;
-        
+
         // copy node info
         for (int i=0; i<nnodes; i++)
             nodes[i].copy(other.nodes[i]);
@@ -407,7 +410,7 @@ public:
         int childi = nodes[parent].add_child(child);
         if (childi == -1)
             return -1;
-        
+
         nodes[child].parent = parent;
 
         return childi;
@@ -450,7 +453,7 @@ public:
             delete tree;
             tree = NULL;
         }
-        
+
         if (mapping) {
             delete [] mapping;
             mapping = NULL;
@@ -469,10 +472,10 @@ public:
         if (mapping) {
             int *tmp = new int [_capacity];
             assert(tmp);
-            
-            std::copy(mapping, mapping + _capacity, tmp);   
+
+            std::copy(mapping, mapping + _capacity, tmp);
             delete [] mapping;
-            
+
             mapping = tmp;
         }
     }
@@ -484,7 +487,7 @@ public:
             set_capacity(_capacity);
     }
 
-    
+
     LocalTree *tree;  // local tree
     Spr spr;          // SPR operation to the left of local tree
     int *mapping;     // node mapping between previous tree and this tree
@@ -498,7 +501,7 @@ public:
 // This structure specifies a list of local trees, their blocks, and
 // SPR operations.  Together this specifies an ancestral recombination
 // graph (ARG), which because of our assumptions is an SMC-style ARG.
-class LocalTrees 
+class LocalTrees
 {
 public:
     LocalTrees(int start_coord=0, int end_coord=0, int nnodes=0) :
@@ -508,7 +511,7 @@ public:
         nnodes(nnodes) {}
     LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
                int ntrees, int nnodes, int capacity=-1, int start=0);
-    ~LocalTrees() 
+    ~LocalTrees()
     {
         clear();
     }
@@ -577,7 +580,7 @@ public:
         start_coord = start;
         end_coord = end;
         nnodes = 1;
-        
+
         int ptree[] = {-1};
         int ages[] = {0};
         LocalTree *tree = new LocalTree(ptree, 1, ages, capacity);
@@ -597,11 +600,11 @@ public:
 
 
     // set sequence IDs according to a permutation of sequence names
-    bool set_seqids(const vector<string> &names, 
+    bool set_seqids(const vector<string> &names,
                     const vector<string> &new_order)
     {
         const int nnames = names.size();
-        
+
         for (int i=0; i<nnames; i++) {
             seqids[i] = -1;
             for (unsigned int j=0; j<new_order.size(); j++) {
@@ -614,18 +617,18 @@ public:
             if (seqids[i] == -1)
                 return false;
         }
-        
+
         return true;
     }
-    
-    
+
+
     // return local block containing site
-    const_iterator get_block(int site, int &start, int &end) const 
+    const_iterator get_block(int site, int &start, int &end) const
     {
         end = start_coord;
         for (const_iterator it = begin(); it != this->end(); ++it) {
             start = end;
-            end += it->blocklen;        
+            end += it->blocklen;
             if (start <= site && site < end)
                 return it;
         }
@@ -633,7 +636,7 @@ public:
     }
 
     // return local block containing site
-    const_iterator get_block(int site) const 
+    const_iterator get_block(int site) const
     {
         int start, end;
         return get_block(site, start, end);
@@ -645,7 +648,7 @@ public:
         end = start_coord;
         for (iterator it = begin(); it != this->end(); ++it) {
             start = end;
-            end += it->blocklen;        
+            end += it->blocklen;
             if (start <= site && site < end)
                 return it;
         }
@@ -660,7 +663,7 @@ public:
     }
 
 
-    
+
     string chrom;              // chromosome name of region
     int start_coord;           // start coordinate of whole tree list
     int end_coord;             // end coordinate of whole tree list
@@ -718,12 +721,12 @@ public:
 void apply_spr(LocalTree *tree, const Spr &spr);
 double get_treelen(const LocalTree *tree, const double *times, int ntimes,
                     bool use_basal=true);
-double get_treelen_internal(const LocalTree *tree, const double *times, 
+double get_treelen_internal(const LocalTree *tree, const double *times,
                             int ntimes);
-double get_treelen_branch(const LocalTree *tree, const double *times, 
-                          int ntimes, int node, int time, double treelen=-1.0, 
+double get_treelen_branch(const LocalTree *tree, const double *times,
+                          int ntimes, int node, int time, double treelen=-1.0,
                           bool use_basal=true);
-double get_basal_branch(const LocalTree *tree, const double *times, 
+double get_basal_branch(const LocalTree *tree, const double *times,
                         int ntimes, int node, int time);
 
 //=============================================================================
@@ -732,11 +735,11 @@ double get_basal_branch(const LocalTree *tree, const double *times,
 double get_arglen(const LocalTrees *trees, const double *times);
 
 void map_congruent_trees(const LocalTree *tree1, const int *seqids1,
-                         const LocalTree *tree2, const int *seqids2, 
+                         const LocalTree *tree2, const int *seqids2,
                          int *mapping);
-void infer_mapping(const LocalTree *tree1, const LocalTree *tree2, 
+void infer_mapping(const LocalTree *tree1, const LocalTree *tree2,
                    int recomb_node, int *mapping);
-void repair_spr(const LocalTree *last_tree, const LocalTree *tree, Spr &spr, 
+void repair_spr(const LocalTree *last_tree, const LocalTree *tree, Spr &spr,
                 int *mapping);
 
 bool remove_null_spr(LocalTrees *trees, LocalTrees::iterator it);
@@ -749,21 +752,21 @@ LocalTrees *partition_local_trees(LocalTrees *trees, int pos,
 LocalTrees *partition_local_trees(LocalTrees *trees, int pos, bool trim=true);
 void append_local_trees(LocalTrees *trees, LocalTrees *trees2, bool merge=true);
 
-void uncompress_local_trees(LocalTrees *trees, 
+void uncompress_local_trees(LocalTrees *trees,
                             const SitesMapping *sites_mapping);
 void compress_local_trees(LocalTrees *trees, const SitesMapping *sites_mapping,
                           bool fuzzy=false);
-void assert_uncompress_local_trees(LocalTrees *trees, 
+void assert_uncompress_local_trees(LocalTrees *trees,
                                    const SitesMapping *sites_mapping);
 int get_recoal_node(const LocalTree *tree, const Spr &spr, const int *mapping);
 
 
-inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node, 
+inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
                               int *mapping)
 {
     for (int j=0; j<nnodes; j++)
         mapping[j] = j;
-            
+
     // parent of recomb is broken and therefore does not map
     const int parent = ptree[recomb_node];
     mapping[parent] = -1;
@@ -775,20 +778,20 @@ void print_local_trees(const LocalTrees *trees, FILE *out=stdout);
 //=============================================================================
 // input and output
 
-void write_newick_tree(FILE *out, const LocalTree *tree, 
+void write_newick_tree(FILE *out, const LocalTree *tree,
                        const char *const *names,
                        const double *times, int depth, bool oneline);
-bool write_newick_tree(const char *filename, const LocalTree *tree, 
-                       const char *const *names, const double *times, 
+bool write_newick_tree(const char *filename, const LocalTree *tree,
+                       const char *const *names, const double *times,
                        bool oneline);
-void write_local_trees(FILE *out, const LocalTrees *trees, 
+void write_local_trees(FILE *out, const LocalTrees *trees,
                        const char *const *names, const double *times);
-bool write_local_trees(const char *filename, const LocalTrees *trees, 
+bool write_local_trees(const char *filename, const LocalTrees *trees,
                        const char *const *names, const double *times);
 
-void write_local_trees(FILE *out, const LocalTrees *trees, 
+void write_local_trees(FILE *out, const LocalTrees *trees,
                        const Sequences &seqs, const double *times);
-bool write_local_trees(const char *filename, const LocalTrees *trees, 
+bool write_local_trees(const char *filename, const LocalTrees *trees,
                        const Sequences &seqs, const double *times);
 
 
@@ -803,7 +806,7 @@ bool read_local_trees(const char *filename, const double *times, int ntimes,
 
 bool assert_tree_postorder(const LocalTree *tree, const int *order);
 bool assert_tree(const LocalTree *tree);
-bool assert_spr(const LocalTree *last_tree, const LocalTree *tree, 
+bool assert_spr(const LocalTree *last_tree, const LocalTree *tree,
                 const Spr *spr, const int *mapping);
 bool assert_trees(const LocalTrees *trees);
 
