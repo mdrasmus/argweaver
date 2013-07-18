@@ -4,7 +4,10 @@ from itertools import izip
 from math import exp, log, sqrt
 import random
 
-import scipy.optimize
+try:
+    import scipy.optimize
+except ImportError:
+    pass
 
 from rasmus import stats, util
 from compbio import arglib

@@ -15,6 +15,7 @@ from contextlib import closing
 # if they are not available already
 try:
     import rasmus, compbio
+    rasmus, compbio  # suppress unused pyflakes warning
 except ImportError:
     from . import dep
     dep.load_deps()

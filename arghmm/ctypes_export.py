@@ -7,6 +7,7 @@
 
 import sys
 import os
+from ctypes import c_void_p
 from ctypes import c_bool
 from ctypes import c_char
 from ctypes import c_char_p
@@ -16,6 +17,7 @@ from ctypes import c_int
 from ctypes import cast
 from ctypes import cdll
 from ctypes import POINTER
+c_void_p  # pyflaskes ignore
 
 
 def c_list(c_type, lst):

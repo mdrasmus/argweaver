@@ -94,7 +94,8 @@ def get_python_scripts(*paths):
 
         # Return filenames containing 'python' in the first line
         with open(filename) as infile:
-            if "python" in infile.readline():
+            line = infile.readline()
+            if "python" in line and "python-i" not in line:
                 yield filename
 
 

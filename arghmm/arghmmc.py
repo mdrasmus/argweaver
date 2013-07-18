@@ -1413,6 +1413,7 @@ def get_treeset(arg, times, start=None, end=None):
     sprs = []
     blocks = []
     all_nodes = []
+    last_tree2 = None
 
     for block, tree, last_tree, spr in iter_arg_sprs(arg, start, end):
 
@@ -1457,6 +1458,7 @@ def get_treeset(arg, times, start=None, end=None):
 
         # setup last tree
         last_tree = tree
+        last_tree2 = tree2
         last_ptree, last_nodes, last_nodelookup = ptree, nodes, nodelookup
 
     return (ptrees, ages, sprs, blocks), all_nodes
