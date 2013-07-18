@@ -134,6 +134,12 @@ $(PKG):
 	python make-pkg.py $(PKG_DIR)
 
 #-----------------------------
+# testing
+
+testing:
+	nosetests test/test_hmm.py
+
+#-----------------------------
 # install
 
 install: $(BINARIES) $(LIBARGHMM_SHARED_INSTALL)

@@ -402,8 +402,8 @@ double calc_recomb(
         (1.0 - exp(-max(model->rho * last_treelen, model->rho)));
 
     if (nrecombs_k <= 0 || nbranches_k <= 0) {
-        printf("counts %d %d %e\n",
-               nrecombs_k, nbranches_k, p);
+        printError("counts %d %d %e\n",
+                   nrecombs_k, nbranches_k, p);
         assert(false);
     }
 
@@ -490,8 +490,8 @@ double calc_recoal(
 
     // asserts
     if (ncoals_j <= 0 || nbranches_j <= 0) {
-        printf("counts %d %d %e\n",
-               ncoals_j, nbranches_j, p);
+        printError("counts %d %d %e\n",
+                   ncoals_j, nbranches_j, p);
         assert(false);
     }
     assert(!isnan(p) && p>0);
@@ -924,9 +924,9 @@ bool assert_transmat(const LocalTree *tree, const ArgModel *model,
             double p2 = matrix->get_log(tree, states, i, j);
 
             // compare probabilities
-            printf("> (%d,%d)->(%d,%d): %e = %e; %e\n",
-                       state1.node, state1.time,
-                       state2.node, state2.time, p, p2, p - p2);
+            printLog(LOG_MEDIUM, "> (%d,%d)->(%d,%d): %e = %e; %e\n",
+                     state1.node, state1.time,
+                     state2.node, state2.time, p, p2, p - p2);
             if (!fequal(p, p2, 1e-4, 1e-9)) {
                 return false;
             }
@@ -979,15 +979,14 @@ bool assert_transmat_switch(const LocalTree *tree, const Spr &_spr,
     int displaced = nnodes;
     int newcoal = nnodes + 1;
 
-    printf("> matrix recombsrc=%d(%d,%d), recoalsrc=%d(%d,%d)\n",
-           matrix->recombsrc,
-           states1[matrix->recombsrc].node,
-           states1[matrix->recombsrc].time,
-           matrix->recoalsrc,
-           states1[matrix->recoalsrc].node,
-           states1[matrix->recoalsrc].time);
+    printLog(LOG_MEDIUM, "> matrix recombsrc=%d(%d,%d), recoalsrc=%d(%d,%d)\n",
+             matrix->recombsrc,
+             states1[matrix->recombsrc].node,
+             states1[matrix->recombsrc].time,
+             matrix->recoalsrc,
+             states1[matrix->recoalsrc].node,
+             states1[matrix->recoalsrc].time);
 
-    bool status = true;
     for (int i=0; i<nstates1; i++) {
         for (int j=0; j<nstates2; j++) {
             State state1 = states1[i];
@@ -1015,19 +1014,16 @@ bool assert_transmat_switch(const LocalTree *tree, const Spr &_spr,
 
 
             // compare probabilities
-            printf("> %d,%d (%d,%d)->(%d,%d): %e = %e; %e\n",
-                   i, j,
-                   state1.node, state1.time,
-                   state2.node, state2.time, p, p2, p - p2);
-            if (!fequal(p, p2, 1e-4, 1e-9)) {
-                printf("FAIL\n");
-                //return false;
-                status = false;
-            }
+            printLog(LOG_MEDIUM, "> %d,%d (%d,%d)->(%d,%d): %e = %e; %e\n",
+                     i, j,
+                     state1.node, state1.time,
+                     state2.node, state2.time, p, p2, p - p2);
+            if (!fequal(p, p2, 1e-4, 1e-9))
+                return false;
         }
     }
 
-    return status;
+    return true;
 }
 
 
@@ -1104,12 +1100,11 @@ bool assert_transmat_internal(const LocalTree *tree, const ArgModel *model,
 
             double p2 = matrix->get_log(tree, states, i, j);
 
-            printf("> (%d,%d)->(%d,%d): %e = %e; %e\n",
-                   state1.node, state1.time,
-                   state2.node, state2.time, p, p2, p - p2);
-            if (!fequal(p, p2, 1e-4, 1e-9)) {
+            printLog(LOG_MEDIUM, "> (%d,%d)->(%d,%d): %e = %e; %e\n",
+                     state1.node, state1.time,
+                     state2.node, state2.time, p, p2, p - p2);
+            if (!fequal(p, p2, 1e-4, 1e-9))
                 return false;
-            }
 
             Spr remove_spr(subtree_root, tree2[subtree_root].age,
                            tree2.root, model->ntimes+1);
@@ -1170,12 +1165,11 @@ bool assert_transmat_switch_internal(const LocalTree *last_tree,
             double p = log(recomb_prob);
             p += calc_spr_prob(model, &last_tree2, spr, lineages);
 
-            printf("> (%d,%d)->(%d,%d): %e = %e; %e\n",
-                   state1.node, state1.time,
-                   state2.node, state2.time, p, p2, p - p2);
-            if (!fequal(p, p2, 1e-4, 1e-9)) {
+            printLog(LOG_MEDIUM, "> (%d,%d)->(%d,%d): %e = %e; %e\n",
+                     state1.node, state1.time,
+                     state2.node, state2.time, p, p2, p - p2);
+            if (!fequal(p, p2, 1e-4, 1e-9))
                 return false;
-            }
         }
     }
 

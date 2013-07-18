@@ -1009,12 +1009,6 @@ int count_noncompat(const LocalTree *tree, const char * const *seqs,
             int a = count_alleles(seqs, nseqs, i);
             int c = parsimony_cost_seq(tree, seqs, nseqs, i, postorder);
             noncompat += int(c > a + 1);
-            //if (c > a + 1) {
-            //    printf(">> %d: %d %d\n", i, c, a);
-            //    for (int j=0; j<nseqs; j++)
-            //        fputc(seqs[j][i], stdout);
-            //    fputc('\n', stdout);
-            //}
         }
 
     return noncompat;
@@ -1152,11 +1146,10 @@ bool assert_emissions(const States &states, const LocalTree *tree,
         for (int i=0; i<seqlen; i++) {
             bool invar = is_invariant_site(seqs, nseqs, i);
 
-            printf(">> %d,%d: %e %e   invar=%d\n",
-                   i, j, emit[i][j], emit2[i][j], invar);
-            if (!fequal(emit[i][j], emit2[i][j], .0001, 1e-12)) {
+            printLog(LOG_MEDIUM, ">> %d,%d: %e %e   invar=%d\n",
+                     i, j, emit[i][j], emit2[i][j], invar);
+            if (!fequal(emit[i][j], emit2[i][j], .0001, 1e-12))
                 return false;
-            }
         }
     }
 
@@ -1184,7 +1177,8 @@ bool assert_emissions_internal(const States &states, const LocalTree *tree,
     // compare emission tables
     for (int j=0; j<nstates; j++) {
         for (int i=0; i<seqlen; i++) {
-            printf(">> %d,%d: %e %e\n", i, j, emit[i][j], emit2[i][j]);
+            printLog(LOG_MEDIUM, ">> %d,%d: %e %e\n",
+                     i, j, emit[i][j], emit2[i][j]);
             if (!fequal(emit[i][j], emit2[i][j], .0001, 1e-12))
                 return false;
         }
