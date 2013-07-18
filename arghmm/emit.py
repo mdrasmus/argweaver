@@ -2,7 +2,7 @@
 # HMM emission related functions
 #
 
-from math import *
+from math import exp, log
 
 #=============================================================================
 

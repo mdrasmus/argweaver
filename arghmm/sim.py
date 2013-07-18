@@ -4,13 +4,15 @@
 
 
 # python imports
-import sys, random
-from math import *
 from collections import defaultdict
+from math import exp
+import random
 
 # rasmus, compbio imports
-from rasmus import util, stats
-from compbio import arglib, fasta
+from compbio import arglib
+from compbio import fasta
+from rasmus import stats
+from rasmus import util
 
 # arghmm imports
 import arghmm
@@ -188,8 +190,8 @@ def sample_dsmc_sprs_round_down(k, popsize, rho, recombmap=None,
         states = set(arghmm.iter_coal_states(tree, times))
         nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
             tree, times)
-        probs = [nbranches[k] * time_steps[k]
-                 for k in range(root_age_index+1)]
+        probs = [nbranches[i] * time_steps[i]
+                 for i in range(root_age_index+1)]
         recomb_time_index = stats.sample(probs)
         recomb_time = times[recomb_time_index]
 
@@ -318,8 +320,8 @@ def sample_dsmc_sprs_round_both(k, popsize, rho, recombmap=None,
         states = set(arghmm.iter_coal_states(tree, times))
         nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
             tree, times)
-        probs = [nbranches[k] * time_steps[k]
-                 for k in range(root_age_index+1)]
+        probs = [nbranches[i] * time_steps[i]
+                 for i in range(root_age_index+1)]
         recomb_time_index = stats.sample(probs)
         recomb_time = times[recomb_time_index]
 
@@ -461,8 +463,8 @@ def sample_dsmc_sprs_round_closer2(k, popsize, rho, recombmap=None,
         states = set(arghmm.iter_coal_states(tree, times))
         nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
             tree, times)
-        probs = [nbranches[k] * time_steps[k]
-                 for k in range(root_age_index+1)]
+        probs = [nbranches[i] * time_steps[i]
+                 for i in range(root_age_index+1)]
         recomb_time_index = stats.sample(probs)
         recomb_time = times[recomb_time_index]
 
@@ -560,7 +562,7 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
     ntimes = len(times) - 1
     time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]
     times2 = get_coal_times(times)
-    time_steps2 = get_coal_time_steps(times)
+    #time_steps2 = get_coal_time_steps(times)
 
     if hasattr(popsize, "__len__"):
         popsizes = popsize
@@ -597,8 +599,8 @@ def sample_dsmc_sprs_round_closer(k, popsize, rho, recombmap=None,
         states = set(arghmm.iter_coal_states(tree, times))
         nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
             tree, times)
-        probs = [nbranches[k] * time_steps[k]
-                 for k in range(root_age_index+1)]
+        probs = [nbranches[i] * time_steps[i]
+                 for i in range(root_age_index+1)]
         recomb_time_index = stats.sample(probs)
         #if recomb_time_index < root_age_index and random.random() < 0.5:
         #    recomb_time_index += 1
@@ -703,7 +705,7 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
     assert times is not None
     ntimes = len(times) - 1
     time_steps = [times[i] -  times[i-1] for i in range(1, ntimes+1)]
-    times2 = get_coal_times(times)
+    #times2 = get_coal_times(times)
     time_steps2 = get_coal_time_steps(times)
 
     if hasattr(popsize, "__len__"):
@@ -741,8 +743,8 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
         states = set(arghmm.iter_coal_states(tree, times))
         nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
             tree, times)
-        probs = [nbranches[k] * time_steps[k]
-                 for k in range(root_age_index+1)]
+        probs = [nbranches[i] * time_steps[i]
+                 for i in range(root_age_index+1)]
         recomb_time_index = stats.sample(probs)
         #if recomb_time_index < root_age_index and random.random() < 0.5:
         #    recomb_time_index += 1
@@ -755,7 +757,6 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
 
         # choose coal time
         j = recomb_time_index
-        last_kj = nbranches[max(j-1,0)]
         #print >>sys.stderr, ">>", j
         while j < ntimes - 1:
             kj = nbranches[j]
@@ -772,7 +773,6 @@ def sample_dsmc_sprs_round_closer3(k, popsize, rho, recombmap=None,
             if random.random() < coal_prob:
                 break
             j += 1
-            last_kj = kj
         coal_time_index = j
         coal_time = times[j]
 
@@ -889,7 +889,6 @@ def sample_arg_mutations(arg, mu, times):
 
 def make_sites(arg, mutations, chrom="chr"):
     leaves = list(arg.leaf_names())
-    nleaves = len(leaves)
     sites = arghmm.Sites(names=leaves, chrom=chrom,
                          region=[arg.start+1, arg.end])
 
@@ -997,4 +996,3 @@ def make_alignment(arg, mutations, infsites=False):
         aln[leaf] = "".join(x[i] for x in mat)
 
     return aln
-

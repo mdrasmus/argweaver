@@ -6,11 +6,10 @@
 from collections import defaultdict
 import heapq
 from math import exp, log
-import random
 import StringIO
 import subprocess
-from itertools import chain, izip
-from contextlib import contextmanager, closing
+from itertools import chain
+from contextlib import closing
 
 # add pre-bundled dependencies to the python path,
 # if they are not available already
@@ -22,20 +21,17 @@ except ImportError:
     import rasmus, compbio
 
 # rasmus combio libs
+rasmus, compbio  # suppress unused pyflakes warning
+from compbio import arglib, alignlib, fasta
 from rasmus import hmm, util, stats, treelib
 from rasmus.stats import logadd
-from compbio import arglib, alignlib, fasta, phylo
+
 
 # arghmm libs
 from arghmmc import *
 from . import emit
 from arghmm.sample import *
-from arghmm.sim import \
-     sample_dsmc_sprs, \
-     sample_arg_dsmc, \
-     sample_arg_mutations, \
-     make_alignment, \
-     make_sites
+from arghmm.sim import *
 
 
 
@@ -964,7 +960,6 @@ def smc2sprs(smc):
     region = None
     init_tree = None
     tree = None
-    sprs = []
 
     for item in smc:
         if item["tag"] == "NAMES":
@@ -1348,7 +1343,7 @@ def make_trunk_arg(start, end, name="ind1"):
     """
 
     arg = arglib.ARG(start=start, end=end)
-    node = arg.new_node(name, event="gene", age=0)
+    arg.new_node(name, event="gene", age=0)
     return arg
 
 
@@ -1486,7 +1481,7 @@ def add_arg_thread(arg, new_name, thread, recombs):
                     assert False
 
             node = arg_recomb[rpos]
-            local1 = set(arg.postorder_marginal_tree(rpos-.5))
+            #local1 = set(arg.postorder_marginal_tree(rpos-.5))
             local2 = set(arg.postorder_marginal_tree(rpos+.5))
             last = node
             node = arg.get_local_parent(node, rpos+.5)
@@ -1495,7 +1490,7 @@ def add_arg_thread(arg, new_name, thread, recombs):
                 node = arg.get_local_parent(node, rpos+.5)
             c = node.children
             child = c[0] if c[1] == last else c[1]
-            recoal = node
+            #recoal = node
 
             cleaves, ctime = get_clade_point(
                 arg, child.name, node.age, rpos-.5)
@@ -1772,8 +1767,8 @@ def calc_transition_probs(tree, states, nlineages, times,
     arglib.remove_single_lineages(tree)
 
     nstates = len(states)
-    ntimes = len(time_steps)
-    minlen = time_steps[0]
+    #ntimes = len(time_steps)
+    #minlen = time_steps[0]
     treelen = sum(x.get_dist() for x in tree)
     nbranches, nrecombs, ncoals = nlineages
 
@@ -1781,7 +1776,7 @@ def calc_transition_probs(tree, states, nlineages, times,
     transprob = util.make_matrix(nstates, nstates, 0.0)
     for i in range(nstates):
         node1, a = states[i]
-        c = times.index(tree[node1].age)
+        #c = times.index(tree[node1].age)
 
         for j in range(nstates):
             node2, b = states[j]
@@ -2266,7 +2261,7 @@ def iter_trans_emit_matrices(model, n):
         int_states = [[nodelookup[tree2[node]], timei]
                       for node, timei in model.states[pos]]
         nstates = len(int_states)
-        ages = [tree[node.name].age for node in nodes]
+        #ages = [tree[node.name].age for node in nodes]
         ages_index = [times_lookup[tree[node.name].age]
                       for node in nodes]
         #treelen = sum(x.dist for x in tree2)

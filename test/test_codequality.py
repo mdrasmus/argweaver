@@ -56,6 +56,12 @@ def pyflakes_filter(line):
     if 'from summon.core import *' in line:
         return False
 
+    if 'arghmm/debug.py' in line:
+        return False
+
+    if 'arghmm/bottle.py' in line:
+        return False
+
     return True
 
 

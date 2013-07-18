@@ -7,7 +7,15 @@
 
 import sys
 import os
-from ctypes import *
+from ctypes import c_bool
+from ctypes import c_char
+from ctypes import c_char_p
+from ctypes import c_double
+from ctypes import c_float
+from ctypes import c_int
+from ctypes import cast
+from ctypes import cdll
+from ctypes import POINTER
 
 
 def c_list(c_type, lst):

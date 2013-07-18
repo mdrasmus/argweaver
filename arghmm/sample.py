@@ -3,11 +3,14 @@
 #
 
 # python libs
-from math import *
+from ctypes import c_double, c_char_p, c_int
+from math import exp
 import random
 
 # rasmus combio libs
-from rasmus import util, stats
+from compbio import arglib
+from rasmus import stats
+from rasmus import util
 
 # arghmm libs
 import arghmm
@@ -22,10 +25,10 @@ def sample_recombinations_thread(model, thread, use_times=True):
     # assumes that recomb_pos starts with -1 and ends with arg.end
     arg_recomb = model.recomb_pos
     time_lookup = util.list2lookup(model.times)
-    minlen = model.time_steps[0]
+    #minlen = model.time_steps[0]
 
     tree = model.arg.get_marginal_tree(-.5)
-    treelen = None #arghmm.get_treelen(tree, model.times)
+    #treelen = None #arghmm.get_treelen(tree, model.times)
     new_node = model.new_name
     transmat = None
     nstates = 0
@@ -41,8 +44,8 @@ def sample_recombinations_thread(model, thread, use_times=True):
         while r < len(arg_recomb) and arg_recomb[r] < pos:
             r += 1
             tree = model.arg.get_marginal_tree(pos-.5)
-            treelen = arghmm.get_treelen(tree, model.times, use_basal=False)
-            treelen_b = treelen + arghmm.get_basal_length(tree, model.times)
+            #treelen = arghmm.get_treelen(tree, model.times, use_basal=False)
+            #treelen_b = treelen + arghmm.get_basal_length(tree, model.times)
             nlineages = arghmm.get_nlineages_recomb_coal(tree, model.times)
             nbranches, nrecombs, ncoals = nlineages
 
@@ -204,8 +207,8 @@ def py_resample_arg(arg, seqs, new_name,
 
     if verbose:
         util.tic("adding %s..." % new_name)
-    model = ArgHmm(arg, seqs, new_name=new_name,
-                   times=times, rho=rho, mu=mu, popsize=popsize)
+    model = arghmm.ArgHmm(arg, seqs, new_name=new_name,
+                              times=times, rho=rho, mu=mu, popsize=popsize)
 
     if verbose:
         util.tic("sample thread")
@@ -239,9 +242,10 @@ def py_resample_arg_all(arg, seqs, ntimes=20,
     if verbose:
         util.tic("resample all chromosomes")
     for new_name in sorted(seqs.keys()):
-        arg = resample_arg(arg, seqs, new_name,
-                           ntimes=ntimes, rho=rho, mu=mu, popsize=popsize,
-                           times=times, verbose=verbose)
+        arg = arghmm.resample_arg(arg, seqs, new_name,
+                                  ntimes=ntimes, rho=rho, mu=mu,
+                                  popsize=popsize,
+                                  times=times, verbose=verbose)
     if verbose:
         util.toc()
     return arg
@@ -338,7 +342,7 @@ def py_forward_algorithm(model, n, verbose=False):
             emit = model.prob_emission(i, k)
             for j in xrange(nstates1):
                 p = col1[j] + trans[j][k] + emit
-                tot = logadd(tot, p)
+                tot = stats.logadd(tot, p)
             col2.append(tot)
 
         probs.append(col2)

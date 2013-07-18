@@ -6,12 +6,15 @@
 import time
 
 # rasmus compbio libs
-from rasmus import treelib, util, stats
 from compbio import arglib
+from rasmus import stats
+from rasmus import treelib
+from rasmus import util
 
 # import arghmm C lib
 import arghmm
 from arghmm.ctypes_export import *
+
 arghmmclib = load_library(["..", "lib"], "libarghmm.so")
 
 
@@ -404,8 +407,8 @@ def calc_transition_probs_switch_c(tree, last_tree, recomb_name,
     if raw:
         return transmat
     else:
-        transmat2 = [transmat[i][:nstates2]
-            for i in range(nstates1)]
+        transmat2 = [transmat[j][:nstates2]
+            for j in range(nstates1)]
         delete_transition_probs(transmat, nstates1)
         return transmat2
 
@@ -1290,7 +1293,6 @@ def arg2ctrees(arg, times):
     (ptrees, ages, sprs, blocks), all_nodes = get_treeset(
         arg, times)
     blocklens = [x[1] - x[0] for x in blocks]
-    seqlen = sum(blocklens)
 
     names = []
     for node in all_nodes[0]:
@@ -1455,7 +1457,6 @@ def get_treeset(arg, times, start=None, end=None):
 
         # setup last tree
         last_tree = tree
-        last_tree2 = tree2
         last_ptree, last_nodes, last_nodelookup = ptree, nodes, nodelookup
 
     return (ptrees, ages, sprs, blocks), all_nodes

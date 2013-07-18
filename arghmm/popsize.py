@@ -1,14 +1,16 @@
 
 from collections import defaultdict
 from itertools import izip
-from math import *
+from math import exp, log, sqrt
+import random
+
+import scipy.optimize
 
 from rasmus import stats, util
 from compbio import arglib
 
 import arghmm
 
-import scipy.optimize
 
 #=============================================================================
 # numerically stable summations
@@ -49,7 +51,8 @@ def safelogsum(x):
         y = []
         for i in range(0, n, 2):
             if i+1 < n:
-                y.append(logadd_sign(x[i][0], x[i][1], x[i+1][0], x[i+1][1]))
+                y.append(stats.logadd_sign(x[i][0], x[i][1],
+                                           x[i+1][0], x[i+1][1]))
             else:
                 y.append(x[i])
         x = y
@@ -154,7 +157,7 @@ def log_prob_many_coal_counts(As, Bs, t, n, Cs=None):
 def mle_prob_coal_counts(a, b, t, n0):
     def f(x):
         if x[0] < 100:
-            x[0] = 50 * 1.0 / (101 - n) + 50
+            x[0] = 50 * 1.0 / (101 - n0) + 50
         return - log_prob_coal_counts(a, b, t, x[0])
     return scipy.optimize.fmin(f, n0, disp=False)[0]
 
@@ -282,9 +285,6 @@ class PopsizeEstimator (object):
             while len(get_local_children(parent, pos, local)) == 1:
                 parent = arg.get_local_parent(parent, pos)
             return parent
-
-        ntimes = len(times)
-
 
         # add initial tree
         tree = arg.get_marginal_tree(arg.start)
