@@ -87,8 +87,6 @@ class Basic (unittest.TestCase):
         print sorted([(x.pos, x.event) for x in tree])
 
 
-
-
     def test_recomb(self):
         """
         Investigate the fact that some recombinations are not visible
@@ -1130,6 +1128,8 @@ class Basic (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=30)
         arghmm.discretize_arg(arg, times)
 
+        pause()
+
         # save
         #arglib.write_arg("test/data/k4.arg", arg)
         #fasta.write_fasta("test/data/k4.fa", seqs)
@@ -1164,9 +1164,9 @@ class Basic (unittest.TestCase):
         p.plot(low, style="lines")
 
 
-        write_list("test/data/post_real.txt", cget(thread, 1))
-        write_list("test/data/post_high.txt", high)
-        write_list("test/data/post_low.txt", low)
+        #write_list("test/data/post_real.txt", cget(thread, 1))
+        #write_list("test/data/post_high.txt", high)
+        #write_list("test/data/post_low.txt", low)
 
         pause()
 
