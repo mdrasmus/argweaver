@@ -137,7 +137,7 @@ $(PKG):
 # testing
 
 testing:
-	nosetests test/test_hmm.py
+	nosetests -v test
 
 #-----------------------------
 # install
