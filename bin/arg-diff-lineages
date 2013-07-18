@@ -79,12 +79,14 @@ def get_pos(start, end, step):
         if i % step == 0:
             yield i
 
+
 def diff_counts(counts1, counts2):
     return sum(abs(a - b) for a, b in izip(counts1, counts2))
 
+
 def diff_lineages(true_lineages, lineages):
-    assert len(true_lineages) == len(lineages), \
-           (len(true_lineages), len(lineages))
+    assert (len(true_lineages) == len(lineages),
+            (len(true_lineages), len(lineages)))
     diff = []
     for row, row2 in izip(true_lineages, lineages):
         diff.append(diff_counts(row[3:], row2[3:]))
@@ -128,4 +130,3 @@ for filename in filenames:
     smc = arghmm.iter_smc_file(filename)
     lineages = list(get_smc_lineages(smc, times, step=conf.window_step))
     util.print_row(it, diff_lineages(true_lineages, lineages))
-

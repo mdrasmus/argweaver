@@ -23,5 +23,3 @@ else:
     mut = None
 
 argvis.show_tree_track(tree_track, mut=mut, show_labels=False)
-
-

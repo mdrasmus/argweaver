@@ -67,5 +67,3 @@ for start, end, group in intervals.iter_intersections(recombs):
     vals = util.cget(group, 3)
     util.print_row(chrom, int(start), int(end), stats.mean(vals),
                    util.percentile(vals, .025), util.percentile(vals, .975))
-
-

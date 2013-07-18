@@ -50,7 +50,8 @@ for filename in filenames:
     ntrees = arghmm.get_local_trees_ntrees(trees)
     treelen = [0.0] * ntrees
     blocklens = [0.0] * ntrees
-    starts = [0] * ntrees; ends = [0] * ntrees
+    starts = [0] * ntrees
+    ends = [0] * ntrees
     arghmm.get_treelens(trees, times, len(times), treelen)
     arghmm.get_local_trees_blocks(trees, starts, ends)
     treelens.append(zip(starts, ends, treelen))
@@ -60,9 +61,9 @@ for filename in filenames:
 #=============================================================================
 
 # get average tree lengths and recombination positions
-avg_treelens = [[s,e,stats.mean(util.cget(group, 2))]
+avg_treelens = [[s, e, stats.mean(util.cget(group, 2))]
                 for s, e, group in intervals.iter_intersections(
-    sorted(util.concat(*treelens)))]
+                    sorted(util.concat(*treelens)))]
 recombs = util.hist_dict(util.concat(*[[t[0] for t in treelen]
                                        for treelen in treelens]))
 
@@ -73,7 +74,7 @@ for p in range(start, end, 1):
     if i < len(avg_treelens) and avg_treelens[i][1] < p:
         i += 1
     if (i < len(avg_treelens) and
-        avg_treelens[i][0] <= p <= avg_treelens[i][1]):
+            avg_treelens[i][0] <= p <= avg_treelens[i][1]):
         recomb_rate.append([p, p+1,
                             recombs.get(p, 0) / avg_treelens[i][2] /
                             float(len(treelens))])

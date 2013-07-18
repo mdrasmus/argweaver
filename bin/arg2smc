@@ -25,7 +25,3 @@ arghmm.discretize_arg(arg, times)
 arg = arglib.smcify_arg(arg)
 trees, names = arghmm.arg2ctrees(arg, times)
 arghmm.write_local_trees(smc_file, trees, names, times, len(times))
-
-
-
-

@@ -19,8 +19,10 @@ conf, args = o.parse_args()
 
 #=============================================================================
 
+
 def treelen(tree):
     return sum(x.dist for x in tree)
+
 
 def iter_trees(filename):
     chrom = "chr"
@@ -49,7 +51,8 @@ else:
 
 treelens = []
 for filename in filenames:
-    treelens.extend([s, e, c, treelen(t)] for s,e,c,t in iter_trees(filename))
+    treelens.extend([s, e, c, treelen(t)]
+                    for s, e, c, t in iter_trees(filename))
 treelens.sort()
 
 for start, end, group in intervals.iter_intersections(treelens):
@@ -57,5 +60,3 @@ for start, end, group in intervals.iter_intersections(treelens):
     vals = util.cget(group, 3)
     util.print_row(chrom, start, end, stats.mean(vals),
                    util.percentile(vals, .025), util.percentile(vals, .975))
-
-

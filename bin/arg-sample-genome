@@ -62,11 +62,7 @@ while reg_start < end:
 
     args3 = [(x % reg_start if "%d" in x else x) for x in args]
     args2 = args3 + ["--sites", conf.sites,
-                    "--region", "%d-%d" % (start2, end2),
-                    "--output", outprefix]
+                     "--region", "%d-%d" % (start2, end2),
+                     "--output", outprefix]
     print " ".join(args2)
     reg_start += step
-
-
-
-

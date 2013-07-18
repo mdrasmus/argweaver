@@ -29,4 +29,3 @@ smc = arghmm.iter_smc_file(conf.smc, region=region)
 
 # write
 arghmm.write_smc(conf.output, smc)
-

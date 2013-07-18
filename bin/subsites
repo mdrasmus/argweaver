@@ -24,6 +24,7 @@ conf, args = o.parse_args()
 
 #=============================================================================
 
+
 def is_variant(col):
     c = col[0]
     for i in xrange(1, len(col)):
@@ -72,4 +73,3 @@ for i, bases in sites:
 
 # write new sites
 arghmm.write_sites(conf.output, sites2)
-

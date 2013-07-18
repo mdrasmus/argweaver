@@ -16,4 +16,3 @@ aln = fasta.read_fasta(fafile)
 
 for pos, split in arglib.iter_align_splits(aln, warn=True):
     util.print_row(pos, 0, ",".join(split[1]))
-

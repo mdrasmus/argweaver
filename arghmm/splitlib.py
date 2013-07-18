@@ -1,12 +1,10 @@
 
-
-
-import sys, os
 from itertools import izip
 from collections import defaultdict
 
+from compbio import arglib
+from compbio import phylo
 from rasmus import util
-from compbio import coal, arglib, phylo
 
 
 def get_conflicts(splits):

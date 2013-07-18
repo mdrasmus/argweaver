@@ -19,6 +19,7 @@ conf, args = o.parse_args()
 #=============================================================================
 # routes
 
+
 # get one tree
 @get('/tree/:pos')
 def get_tree(pos=0):
@@ -28,8 +29,8 @@ def get_tree(pos=0):
     callback = request.query.get("callback", "jsonp_callback")
 
     try:
-        return callback + "('" + \
-               json.dumps(smc_db.get_trees(chrom, pos, pos).next()) + "');"
+        return (callback + "('" +
+                json.dumps(smc_db.get_trees(chrom, pos, pos).next()) + "');")
     except:
         return ""
 
@@ -114,7 +115,6 @@ def get_sites(region=""):
     return callback + "('" + json.dumps(result) + "');"
 
 
-
 #=============================================================================
 
 smc_file = args[0]
@@ -152,4 +152,3 @@ if conf.pub:
     run(host='', port=8080)
 else:
     run(host='localhost', port=8080)
-

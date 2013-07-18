@@ -53,7 +53,6 @@ def iter_allele_ages(smc, sites, region=None, maxage=1000000):
                 tree.rename(name, i)
 
 
-
 #=============================================================================
 
 smc_file = args[0]
@@ -98,4 +97,3 @@ for rows in izip(*ages):
 
     row = info + [low, top] + util.flatten(ages)
     util.print_row(*row)
-

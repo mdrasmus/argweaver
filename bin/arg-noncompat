@@ -61,4 +61,3 @@ for block, tree in arglib.iter_local_trees(arg):
             print split
             print
 print "num noncompats", len(noncompats)
-

@@ -24,6 +24,7 @@ conf, args = o.parse_args()
 
 #=============================================================================
 
+
 def treelen(tree):
     return sum(x.dist for x in tree)
 
@@ -36,7 +37,7 @@ def iter_trees(filename, attr, region=None):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
             attr["region"] = [item["chrom"], item["start"]-1, item["end"]]
-	elif item["tag"] == "NAMES":
+        elif item["tag"] == "NAMES":
             attr["names"] = item["names"]
         elif item["tag"] == "TREE":
             yield item["start"]-1, item["end"], chrom, item["tree"]
@@ -52,8 +53,8 @@ def iter_trees_arg(filename, attr, region=None):
 
     #for block, tree in arglib.iter_tree_tracks(arg):
     for block in arglib.iter_recomb_blocks(arg):
-        yield int(block[0]), int(block[1]), "chr", \
-              (arg, (block[0] + block[1]) / 2.0)
+        yield (int(block[0]), int(block[1]), "chr",
+               (arg, (block[0] + block[1]) / 2.0))
         #arglib.remove_single_lineages(tree)
         #yield block[0], block[1], "chr", tree.get_tree()
 
@@ -151,6 +152,3 @@ else:
 
 smc = cons_smc(trees, attr, positions=positions)
 arghmm.write_smc(sys.stdout, smc)
-
-
-

@@ -30,6 +30,7 @@ def mle_popsize_coal_times(k, times, mintime=0):
         last = t
     return s / float(4 * k - 4)
 
+
 def mle_popsize_tree(tree, mintime=0):
     times = sorted([x.data["age"] for x in tree if not x.is_leaf()])
     return mle_popsize_coal_times(len(tree.leaves()), times, mintime)
@@ -74,5 +75,3 @@ for start, end, group in intervals.iter_intersections(popsizes):
     vals = util.cget(group, 3)
     util.print_row(chrom, start, end, stats.mean(vals),
                    util.percentile(vals, .025), util.percentile(vals, .975))
-
-

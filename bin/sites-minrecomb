@@ -28,7 +28,7 @@ for pos, col in sites:
         continue
     low = min(freq.keys(), key=lambda x: freq[x])
     split = sorted(i for i in range(len(col))
-                         if col[i] == low)
+                   if col[i] == low)
     if len(split) > 1:
         mut_pos.append(pos)
         splits.append(split)

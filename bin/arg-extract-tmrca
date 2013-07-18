@@ -19,6 +19,7 @@ conf, args = o.parse_args()
 
 #=============================================================================
 
+
 def iter_tmrcas(filename):
     chrom = "chr"
 
@@ -27,7 +28,8 @@ def iter_tmrcas(filename):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
         if item["tag"] == "TREE":
-            yield item["start"]-1, item["end"], chrom, item["tree"].root.data["age"]
+            yield (item["start"]-1, item["end"], chrom,
+                   item["tree"].root.data["age"])
 
 
 #=============================================================================
@@ -54,5 +56,3 @@ for start, end, group in intervals.iter_intersections(tmrcas):
     vals = util.cget(group, 3)
     util.print_row(chrom, start, end, stats.mean(vals),
                    util.percentile(vals, .025), util.percentile(vals, .975))
-
-

@@ -40,6 +40,7 @@ def get_nlineages(tree, times):
     return nbranches
 '''
 
+
 def get_arg_lineages(arg, times):
     for (start, end), tree in arglib.iter_local_trees(arg):
         nbranches = arghmm.get_nlineages(tree, times)
@@ -60,6 +61,7 @@ def get_pos(start, end, step):
     for i in range(start, end):
         if i % step == 0:
             yield i
+
 
 def get_smc_lineages2(smc, times, chrom="chr", step=10):
     for item in smc:
@@ -97,4 +99,3 @@ for filename in args:
     else:
         for row in get_smc_lineages(smc, times):
             util.print_row(*row)
-

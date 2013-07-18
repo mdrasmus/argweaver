@@ -41,7 +41,8 @@ for block, tree in arglib.read_tree_tracks(treefile):
             node = arglib.split_to_tree_branch(tree, chroms[i])
             if node:
                 est_age_min = times[node]
-                est_age_max = times[node.parent] if node.parent else times[node]
+                est_age_max = (times[node.parent]
+                               if node.parent else times[node])
                 est_age = (est_age_min + est_age_max) / 2.0
             else:
                 est_age = 0
@@ -50,4 +51,3 @@ for block, tree in arglib.read_tree_tracks(treefile):
         print "\t".join([str(mut_pos[i]), str(est_age),
                          ",".join(chroms[i])])
         i += 1
-

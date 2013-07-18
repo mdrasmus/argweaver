@@ -31,7 +31,8 @@ def weighted_split_error(tree, tree2):
     error = 0
 
     for branch in tree:
-        if branch == tree.root or branch.is_leaf(): continue
+        if branch == tree.root or branch.is_leaf():
+            continue
         clade = branch.leaf_names()
 
         # find clade in tree2 using dollo parsimony
@@ -56,7 +57,7 @@ def iter_trees(filename, attr={}, ptrs=None):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
             attr["region"] = [item["chrom"], item["start"]-1, item["end"]]
-	elif item["tag"] == "NAMES":
+        elif item["tag"] == "NAMES":
             attr["names"] = item["names"]
         elif item["tag"] == "TREE":
             yield item["start"]-1, item["end"], chrom, item["tree"]
@@ -88,6 +89,7 @@ def filter_trees(trees, pts):
     except StopIteration:
         return
 
+
 def parse_tree(tree, names):
     if isinstance(tree, basestring):
         tree = arghmm.parse_tree(tree)
@@ -95,10 +97,12 @@ def parse_tree(tree, names):
             tree.rename(i, name)
     return tree
 
+
 def write_tree_top(tree1, filename):
     out = open(filename, "w")
     out.write(phylo.hash_tree(tree1) + ";")
     out.close()
+
 
 def get_spr_dist(tree1, tree2):
     fd, filename1 = tempfile.mkstemp(".tmp", "")
@@ -113,17 +117,21 @@ def get_spr_dist(tree1, tree2):
     os.remove(filename2)
     return int(text)
 
+
 def mast_tree(tree, tree2):
     fd, filename = tempfile.mkstemp(".tmp", "")
     os.close(fd)
     out = open(filename, "w")
-    tree1.write(out, oneline=True, writeData=lambda node:""); out.write("\n")
-    tree2.write(out, oneline=True, writeData=lambda node:""); out.write("\n")
+    tree1.write(out, oneline=True, writeData=lambda node: "")
+    out.write("\n")
+    tree2.write(out, oneline=True, writeData=lambda node: "")
+    out.write("\n")
 
     #out.write(tree1.get_one_line_newick() + "\n")
     #out.write(tree2.get_one_line_newick() + "\n")
     out.close()
-    mast = treelib.parse_newick(os.popen("phylonet mast -i %s" % filename).read())
+    mast = treelib.parse_newick(
+        os.popen("phylonet mast -i %s" % filename).read())
     os.remove(filename)
     return mast
 
@@ -147,7 +155,6 @@ def pat_dist(tree, tree2):
     lst2 = [dist2[i][j] for i in range(len(names))
             for j in range(i+1, len(names))]
     return stats.corr(lst1, lst2)
-
 
 
 #=============================================================================
@@ -177,7 +184,7 @@ pts = range(start + step/2, end, step)
 error = []
 seen = 0
 for (pos1, item1), (pos2, item2) in izip(
-    filter_trees(trees1, pts), filter_trees(trees2, pts)):
+        filter_trees(trees1, pts), filter_trees(trees2, pts)):
     seen += 1
 
     assert pos1 == pos2, (pos1, pos2)

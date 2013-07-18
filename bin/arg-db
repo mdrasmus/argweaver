@@ -17,7 +17,6 @@ conf, args = o.parse_args()
 #=============================================================================
 
 
-
 db = ArgDB().connect(conf.db)
 
 for fn in conf.add_smc:

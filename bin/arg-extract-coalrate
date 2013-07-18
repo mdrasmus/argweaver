@@ -28,6 +28,7 @@ def mle_popsize_coal_times(k, times, mintime=0):
         last = t
     return s / float(4 * k - 4)
 
+
 def mle_popsize_tree(tree, mintime=0):
     times = sorted([x.data["age"] for x in tree if not x.is_leaf()])
     return mle_popsize_coal_times(len(tree.leaves()), times, mintime)
