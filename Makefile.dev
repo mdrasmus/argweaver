@@ -1,0 +1,41 @@
+#
+# Makefile for development
+#
+
+
+PY_SRC_PATH=../compbio/python
+
+RASMUS_SRC_FILES = \
+	__init__.py \
+	hmm.py \
+	intervals.py \
+	linked_list.py \
+	plotting.py \
+        tablelib.py \
+        timer.py \
+        treelib.py \
+	testing.py \
+	textdraw.py \
+	sets.py \
+        stats.py \
+        svg.py \
+        util.py \
+
+COMPBIO_SRC_FILES = \
+	__init__.py \
+	alignlib.py \
+	arglib.py \
+	birthdeath.py \
+	coal.py \
+	fasta.py \
+	phylo.py \
+	seqlib.py \
+	vis/__init__.py \
+	vis/argvis.py
+
+# copy subset of python modules for packaging with arghmm
+includedep:
+	mkdir -p arghmm/deps
+	touch arghmm/deps/__init__.py
+	./setup/cp-deps.py $(PY_SRC_PATH)/rasmus arghmm/deps/rasmus $(RASMUS_SRC_FILES)
+	./setup/cp-deps.py $(PY_SRC_PATH)/compbio arghmm/deps/compbio $(COMPBIO_SRC_FILES)

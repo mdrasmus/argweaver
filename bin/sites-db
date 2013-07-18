@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 import optparse
-import sqlite3  as sqlite
 
-from rasmus.common import *
 import arghmm
 from arghmm.db import SitesDB
+
+from rasmus import util
 
 o = optparse.OptionParser()
 o.add_option("-d", "--db")
@@ -14,8 +14,6 @@ o.add_option("", "--add-sites", action="append", default=[])
 conf, args = o.parse_args()
 
 #=============================================================================
-
-
 
 db = SitesDB().connect(conf.db)
 

@@ -12,6 +12,15 @@ import subprocess
 from itertools import chain, izip
 from contextlib import contextmanager, closing
 
+# add pre-bundled dependencies to the python path,
+# if they are not available already
+try:
+    import rasmus, compbio
+except ImportError:
+    from . import dep
+    dep.load_deps()
+    import rasmus, compbio
+
 # rasmus combio libs
 from rasmus import hmm, util, stats, treelib
 from rasmus.stats import logadd

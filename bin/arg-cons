@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 
 import optparse
+import os
+import sys
 
-from rasmus.common import *
+import arghmm
+
 from compbio import phylo, arglib
 from rasmus import intervals
-import arghmm
+from rasmus import treelib
+from rasmus import util
+
 
 o = optparse.OptionParser()
 o.add_option("-s", "--start", default=0, type="int")
@@ -25,7 +30,7 @@ def treelen(tree):
 
 def iter_trees(filename, attr, region=None):
     chrom = "chr"
-    
+
     for item in arghmm.iter_smc_file(filename, parse_trees=False,
                                      region=region):
         if item["tag"] == "REGION":
@@ -41,10 +46,10 @@ def iter_trees_arg(filename, attr, region=None):
     arg = arglib.read_arg(filename)
     if region:
         arg = arglib.smcify_arg(arg, region[0], region[1])
-    
+
     attr["names"] = list(arg.leaf_names())
     attr["region"] = ["chr", arg.start, arg.end]
-    
+
     #for block, tree in arglib.iter_tree_tracks(arg):
     for block in arglib.iter_recomb_blocks(arg):
         yield int(block[0]), int(block[1]), "chr", \
@@ -63,15 +68,15 @@ def get_tree(tree_repr):
         tree = arg.get_marginal_tree(pos)
         arglib.remove_single_lineages(tree)
         tree = tree.get_tree()
-        
+
         for node in list(tree):
             if not node.is_leaf():
                 tree.rename(node.name, tree.new_name())
         for i, name in enumerate(names):
             tree.rename(name, i)
-        
+
         return tree
-        
+
 
 def cons_smc(trees, attr, positions=None):
 
@@ -80,7 +85,7 @@ def cons_smc(trees, attr, positions=None):
            "start": attr["region"][1]+1, "end": attr["region"][2]}
 
     i = 0
-    
+
     for start, end, group in intervals.iter_intersections(trees):
         if positions:
             while i < len(positions)-1 and positions[i] < start:
@@ -88,9 +93,9 @@ def cons_smc(trees, attr, positions=None):
             if not (start <= positions[i] < end):
                 continue
         print >>sys.stderr, start, end
-        
-        chrom = group[0][2]
-        treeset = map(get_tree, cget(group, 3))
+
+        #chrom = group[0][2]
+        treeset = map(get_tree, util.cget(group, 3))
         tree = phylo.consensus_majority_rule(treeset, rooted=True)
         treelib.assert_tree(tree)
 
@@ -102,10 +107,10 @@ def cons_smc(trees, attr, positions=None):
         for node in list(tree):
             if not node.is_leaf():
                 tree.rename(node.name, tree.new_name())
-        
+
         yield {"tag": "TREE", "start": start+1, "end": end,
                "tree": tree}
-    
+
 
 #=============================================================================
 

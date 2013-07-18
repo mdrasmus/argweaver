@@ -1,8 +1,6 @@
 #!/usr/bin/env python-i
 # Mon Oct  3 10:48:37 EDT 2011
 
-
-import sys
 import optparse
 
 from compbio import arglib
@@ -10,10 +8,6 @@ from compbio.vis import argvis
 
 o = optparse.OptionParser()
 o.add_option("-m", "--mutations")
-
-#=============================================================================
-
-
 
 #=============================================================================
 

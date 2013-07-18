@@ -3,10 +3,12 @@
 import json
 import optparse
 
-from rasmus.common import *
-from arghmm.bottle import request, get, HTTPResponse, static_file, run
 import arghmm
+from arghmm.bottle import request, get, HTTPResponse, run
 from arghmm.db import ArgDB, SitesDB
+
+from rasmus import util
+
 
 o = optparse.OptionParser()
 o.add_option("-p", "--port", type="int", default=8080)
@@ -46,7 +48,7 @@ def get_tree_spr(pos=0):
         result.append(smc_db.get_sprs(chrom, end, end+1).next())
     except:
         result = []
-    
+
     return callback + "('" + json.dumps(result) + "');"
 
 
@@ -105,7 +107,7 @@ def get_sites(region=""):
     callback = request.query.get("callback", "jsonp_callback")
 
     result = []
-    
+
     for pos, col in sites_db.get_sites(chrom, start, end, arg_names):
         result.append({"pos": pos, "col": col})
 

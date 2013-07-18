@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 
 import optparse
+import os
+import sys
 
-from rasmus.common import *
-from rasmus import intervals, stats
 import arghmm
+
+from rasmus import intervals
+from rasmus import stats
+from rasmus import util
+
 
 o = optparse.OptionParser()
 o.add_option("-w", "--window", default=1000, type="int")
@@ -39,7 +44,8 @@ treelens = []
 for filename in filenames:
     print >>sys.stderr, filename
     smc = arghmm.SMCReader(filename)
-    chrom, start, end = smc.header["chrom"], smc.header["start"], smc.header["end"]
+    chrom, start, end = (smc.header["chrom"], smc.header["start"],
+                         smc.header["end"])
     trees = arghmm.read_local_trees(filename, times, len(times))
     ntrees = arghmm.get_local_trees_ntrees(trees)
     treelen = [0.0] * ntrees
@@ -54,11 +60,11 @@ for filename in filenames:
 #=============================================================================
 
 # get average tree lengths and recombination positions
-avg_treelens = [[s,e,mean(cget(group, 2))]
+avg_treelens = [[s,e,stats.mean(util.cget(group, 2))]
                 for s, e, group in intervals.iter_intersections(
-    sort(concat(*treelens)))]
-recombs = hist_dict(concat(*[[t[0] for t in treelen]
-                             for treelen in treelens]))
+    sorted(util.concat(*treelens)))]
+recombs = util.hist_dict(util.concat(*[[t[0] for t in treelen]
+                                       for treelen in treelens]))
 
 # calcuate recomb rate
 recomb_rate = []
@@ -74,7 +80,8 @@ for p in range(start, end, 1):
         i += 1
 
 
-starts = cget(recomb_rate, 0)
-for lowi, highi, low, high in iter_window_index(starts, conf.window):
+starts = util.cget(recomb_rate, 0)
+for lowi, highi, low, high in util.iter_window_index(starts, conf.window):
     if highi > lowi:
-        print_row(chrom, low, high, mean(cget(recomb_rate[lowi:highi], 2)))
+        util.print_row(chrom, low, high,
+                       stats.mean(util.cget(recomb_rate[lowi:highi], 2)))

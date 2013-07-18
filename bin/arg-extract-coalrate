@@ -2,20 +2,16 @@
 
 import optparse
 
-from rasmus.common import *
-from compbio import arglib
-from rasmus import intervals
 import arghmm
+
+from compbio import arglib
+from rasmus import util
 
 o = optparse.OptionParser()
 o.add_option("", "--ntimes", type="int", default=20)
 o.add_option("", "--maxtime", type="float", default=180e3)
 o.add_option("-w", "--window", type="int", default=int(200e3))
 o.add_option("", "--step", type="int", default=int(50e3))
-
-#o.add_option("-s", "--start", default=0, type="int")
-#o.add_option("-e", "--end", default=5000, type="int")
-#o.add_option("-d", "--step", default=1, type="int")
 
 conf, args = o.parse_args()
 
@@ -39,7 +35,7 @@ def mle_popsize_tree(tree, mintime=0):
 
 def iter_popsize(filename, mintime=0):
     chrom = "chr"
-    
+
     for item in arghmm.iter_smc_file(filename, parse_trees=True,
                                      apply_spr=True):
         if item["tag"] == "REGION":
@@ -52,7 +48,7 @@ def iter_popsize(filename, mintime=0):
 
 def infer_coalrates(arg, times, window=int(200e3), step=50e3,
                     popsize_mu=1e4, popsize_sigma=.2e4):
-    
+
     starts = range(arg.start, arg.end - window, step)
     for start in starts:
         arg2 = arglib.smcify_arg(arg, start, start+window)
@@ -61,7 +57,7 @@ def infer_coalrates(arg, times, window=int(200e3), step=50e3,
             popsize_mu=popsize_mu, popsize_sigma=popsize_sigma)
 
         yield [arg.chrom, arg2.start, arg2.end] + popsizes
-        
+
 
 #=============================================================================
 
@@ -85,4 +81,4 @@ for filename in args:
     arghmm.discretize_arg(arg, times)
     for row in infer_coalrates(arg, times, window=conf.window, step=conf.step,
                                popsize_mu=1e4, popsize_sigma=.2e4):
-        print_row(*row)
+        util.print_row(*row)

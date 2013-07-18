@@ -2,11 +2,10 @@
 # generate arg-sample commands for genome-wide analysis
 #
 
-import os
 import optparse
-import sys
 
 import arghmm
+
 
 o = optparse.OptionParser()
 o.add_option("-s", "--start", metavar="START_COORD", type="int")

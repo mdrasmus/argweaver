@@ -2,20 +2,17 @@
 
 import optparse
 
-from rasmus.common import *
-from compbio import arglib
-from rasmus import intervals
 import arghmm
+
+from compbio import arglib
+from rasmus import util
+
 
 o = optparse.OptionParser()
 o.add_option("", "--ntimes", type="int", default=20)
 o.add_option("", "--maxtime", type="float", default=180e3)
 o.add_option("-w", "--window", type="int", default=int(200e3))
 o.add_option("", "--step", type="int", default=None)
-
-#o.add_option("-s", "--start", default=0, type="int")
-#o.add_option("-e", "--end", default=5000, type="int")
-#o.add_option("-d", "--step", default=1, type="int")
 
 conf, args = o.parse_args()
 
@@ -29,7 +26,7 @@ def get_nlineages(tree, times):
         ages[node] = min(times, key=lambda x: abs(x - age))
 
     nbranches = [0 for i in range(len(times))]
-    
+
     for node in tree:
         if node.parent:
             p = times.index(ages[node.parent])
@@ -40,7 +37,7 @@ def get_nlineages(tree, times):
         else:
             for i in range(times.index(ages[node]), len(times)):
                 nbranches[i] += 1
-    return nbranches  
+    return nbranches
 '''
 
 def get_arg_lineages(arg, times):
@@ -96,8 +93,8 @@ for filename in args:
     smc = arghmm.iter_smc_file(filename)
     if conf.step:
         for row in get_smc_lineages2(smc, times, step=conf.step):
-            print_row(*row)
+            util.print_row(*row)
     else:
         for row in get_smc_lineages(smc, times):
-            print_row(*row)
-        
+            util.print_row(*row)
+

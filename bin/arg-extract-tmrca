@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
 import optparse
+import os
 
-from rasmus.common import *
-from rasmus import intervals
 import arghmm
+
+from rasmus import intervals
+from rasmus import stats
+from rasmus import util
+
 
 o = optparse.OptionParser()
 o.add_option("-s", "--start", default=0, type="int")
@@ -17,7 +21,7 @@ conf, args = o.parse_args()
 
 def iter_tmrcas(filename):
     chrom = "chr"
-    
+
     for item in arghmm.iter_smc_file(filename, parse_trees=True,
                                      apply_spr=True):
         if item["tag"] == "REGION":
@@ -47,8 +51,8 @@ tmrcas.sort()
 
 for start, end, group in intervals.iter_intersections(tmrcas):
     chrom = group[0][2]
-    vals = cget(group, 3)
-    print_row(chrom, start, end, mean(vals),
-              percentile(vals, .025), percentile(vals, .975))
+    vals = util.cget(group, 3)
+    util.print_row(chrom, start, end, stats.mean(vals),
+                   util.percentile(vals, .025), util.percentile(vals, .975))
 
 

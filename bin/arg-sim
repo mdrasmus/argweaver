@@ -2,9 +2,10 @@
 
 import sys, os, optparse
 
-from rasmus import util
-from compbio import fasta, arglib
 import arghmm
+
+from compbio import arglib
+from rasmus import util
 
 
 o = optparse.OptionParser()
@@ -20,7 +21,7 @@ o.add_option("", "--maxtime", type="float", default=180e3)
 o.add_option("", "--model", default="dsmc",
              help="simulation model: dsmc, smc, coal_recomb (default=dsmc)")
 o.add_option("", "--infsites", action="store_true", default=False)
-o.add_option("-R", "--recombmap", metavar="<recombination rate map file>", 
+o.add_option("-R", "--recombmap", metavar="<recombination rate map file>",
              help="recombination map file")
 
 if len(sys.argv) == 1:

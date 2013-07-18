@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
 import optparse
+import os
 
-from rasmus.common import *
-from compbio import coal
-from rasmus import intervals
 import arghmm
+
+from rasmus import intervals
+from rasmus import stats
+from rasmus import util
+
 
 o = optparse.OptionParser()
 o.add_option("-s", "--start", default=0, type="int")
@@ -34,7 +37,7 @@ def mle_popsize_tree(tree, mintime=0):
 
 def iter_popsize(filename, mintime=0):
     chrom = "chr"
-    
+
     for item in arghmm.iter_smc_file(filename, parse_trees=True,
                                      apply_spr=True):
         if item["tag"] == "REGION":
@@ -68,8 +71,8 @@ popsizes.sort()
 
 for start, end, group in intervals.iter_intersections(popsizes):
     chrom = group[0][2]
-    vals = cget(group, 3)
-    print_row(chrom, start, end, mean(vals),
-              percentile(vals, .025), percentile(vals, .975))
+    vals = util.cget(group, 3)
+    util.print_row(chrom, start, end, stats.mean(vals),
+                   util.percentile(vals, .025), util.percentile(vals, .975))
 
 

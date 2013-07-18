@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 
-from rasmus.common import *
-from compbio import fasta, arglib
+import optparse
+import sys
+
+import arghmm
+
+from compbio import arglib
+from rasmus import treelib
 
 
-if "bin" not in sys.path:
-    sys.path.append("bin")
+o = optparse.OptionParser()
+conf, args = o.parse_args()
 
-
-mutfile, treefile = sys.argv[1:]
+mutfile, treefile = args
 
 
 #=============================================================================
@@ -43,7 +47,7 @@ for block, tree in arglib.read_tree_tracks(treefile):
                 est_age = 0
                 print >>sys.stderr, "mut does not conform", mut_pos[i]
 
-        print "\t".join([str(mut_pos[i]), str(est_age), 
+        print "\t".join([str(mut_pos[i]), str(est_age),
                          ",".join(chroms[i])])
         i += 1
 

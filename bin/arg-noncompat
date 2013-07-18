@@ -1,15 +1,25 @@
 #!/usr/bin/env python
 
-from rasmus.common import *
+import optparse
+
 import arghmm
+
+from rasmus import treelib
+
 from compbio import arglib
+from compbio import phylo
+
+
+o = optparse.OptionParser()
+conf, args = o.parse_args()
+
 
 #=============================================================================
 
 def sites_split(names, col):
     part1 = []
     part2 = []
-    
+
     c = col[0]
     for i in range(len(col)):
         if col[i] == c:
@@ -20,8 +30,8 @@ def sites_split(names, col):
 
 #=============================================================================
 
-argfile = sys.argv[1]
-sitesfile = sys.argv[2]
+argfile = args[0]
+sitesfile = args[1]
 
 if argfile.endswith(".arg"):
     arg = arglib.read_arg(argfile)
@@ -31,7 +41,7 @@ sites = arghmm.read_sites(sitesfile)
 
 print "names", sites.names
 print
-        
+
 noncompats = []
 for block, tree in arglib.iter_local_trees(arg):
     tree = tree.get_tree()

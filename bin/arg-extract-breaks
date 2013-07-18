@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
 import optparse
+import os
 
-from rasmus.common import *
-from rasmus import intervals, stats
 import arghmm
+
+from rasmus import intervals
+from rasmus import stats
+from rasmus import util
+
 
 o = optparse.OptionParser()
 o.add_option("-w", "--window", default=10000, type="int")
@@ -23,7 +27,7 @@ def iter_recombs(filename):
     chrom = "chr"
     for item in arghmm.iter_smc_file(filename):
         if item["tag"] == "REGION":
-            chrom = item["chrom"]        
+            chrom = item["chrom"]
         if item["tag"] == "SPR":
             yield item["pos"], chrom
 
@@ -31,8 +35,9 @@ def iter_recombs(filename):
 def iter_recombs_window(filename, window):
     recombs = sorted(iter_recombs(filename))
     chrom = recombs[0][1]
-    recombs = cget(recombs, 0)
+    recombs = util.cget(recombs, 0)
     last_x = None
+    last_y = None
     for x, y in stats.iter_window(recombs, window, len):
         if last_x:
             yield last_x, x, chrom, last_y
@@ -59,8 +64,8 @@ recombs.sort()
 
 for start, end, group in intervals.iter_intersections(recombs):
     chrom = group[0][2]
-    vals = cget(group, 3)
-    print_row(chrom, int(start), int(end), mean(vals),
-              percentile(vals, .025), percentile(vals, .975))
+    vals = util.cget(group, 3)
+    util.print_row(chrom, int(start), int(end), stats.mean(vals),
+                   util.percentile(vals, .025), util.percentile(vals, .975))
 
 

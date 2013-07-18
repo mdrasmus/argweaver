@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
 import optparse
-from rasmus.common import *
+import sys
+
 import arghmm
+
+from compbio import fasta
+from rasmus import util
+
 
 o = optparse.OptionParser()
 o.add_option("-c", "--chrom", default="chr", help="chromosome name")
@@ -26,7 +31,7 @@ else:
     else:
         sites_file = conf.fasta + ".sites"
 
-seqs = read_fasta(conf.fasta)
+seqs = fasta.read_fasta(conf.fasta)
 sites = arghmm.seqs2sites(seqs, chrom=conf.chrom, start=conf.start)
 
 arghmm.write_sites(sites_file, sites)

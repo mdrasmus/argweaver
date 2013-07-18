@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 import optparse
+import random
 
-from rasmus.common import *
 import arghmm
+
+from rasmus import util
 
 
 o = optparse.OptionParser()
@@ -38,15 +40,15 @@ sites = arghmm.read_sites(conf.sites)
 ind = range(sites.nseqs())
 if conf.nseqs:
     if conf.both_haps:
-        dips = unique(x[:-2] for x in sites.names)
+        dips = util.unique(x[:-2] for x in sites.names)
         random.shuffle(dips)
         dips = dips[:conf.nseqs / 2]
-        names = flatten((x + "_1", x + "_2") for x in dips)
+        names = util.flatten((x + "_1", x + "_2") for x in dips)
         ind = [i for i, name in enumerate(sites.names) if name in names]
     else:
         random.shuffle(ind)
         ind = ind[:conf.nseqs]
-        
+
 elif conf.ind:
     names2 = set(util.read_strings(conf.ind))
     ind = [i for i in ind if sites.names[i] in names2]
@@ -59,15 +61,15 @@ else:
     region = sites.region
 
 # make subset
-sites2 = arghmm.Sites(names=mget(sites.names, ind), chrom=sites.chrom,
+sites2 = arghmm.Sites(names=util.mget(sites.names, ind), chrom=sites.chrom,
                       region=region)
 
 for i, bases in sites:
     if region[0] <= i <= region[1]:
-        bases = "".join(mget(bases, ind))
+        bases = "".join(util.mget(bases, ind))
         if is_variant(bases) or conf.keep_invariant:
             sites2.append(i, bases)
 
 # write new sites
 arghmm.write_sites(conf.output, sites2)
-    
+

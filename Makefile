@@ -10,9 +10,11 @@
 prefix = /usr
 
 
-# C++ compiler options
+# programs
 CXX = g++
+PYTHON = python
 
+# C++ compiler options
 CFLAGS := $(CFLAGS) \
     -Wall -fPIC \
     -Isrc
@@ -38,7 +40,7 @@ endif
 # ArgHmm files
 
 # package
-PKG_VERSION:=$(shell python -c 'import arghmm; print arghmm.PROGRAM_VERSION_TEXT' 2>/dev/null)
+PKG_VERSION:=$(shell $(PYTHON) -c 'import arghmm; print arghmm.PROGRAM_VERSION_TEXT' 2>/dev/null)
 PKG_NAME=arghmm
 PKG=dist/$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_DIR=dist/$(PKG_NAME)-$(PKG_VERSION)
@@ -128,10 +130,16 @@ $(LIBARGHMM_SHARED): $(LIBARGHMM_OBJS)
 # packaging
 
 pkg:
-	python make-pkg.py $(PKG_DIR)
+	mkdir -p $(PKG_DIR)
+	git archive --format=tar --prefix=$(PKG_NAME)-$(PKG_VERSION)/ | \
+	gzip > $(PKG)	
+
+	$(PYTHON) make-pkg.py $(PKG_DIR)
 
 $(PKG):
-	python make-pkg.py $(PKG_DIR)
+	mkdir -p $(PKG_DIR)
+	git archive --format=tar --prefix=$(PKG_NAME)-$(PKG_VERSION)/ | \
+	gzip > $(PKG)
 
 #-----------------------------
 # testing
@@ -146,10 +154,10 @@ install: $(BINARIES) $(LIBARGHMM_SHARED_INSTALL)
 	mkdir -p $(prefix)/bin
 	cp $(BINARIES) $(prefix)/bin
 	echo $(LIBARGHMM_SHARED_INSTALL)
-	python setup.py install --prefix=$(prefix)
+	$(PYTHON) setup.py install --prefix=$(prefix)
 
 pylib: $(LIBARGHMM_SHARED_INSTALL)
-	python setup.py install --prefix=$(prefix)
+	$(PYTHON) setup.py install --prefix=$(prefix)
 
 
 $(LIBARGHMM_SHARED_INSTALL): $(LIBARGHMM_SHARED)
@@ -175,11 +183,11 @@ clean-obj:
 
 dep:
 	touch Makefile.dep
-	makedepend -f Makefile.dep -Y src/*.cpp src/*.h
+	which makedepend && makedepend -f Makefile.dep -Y src/*.cpp src/*.h
 
 Makefile.dep:
 	touch Makefile.dep
-	makedepend -f Makefile.dep -Y src/*.cpp src/*.h
+	which makedepend && makedepend Makefile.dep -Y src/*.cpp src/*.h
 
 include Makefile.dep
 # DO NOT DELETE

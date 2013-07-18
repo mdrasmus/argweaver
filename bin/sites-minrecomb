@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 # infer parsimonious blocks from sites
 
-
-import sys, os, optparse
-from itertools import izip
-from collections import defaultdict
-
-from rasmus import util, treelib
-from compbio import coal, arglib, fasta, phylo
+import optparse
 
 import arghmm
-from arghmm import splitlib
 
+from rasmus import util
+from compbio import arglib
+
+
+o = optparse.OptionParser()
+conf, args = o.parse_args()
 
 #=============================================================================
 # find mutations and splits
 
-sites = arghmm.read_sites(sys.argv[1])
+
+sites = arghmm.read_sites(args[0])
 
 start, end = sites.region
 
@@ -56,7 +56,7 @@ while j < n:
 # get conflict edges
 conflicts, left, right = splitlib.get_unique_conflicts(splits)
 
-# find max parsimonious break points 
+# find max parsimonious break points
 breaks = splitlib.find_break_points(conflicts)
 
 for b in breaks:
@@ -68,9 +68,9 @@ tracks = splitlib.get_split_tracks(conflicts, left, right, breaks)
 
 for i, (split, track) in enumerate(izip(splits, tracks)):
     print "\t".join(
-        map(str, 
+        map(str,
             (mut_pos[i],
-             track[0], track[1], 
+             track[0], track[1],
              int(splitlib.mutindex2pos(track[0], start, end, mut_pos)),
              int(splitlib.mutindex2pos(track[1], start, end, mut_pos)),
              ",".join(map(str, split)))))

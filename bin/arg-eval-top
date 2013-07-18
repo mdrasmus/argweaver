@@ -1,12 +1,18 @@
 #!/usr/bin/env python
 
+from itertools import izip
 import optparse
-
-from rasmus.common import *
-from rasmus import intervals, stats
-import arghmm
-from compbio import arglib
+import os
 import tempfile
+
+import arghmm
+
+from compbio import arglib
+from compbio import phylo
+from rasmus import stats
+from rasmus import treelib
+from rasmus import util
+
 
 o = optparse.OptionParser()
 o.add_option("-n", "--ntrees", default=100, type="int")
@@ -23,13 +29,13 @@ def weighted_split_error(tree, tree2):
     nleaves = len(tree.leaves())
     total = 0
     error = 0
-    
+
     for branch in tree:
         if branch == tree.root or branch.is_leaf(): continue
         clade = branch.leaf_names()
 
         # find clade in tree2 using dollo parsimony
-        branch2 = lca([tree2[x] for x in clade])
+        branch2 = treelib.lca([tree2[x] for x in clade])
         clade2 = branch2.leaf_names()
 
         # compute weighted symmetric diff
@@ -45,7 +51,7 @@ def weighted_split_error(tree, tree2):
 
 def iter_trees(filename, attr={}, ptrs=None):
     chrom = "chr"
-    
+
     for item in arghmm.iter_smc_file(filename):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
@@ -60,7 +66,7 @@ def iter_trees_arg(filename, attr):
     arg = arglib.read_arg(filename)
     attr["names"] = list(arg.leaf_names())
     attr["region"] = ["chr", arg.start, arg.end]
-    
+
     for block, tree in arglib.iter_tree_tracks(arg):
         arglib.remove_single_lineages(tree)
         yield block[0], block[1], "chr", tree.get_tree()
@@ -97,9 +103,9 @@ def write_tree_top(tree1, filename):
 def get_spr_dist(tree1, tree2):
     fd, filename1 = tempfile.mkstemp(".tmp", "")
     os.close(fd)
-    fd, filename2 = temporaryfile.mkstemp(".tmp", "")
+    fd, filename2 = tempfile.mkstemp(".tmp", "")
     os.close(fd)
-    
+
     write_tree_top(tree1, filename1)
     write_tree_top(tree2, filename2)
     text = os.popen("tree-spr-dist %s %s" % (filename1, filename2)).read()
@@ -141,8 +147,8 @@ def pat_dist(tree, tree2):
     lst2 = [dist2[i][j] for i in range(len(names))
             for j in range(i+1, len(names))]
     return stats.corr(lst1, lst2)
-    
-    
+
+
 
 #=============================================================================
 
@@ -200,12 +206,9 @@ for (pos1, item1), (pos2, item2) in izip(
     error.append(row)
 
     if not conf.quiet:
-        print_row(pos1, *row)
+        util.print_row(pos1, *row)
 
 assert seen == conf.ntrees
 
-error = transpose(error)
-print_row(*map(mean, error))
-
-
-
+error = util.transpose(error)
+util.print_row(*map(stats.mean, error))

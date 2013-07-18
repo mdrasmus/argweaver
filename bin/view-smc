@@ -1,14 +1,17 @@
 #!/usr/bin/env python-i
 # Tue Oct 18 10:34:26 EDT 2011
 
+import optparse
 
-import sys
-from compbio import arglib
-from compbio.vis import argvis
 import arghmm
 
-smcfile = sys.argv[1]
+from compbio.vis import argvis
 
+
+o = optparse.OptionParser()
+conf, args = o.parse_args()
+
+
+smcfile = args[0]
 smc = arghmm.iter_smc_file(smcfile, parse_trees=True)
-
 viewer = argvis.show_smc(smc, show_labels=True)

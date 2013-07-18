@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 
+from itertools import izip
+import os
 import optparse
 
-from rasmus.common import *
 import arghmm
+
+from rasmus import stats
+from rasmus import treelib
+from rasmus import util
 
 
 o = optparse.OptionParser()
@@ -23,14 +28,13 @@ def iter_allele_ages(smc, sites, region=None, maxage=1000000):
     nseqs = sites.nseqs()
     chrom = smc.header["chrom"]
     names = smc.header["names"]
-    inames = range(len(names))
     for item in smc:
         if item["tag"] == "TREE":
             if not util.overlap(item["start"], item["end"],
                                 region[0], region[1]):
                 continue
             #tree = smc.parse_tree(item["tree"])
-            tree = item["tree"] 
+            tree = item["tree"]
             arghmm.rename_tree(tree, names)
             for pos, col in sites.iter_region(item["start"], item["end"]):
                 derived = sites.get_minor(pos)
@@ -89,10 +93,9 @@ ages = [iter_allele_ages(smc, sites, sites.region) for smc in smcs]
 for rows in izip(*ages):
     info = rows[0][:6]
     ages = [row[6:8] for row in rows]
-    low = mean(cget(ages, 0))
-    top = mean(cget(ages, 1))
+    low = stats.mean(util.cget(ages, 0))
+    top = stats.mean(util.cget(ages, 1))
 
-    row = info + [low, top] + flatten(ages)
-    print_row(*row)
-    #write_delim(sys.stdout, iter_allele_ages(smc, sites))
+    row = info + [low, top] + util.flatten(ages)
+    util.print_row(*row)
 

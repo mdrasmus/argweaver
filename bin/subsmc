@@ -2,7 +2,6 @@
 
 import optparse
 
-from rasmus.common import *
 import arghmm
 
 
@@ -28,6 +27,6 @@ else:
     region = None
 smc = arghmm.iter_smc_file(conf.smc, region=region)
 
-# write 
+# write
 arghmm.write_smc(conf.output, smc)
 
