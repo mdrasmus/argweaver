@@ -7,7 +7,7 @@ import arghmm
 from rasmus.common import *
 from rasmus import stats, hmm
 from rasmus.testing import *
-rplot_set_viewer("evince")
+rplot_set_viewer("open")
 
 from compbio import coal, arglib, fasta
 
@@ -15,7 +15,7 @@ from compbio import coal, arglib, fasta
 def sites_split(names, col):
     part1 = []
     part2 = []
-    
+
     c = col[0]
     for i in range(len(col)):
         if col[i] == c:
@@ -29,29 +29,6 @@ def sites_split(names, col):
 #=============================================================================
 
 class Prog (unittest.TestCase):
-
-    def test_prog_small(self):
-
-        popsize = 1e4
-        mu = 2.5e-8
-        rho = 1.5e-8
-
-        if not os.path.exists("test/data/test_prog_small/0.sites"):
-            make_clean_dir("test/data/test_prog_small")
-            os.system("""arg-sim \
-            -k 4 -L 200000 \
-            -N 1e4 -r 1.5e-8 -m 2.5e-8 \
-            --ntimes 20 --maxtime 400e3  \
-            -o test/data/test_prog_small/0""")
-
-        make_clean_dir("test/data/test_prog_small/0.sample")
-        os.system("""arg-sample \
-    -s test/data/test_prog_small/0.sites \
-    -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
-    --ntimes 20 --maxtime 400e3 -c 20 \
-    -n 100 \
-    -o test/data/test_prog_small/0.sample/out""")
-
 
     def test_lineages(self):
 
@@ -71,8 +48,8 @@ class Prog (unittest.TestCase):
             test/data/test_lineages/0.smc""")
 
         #-a test/data/test_linegaes/0.smc
-       
-        make_clean_dir("test/data/test_lineages/0.sample")        
+
+        make_clean_dir("test/data/test_lineages/0.sample")
         '''
         os.system("""subsites -n6 -s test/data/test_lineages/0.sites \
         > test/data/test_lineages/0.core.sites; \
@@ -101,7 +78,7 @@ class Prog (unittest.TestCase):
         x, y = transpose(data)
         p = plot(x, y, style="lines")
         pause()
-        
+
 
 
     def test_prog_infsites(self):
@@ -112,7 +89,7 @@ class Prog (unittest.TestCase):
 
         if 1:
             make_clean_dir("test/data/test_prog_infsites")
-            
+
             os.system("""arg-sim \
             -k 40 -L 200000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 --infsites \
@@ -133,7 +110,7 @@ class Prog (unittest.TestCase):
         sites = arghmm.read_sites("test/data/test_prog_infsites/0.sites")
         print "names", sites.names
         print
-        
+
         noncompats = []
         for block, tree in arglib.iter_local_trees(arg):
             tree = tree.get_tree()
@@ -193,14 +170,14 @@ class Prog (unittest.TestCase):
 
 
     def test_prog_mask(self):
-        
+
         popsize = 1e4
         mu = 2.20e-8
         rho = 1.16e-8
-        
+
         if not os.path.exists("test/data/test_prog_mask/0.sites"):
             makedirs("test/data/test_prog_mask")
-            
+
             os.system("""arg-sim \
             -k 12 -L 10000 --model dsmc \
             -N 1e4 -r 1.16e-8 -m 2.20e-8 \
@@ -210,7 +187,7 @@ class Prog (unittest.TestCase):
             mask = [["chr", 1000, 2000],
                     ["chr", 3000, 4000]]
             write_delim("test/data/test_prog_mask/mask.bed", mask)
-            
+
         make_clean_dir("test/data/test_prog_mask/0.sample")
         os.system("""arg-sample \
     -s test/data/test_prog_mask/0.sites \
@@ -223,31 +200,31 @@ class Prog (unittest.TestCase):
 
 
     def test_prog(self):
-        
+
         popsize = 1e4
         mu = 2.20e-8
         rho = 1.16e-8
-        
+
         if not os.path.exists("test/data/test_prog/0.sites"):
             makedirs("test/data/test_prog")
-            
-            os.system("""arg-sim \
-            -k 2 -L 1000000 --model dsmc \
+
+            os.system("""bin/arg-sim \
+            -k 8 -L 200000 --model dsmc \
             -N 1e4 -r 0.5e-8 -m 2.20e-8 \
-            --ntimes 20 --maxtime 200e3 \
+            --ntimes 10 --maxtime 200e3 \
             -o test/data/test_prog/0""")
 
         if 1:
             make_clean_dir("test/data/test_prog/0.sample")
-            os.system("""arg-sample \
+            os.system("""bin/arg-sample \
     -s test/data/test_prog/0.sites \
     -N 1e4 -r 0.5e-8 -m 2.20e-8 \
     --ntimes 20 --maxtime 200e3 -c 10 \
-    -n 40 \
+    -n 500 \
     -o test/data/test_prog/0.sample/out""")
 
-        
-        
+
+
         # read true arg and seqs
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         arg = arglib.read_arg("test/data/test_prog/0.arg")
@@ -261,16 +238,16 @@ class Prog (unittest.TestCase):
         arg = arghmm.arg2ctrees(arg, times)
         nrecombs = arghmm.get_local_trees_ntrees(arg[0]) - 1
         lk = arghmm.calc_likelihood(
-            arg, seqs, mu=mu, times=times, 
+            arg, seqs, mu=mu, times=times,
             delete_arg=False)
         prior = arghmm.calc_prior_prob(
             arg, rho=rho, times=times, popsizes=popsize,
                             delete_arg=False)
         joint = lk + prior
-        
+
         data = read_table("test/data/test_prog/0.sample/out.stats")
 
-        
+
         # joint
         y2 = joint
         y = data.cget("joint")
@@ -334,31 +311,32 @@ class Prog (unittest.TestCase):
 
 
     def test_prog_gibbs(self):
-        
+
         popsize = 1e4
         mu = 2.20e-8
-        rho = 1.16e-8
-        
-        if not os.path.exists("test/data/test_prog/0.sites"):
+        rho = 0.5e-8
+
+        #if not os.path.exists("test/data/test_prog/0.sites"):
+        if 1:
             makedirs("test/data/test_prog")
-            
-            os.system("""arg-sim \
+
+            os.system("""bin/arg-sim \
             -k 6 -L 100000 --model dsmc \
-            -N 1e4 -r 0.5e-8 -m 2.20e-8 \
+            -N 1e4 -r 0.5e-8 -m 2.20e-8 --infsites \
             --ntimes 20 --maxtime 200e3 \
             -o test/data/test_prog/0""")
 
         if 1:
             make_clean_dir("test/data/test_prog/0.sample")
-            os.system("""arg-sample \
+            os.system("""bin/arg-sample -q \
     -s test/data/test_prog/0.sites \
-    -N 1e4 -r 0.5e-8 -m 2.20e-8 \
+    -N 1e4 -r 0.5e-8 -m 2.20e-8 --infsites \
     --ntimes 20 --maxtime 200e3 -c 20 \
-    -n 1000 --gibbs \
+    -n 5000 --gibbs \
     -o test/data/test_prog/0.sample/out""")
 
-        
-        
+
+
         # read true arg and seqs
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         arg = arglib.read_arg("test/data/test_prog/0.arg")
@@ -372,16 +350,16 @@ class Prog (unittest.TestCase):
         arg = arghmm.arg2ctrees(arg, times)
         nrecombs = arghmm.get_local_trees_ntrees(arg[0]) - 1
         lk = arghmm.calc_likelihood(
-            arg, seqs, mu=mu, times=times, 
+            arg, seqs, mu=mu, times=times,
             delete_arg=False)
         prior = arghmm.calc_prior_prob(
             arg, rho=rho, times=times, popsizes=popsize,
                             delete_arg=False)
         joint = lk + prior
-        
+
         data = read_table("test/data/test_prog/0.sample/out.stats")
 
-        
+
         # joint
         y2 = joint
         y = data.cget("joint")
@@ -462,7 +440,7 @@ class Prog (unittest.TestCase):
                     ["chr", 30000, 60000, rho*.05],
                     ["chr", 60000, 100000, rho*.05]]
             write_delim("test/data/test_prog_map/recomb.map.txt", rmap)
-            
+
             os.system("""arg-sim \
             -k 12 -L 100000 \
             -N 1e4 -r 1.5e-8 -m 2.5e-8 \
@@ -479,7 +457,7 @@ class Prog (unittest.TestCase):
     --climb 0 -n 11 \
     -o test/data/test_prog_map/0.sample/out""")
 
-        
+
 
 #=============================================================================
 if __name__ == "__main__":

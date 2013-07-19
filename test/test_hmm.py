@@ -4,15 +4,16 @@ Tests for various HMM calculations
 
 """
 
-import unittest, random
-
-from rasmus.common import *
-from rasmus.testing import *
-from compbio import arglib
-del test_main
+from itertools import izip
+from math import exp
+from math import log
 
 import arghmm
 import arghmm.popsize
+
+from compbio import arglib
+from rasmus import util
+from rasmus.testing import fequal
 
 
 def test_trans_two():
@@ -64,9 +65,9 @@ def test_trans_two():
     def recoal(k, j):
         if j == nstates-1:
             return exp(- sum(model.time_steps[m] / (2.0 * n)
-                          for m in range(k, j)))
+                             for m in range(k, j)))
         else:
-            return ((1.0 - exp(-model.time_steps[j]/(2.0 * n))) * 
+            return ((1.0 - exp(-model.time_steps[j]/(2.0 * n))) *
                     exp(- sum(model.time_steps[m] / (2.0 * n)
                               for m in range(k, j))))
 
@@ -93,13 +94,11 @@ def test_trans_two():
             p += 1.0 - isrecomb(a)
         return p
 
-
     for i in range(len(states)):
         for j in range(len(states)):
             print isrecomb(states[i][1])
             print states[i], states[j], mat[i][j], log(trans(i, j))
             fequal(mat[i][j], log(trans(i, j)))
-
 
         # recombs add up to 1
         fequal(sum(recomb(i, k) for k in range(i+1)), 0.5)
@@ -123,7 +122,6 @@ def test_trans():
     k = 4
     n = 1e4
     rho = 1.5e-8 * 20
-    mu = 2.5e-8 * 20
     length = 1000
     times = arghmm.get_time_points(ntimes=4, maxtime=200000)
     popsizes = [n] * len(times)
@@ -147,7 +145,6 @@ def test_trans_switch():
     k = 12
     n = 1e4
     rho = 1.5e-8 * 20
-    mu = 2.5e-8 * 20
     length = 1000
     times = arghmm.get_time_points(ntimes=20, maxtime=200000)
     popsizes = [n] * len(times)
@@ -178,7 +175,6 @@ def test_trans_internal():
     k = 5
     n = 1e4
     rho = 1.5e-8 * 20
-    mu = 2.5e-8 * 20
     length = 1000
     times = arghmm.get_time_points(ntimes=5, maxtime=200000)
     popsizes = [n] * len(times)
@@ -203,7 +199,6 @@ def test_trans_switch_internal():
     k = 10
     n = 1e4
     rho = 1.5e-8 * 20
-    mu = 2.5e-8 * 20
     length = int(100e3) / 20
     times = arghmm.get_time_points(ntimes=20, maxtime=200000)
     popsizes = [n] * len(times)
@@ -243,6 +238,7 @@ def test_emit():
     assert arghmm.arghmm_assert_emit(trees, len(times), times, mu,
                                      seqs2, nseqs, seqlen)
 
+
 def test_emit_internal():
     """
     Calculate emission probabilities
@@ -268,7 +264,6 @@ def test_emit_internal():
                                               seqs2, nseqs, seqlen)
 
 
-
 def test_prior_counts():
     """
     Calculate initial tree prior
@@ -284,8 +279,7 @@ def test_prior_counts():
         fequal(x, y)
 
 
-
-def test_forward_c():
+def test_forward():
 
     k = 4
     n = 1e4
@@ -318,17 +312,9 @@ def test_forward_c():
                                              slow=True)
     util.toc()
 
-
     for i, (col1, col2) in enumerate(izip(probs1, probs2)):
         for a, b in izip(col1, col2):
-            try:
-                fequal(a, b, rel=.0001)
-            except:
-                print model.states[i]
-                print i, col1
-                print i, col2
-                raise
-
+            fequal(a, b, rel=.0001)
 
 
 def test_arg_joint():
@@ -339,11 +325,9 @@ def test_arg_joint():
     k = 2
     n = 1e4
     rho = 1.5e-8 * 20
-    rho2 = rho
     mu = 2.5e-8 * 20
     length = 10000
     times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-    refine = 0
 
     arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                  times=times)
@@ -352,4 +336,3 @@ def test_arg_joint():
 
     lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
     print lk
-

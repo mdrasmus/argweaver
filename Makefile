@@ -147,6 +147,9 @@ $(PKG):
 testing:
 	nosetests -v test
 
+cq:
+	nosetests -v test/test_codequality.py
+
 #-----------------------------
 # install
 

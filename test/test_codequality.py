@@ -1,6 +1,5 @@
 
 import os
-import sys
 import subprocess
 
 
@@ -17,7 +16,6 @@ def run(cmd, shell=True):
     return retcode
 
 
-
 def run_pyflakes(filenames, key=lambda line: True):
     """
     Run pyflakes and return all errors.
@@ -26,7 +24,7 @@ def run_pyflakes(filenames, key=lambda line: True):
     print cmd
     pipe = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     lines = [line for line in pipe.stdout if key(line)]
-    retcode = pipe.wait()
+    pipe.wait()
     return lines
 
 
@@ -38,7 +36,7 @@ def run_pep8(filenames):
     print cmd
     pipe = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     lines = [line for line in pipe.stdout]
-    retcode = pipe.wait()
+    pipe.wait()
     return lines
 
 
@@ -121,7 +119,7 @@ def test_pyflakes():
     """
     Run pyflakes on python code base.
     """
-    filenames = list(get_python_scripts("bin", "arghmm"))
+    filenames = list(get_python_scripts("bin", "arghmm", "test"))
     lines = run_pyflakes(filenames, key=pyflakes_filter)
 
     if len(lines) > 0:
@@ -134,7 +132,7 @@ def test_pep8():
     """
     Ensure pep8 compliance on python code base.
     """
-    filenames = list(get_python_scripts("bin"))
+    filenames = list(get_python_scripts("bin", "test"))
     lines = run_pep8(filenames)
 
     if len(lines) > 0:

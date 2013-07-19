@@ -1498,29 +1498,6 @@ class Basic (unittest.TestCase):
         print lk
 
 
-
-    def test_arg_convert(self):
-        """
-        Test conversion for python to C args
-        """
-
-        k = 10
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 10000
-        times = arghmm.get_time_points(ntimes=20, maxtime=200000)
-
-        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                     times=times)
-
-        # convert to C++ and back
-        trees, names = arghmm.arg2ctrees(arg, times)
-        arg2 = arghmm.ctrees2arg(trees, names, times)
-
-        test_arg_equal(arg, arg2)
-
-
     def test_arg_treelens(self):
 
         k = 10
