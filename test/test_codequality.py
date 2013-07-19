@@ -60,6 +60,9 @@ def pyflakes_filter(line):
     if 'arghmm/bottle.py' in line:
         return False
 
+    if 'arghmm/arghmmc.py' in line:
+        return False
+
     return True
 
 

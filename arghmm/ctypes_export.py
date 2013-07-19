@@ -140,6 +140,8 @@ class Exporter (object):
         args_doc = prototypes[1::2]
         self._env[newname].__doc__ = "%s(%s)" % (funcname, ",".join(args_doc))
 
+        return wrapper
+
 
 def load_library(path, lib):
     try:

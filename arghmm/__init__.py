@@ -4,12 +4,12 @@
 
 # python libs
 from collections import defaultdict
+from contextlib import closing
 import heapq
+from itertools import chain
 from math import exp, log
 import StringIO
 import subprocess
-from itertools import chain
-from contextlib import closing
 
 # add pre-bundled dependencies to the python path,
 # if they are not available already
@@ -27,13 +27,40 @@ from compbio import arglib, alignlib, fasta
 from rasmus import hmm, util, stats, treelib
 from rasmus.stats import logadd
 
-
 # arghmm libs
 from arghmmc import *
 from . import emit
-from arghmm.sample import *
-from arghmm.sim import *
+#from arghmm.sample import *
+from arghmm.sim import find_region
+from arghmm.sim import get_coal_time_steps
+from arghmm.sim import get_coal_times
+from arghmm.sim import make_alignment
+from arghmm.sim import make_sites
+from arghmm.sim import sample_arg_dsmc
+from arghmm.sim import sample_arg_mutations
+from arghmm.sim import sample_dsmc_sprs_round_both
+from arghmm.sim import sample_dsmc_sprs_round_closer
+from arghmm.sim import sample_dsmc_sprs_round_closer2
+from arghmm.sim import sample_dsmc_sprs_round_closer3
+from arghmm.sim import sample_dsmc_sprs_round_down
+from arghmm.sim import sample_next_recomb
+from arghmm.sim import sample_tree
 
+# suppress unused pyflakes warning
+find_region
+get_coal_time_steps
+get_coal_times
+make_alignment
+make_sites
+sample_arg_dsmc
+sample_arg_mutations
+sample_dsmc_sprs_round_both
+sample_dsmc_sprs_round_closer
+sample_dsmc_sprs_round_closer2
+sample_dsmc_sprs_round_closer3
+sample_dsmc_sprs_round_down
+sample_next_recomb
+sample_tree
 
 
 #=============================================================================
