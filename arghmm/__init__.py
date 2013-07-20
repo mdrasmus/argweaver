@@ -8,6 +8,7 @@ from contextlib import closing
 import heapq
 from itertools import chain
 from math import exp, log
+import os
 import StringIO
 import subprocess
 
