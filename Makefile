@@ -186,11 +186,6 @@ clean-obj:
 
 dep:
 	touch Makefile.dep
-	which makedepend && makedepend -f Makefile.dep -Y src/*.cpp src/*.h
-
-Makefile.dep:
-	touch Makefile.dep
-	which makedepend && makedepend Makefile.dep -Y src/*.cpp src/*.h
+	makedepend -f Makefile.dep -Y src/*.cpp src/*.h
 
 include Makefile.dep
-# DO NOT DELETE
