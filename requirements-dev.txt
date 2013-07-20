@@ -1,4 +1,4 @@
 nose
 pyflakes
 pep8
-scipy
+
