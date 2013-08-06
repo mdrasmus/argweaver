@@ -1,4 +1,3 @@
-
 #include "common.h"
 #include "logging.h"
 #include "parsing.h"
@@ -345,8 +344,14 @@ void make_sites_from_sequences(const Sequences *sequences, Sites *sites)
 }
 
 
-
-// compress the sites by a factor of 'compress'
+// Compress the sites by a factor of 'compress'.
+//
+// The compression maintains the following properties:
+//
+// - The coorindate system (start_coord, end_coord) will be adjusted to
+//   roughly (0, seqlen / compress).
+// - Every variant column is kept.
+//
 void find_compress_cols(const Sites *sites, int compress,
                         SitesMapping *sites_mapping)
 {
@@ -422,6 +427,7 @@ void find_compress_cols(const Sites *sites, int compress,
 }
 
 
+// Apply compression using sites_mapping.
 void compress_sites(Sites *sites, const SitesMapping *sites_mapping)
 {
     const int ncols = sites->cols.size();
@@ -433,6 +439,7 @@ void compress_sites(Sites *sites, const SitesMapping *sites_mapping)
 }
 
 
+// Uncompress sites using sites_mapping.
 void uncompress_sites(Sites *sites, const SitesMapping *sites_mapping)
 {
     const int ncols = sites->cols.size();
