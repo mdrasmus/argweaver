@@ -3,7 +3,23 @@ import os
 
 import arghmm
 
+from compbio import arglib
+from compbio import phylo
+from rasmus import treelib
 from rasmus.testing import make_clean_dir
+
+
+def sites_split(names, col):
+    part1 = []
+    part2 = []
+
+    c = col[0]
+    for i in range(len(col)):
+        if col[i] == c:
+            part1.append(names[i])
+        else:
+            part2.append(names[i])
+    return min([part1, part2], key=len)
 
 
 def test_prog_small():
@@ -44,28 +60,22 @@ def test_prog_resume():
 
 def _test_prog_infsites():
 
-    popsize = 1e4
-    mu = 2.5e-8
-    rho = 1.5e-8
+    make_clean_dir("test/data/test_prog_infsites")
 
-    if 1:
-        make_clean_dir("test/data/test_prog_infsites")
-
-        os.system("""arg-sim \
+    os.system("""arg-sim \
         -k 40 -L 200000 \
         -N 1e4 -r 1.5e-8 -m 2.5e-8 --infsites \
         --ntimes 20 --maxtime 400e3 \
         -o test/data/test_prog_infsites/0""")
 
-        make_clean_dir("test/data/test_prog_infsites/0.sample")
-        os.system("""arg-sample \
--s test/data/test_prog_infsites/0.sites \
--N 1e4 -r 1.5e-8 -m 2.5e-8 \
---ntimes 5 --maxtime 100e3 -c 1 \
---climb 0 -n 20 --infsites \
--x 1 \
--o test/data/test_prog_infsites/0.sample/out""")
-
+    make_clean_dir("test/data/test_prog_infsites/0.sample")
+    os.system("""arg-sample \
+        -s test/data/test_prog_infsites/0.sites \
+        -N 1e4 -r 1.5e-8 -m 2.5e-8 \
+        --ntimes 5 --maxtime 100e3 -c 1 \
+        --climb 0 -n 20 --infsites \
+        -x 1 \
+        -o test/data/test_prog_infsites/0.sample/out""")
 
     arg = arghmm.read_arg("test/data/test_prog_infsites/0.sample/out.0.smc.gz")
     sites = arghmm.read_sites("test/data/test_prog_infsites/0.sites")
@@ -91,5 +101,3 @@ def _test_prog_infsites():
                 print split
                 print
     print "num noncompats", len(noncompats)
-    #print histtab(noncompats)[:10]
-

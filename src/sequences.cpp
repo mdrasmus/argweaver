@@ -575,4 +575,27 @@ void resample_align(Sequences *aln, Sequences *aln2)
     }
 }
 
+
+//=============================================================================
+// C interface
+extern "C" {
+
+Sites *arghmm_read_sites(const char *filename,
+                         int subregion_start=-1, int subregion_end=-1)
+{
+    Sites *sites = new Sites();
+    bool results = read_sites(filename, sites, subregion_start, subregion_end);
+    if (!results) {
+        delete sites;
+        return NULL;
+    }
+    return sites;
+}
+
+void arghmm_delete_sites(Sites *sites)
+{
+    delete sites;
+}
+
+} // extern "C"
 } // namespace arghmm
