@@ -1,6 +1,6 @@
 """
 
-Tests for various HMM calculations
+Tests for basic low-level ARG and sequence functions.
 
 """
 
