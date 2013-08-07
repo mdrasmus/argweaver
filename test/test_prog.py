@@ -9,8 +9,11 @@ from rasmus import treelib
 from rasmus.testing import make_clean_dir
 
 
-def run_cmd(cmd, retcode=0):
+def run_cmd(cmd, retcode=0, set_pypath=True):
     """Run a command check its return code"""
+    if set_pypath:
+        cmd = "PYTHONPATH=. " + cmd
+    print cmd
     assert os.system(cmd) == retcode
 
 
