@@ -58,7 +58,7 @@ ARG describing their ancestry, the following command can be used:
 arg-sim \
     -k 8 -L 100000 \
     -N 10000 -r 1.6e-8 -m 1.8e-8 \
-    -o example/example
+    -o test1/test1
 ```
 
 This will create an ARG with 8 sequences each 100kb in length evolving in
@@ -67,8 +67,8 @@ a population of effective size 10,000 (diploid), with recombination rate
 mutations/generation/site. The output will be stored in the following files:
 
 ```
-example/example.arg   -- an ARG stored in *.arg format
-example/example.sites -- sequences stored in *.sites format
+test1/test1.arg   -- an ARG stored in *.arg format
+test1/test1.sites -- sequences stored in *.sites format
 ```
 
 To infer an ARG from the simulated sequences, the following command 
@@ -76,13 +76,13 @@ can be used:
 
 ```
 arg-sample \
-    -s example/example.sites \
+    -s test1/test1.sites \
     -N 10000 -r 1.6e-8 -m 1.8e-8 \
     --ntimes 20 --maxtime 200e3 -c 10 -n 100 \
-    -o example/example.sample/out
+    -o test1/test1.sample/out
 ```
 
-This will use the sequences in `example/example.sites`, assume the
+This will use the sequences in `test1/test1.sites`, assume the
 same population parameters as the simulation (i.e. `-N 10000 -r 1.6e-8
 -m 1.8e-8`), and several sampling specific options (i.e. 20 discretized
 time steps, a maximum time of 200,000 generations, a compression of 10bp
@@ -90,13 +90,13 @@ for the sequences, and 100 sampling iterations. After sampling the following
 files will be generated:
 
 ```
-example/example.sample/out.log
-example/example.sample/out.stats
-example/example.sample/out.0.smc.gz
-example/example.sample/out.10.smc.gz
-example/example.sample/out.20.smc.gz
+test1/test1.sample/out.log
+test1/test1.sample/out.stats
+test1/test1.sample/out.0.smc.gz
+test1/test1.sample/out.10.smc.gz
+test1/test1.sample/out.20.smc.gz
 ...
-example/example.sample/out.100.smc.gz
+test1/test1.sample/out.100.smc.gz
 ```
 
 `out.log` contains a log of the sampling procedure, `out.stats` contains 
@@ -108,8 +108,8 @@ To estimate the time to most recent common ancestor (TMRCA) across
 these samples, the following command can be used:
 
 ```
-arg-extract-tmrca example/example.sample/out.%d.smc.gz \
-    > example/example.tmrca.txt
+arg-extract-tmrca test1/test1.sample/out.%d.smc.gz \
+    > test1/test1.tmrca.txt
 ```
 
 This will create a tab-delimited text file containing six columns:
@@ -117,6 +117,8 @@ chromosome, start, end, posterior mean TMRCA (generations),
 lower 2.5 percentile TMRCA, and upper 97.5 percentile TMRCA. The first
 four columns define a track of TMRCA across the genomic region in
 BED file format.
+
+For more see `examples/`.
 
 
 ## Development
