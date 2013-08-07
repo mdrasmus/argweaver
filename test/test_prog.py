@@ -9,6 +9,11 @@ from rasmus import treelib
 from rasmus.testing import make_clean_dir
 
 
+def run_cmd(cmd, retcode=0):
+    """Run a command check its return code"""
+    assert os.system(cmd) == retcode
+
+
 def sites_split(names, col):
     part1 = []
     part2 = []
@@ -28,14 +33,14 @@ def test_prog_small():
     """
 
     make_clean_dir("test/data/test_prog_small")
-    os.system("""bin/arg-sim \
+    run_cmd("""bin/arg-sim \
         -k 4 -L 100000 \
         -N 1e4 -r 1.5e-8 -m 2.5e-8 \
         --ntimes 10 --maxtime 400e3  \
         -o test/data/test_prog_small/0 > /dev/null""")
 
     make_clean_dir("test/data/test_prog_small/0.sample")
-    os.system("""bin/arg-sample -q \
+    run_cmd("""bin/arg-sample -q \
         -s test/data/test_prog_small/0.sites \
         -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
         --ntimes 10 --maxtime 400e3 -c 20 \
@@ -50,7 +55,7 @@ def test_prog_resume():
 
     test_prog_small()
 
-    os.system("""bin/arg-sample -q \
+    run_cmd("""bin/arg-sample -q \
         -s test/data/test_prog_small/0.sites \
         -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
         --ntimes 20 --maxtime 400e3 -c 20 \
@@ -58,18 +63,69 @@ def test_prog_resume():
         -o test/data/test_prog_small/0.sample/out""")
 
 
+def test_tmrca():
+
+    if not os.path.exists("test/data/test_prog_small/0.sample"):
+        test_prog_small()
+
+    run_cmd("""bin/arg-extract-tmrca \
+        test/data/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/data/test_prog_small/0.tmrca.txt""")
+
+
+def test_popsize():
+
+    if not os.path.exists("test/data/test_prog_small/0.sample"):
+        test_prog_small()
+
+    run_cmd("""bin/arg-extract-popsize \
+        test/data/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/data/test_prog_small/0.popsize.txt""")
+
+
+def test_recomb():
+
+    if not os.path.exists("test/data/test_prog_small/0.sample"):
+        test_prog_small()
+
+    run_cmd("""bin/arg-extract-recomb \
+        test/data/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/data/test_prog_small/0.recomb.txt""")
+
+
+def test_treelen():
+
+    if not os.path.exists("test/data/test_prog_small/0.sample"):
+        test_prog_small()
+
+    run_cmd("""bin/arg-extract-treelen \
+        test/data/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/data/test_prog_small/0.treelen.txt""")
+
+
+def test_ages():
+
+    if not os.path.exists("test/data/test_prog_small/0.sample"):
+        test_prog_small()
+
+    run_cmd("""bin/arg-extract-ages \
+        test/data/test_prog_small/0.sample/out.%d.smc.gz \
+        test/data/test_prog_small/0.sites \
+        > test/data/test_prog_small/0.ages.txt""")
+
+
 def _test_prog_infsites():
 
     make_clean_dir("test/data/test_prog_infsites")
 
-    os.system("""arg-sim \
+    run_cmd("""bin/arg-sim \
         -k 40 -L 200000 \
         -N 1e4 -r 1.5e-8 -m 2.5e-8 --infsites \
         --ntimes 20 --maxtime 400e3 \
         -o test/data/test_prog_infsites/0""")
 
     make_clean_dir("test/data/test_prog_infsites/0.sample")
-    os.system("""arg-sample \
+    run_cmd("""bin/arg-sample \
         -s test/data/test_prog_infsites/0.sites \
         -N 1e4 -r 1.5e-8 -m 2.5e-8 \
         --ntimes 5 --maxtime 100e3 -c 1 \
