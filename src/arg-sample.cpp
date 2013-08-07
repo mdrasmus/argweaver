@@ -928,7 +928,7 @@ int main(int argc, char **argv)
         sites_mapping_ptr = auto_ptr<SitesMapping>(sites_mapping);
 
         if (!find_compress_cols(&sites, c.compress_seq, sites_mapping)) {
-            printError("unable to compress sequences at given compression level (--compress)");
+            printError("unable to compress sequences at given compression level (--compress-seq)");
             return EXIT_ERROR;
         }
         compress_sites(&sites, sites_mapping);
