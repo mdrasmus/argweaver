@@ -59,4 +59,4 @@ for start, end, group in intervals.iter_intersections(treelens):
     chrom = group[0][2]
     vals = util.cget(group, 3)
     util.print_row(chrom, start, end, stats.mean(vals),
-                   util.percentile(vals, .025), util.percentile(vals, .975))
+                   stats.percentile(vals, .025), stats.percentile(vals, .975))

@@ -29,4 +29,4 @@ tracks.sort()
 for start, end, group in intervals.iter_intersections(tracks):
     vals = util.cget(group, 2)
     util.print_row(start, end, stats.mean(vals),
-                   util.percentile(vals, .025), util.percentile(vals, .975))
+                   stats.percentile(vals, .025), stats.percentile(vals, .975))
