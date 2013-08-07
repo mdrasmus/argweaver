@@ -320,7 +320,7 @@ template<class T>
 void apply_mask_sequences(Sequences *sequences, const Track<T> &maskmap);
 
 // sequence compression
-void find_compress_cols(const Sites *sites, int compress,
+bool find_compress_cols(const Sites *sites, int compress,
                         SitesMapping *sites_mapping);
 void compress_sites(Sites *sites, const SitesMapping *sites_mapping);
 void uncompress_sites(Sites *sites, const SitesMapping *sites_mapping);

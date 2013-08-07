@@ -346,13 +346,15 @@ void make_sites_from_sequences(const Sequences *sequences, Sites *sites)
 
 // Compress the sites by a factor of 'compress'.
 //
+// Return true if compression is successful.
+//
 // The compression maintains the following properties:
 //
 // - The coorindate system (start_coord, end_coord) will be adjusted to
 //   roughly (0, seqlen / compress).
 // - Every variant column is kept.
 //
-void find_compress_cols(const Sites *sites, int compress,
+bool find_compress_cols(const Sites *sites, int compress,
                         SitesMapping *sites_mapping)
 {
     const int ncols = sites->get_num_sites();
@@ -379,7 +381,7 @@ void find_compress_cols(const Sites *sites, int compress,
         // record new coords
         sites_mapping->new_start = 0;
         sites_mapping->new_end = sites->length();
-        return;
+        return true;
     }
 
     // iterate through variant sites
@@ -393,6 +395,7 @@ void find_compress_cols(const Sites *sites, int compress,
             blocki++;
         }
 
+        // record variant site.
         sites_mapping->old_sites.push_back(col);
         sites_mapping->new_sites.push_back(blocki);
         sites_mapping->all_sites.push_back(col);
@@ -404,6 +407,10 @@ void find_compress_cols(const Sites *sites, int compress,
         if (n > 1)
             assert(sites_mapping->all_sites[n-1] !=
                    sites_mapping->all_sites[n-2]);
+
+        // Check whether compression is not possible
+        if (next_block - compress > sites->end_coord)
+            return false;
     }
 
     // record non-variants at end of alignment
@@ -422,8 +429,7 @@ void find_compress_cols(const Sites *sites, int compress,
     else
         sites_mapping->new_end = new_end;
 
-    //assert(sites_mapping->all_sites.size() == sites_mapping->new_end -
-    //       sites_mapping->new_start);
+    return true;
 }
 
 
@@ -451,10 +457,11 @@ void uncompress_sites(Sites *sites, const SitesMapping *sites_mapping)
 }
 
 
-
 //=============================================================================
 // assert functions
 
+
+// Returns True if sequences pass all sanity checks.
 bool check_sequences(Sequences *seqs)
 {
     return check_sequences(
@@ -462,21 +469,18 @@ bool check_sequences(Sequences *seqs)
         check_seq_names(seqs);
 }
 
-// ensures that all characters in the alignment are sensible
-// TODO: do not change alignment (keep Ns)
+
+// Ensures that all characters in the alignment are sensible.
 bool check_sequences(int nseqs, int seqlen, char **seqs)
 {
     // check seqs
-    // CHANGE N's to gaps
     for (int i=0; i<nseqs; i++) {
         for (int j=0; j<seqlen; j++) {
             char x = seqs[i][j];
             if (strchr("NnRrYyWwSsKkMmBbDdHhVv", x))
                 // treat Ns as gaps
                 x = '-';
-            if (x != '-' &&
-                dna2int[(int) (unsigned char) x] == -1)
-            {
+            if (x != '-' && dna2int[(int) (unsigned char) x] == -1) {
                 // an unknown character is in the alignment
                 printError("unknown char '%c' (char code %d)\n", x, x);
                 return false;
@@ -488,6 +492,7 @@ bool check_sequences(int nseqs, int seqlen, char **seqs)
 }
 
 
+// Return True if all gene names are valid.
 bool check_seq_names(Sequences *seqs)
 {
     for (unsigned int i=0; i<seqs->names.size(); i++) {
@@ -580,6 +585,7 @@ void resample_align(Sequences *aln, Sequences *aln2)
 // C interface
 extern "C" {
 
+
 Sites *arghmm_read_sites(const char *filename,
                          int subregion_start=-1, int subregion_end=-1)
 {
@@ -592,10 +598,12 @@ Sites *arghmm_read_sites(const char *filename,
     return sites;
 }
 
+
 void arghmm_delete_sites(Sites *sites)
 {
     delete sites;
 }
+
 
 } // extern "C"
 } // namespace arghmm
