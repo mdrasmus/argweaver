@@ -1,14 +1,14 @@
-ArgWeaver
+ARGweaver
 =========
 
 *Sampling and manipulating genome-wide ancestral recombination graphs (ARG).*  
 
-The ArgWeaver software package contains programs and libraries for
+The ARGweaver software package contains programs and libraries for
 sampling and manipulating ancestral recombination graphs (ARG). An ARG
 is a rich data structure for representing the ancestry of DNA
 sequences undergoing recombination.
 
-*ArgWeaver citation:*
+*ARGweaver citation:*
 Matthew D. Rasmussen, Adam Siepel. Genome-wide inference of ancestral
 recombination graphs. 2013. arXiv:1306.5110 [q-bio.PE]
 
@@ -16,7 +16,7 @@ recombination graphs. 2013. arXiv:1306.5110 [q-bio.PE]
 ## Requirements
 
 The following dependencies must be installed to compile and run the
-ArgWeaver software:
+ARGweaver software:
 
 - C++ compiler (e.g. [g++](http://gcc.gnu.org))
 - [Python](http://python.org)
@@ -24,13 +24,13 @@ ArgWeaver software:
 
 ## Install
 
-To compile the ArgWeaver commands and library use the Makefile.
+To compile the ARGweaver commands and library use the Makefile.
 
 ```
 Make
 ```
 
-Once compiled, to install the ArgWeaver programs (default install in
+Once compiled, to install the ARGweaver programs (default install in
 `/usr`) use:
 
 ```
@@ -43,7 +43,7 @@ To specify your own installation path use:
 make install prefix=$HOME/local
 ```
 
-ArgWeaver can also run directly from the source directory.  Simply add the
+ARGweaver can also run directly from the source directory.  Simply add the
 `bin/` directory to your `PATH` environment variable or create symlinks to the
 scripts within `bin/` to any directory on your `PATH`.
 
@@ -121,7 +121,7 @@ BED file format.
 
 ## Development
 
-The following Python libraries are needed for developing ArgWeaver:
+The following Python libraries are needed for developing ARGweaver:
 
 ```
 nose
