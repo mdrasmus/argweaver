@@ -1,0 +1,119 @@
+
+
+body {
+  font-family: helvetica, sans;
+  padding: 40px;
+  width: 960px;
+  margin: auto;
+}
+
+.titlepage {
+  text-align: center;
+}
+
+.titlepage h1, .titlepage h2 {
+  color: #000;
+}
+
+hr {
+  width: 80%;
+  height: 2px;
+  background-color: #777;
+  border: #777;
+}
+
+body > h2 {
+  border-top: 5px #ccc solid;
+  border-bottom: 1px #ddd solid;
+  background-color: #eee;
+  padding-left: 5px;
+  text-shadow: 1px 1px 0px #fff;
+}
+
+h3 {
+  color: #000;
+}
+
+h4, h5 {
+  color: #55a;
+}
+
+.figure {
+  width: 70%;
+  text-align: center;
+  padding: 20px;
+  border: 5px #ccc solid;
+  margin: auto;
+  margin-top: 40px;
+  margin-bottom: 40px;
+}
+
+.figcaption {
+  text-align: left;
+  padding-top: 20px;
+}
+
+.figtitle {
+  font-weight: bold;
+  text-align: center;
+}
+
+
+.code
+{
+  font-family: monospace;
+  border: #ccc solid 1px;
+  background-color: #eef;
+  padding:5px;
+  margin: 20px;
+  text-align: left;
+  overflow: auto;
+}
+
+
+/* use consistent line spacing for sub and sup */
+sup,
+sub {
+  height: 0;
+  line-height: 1;
+  vertical-align: baseline;
+  _vertical-align: bottom;
+  position: relative;	
+}
+
+sup {
+  bottom: 1ex;
+}
+
+sub {
+  top: .5ex;
+}
+
+
+/* ========================================================================= 
+ * links 
+ */
+
+a:active
+{
+  text-decoration:none;
+  color: #0000FF;
+}
+
+a:visited
+{
+  text-decoration:none;
+  color: #007;
+}
+
+a:link
+{
+  text-decoration:none;
+  color: #007;
+}
+
+a:hover
+{
+  text-decoration: underline;
+  color: #500;
+}

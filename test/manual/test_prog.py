@@ -115,33 +115,27 @@ class Prog (unittest.TestCase):
 
     def test_prog(self):
 
-        popsize = 1e4
-        mu = 2.20e-8
-        rho = 1.16e-8
-
         #if not os.path.exists("test/data/test_prog/0.sites"):
         if 1:
             make_clean_dir("test/data/test_prog")
             os.system("""bin/arg-sim \
-                -k 8 -L 200000 --model dsmc \
+                -k 8 -L 100000 --model dsmc \
                 -N 1e4 -r 0.5e-8 -m 2.20e-8 \
                 --ntimes 10 --maxtime 200e3 \
                 -o test/data/test_prog/0""")
 
         if 1:
             make_clean_dir("test/data/test_prog/0.sample")
-            os.system("""bin/arg-sample \
+            os.system("""bin/arg-sample -q \
                 -s test/data/test_prog/0.sites \
                 -N 1e4 -r 0.5e-8 -m 2.20e-8 \
                 --ntimes 20 --maxtime 200e3 -c 10 \
-                -n 500 \
+                -n 5000 \
                 -o test/data/test_prog/0.sample/out""")
-
 
         popsize = 1e4
         mu = 2.20e-8
         rho = 0.5e-8
-
         show_plots(arg_file="test/data/test_prog/0.arg",
                    sites_file="test/data/test_prog/0.sites",
                    stats_file="test/data/test_prog/0.sample/out.stats",
@@ -149,35 +143,63 @@ class Prog (unittest.TestCase):
                    rho=rho, mu=mu, popsize=popsize)
 
 
-    def test_prog_gibbs(self):
+    def test_prog_infsites(self):
 
         #if not os.path.exists("test/data/test_prog/0.sites"):
         if 1:
-            makedirs("test/data/test_prog")
-
+            make_clean_dir("test/data/test_prog_infsites")
             os.system("""bin/arg-sim \
-            -k 6 -L 100000 --model dsmc \
-            -N 1e4 -r 0.5e-8 -m 2.20e-8 --infsites \
-            --ntimes 20 --maxtime 200e3 \
-            -o test/data/test_prog/0""")
+                -k 8 -L 100000 --model dsmc \
+                -N 1e4 -r 0.5e-8 -m 2.20e-8 --infsites \
+                --ntimes 10 --maxtime 200e3 \
+                -o test/data/test_prog_infsites/0""")
 
         if 1:
-            make_clean_dir("test/data/test_prog/0.sample")
+            make_clean_dir("test/data/test_prog_infsites/0.sample")
             os.system("""bin/arg-sample -q \
-                -s test/data/test_prog/0.sites \
+                -s test/data/test_prog_infsites/0.sites \
                 -N 1e4 -r 0.5e-8 -m 2.20e-8 --infsites \
-                --ntimes 20 --maxtime 200e3 -c 20 \
-                -n 5000 --gibbs \
-                -o test/data/test_prog/0.sample/out""")
+                --ntimes 20 --maxtime 200e3 -c 10 \
+                -n 5000 \
+                -o test/data/test_prog_infsites/0.sample/out""")
 
         popsize = 1e4
         mu = 2.20e-8
         rho = 0.5e-8
+        show_plots(arg_file="test/data/test_prog_infsites/0.arg",
+                   sites_file="test/data/test_prog_infsites/0.sites",
+                   stats_file="test/data/test_prog_infsites/0.sample/out.stats",
+                   output_prefix="test/data/test_prog_infsites/0",
+                   rho=rho, mu=mu, popsize=popsize)
 
-        show_plots(arg_file="test/data/test_prog/0.arg",
-                   sites_file="test/data/test_prog/0.sites",
-                   stats_file="test/data/test_prog/0.sample/out.stats",
-                   output_prefix="test/data/test_prog/0",
+
+    def test_prog_gibbs(self):
+
+        #if not os.path.exists("test/data/test_prog/0.sites"):
+        if 1:
+            make_clean_dir("test/data/test_prog_gibbs")
+            os.system("""bin/arg-sim \
+            -k 8 -L 100000 --model dsmc \
+            -N 1e4 -r 0.5e-8 -m 2.20e-8 --infsites \
+            --ntimes 20 --maxtime 200e3 \
+            -o test/data/test_prog_gibbs/0""")
+
+        if 1:
+            make_clean_dir("test/data/test_prog/0.sample")
+            os.system("""bin/arg-sample -q \
+                -s test/data/test_prog_gibbs/0.sites \
+                -N 1e4 -r 0.5e-8 -m 2.20e-8 --infsites \
+                --ntimes 20 --maxtime 200e3 -c 20 \
+                -n 5000 --gibbs \
+                -o test/data/test_prog_gibbs/0.sample/out""")
+
+        popsize = 1e4
+        mu = 2.20e-8
+        rho = 0.5e-8
+        show_plots(arg_file="test/data/test_prog_gibbs/0.arg",
+                   sites_file="test/data/test_prog_gibbs/0.sites",
+                   stats_file="test/data/test_prog_gibbs/0.sample/out.stats",
+                   output_prefix="test/data/test_prog_gibbs/0",
                    rho=rho, mu=mu, popsize=popsize)
 
 
@@ -231,59 +253,6 @@ class Prog (unittest.TestCase):
         pause()
 
 
-
-    def test_prog_infsites(self):
-
-        popsize = 1e4
-        mu = 2.5e-8
-        rho = 1.5e-8
-
-        if 1:
-            make_clean_dir("test/data/test_prog_infsites")
-
-            os.system("""arg-sim \
-            -k 40 -L 200000 \
-            -N 1e4 -r 1.5e-8 -m 2.5e-8 --infsites \
-            --ntimes 20 --maxtime 400e3 \
-            -o test/data/test_prog_infsites/0""")
-
-            make_clean_dir("test/data/test_prog_infsites/0.sample")
-            os.system("""arg-sample \
-    -s test/data/test_prog_infsites/0.sites \
-    -N 1e4 -r 1.5e-8 -m 2.5e-8 \
-    --ntimes 5 --maxtime 100e3 -c 1 \
-    --climb 0 -n 20 --infsites \
-    -x 1 \
-    -o test/data/test_prog_infsites/0.sample/out""")
-
-
-        arg = arghmm.read_arg("test/data/test_prog_infsites/0.sample/out.0.smc.gz")
-        sites = arghmm.read_sites("test/data/test_prog_infsites/0.sites")
-        print "names", sites.names
-        print
-
-        noncompats = []
-        for block, tree in arglib.iter_local_trees(arg):
-            tree = tree.get_tree()
-            treelib.remove_single_children(tree)
-            phylo.hash_order_tree(tree)
-            for pos, col in sites.iter_region(block[0]+1, block[1]+1):
-                assert block[0]+1 <= pos <= block[1]+1, (block, pos)
-                split = sites_split(sites.names, col)
-                node = arglib.split_to_tree_branch(tree, split)
-                if node is None:
-                    noncompats.append(pos)
-                    print "noncompat", block, pos, col
-                    print phylo.hash_tree(tree)
-                    print tree.leaf_names()
-                    print "".join(col[sites.names.index(name)]
-                                  for name in tree.leaf_names())
-                    print split
-                    print
-        print "num noncompats", len(noncompats)
-        #print histtab(noncompats)[:10]
-
-
     def test_prog_many(self):
 
         popsize = 1e4
@@ -306,18 +275,6 @@ class Prog (unittest.TestCase):
     --climb 0 -n 100 \
     -x 1 \
     -o test/data/test_prog_many/0.sample/out""")
-
-
-
-    def test_prog_resume(self):
-
-        os.system("""arg-sample \
-    -s test/data/test_prog_small/0.sites \
-    -N 1e4 -r 1.5e-8 -m 2.5e-8 \
-    --ntimes 20 --maxtime 400e3 -c 20 \
-    --climb 10 -n 40 \
-    -x 1 --resume \
-    -o test/data/test_prog_small/0.sample/out""")
 
 
     def test_prog_mask(self):

@@ -53,7 +53,7 @@ def get_tree_coals(tree):
     for pair in pairs:
         l = treelib.lca(mget(tree2, pair))
         ages.append(tree[l.name].age)
-    
+
     return ages
 
 def get_arg_coals(arg, steps=100):
@@ -117,7 +117,7 @@ class Sample (unittest.TestCase):
 
         p = plot(r1, r2, xlab="# recomb SMC", ylab="# recomb DSMC")
         p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
-        
+
         pause()
 
     def test_sim_smc_cmp_recomb(self):
@@ -145,7 +145,7 @@ class Sample (unittest.TestCase):
             #arg = arglib.smcify_arg(arg)
             arg2 = arghmm.sample_arg_dsmc(k, 2*n, rho2, times=times,
                                           start=0, end=length)
-            #arg2 = arglib.sample_arg_smc(k, 2*n, rho2, 
+            #arg2 = arglib.sample_arg_smc(k, 2*n, rho2,
             #                             start=0, end=length)
             r1.append(ilen(arghmm.iter_visible_recombs(arg)))
             r2.append(ilen(j for j in arg2 if j.event == "recomb"))
@@ -171,16 +171,16 @@ class Sample (unittest.TestCase):
         r = []; s = []
         nsamples = 40
         for i in range(1, nsamples):
-            print i, 
+            print i,
             rho2 = rho
             arg = arglib.sample_arg(k, 2*n, rho2,
                                     start=0, end=length)
             muts = arglib.sample_arg_mutations(arg, mu)
-            r.append(ilen(arghmm.iter_visible_recombs(arg)))            
+            r.append(ilen(arghmm.iter_visible_recombs(arg)))
             s.append(len(muts))
             print r[-1], s[-1]
         print mean(r), mean(s)
-            
+
 
 
 
@@ -216,7 +216,7 @@ class Sample (unittest.TestCase):
         p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
 
         print mean(r1), sdev(r1), mean(r2), sdev(r2)
-        
+
         pause()
 
 
@@ -237,7 +237,7 @@ class Sample (unittest.TestCase):
         for i in range(1, 100):
             print i
             tic('smc')
-            arg = arglib.sample_arg_smc(k, i/100. * 2*n, rho, 
+            arg = arglib.sample_arg_smc(k, i/100. * 2*n, rho,
                                         start=0, end=length)
             toc()
             tic('dsmc')
@@ -246,10 +246,10 @@ class Sample (unittest.TestCase):
             toc()
             l1.append(arglib.arglen(arg))
             l2.append(arglib.arglen(arg2))
-            
+
         p2 = plot(l1, l2, xlab="length SMC", ylab="length DSMC")
         p2.plot([min(l1), max(l1)], [min(l1), max(l1)], style="lines")
-        
+
         pause()
 
 
@@ -281,7 +281,7 @@ class Sample (unittest.TestCase):
         #p = plot(r1, r2, xlab="# recomb SMC", ylab="# recomb DSMC")
         #p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
         write_list("test/data/lk.txt", lk)
-        
+
         pause()
 
 
@@ -314,7 +314,7 @@ class Sample (unittest.TestCase):
 
         p = plot(r1, r2, xlab="# mut SMC", ylab="# mut DSMC")
         p.plot([min(r1), max(r1)], [min(r1), max(r1)], style="lines")
-        
+
         pause()
 
     #------------------------------------------
@@ -333,7 +333,7 @@ class Sample (unittest.TestCase):
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
-        
+
         times = arghmm.get_time_points(ntimes=20)
         arghmm.discretize_arg(arg, times)
 
@@ -343,7 +343,7 @@ class Sample (unittest.TestCase):
 
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))    
+                                               by_block=False))
         p = plot(cget(thread, 1), style="lines", ymin=10,
                  ylog=10)
 
@@ -365,7 +365,7 @@ class Sample (unittest.TestCase):
         fw = arghmm.forward_algorithm(model, length, verbose=True)
         probs = arghmm.get_posterior_probs(model, length, verbose=True,
                                            probs_forward=fw)
-        
+
         high = list(arghmm.iter_posterior_times(model, probs, .95))
         low = list(arghmm.iter_posterior_times(model, probs, .05))
         p.plot(high, style="lines")
@@ -444,13 +444,13 @@ class Sample (unittest.TestCase):
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
-        
+
         times = arghmm.get_time_points(ntimes=20)
         arghmm.discretize_arg(arg, times)
 
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))    
+                                               by_block=False))
         p = plot(cget(thread, 1), style="lines", ymin=10,
                  ylog=10)
 
@@ -468,7 +468,7 @@ class Sample (unittest.TestCase):
         fw = arghmm.forward_algorithm(model, length, verbose=True)
         probs = arghmm.get_posterior_probs(model, length, verbose=True,
                                            probs_forward=fw)
-        
+
         high = list(arghmm.iter_posterior_times(model, probs, .95))
         low = list(arghmm.iter_posterior_times(model, probs, .05))
         p.plot(high, style="lines")
@@ -509,7 +509,7 @@ class Sample (unittest.TestCase):
         # save
         arglib.write_arg("test/data/add_thread.arg", arg)
         fasta.write_fasta("test/data/add_thread.fa", seqs)
-        
+
         # get new chrom
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
@@ -551,19 +551,19 @@ class Sample (unittest.TestCase):
         if len(r) > 0:
             p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
 
-        
+
         arg = arghmm.add_arg_thread(arg, new_name, thread, recombs)
-        
+
         # check thread
         thread2 = list(arghmm.iter_chrom_thread(arg, arg[new_name],
                                                 by_block=False))
-        p.plot(cget(thread2, 1), style="lines")        
+        p.plot(cget(thread2, 1), style="lines")
 
         q = plot(dither(map(lambda x: log(clamp(x, 10, None)),
                             cget(thread, 1)), .1),
                  dither(map(lambda x: log(clamp(x, 10, None)),
                             cget(thread2, 1)), .1))
-        
+
         pause()
 
 
@@ -593,14 +593,14 @@ class Sample (unittest.TestCase):
         # get new chrom
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))    
+                                               by_block=False))
         p = plot(cget(thread, 1), style="lines", ymin=8, ylog=10)
-        
+
         # remove chrom
         keep = ["n%d" % i for i in range(k-1)]
         arglib.subarg_by_leaf_names(arg, keep)
         arg = arglib.smcify_arg(arg)
-        
+
         # setup model
         model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
                               rho=rho, mu=mu)
@@ -632,27 +632,27 @@ class Sample (unittest.TestCase):
         if len(r) > 0:
             p.plot(cget(r, 0), [max(x[2], 10) for x in r], style="points")
         nrecombs_new = len(recombs)
-        
+
         util.tic("add thread")
         arg = arghmm.add_arg_thread(arg, new_name, thread2, recombs)
         util.toc()
 
         nrecombs2 = ilen(arghmm.iter_visible_recombs(arg))
         print "recombs", nrecombs1, nrecombs_new, nrecombs1 + nrecombs_new, nrecombs2
-        
+
         arglib.write_arg("test/data/sample_recomb2.arg", arg)
         arglib.assert_arg(arg)
 
         # check thread
         thread3 = list(arghmm.iter_chrom_thread(arg, arg[new_name],
                                                 by_block=False))
-        p.plot(cget(thread3, 1), style="lines")        
+        p.plot(cget(thread3, 1), style="lines")
 
         q = plot(dither(map(lambda x: log(clamp(x, 10, None)),
                             cget(thread2, 1)), .1),
                  dither(map(lambda x: log(clamp(x, 10, None)),
                             cget(thread3, 1)), .1))
-        
+
         pause()
 
 
@@ -683,19 +683,19 @@ class Sample (unittest.TestCase):
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
                                                by_block=False))
-        
+
         # remove chrom
         arg = arghmm.remove_arg_thread(arg, new_name)
-        
+
         # setup model
         model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times,
                               rho=rho, mu=mu)
         print "states", len(model.states[0])
         print "muts", len(muts)
         print "recomb", len(model.recomb_pos) - 2, model.recomb_pos[1:-1]
-        
+
         # sample a chrom thread
-        util.tic("sample thread")        
+        util.tic("sample thread")
         arg = arghmm.sample_thread(arg, seqs, rho=rho, mu=mu,
                                    popsize=n, times=times)
         util.toc()
@@ -716,15 +716,15 @@ class Sample (unittest.TestCase):
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
 
-        
+
         # save
         arglib.write_arg("test/data/sample_arg.arg", arg)
-        fasta.write_fasta("test/data/sample_arg.fa", seqs)       
+        fasta.write_fasta("test/data/sample_arg.fa", seqs)
 
         # get new chrom
         new_name = "n%d" % (k-1)
         thread = list(arghmm.iter_chrom_thread(arg, arg[new_name],
-                                               by_block=False))    
+                                               by_block=False))
         p = plot(cget(thread, 1), style="lines", ymin=8, ylog=10)
 
 
@@ -758,9 +758,9 @@ class Sample (unittest.TestCase):
             new_name = "n%d" % j
             arg, thread2 = add_chrom(arg, new_name)
         util.toc()
-        
+
         arglib.write_arg("test/data/sample_arg_out.arg", arg)
-        
+
         pause()
 
 
@@ -776,7 +776,7 @@ class Sample (unittest.TestCase):
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         refine = 0
-        
+
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -784,7 +784,7 @@ class Sample (unittest.TestCase):
         seqs.write("test/data/sample_arg2.fa")
 
         print len(muts)
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                  refine=refine, verbose=True)
@@ -808,7 +808,7 @@ class Sample (unittest.TestCase):
 
         random.seed(10)
         arghmm.set_random_seed(10)
-        
+
         arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
@@ -816,14 +816,14 @@ class Sample (unittest.TestCase):
         seqs.write("test/data/sample_arg2.fa")
 
         print len(muts)
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                  popsizes=n, verbose=True, carg=True)
         arg2 = arghmm.resample_arg_cut(
             arg2, seqs, rho=rho, mu=mu, popsizes=n,
             refine=refine, times=times, verbose=True, carg=True)
-        
+
         util.toc()
 
         #arg2.write("test/data/sample_arg2_out.arg")
@@ -843,13 +843,13 @@ class Sample (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=20)
         refine = 0
         region = [1000, 1000+500]
-        
+
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                      times=times)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
         print ilen(x for x in arg if x.event == "recomb")
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                  refine=refine, carg=True, verbose=True)
@@ -884,7 +884,7 @@ class Sample (unittest.TestCase):
         seqs = arglib.make_alignment(arg, muts)
         print ilen(x for x in arg if x.event == "recomb")
         recomb_pos = list(x.pos for x in arg if x.event == "recomb")
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                  refine=refine, verbose=True)
@@ -917,7 +917,7 @@ class Sample (unittest.TestCase):
         p.plot(recomb_pos, [0] * len(recomb_pos))
         p.plot(recomb_pos2, [-10] * len(recomb_pos2))
         p.plot(recomb_pos3, [-20] * len(recomb_pos3))
-        
+
         x = []; y = []
         for i,j,a,b in iter_window_index(recomb_pos, 1000):
             x.append((a+b)/2.0); y.append(j - i + 1)
@@ -935,7 +935,7 @@ class Sample (unittest.TestCase):
 
         p.enableOutput(True)
         p.replot()
-        
+
 
         pause()
 
@@ -971,11 +971,11 @@ class Sample (unittest.TestCase):
 
             nrecombs = ilen(arghmm.iter_visible_recombs(arg))
 
-            
+
             util.tic("sample ARG %d" % i)
             arg = arghmm.remove_arg_thread(arg, "n%d" % (k-1))
             common = ilen(arghmm.iter_visible_recombs(arg))
-            
+
             arg2 = arghmm.resample_arg(arg, seqs, rho=rho, mu=mu, times=times,
                                        refine=refine, nremove=nremove)
             util.toc()
@@ -985,7 +985,7 @@ class Sample (unittest.TestCase):
             ry.append(nrecombs2 - common)
             if write:
                 arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg2)
-        util.toc()        
+        util.toc()
 
         print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
 
@@ -993,9 +993,9 @@ class Sample (unittest.TestCase):
                  xlab="true ARG # recombinations",
                  ylab="inferred ARG # recombinations")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
-        
+
 
     def test_sample_arg_recomb(self):
         """
@@ -1004,7 +1004,7 @@ class Sample (unittest.TestCase):
 
         k = 12
         n = 1e4
-        #rho = 1.5e-8 * 20        
+        #rho = 1.5e-8 * 20
         mu = 2.5e-8 * 20
         rho = mu / 20.
         length = int(400e3 / 20)
@@ -1020,12 +1020,12 @@ class Sample (unittest.TestCase):
         for i in range(20):
             #arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
             #arg = arglib.smcify_arg(arg)
-            
+
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arglib.make_alignment(arg, muts)
-            
+
             nrecombs = ilen(arghmm.iter_visible_recombs(arg))
 
             for j in range(1):
@@ -1054,8 +1054,8 @@ class Sample (unittest.TestCase):
                  ylab="inferred # recombinations")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
 
-        
-        
+
+
         pause()
 
 
@@ -1083,7 +1083,7 @@ class Sample (unittest.TestCase):
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arglib.make_alignment(arg, muts)
-            
+
             nrecombs = ilen(arghmm.iter_visible_recombs(arg))
 
             for j in range(1):
@@ -1092,7 +1092,7 @@ class Sample (unittest.TestCase):
                     seqs, rho=rho, mu=mu, times=times,
                     seqiters=seqiters, gibbsiters=gibbsiters)
                 util.toc()
-                
+
                 nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
                 rx.append(nrecombs)
                 ry.append(nrecombs2)
@@ -1105,7 +1105,7 @@ class Sample (unittest.TestCase):
                  xlab="true # recombinations",
                  ylab="inferred # recombinations")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -1136,15 +1136,15 @@ class Sample (unittest.TestCase):
 
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
-                
+
                 names = seqs.keys()
                 random.shuffle(names)
-                
+
                 arg2 = arglib.subarg_by_leaf_names(arg, names[:core])
                 arg2 = arglib.smcify_arg(arg2)
                 arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu,
                                            times=times, refine=2)
-                
+
                 util.toc()
 
                 r2 = ilen(arghmm.iter_visible_recombs(arg2))
@@ -1159,7 +1159,7 @@ class Sample (unittest.TestCase):
                  xlab="true ARG recombs",
                  ylab="inferred ARG recombs")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -1209,7 +1209,7 @@ class Sample (unittest.TestCase):
                  xlab="true ARG recombs",
                  ylab="inferred ARG recombs")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -1221,7 +1221,7 @@ class Sample (unittest.TestCase):
         k = 20
         n = 1e4
         rho = 1.5e-8 * 20
-        rho2 = rho 
+        rho2 = rho
         mu = 2.5e-8 * 20
         length = int(200e3) / 20
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
@@ -1239,12 +1239,12 @@ class Sample (unittest.TestCase):
         if write:
             arglib.write_arg("test/data/sample_arg_recomb2/arg.arg", arg)
             seqs.write("test/data/sample_arg_recomb2/seqs.fa")
-            
+
         nrecombs = ilen(arghmm.iter_visible_recombs(arg))
         print "real # recombs", nrecombs
 
         y = []
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                  refine=0, carg=True)
@@ -1282,10 +1282,10 @@ class Sample (unittest.TestCase):
                 arglib.write_arg("test/data/sample_arg_recomb2/%d.arg" % i,
                                  arg2)
 
-        
+
         p = plot(y, style='lines')
         p.plot([0, len(y)], [nrecombs, nrecombs], style="lines")
-        
+
         pause()
 
 
@@ -1314,16 +1314,16 @@ class Sample (unittest.TestCase):
         if write:
             arglib.write_arg("test/data/sample_arg_recomb2/arg.arg", arg)
             seqs.write("test/data/sample_arg_recomb2/seqs.fa")
-            
+
         nrecombs = ilen(arghmm.iter_visible_recombs(arg))
         print "real # recombs", nrecombs
 
         y = []
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times)
         util.toc()
-        
+
         nrecombs2 = ilen(arghmm.iter_visible_recombs(arg2))
         y.append(nrecombs2)
         print nrecombs2
@@ -1341,10 +1341,10 @@ class Sample (unittest.TestCase):
                 arglib.write_arg("test/data/sample_arg_recomb2/%d.arg" % i,
                                  arg2)
 
-        
+
         p = plot(y)
         p.plot([0, len(y)], [nrecombs, nrecombs], style="lines")
-        
+
         pause()
 
 
@@ -1371,7 +1371,7 @@ class Sample (unittest.TestCase):
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arghmm.make_alignment(arg, muts)
-            
+
             arglen = arglib.arglen(arg)
 
             for j in range(1):
@@ -1385,7 +1385,7 @@ class Sample (unittest.TestCase):
                                                rho=rho, mu=mu, times=times,
                                                refine=30)
                 util.toc()
-                
+
                 rx.append(arglen)
                 ry.append(arglib.arglen(arg2))
         util.toc()
@@ -1396,7 +1396,7 @@ class Sample (unittest.TestCase):
                  xlab="true ARG length",
                  ylab="inferred ARG length")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -1417,16 +1417,16 @@ class Sample (unittest.TestCase):
         arg.set_ancestral()
         muts = arghmm.sample_arg_mutations(arg, mu, times)
         seqs = arghmm.make_alignment(arg, muts)
-            
+
         arglen = arglib.arglen(arg)
         print "real # arglen %e" % arglen
 
         y = []
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
         util.toc()
-        
+
         arglen2 = arglib.arglen(arg2)
         y.append(arglen2)
 
@@ -1449,13 +1449,13 @@ class Sample (unittest.TestCase):
             y.append(arglen2)
             print "%e %e" % (arglen2, arglen)
 
-        
+
         p = plot(y)
         makedirs("test/data/sample_arg_arglen2/")
         write_list("test/data/sample_arg_arglen2/arglen.txt", [arglen] + y)
         p.plot([0, len(y)], [arglen, arglen], style="lines")
-        
-        
+
+
         pause()
 
 
@@ -1478,16 +1478,16 @@ class Sample (unittest.TestCase):
         muts = arglib.sample_arg_mutations(arg, mu)
         seqs = arglib.make_alignment(arg, muts)
         #arghmm.discretize_arg(arg, times=times)
-            
+
         arglen = arglib.arglen(arg)
         print "real arglen %e" % arglen
 
         y = []
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times)
         util.toc()
-        
+
         arglen2 = arglib.arglen(arg2)
         y.append(arglen2)
 
@@ -1500,15 +1500,15 @@ class Sample (unittest.TestCase):
             y.append(arglen2)
             print "%e" % arglen2
 
-        
+
         p = plot(y)
         makedirs("test/data/max_arg_arglen2/")
         write_list("test/data/max_arg_arglen2/arglen.txt", [arglen] + y)
         p.plot([0, len(y)], [arglen, arglen], style="lines")
-        
+
         pause()
 
-        
+
 
     def test_sample_arg_lk(self):
         """
@@ -1541,7 +1541,7 @@ class Sample (unittest.TestCase):
             if write:
                 arglib.write_arg("test/data/sample_arg_lk/%d.arg" % i, arg)
                 seqs.write("test/data/sample_arg_lk/%d.fa" % i)
-            
+
             lk = arghmm.calc_likelihood(arg, seqs, mu=mu, times=times)
 
             for j in range(1):
@@ -1552,7 +1552,7 @@ class Sample (unittest.TestCase):
                 #arg2 = arghmm.sample_all_arg(seqs, rho=rho2, mu=mu, times=times,
                 #                             refine=refine)
 
-                
+
                 if write:
                     arglib.write_arg("test/data/sample_arg_lk/%d-%d.arg" %
                                      (i, j), arg2)
@@ -1574,7 +1574,7 @@ class Sample (unittest.TestCase):
                  xlab="true ARG likelihood",
                  ylab="inferred ARG likelihood")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -1599,17 +1599,17 @@ class Sample (unittest.TestCase):
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
         #arghmm.discretize_arg(arg, times)
-            
+
         lk = arghmm.calc_likelihood(arg, seqs, mu=mu, times=times)
         print "real # lk", lk
 
         y = []
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times)
         #arg2 = arg
         util.toc()
-        
+
         lk2 = arghmm.calc_likelihood(arg2, seqs, mu=mu, times=times)
         y.append(lk2)
 
@@ -1624,17 +1624,17 @@ class Sample (unittest.TestCase):
             y.append(lk2)
             print lk2
 
-        
+
         p = plot(y)
         makedirs("test/data/sample_arg_lk2/")
         write_list("test/data/sample_arg_lk2/lk.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
-        
-        
+
+
         pause()
 
 
-    
+
     def test_sample_arg_prior(self):
         """
         Plot the ARG joint prob from a fully sampled ARG
@@ -1665,7 +1665,7 @@ class Sample (unittest.TestCase):
                 arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
                 seqs.write("test/data/sample_arg_joint/%d.fa" % i)
 
-            
+
             lk = arghmm.calc_prior_prob(arg, seqs, rho=rho, times=times)
 
             for j in range(1):
@@ -1686,7 +1686,7 @@ class Sample (unittest.TestCase):
         if write:
             data = [[i, j, a, b] for (i, j), a, b in zip(names, rx, ry)]
             write_delim("test/data/sample_arg_joint/data.txt", data)
-        
+
 
         print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
 
@@ -1694,7 +1694,7 @@ class Sample (unittest.TestCase):
                  xlab="true ARG prior probability",
                  ylab="inferred ARG prior probability")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -1730,7 +1730,7 @@ class Sample (unittest.TestCase):
 
             lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
 
-            
+
             util.tic("sample ARG %d" % i)
             arg = arghmm.remove_arg_thread(arg, "n%d" % (k-1))
             arg2 = arghmm.resample_arg(arg, seqs, rho=rho, mu=mu, times=times,
@@ -1744,7 +1744,7 @@ class Sample (unittest.TestCase):
             ry.append(lk2)
             if write:
                 arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg2)
-        util.toc()        
+        util.toc()
 
         print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
 
@@ -1752,7 +1752,7 @@ class Sample (unittest.TestCase):
                  xlab="true ARG joint probability",
                  ylab="inferred ARG joint probability")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -1793,12 +1793,12 @@ class Sample (unittest.TestCase):
                 arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
                 seqs.write("test/data/sample_arg_joint/%d.fa" % i)
 
-            
+
             lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
 
             for j in range(1):
                 util.tic("sample ARG %d, %d" % (i, j))
-                
+
                 arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                          refine=0, carg=True)
                 arg2 = arghmm.resample_climb_arg(arg2,
@@ -1826,7 +1826,7 @@ class Sample (unittest.TestCase):
         if write:
             data = [[i, j, a, b] for (i, j), a, b in zip(names, rx, ry)]
             write_delim("test/data/sample_arg_joint/data.txt", data)
-        
+
 
         print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
 
@@ -1834,7 +1834,7 @@ class Sample (unittest.TestCase):
                  xlab="true ARG joint probability",
                  ylab="inferred ARG joint probability")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -1869,7 +1869,7 @@ class Sample (unittest.TestCase):
                 arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
                 seqs.write("test/data/sample_arg_joint/%d.fa" % i)
 
-            
+
             lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
 
             for j in range(1):
@@ -1904,7 +1904,7 @@ class Sample (unittest.TestCase):
         if write:
             data = [[i, j, a, b] for (i, j), a, b in zip(names, rx, ry)]
             write_delim("test/data/sample_arg_joint/data.txt", data)
-        
+
 
         print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
 
@@ -1912,7 +1912,7 @@ class Sample (unittest.TestCase):
                  xlab="true ARG joint probability",
                  ylab="inferred ARG joint probability")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -1953,7 +1953,7 @@ class Sample (unittest.TestCase):
 
                 lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho,
                                              times=times)
-                
+
                 rx.append(lk)
                 ry.append(lk2)
                 names.append([i, j])
@@ -1966,7 +1966,7 @@ class Sample (unittest.TestCase):
                  ylab="inferred ARG joint probability")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
         p.save("test/data/sample_arg_joint_region.pdf")
-        
+
         pause()
 
 
@@ -1983,11 +1983,11 @@ class Sample (unittest.TestCase):
         climb = 200; refine = 1000
         niters2 = 5
         window = int(200e3) / 20
-        nremove = 1; 
+        nremove = 1;
         write = False
 
-        
-        
+
+
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                      times=times)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -1995,24 +1995,24 @@ class Sample (unittest.TestCase):
         if write:
             arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
             seqs.write("test/data/sample_arg_joint/%d.fa" % i)
-        
+
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times,
                                     popsizes=n)
         nrecombs = ilen(x for x in arg if x.event == "recomb")
         print "real joint", lk, nrecombs
 
         y = []
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                  popsizes=n, refine=0, carg=True)
         util.toc()
-        
+
         lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho, times=times,
                                      popsizes=n, delete_arg=False)
         y.append(lk2)
 
-        
+
         for i in range(climb):
             util.tic("climb ARG %d" % i)
             arg2 = arghmm.resample_climb_arg(
@@ -2028,7 +2028,7 @@ class Sample (unittest.TestCase):
             print nrecombs2, nrecombs
 
         arghmm.setLogLevel(0)
-        
+
         for i in range(refine):
             util.tic("resample ARG %d" % i)
             #arg2 = arghmm.resample_arg(
@@ -2038,7 +2038,7 @@ class Sample (unittest.TestCase):
             #arg2 = arghmm.resample_all_arg(
             #    arg2, seqs, rho=rho, mu=mu, times=times,
             #    popsizes=n, refine=1, carg=True)
-            
+
             arg2 = arghmm.resample_mcmc_arg(
                 arg2, seqs, rho=rho, mu=mu, times=times,
                 popsizes=n, refine=1, carg=True,
@@ -2051,7 +2051,7 @@ class Sample (unittest.TestCase):
             y.append(lk2)
             print lk2, lk
             print nrecombs2, nrecombs
-        
+
         p = plot(y, style='lines')
         makedirs("test/data/sample_arg_joint2/")
         write_list("test/data/sample_arg_joint2/joint.txt", [lk] + y)
@@ -2084,7 +2084,7 @@ class Sample (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1; refine = 12 * 20
         write = False
-        
+
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                      times=times)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -2092,21 +2092,21 @@ class Sample (unittest.TestCase):
         if write:
             arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
             seqs.write("test/data/sample_arg_joint/%d.fa" % i)
-        
+
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times,
                                     popsizes=n)
         nrecombs = ilen(x for x in arg if x.event == "recomb")
         print "real joint", lk, nrecombs
 
         y = []
-        
+
         util.tic("sample ARG")
         core_seqs = seqs.get(seqs.keys()[:20])
-        
+
         arg2 = arghmm.sample_arg(core_seqs, rho=rho, mu=mu, times=times,
                                  popsizes=n, refine=0, carg=True)
         util.toc()
-        
+
         for i in range(50):
             util.tic("resample ARG %d" % i)
             arg2 = arghmm.resample_climb_arg(
@@ -2121,17 +2121,17 @@ class Sample (unittest.TestCase):
 
         for i in range(500):
             util.tic("resample ARG %d" % i)
-            
+
             arg2 = arghmm.resample_all_arg(
                 arg2, core_seqs, rho=rho, mu=mu, times=times,
                 popsizes=n, refine=1, carg=True)
-            
+
             trees = arghmm.arghmm_copy_trees(arg2[0])
             arg3 = (trees, arg2[1])
             arg3 = arghmm.resample_arg(arg3, seqs, rho=rho, mu=mu, times=times,
                                        popsizes=n, refine=0, carg=True)
-            
-            
+
+
             util.toc()
             nrecombs2 = arghmm.get_local_trees_ntrees(arg3[0]) - 1
 
@@ -2142,16 +2142,16 @@ class Sample (unittest.TestCase):
             print lk2, lk
             print nrecombs2, nrecombs
 
-            
 
 
-        
+
+
         p = plot(y)
         makedirs("test/data/sample_arg_joint2/")
         write_list("test/data/sample_arg_joint2/joint.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
-        
-        
+
+
         pause()
 
 
@@ -2168,7 +2168,7 @@ class Sample (unittest.TestCase):
         times = arghmm.get_time_points(ntimes=20, maxtime=200000)
         nremove = 1; refine = 12 * 20
         write = False
-        
+
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                      times=times)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -2176,7 +2176,7 @@ class Sample (unittest.TestCase):
         if write:
             arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
             seqs.write("test/data/sample_arg_joint/%d.fa" % i)
-        
+
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times,
                                     popsizes=n)
         print "real joint", lk
@@ -2214,7 +2214,7 @@ class Sample (unittest.TestCase):
                 print lk2, lk
 
             p .plot(y)
-        
+
         pause()
 
 
@@ -2251,7 +2251,7 @@ class Sample (unittest.TestCase):
                 arglib.write_arg("test/data/sample_arg_joint/%d.arg" % i, arg)
                 seqs.write("test/data/sample_arg_joint/%d.fa" % i)
 
-            
+
             lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
 
             for j in range(1):
@@ -2278,7 +2278,7 @@ class Sample (unittest.TestCase):
         if write:
             data = [[i, j, a, b] for (i, j), a, b in zip(names, rx, ry)]
             write_delim("test/data/sample_arg_joint/data.txt", data)
-        
+
 
         print "avg ratio:", mean([safediv(i, j, 0) for i, j in zip(ry, rx)])
 
@@ -2286,10 +2286,10 @@ class Sample (unittest.TestCase):
                  xlab="true ARG joint probability",
                  ylab="inferred ARG joint probability")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
-        
+
     def test_max_arg_joint2(self):
         """
         Plot the recombinations from a fully sampled ARG over many Gibb iters
@@ -2306,7 +2306,7 @@ class Sample (unittest.TestCase):
         write = True
         if write:
             make_clean_dir("test/data/max_arg_joint2")
-        
+
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                      times=times)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
@@ -2314,13 +2314,13 @@ class Sample (unittest.TestCase):
         if write:
             arglib.write_arg("test/data/max_arg_joint2/arg.arg", arg)
             seqs.write("test/data/max_arg_joint2/seqs.fa")
-        
+
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times,
                                     popsize=n)
         print "real joint", lk
 
         y = []
-        
+
         util.tic("sample ARG")
         arg2 = arghmm.sample_arg(seqs, rho=rho2, mu=mu, times=times,
                                  popsize=n)
@@ -2328,7 +2328,7 @@ class Sample (unittest.TestCase):
         if write:
             arglib.write_arg("test/data/max_arg_joint2/sample.arg", arg2)
 
-        
+
         lk2 = arghmm.calc_joint_prob(arg2, seqs, mu=mu, rho=rho, times=times,
                                      popsize=n)
         y.append(lk2)
@@ -2346,15 +2346,15 @@ class Sample (unittest.TestCase):
             if write:
                 arglib.write_arg("test/data/max_arg_joint2/%d.arg" % i, arg2)
 
-        
+
         p = plot(y)
         p.plot([0, len(y)], [lk, lk], style="lines")
-        
-        
+
+
         pause()
 
 
-        
+
     def test_sample_arg_joint_seq(self):
         """
         Plot the recombinations from a fully sampled ARG over sequential iters
@@ -2371,7 +2371,7 @@ class Sample (unittest.TestCase):
                                      times=times)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
-                
+
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho,
                                     popsize=n, times=times)
         print "real joint", lk
@@ -2381,7 +2381,7 @@ class Sample (unittest.TestCase):
             keys = seqs.keys()
             random.shuffle(keys)
             seqs = seqs.get(keys)
-            
+
             util.tic("sample ARG %d" % i)
             arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, popsize=n,
                                      times=times)
@@ -2391,13 +2391,13 @@ class Sample (unittest.TestCase):
             y.append(lk2)
             print lk2
 
-        
+
         p = plot(y)
         makedirs("test/data/sample_arg_joint_seq/")
         write_list("test/data/sample_arg_joint_seq/joint.txt", [lk] + y)
         p.plot([0, len(y)], [lk, lk], style="lines")
-        
-        
+
+
         pause()
 
 
@@ -2448,7 +2448,7 @@ class Sample (unittest.TestCase):
                  xlab="true ARG TMRCA",
                  ylab="inferred ARG TMRCA")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
@@ -2484,7 +2484,7 @@ class Sample (unittest.TestCase):
                 for l in range(30):
                     arg2 = arghmm.sample_arg(
                         seqs, rho=rho, mu=mu, times=times, carg=True)
-                    arg2 = arghmm.resample_climb_arg(arg2, 
+                    arg2 = arghmm.resample_climb_arg(arg2,
                         seqs, rho=rho, mu=mu, times=times, refine=200)
                     args.append(arg2)
                 util.toc()
@@ -2499,12 +2499,12 @@ class Sample (unittest.TestCase):
                  xlab="true ARG coal ages",
                  ylab="inferred ARG coal ages")
         p.plot([min(rx), max(rx)], [min(rx), max(rx)], style="lines")
-        
+
         pause()
 
 
     def test_branch_correct_plot(self):
-        
+
         k = 12
         n = 1e4
         rho = 1.5e-8 * 20  / 4
@@ -2524,10 +2524,10 @@ class Sample (unittest.TestCase):
                                          times=times, refine=200)
         util.toc()
 
-        
+
         coords = range(0, arg1.end, 50)
         correct = []
-        
+
         for pos in coords:
             correct.append(get_branch_correct(arg1, arg2, pos))
         print mean(correct)
@@ -2537,7 +2537,7 @@ class Sample (unittest.TestCase):
 
 
     def test_max_branch_correct_plot(self):
-        
+
         k = 12
         n = 1e4
         rho = 1.5e-8 * 20
@@ -2559,7 +2559,7 @@ class Sample (unittest.TestCase):
         core_arg = arghmm.sample_arg(core_seqs, rho=rho, mu=mu, times=times,
                                      refine=0)
         util.toc()
-                
+
         util.tic("sample ARG")
         arg2 = arghmm.remax_arg(core_arg, seqs, rho=rho, mu=mu, times=times,
                                 refine=4)
@@ -2568,10 +2568,10 @@ class Sample (unittest.TestCase):
                                    times=times, refine=4)
         util.toc()
 
-        
+
         coords = range(0, arg1.end, 50)
         correct = []
-        
+
         for pos in coords:
             correct.append(get_branch_correct(arg1, arg2, pos))
         print mean(correct)
@@ -2582,7 +2582,7 @@ class Sample (unittest.TestCase):
 
 
     def test_branch_correct(self):
-        
+
         k = 20
         n = 1e4
         rho = 1.5e-8 * 20
@@ -2598,7 +2598,7 @@ class Sample (unittest.TestCase):
                                           times=times)
             muts = arghmm.sample_arg_mutations(arg1, mu, times=times)
             seqs = arglib.make_alignment(arg1, muts)
-            
+
             # make core
             util.tic("sample core ARG %d" % i)
             core_seqs = seqs.get(seqs.keys()[:5])
@@ -2611,7 +2611,7 @@ class Sample (unittest.TestCase):
             arg2 = arghmm.resample_arg(core_arg, seqs,
                                        rho=rho, mu=mu, times=times)
             util.toc()
-            
+
             x.append(mean([get_branch_correct(arg1, arg2, pos)
                            for pos in coords]))
             print x[-1]
@@ -2622,7 +2622,7 @@ class Sample (unittest.TestCase):
 
 
     def test_branch_correct2(self):
-        
+
         k = 12
         n = 1e4
         rho = 1.5e-8 * 20 / 4
@@ -2645,12 +2645,12 @@ class Sample (unittest.TestCase):
             arg2 = arghmm.resample_climb_arg(arg2, seqs,
                                              rho=rho, mu=mu, times=times,
                                              refine=5)
-            
+
             x.append(mean([get_branch_correct(arg1, arg2, pos)
                            for pos in coords]))
             print x[-1]
             util.toc()
-            
+
         p = plot(x)
         pause()
 
@@ -2677,7 +2677,7 @@ class Sample (unittest.TestCase):
             arglib.write_arg("test/data/sample_arg_seq/arg.arg", arg)
             seqs.write("test/data/sample_arg_seq/seqs.fa")
 
-                
+
         lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
         print "real joint", lk
 
@@ -2686,7 +2686,7 @@ class Sample (unittest.TestCase):
             keys = seqs.keys()
             random.shuffle(keys)
             seqs = seqs.get(keys)
-            
+
             util.tic("sample ARG %d" % i)
             arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
             util.toc()
@@ -2695,11 +2695,11 @@ class Sample (unittest.TestCase):
             print lk2
             if write:
                 arglib.write_arg("test/data/sample_arg_seq/%d.arg" % i, arg2)
-        
+
         p = plot(y)
         p.plot([0, len(y)], [lk, lk], style="lines")
-        
-        
+
+
         pause()
 
 
@@ -2722,7 +2722,7 @@ class Sample (unittest.TestCase):
 
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times)
         args = [arg2]
-        
+
         for i in range(200):
             util.tic("sample ARG %d" % i)
             arg2 = arghmm.resample_arg(arg2, seqs, rho=rho, mu=mu, times=times)
@@ -2778,12 +2778,12 @@ class Sample (unittest.TestCase):
         popsizes2 = arghmm.est_arg_popsizes(arg, times=times,
                                             popsize_mu=1e4, popsize_sigma=1e4)
         util.toc()
-        
+
         print popsizes2
         p = plot(times, popsizes, xlog=10, xmin=10, ymin=0, ymax=20000)
         #p = plot(times, popsizes, xmin=10, ymin=0, ymax=20000)
         p.plot(times[1:], popsizes2)
-        
+
         pause()
 
 
@@ -2826,7 +2826,7 @@ class Sample (unittest.TestCase):
 
         popsizes2 = [popsizes[:len(popsizes2[0])]] + popsizes2
         #popsizes2 = transpose(popsizes2)
-        
+
         pc(popsizes2)
         #heatmap(popsizes2, showVals=True)
         rp.assign("X", flatten(popsizes2))
@@ -2834,7 +2834,7 @@ class Sample (unittest.TestCase):
         rp("heatmap(matrix(X, l), Rowv=NA, Colv=NA, scale='none', col=rainbow(40, start=0, end=.3))")
         #rp.heatmap(rp.matrix(popsizes2, len(popsizes2)), reorderfunc=None)
         #rp.heatmap(rp.matrix(popsizes2, len(popsizes2)), reorderfunc=None)
-        
+
         pause()
 
 
@@ -2864,7 +2864,7 @@ class Sample (unittest.TestCase):
         popsizes2 = arghmm.est_popsizes_trees(arg, times=times,
                                               step=length/1000, verbose=True)
         util.toc()
-        
+
         print popsizes2
         p = plot(times, popsizes, xlog=10, xmin=10, ymin=0, ymax=20000)
         p.plot(times[1:], popsizes2)
@@ -2887,14 +2887,14 @@ class Sample (unittest.TestCase):
 
         util.tic("sim ARG")
         #arg = arglib.sample_arg_smc(k, 2 * popsizes[0],
-        #                            rho, start=0, end=length)        
+        #                            rho, start=0, end=length)
         arg = arghmm.sample_arg_dsmc(k, [2*p for p in popsizes],
                                      rho, start=0, end=length, times=times)
         util.toc()
 
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
-        
+
         popsizes2 = [0] * (len(times) - 1)
         nsamples = 1
         for i in range(nsamples):
@@ -2932,8 +2932,8 @@ class Sample (unittest.TestCase):
                                      rho, start=0, end=length, times=times)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
-        util.toc()        
-        
+        util.toc()
+
         popsizes2 = [0] * (len(times) - 1)
         nsamples = 1
         for i in range(nsamples):
@@ -2979,7 +2979,7 @@ class Sample (unittest.TestCase):
         arg = arglib.smcify_arg(arg)
         print list(x.pos for x in arg if x.event == "recomb")
 
-        
+
         print arghmm.get_treeset(arg, times)
 
 
@@ -3014,7 +3014,7 @@ class Sample (unittest.TestCase):
             for j in xrange(ntrees):
                 x.append(j)
                 y.append(path[j])
-        
+
         arghmm.delete_local_trees(trees)
 
         p = plot(dither(x, .4), dither(y, .4))
@@ -3055,7 +3055,7 @@ class Sample (unittest.TestCase):
             for j in xrange(ntrees):
                 x.append(j)
                 y.append(path[j])
-        
+
         arghmm.delete_local_trees(trees)
 
         p = plot(dither(x, .4), dither(y, .4))
@@ -3093,7 +3093,7 @@ class Sample (unittest.TestCase):
             for j in xrange(ntrees):
                 x.append(j)
                 y.append(path[j])
-        
+
         arghmm.delete_local_trees(trees)
 
         p = plot(dither(x, .4), dither(y, .4))
@@ -3226,7 +3226,7 @@ class Sample (unittest.TestCase):
                                      times=times)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
-        
+
         trees, names = carg = arghmm.arg2ctrees(arg, times)
         nnodes = 2*k - 1
         ntrees = arghmm.get_local_trees_ntrees(trees)
@@ -3244,7 +3244,7 @@ class Sample (unittest.TestCase):
         arghmm.arghmm_forward_algorithm(carg, seqs, rho=rho,
                                         mu=mu, popsizes=n, times=times,
                                         verbose=True, internal=True)
-        
+
         arghmm.delete_local_trees(trees)
 
 
@@ -3296,7 +3296,7 @@ class Sample (unittest.TestCase):
             arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                          times=times)
             seqs = arglib.make_alignment(arg, [])
-            
+
             arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                      popsizes=n, refine=0, carg=True)
             arg2 = arghmm.resample_all_arg(
@@ -3311,7 +3311,7 @@ class Sample (unittest.TestCase):
         starts2, ends2, steps2 = count_trees_lineages(trees2, times)
         print "starts2", map(mean, starts[:-1])
 
-        
+
         print "popsizes", popsizes
         p = plot(popsizes, ymax=n*3, ymin=0)
 
@@ -3339,7 +3339,7 @@ class Sample (unittest.TestCase):
                                          times=times)
             muts = arghmm.sample_arg_mutations(arg, mu, times=times)
             seqs = arglib.make_alignment(arg, muts)
-            
+
             arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                      popsizes=n, refine=0)
             trees.append(arg.get_marginal_tree(length/2))
@@ -3351,7 +3351,7 @@ class Sample (unittest.TestCase):
         starts2, ends2, steps2 = count_trees_lineages(trees2, times)
         print "starts2", map(mean, starts[:-1])
 
-        
+
         print "popsizes", popsizes
         p = plot(popsizes, ymax=n*3, ymin=0)
 
@@ -3370,18 +3370,18 @@ class Sample (unittest.TestCase):
         ntrees = 10
         step = length/ntrees
         pos = range(step/2.0, length, step)
-        
+
         arghmm.setLogLevel(0)
 
         arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                      times=times)
         muts = arghmm.sample_arg_mutations(arg, mu, times=times)
         seqs = arglib.make_alignment(arg, muts)
-        
+
         tree = arg.get_marginal_tree(length/2)
         starts, ends, steps = count_tree_lineages(tree, times)
-        
-        
+
+
         arg2 = arghmm.sample_arg(seqs, rho=rho, mu=mu, times=times,
                                  popsizes=n, refine=0)
 
@@ -3399,11 +3399,10 @@ class Sample (unittest.TestCase):
             print " ".join("%2d" % j for j in starts)
             print " ".join("%2d" % j for j in s)
             print diff
-            print 
-        
+            print
+
         print starts
         pc(starts2)
-        
 
 
 #=============================================================================

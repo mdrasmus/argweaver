@@ -63,6 +63,9 @@ def pyflakes_filter(line):
     if 'arghmm/arghmmc.py' in line:
         return False
 
+    if 'from arghmmc import *' in line:
+        return False
+
     return True
 
 

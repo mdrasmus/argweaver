@@ -131,10 +131,8 @@ $(LIBARGHMM_SHARED): $(LIBARGHMM_OBJS)
 
 pkg:
 	mkdir -p $(PKG_DIR)
-	git archive --format=tar --prefix=$(PKG_NAME)-$(PKG_VERSION)/ | \
+	git archive --format=tar --prefix=$(PKG_NAME)-$(PKG_VERSION)/ HEAD | \
 	gzip > $(PKG)	
-
-	$(PYTHON) make-pkg.py $(PKG_DIR)
 
 $(PKG):
 	mkdir -p $(PKG_DIR)
