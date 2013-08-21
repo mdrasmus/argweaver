@@ -83,7 +83,6 @@ else:
 
 # read
 sites = arghmm.read_sites(sites_file, region)
-#smcs = [arghmm.SMCReader(f) for f in smc_files]
 smcs = [arghmm.SMCReader(f, parse_trees=True, apply_spr=True)
         for f in smc_files]
 
@@ -92,8 +91,11 @@ ages = [iter_allele_ages(smc, sites, sites.region) for smc in smcs]
 for rows in izip(*ages):
     info = rows[0][:6]
     ages = [row[6:8] for row in rows]
-    low = stats.mean(util.cget(ages, 0))
-    top = stats.mean(util.cget(ages, 1))
+    lows = util.cget(ages, 0)
+    tops = util.cget(ages, 1)
+    low = stats.mean(lows)
+    top = stats.mean(tops)
+    avg = stats.mean((a+b)/2.0 for a, b in zip(lows, tops))
 
-    row = info + [low, top] + util.flatten(ages)
+    row = info + [avg, low, top] + util.flatten(ages)
     util.print_row(*row)
