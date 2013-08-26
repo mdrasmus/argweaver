@@ -92,6 +92,12 @@ cd examples
 # four columns define a track of TMRCA across the genomic region in
 # BED file format.
 
+# We can also estimate recombination rate from the sampled ARGs:
+
+../bin/arg-extract-recomb test1/test1.sample/out.%d.smc.gz \
+    > test1/test1.recomb.txt
+
+
 # To resume a previous sampling, you can use the --resume option to add
 # additional sample or change options mid-sampling.
 

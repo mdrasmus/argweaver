@@ -69,7 +69,10 @@ recombs = util.hist_dict(util.concat(*[[t[0] for t in treelen]
 # Calcuate recombination rate.
 recomb_rate = []
 i = 0
+
+# Walk through each site of the region
 for p in range(region_start, region_end, 1):
+    # Find the window containing our site 'p'
     while i < len(avg_treelens) and avg_treelens[i][1] < p:
         i += 1
     if (i < len(avg_treelens) and
@@ -85,3 +88,4 @@ for lowi, highi, low, high in stats.iter_window_index(starts, conf.window):
     if highi > lowi:
         util.print_row(chrom, low, high,
                        stats.mean(util.cget(recomb_rate[lowi:highi], 2)))
+

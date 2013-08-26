@@ -33,7 +33,7 @@ from rasmus import treelib
 from rasmus import util
 
 
-o = optparse.OptionParser()
+o = optparse.OptionParser(usage="%prog SMC_FILE SITES_FILE")
 o.add_option("-s", "--start", default=0, type="int")
 o.add_option("-e", "--end", default=5000, type="int")
 o.add_option("-d", "--step", default=1, type="int")
