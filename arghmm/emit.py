@@ -48,7 +48,6 @@ def parsimony_ancestral_seq(tree, seqs, pos):
     return ancestral
 
 
-
 def calc_emission(tree, model, pos, new_name):
     """
     Calculates emissions for all states at positions 'pos'
@@ -116,7 +115,7 @@ def calc_emission(tree, model, pos, new_name):
             t1 = max(parent_age - node.age, mintime)
             t2 = max(time - node.age, mintime)
 
-            emit.append(log((1 - exp(-mu *t2)) / (1 - exp(-mu * t1))
+            emit.append(log((1 - exp(-mu * t2)) / (1 - exp(-mu * t1))
                             * exp(-mu * (time + t2 - t1))))
 
         elif v == x != p:
@@ -140,7 +139,7 @@ def calc_emission(tree, model, pos, new_name):
             t2 = max(t2a, t2b)
             t3 = time
 
-            emit.append(log((1 - exp(-mu *t2)) * (1 - exp(-mu *t3))
+            emit.append(log((1 - exp(-mu * t2)) * (1 - exp(-mu * t3))
                             / (1 - exp(-mu * t1))
                             * exp(-mu * (time + t2 + t3 - t1))))
 

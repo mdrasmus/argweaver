@@ -1,5 +1,4 @@
-
-import sqlite3  as sqlite
+import sqlite3 as sqlite
 
 import arghmm
 
@@ -55,9 +54,9 @@ class SitesDB (object):
             assert names == names2
 
     def _query_names(self):
-        res = self.con.execute("SELECT name FROM SitesSequences ORDER BY seq_order")
+        res = self.con.execute(
+            "SELECT name FROM SitesSequences ORDER BY seq_order")
         return [row[0] for row in res]
-
 
     def get_names(self):
         if self._names is None:
@@ -124,7 +123,8 @@ class ArgDB (object):
                              start INTEGER,
                              end INTEGER,
                              tree TEXT,
-                             UNIQUE(sample, chrom, start, end) ON CONFLICT REPLACE);
+                             UNIQUE(sample, chrom, start, end)
+                                 ON CONFLICT REPLACE);
                              """)
         self.con.execute(u"""CREATE INDEX IF NOT EXISTS IdxArgTrees
                              ON ArgTrees (sample, chrom, start);""")
@@ -160,9 +160,9 @@ class ArgDB (object):
             assert names == names2
 
     def _query_names(self):
-        res = self.con.execute("SELECT name FROM ArgSequences ORDER BY seq_order")
+        res = self.con.execute(
+            "SELECT name FROM ArgSequences ORDER BY seq_order")
         return [row[0] for row in res]
-
 
     def get_names(self):
         if self._names is None:
@@ -194,22 +194,20 @@ class ArgDB (object):
             """SELECT start, end, tree FROM ArgTrees
                WHERE sample = ? and chrom = ? and ? < end and start < ?
                ORDER BY start;""",
-            (sample, chrom, start, end)):
+                (sample, chrom, start, end)):
             yield {"tag": "TREE",
                    "start": row[0], "end": row[1], "tree": row[2]}
 
     def get_sprs(self, chrom, start, end, sample=0):
         for row in self.con.execute(
-            """SELECT pos, recomb_node, recomb_time, coal_node, coal_time FROM ArgSprs
-               WHERE sample = ? and chrom = ? and ? <= pos and pos < ?
-               ORDER BY pos;""",
-            (sample, chrom, start, end)):
+                """SELECT pos, recomb_node, recomb_time, coal_node, coal_time
+                   FROM ArgSprs
+                   WHERE sample = ? and chrom = ? and ? <= pos and pos < ?
+                   ORDER BY pos;""",
+                (sample, chrom, start, end)):
             yield {"tag": "SPR",
                    "pos": row[0],
                    "recomb_node": row[1],
                    "recomb_time": row[2],
                    "coal_node": row[3],
                    "coal_time": row[4]}
-
-
-

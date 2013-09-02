@@ -24,7 +24,7 @@ def get_unique_conflicts(splits):
 
     n = len(splits)
     conflicts = []
-    right = [n] * n # nearest conflict to right
+    right = [n] * n  # nearest conflict to right
     left = [-1] * n  # nearest conflict to left
 
     # visit conflict edges in increase itervals
@@ -46,9 +46,9 @@ def get_unique_conflicts(splits):
 def find_break_points(conflicts):
     # build endpoints list
     points = []
-    for a,b in conflicts:
-        points.append((a, "start", (a,b)))
-        points.append((b, "end", (a,b)))
+    for a, b in conflicts:
+        points.append((a, "start", (a, b)))
+        points.append((b, "end", (a, b)))
     points.sort()
 
     # process endpoints
@@ -90,7 +90,6 @@ def mutindex2pos(x, start, end, mut_pos):
         return (mut_pos[i] + mut_pos[j]) / 2.0
 
 
-
 def iter_blocks(start, end, breaks):
 
     ibreaks = iter(breaks)
@@ -101,8 +100,6 @@ def iter_blocks(start, end, breaks):
         yield (prev, b)
         prev = b
     yield (prev, end)
-
-
 
 
 def get_split_tracks(conflicts, left, right, breaks):
@@ -125,7 +122,6 @@ def get_split_tracks(conflicts, left, right, breaks):
         else:
             tracks[i][1] = max(b for b in breaks if b < right[i])
 
-
     # set left endpoints
     for i in xrange(n):
         if left[i] == -1:
@@ -135,7 +131,6 @@ def get_split_tracks(conflicts, left, right, breaks):
             tracks[i][0] = max(tracks[k][1] for k in all_lefts[i])
 
     return tracks
-
 
 
 def get_split_sets(splits, tracks, breaks):
@@ -173,7 +168,6 @@ def get_split_sets(splits, tracks, breaks):
     return blocks
 
 
-
 def assert_splits(blocks, split_sets, mut_splits, mut_pos):
 
     i = 0
@@ -192,7 +186,6 @@ def assert_splits(blocks, split_sets, mut_splits, mut_pos):
                 assert arglib.is_split_compatible(mut_splits[i], split), \
                     (mut_splits[i], split)
             i += 1
-
 
 
 def infer_parsimonious_splits(splits, mut_pos, start, end):
@@ -214,7 +207,6 @@ def infer_parsimonious_splits(splits, mut_pos, start, end):
     return blocks, split_sets
 
 
-
 def iter_parsimonous_tree(split_sets, leaves, rooted=True):
 
     # make inferred trees
@@ -230,10 +222,6 @@ def iter_parsimonous_tree(split_sets, leaves, rooted=True):
                 del node.data["boot"]
 
         yield tree
-
-
-
-
 
 
 def get_mutation_split_tracks(arg, mut_splits, mut_pos):
@@ -267,10 +255,9 @@ def get_mutation_split_tracks(arg, mut_splits, mut_pos):
                 a = a if a is not None else -.5
                 b = util.binsearch(mut_pos, region[1])[1]
                 b = b if b is not None else len(mut_pos)-.5
-                mut_tracks.append((a,b))
+                mut_tracks.append((a, b))
                 break
         else:
             assert False, i
 
     return mut_tracks
-

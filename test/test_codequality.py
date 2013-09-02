@@ -28,14 +28,14 @@ def run_pyflakes(filenames, key=lambda line: True):
     return lines
 
 
-def run_pep8(filenames):
+def run_pep8(filenames, key=lambda line: True):
     """
     Run pep8 and return all errors.
     """
     cmd = " ".join(["pep8"] + filenames)
     print cmd
     pipe = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
-    lines = [line for line in pipe.stdout]
+    lines = [line for line in pipe.stdout if key(line)]
     pipe.wait()
     return lines
 
@@ -64,6 +64,17 @@ def pyflakes_filter(line):
         return False
 
     if 'from arghmmc import *' in line:
+        return False
+
+    return True
+
+
+def pep8_filter(line):
+    """
+    Standard filter for pep8.
+    """
+
+    if 'arghmm/bottle.py' in line:
         return False
 
     return True
@@ -125,7 +136,7 @@ def test_pyflakes():
     """
     Run pyflakes on python code base.
     """
-    filenames = list(get_python_scripts("bin", "arghmm", "test"))
+    filenames = list(get_python_scripts("arghmm", "bin", "test"))
     lines = run_pyflakes(filenames, key=pyflakes_filter)
 
     if len(lines) > 0:
@@ -138,8 +149,8 @@ def test_pep8():
     """
     Ensure pep8 compliance on python code base.
     """
-    filenames = list(get_python_scripts("bin", "test"))
-    lines = run_pep8(filenames)
+    filenames = list(get_python_scripts("arghmm", "bin", "test"))
+    lines = run_pep8(filenames, key=pep8_filter)
 
     if len(lines) > 0:
         print "pep8 errors:"

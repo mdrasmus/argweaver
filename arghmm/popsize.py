@@ -1,7 +1,8 @@
-
 from collections import defaultdict
 from itertools import izip
-from math import exp, log, sqrt
+from math import exp
+from math import log
+from math import sqrt
 import random
 
 try:
@@ -9,10 +10,11 @@ try:
 except ImportError:
     pass
 
-from rasmus import stats, util
-from compbio import arglib
-
 import arghmm
+
+from compbio import arglib
+from rasmus import stats
+from rasmus import util
 
 
 #=============================================================================
@@ -174,10 +176,14 @@ def mle_prob_many_coal_counts(As, Bs, t, n0):
     # count unique (a,b) pairs
     counts = defaultdict(lambda: 0)
     for a, b in zip(As, Bs):
-        counts[(a,b)] += 1
-    As = []; Bs = []; Cs = []
-    for (a,b), c in counts.items():
-        As.append(a); Bs.append(b); Cs.append(c)
+        counts[(a, b)] += 1
+    As = []
+    Bs = []
+    Cs = []
+    for (a, b), c in counts.items():
+        As.append(a)
+        Bs.append(b)
+        Cs.append(c)
 
     def f(x):
         return - log_prob_many_coal_counts(As, Bs, t, x[0], Cs=Cs)
@@ -192,13 +198,11 @@ def count_tree_lineages(tree, times):
     """
     Counts the lineages present in a tree
     """
-
     ntimes = len(times)
     starts = []
     ends = []
 
     # get time steps
-    #midpoints = [0.0] + [(times[i+1] + times[i]) / 2.0 for i in range(ntimes-1)]
     midpoints = [0.0] + [sqrt((times[i+1]+1.0)*(times[i]+1.0))
                          for i in range(ntimes-1)]
     time_steps = [midpoints[i+1] - midpoints[i] for i in range(ntimes-1)]
@@ -218,10 +222,9 @@ def count_trees_lineages(trees, times):
     """
     Counts the lineages present in a set of trees
     """
-
     ntimes = len(times)
     starts = [[] for i in range(ntimes)]
-    ends = [[]  for i in range(ntimes)]
+    ends = [[] for i in range(ntimes)]
 
     for tree in trees:
         s, e, t = count_tree_lineages(tree, times)
@@ -237,7 +240,6 @@ def est_popsize_trees(trees, times, n0=1e4):
     """
     Estimate population size from a set of independent trees
     """
-
     ntimes = len(times)
     starts, ends, time_steps = count_trees_lineages(trees, times)
 
@@ -252,6 +254,7 @@ def est_popsize_trees(trees, times, n0=1e4):
 #=============================================================================
 # more sophisticated popsize estimation
 
+
 class PopsizeEstimator (object):
 
     def __init__(self, times):
@@ -259,7 +262,7 @@ class PopsizeEstimator (object):
         ntimes = len(times)
 
         self.times = times
-        self.time_steps = [times[i] -  times[i-1] for i in range(1, ntimes)]
+        self.time_steps = [times[i] - times[i - 1] for i in range(1, ntimes)]
         self.ncoals = [0] * ntimes
         self.k_lineages = [0] * ntimes
 
@@ -269,8 +272,6 @@ class PopsizeEstimator (object):
                              for i in range(ntimes-1)]
         self.time_steps2 = [midpoints[i+1] - midpoints[i]
                             for i in range(ntimes-1)]
-
-
 
     def add_arg(self, arg):
 
@@ -297,13 +298,15 @@ class PopsizeEstimator (object):
                                 "time_steps": time_steps})
 
         # loop through sprs
-        for recomb_pos, (rnode, rtime), (cnode, ctime), local in arglib.iter_arg_sprs(arg, use_local=True):
+        for recomb_pos, (rnode, rtime), (cnode, ctime), local in \
+                arglib.iter_arg_sprs(arg, use_local=True):
             i, _ = util.binsearch(times, ctime)
             self.ncoals[i] += 1
 
             recomb_node = arg[rnode]
             broken_node = get_parent(recomb_node, recomb_pos-eps, local)
-            coals = [0.0] + [node.age for node in local
+            coals = [0.0] + [
+                node.age for node in local
                 if len(get_local_children(node, recomb_pos-eps, local)) == 2]
 
             coals.sort()
@@ -314,8 +317,7 @@ class PopsizeEstimator (object):
             r = coals.index(recomb_node.age)
             r2 = coals.index(broken_node.age)
             for i in range(r, r2):
-                 nlineages[i] -= 1
-
+                nlineages[i] -= 1
 
             # get average number of branches in the time interval
             data = zip(coals, nlineages)
@@ -350,13 +352,12 @@ class PopsizeEstimator (object):
             for j in range(r, c):
                 self.k_lineages[j] += lineages_per_time[j]
 
-
     def calc_prob(self, i, n):
 
         if n < 100:
             n = 50 * 1.0 / (101 - n) + 50
         p = (- self.time_steps2[i] * self.k_lineages[i] / (2.0*n)
-                - self.ncoals[i] * log(n))
+             - self.ncoals[i] * log(n))
 
         p = 0.0
         for init_tree in self.init_trees:
@@ -370,6 +371,3 @@ class PopsizeEstimator (object):
         def f(n):
             return - self.calc_prob(i, n)
         return scipy.optimize.fmin(f, n0, disp=False)[0]
-
-
-

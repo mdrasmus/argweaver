@@ -25,6 +25,7 @@ def c_list(c_type, lst):
     list_type = c_type * len(lst)
     return list_type(* lst)
 
+
 def c_matrix(c_type, mat):
     """Make a C matrix from a list of lists (mat)"""
 
@@ -32,6 +33,7 @@ def c_matrix(c_type, mat):
     mat_type = POINTER(c_type) * len(mat)
     mat = mat_type(* [row_type(* row) for row in mat])
     return cast(mat, POINTER(POINTER(c_type)))
+
 
 class c_out (object):
     """
@@ -71,7 +73,6 @@ class Exporter (object):
     def __init__(self, env):
         self._env = env
 
-
     def export(self, lib, funcname, return_type, prototypes, newname=None):
         """
         Exports a C function with documentation
@@ -109,7 +110,6 @@ class Exporter (object):
         cfunc = lib.__getattr__(funcname)
         cfunc.restype = return_type
         cfunc.argtypes = arg_types
-
 
         # wrapper function for exported function
         def wrapper(*args):
@@ -156,4 +156,3 @@ def load_library(path, lib):
             print >>sys.stderr, e
             print >>sys.stderr, e2
             return None
-
