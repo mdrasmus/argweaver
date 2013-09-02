@@ -6,6 +6,7 @@ import os
 import tempfile
 
 import arghmm
+import arghmm.smc
 
 from compbio import arglib
 from compbio import phylo
@@ -92,7 +93,7 @@ def filter_trees(trees, pts):
 
 def parse_tree(tree, names):
     if isinstance(tree, basestring):
-        tree = arghmm.parse_tree(tree)
+        tree = arghmm.smc.parse_tree(tree)
         for i, name in enumerate(names):
             tree.rename(i, name)
     return tree

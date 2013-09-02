@@ -17,7 +17,7 @@ from rasmus import util
 
 class SMCReader (object):
     """
-    Reads an SMC file
+    Reads an SMC file.
     """
 
     def __init__(self, filename, parse_trees=False, apply_spr=False):
@@ -51,9 +51,47 @@ class SMCReader (object):
         self._infile.close()
 
 
+def read_smc(filename, parse_trees=False, apply_spr=False):
+    """
+    Read an SMC file.
+
+    Read an entire SMC file into a list.
+    """
+    return list(iter_smc_file(filename, parse_trees=parse_trees,
+                              apply_spr=apply_spr))
+
+
 def iter_smc_file(filename, parse_trees=False, apply_spr=False,
                   region=None):
-    """Iterates through a SMC file"""
+    """
+    Iterates through a SMC file.
+
+    parse_trees: If True, parses local trees.
+    apply_spr: If True, avoids reading each tree by applying the SPR
+        operation to the current tree.
+    region: If given, returns only trees and SPRs within region=(start, end).
+
+    Yields item, where item can be one of the following:
+        {'tag': 'NAMES',
+         'names': names_of_sequences}
+
+        {'tag': 'REGION',
+         'chrom': name_of_chromosome,
+         'start': start_coordinate_of_region,
+         'end': end_coordinate_of_region}
+
+        {'tag': 'TREE',
+         'start': start_coordinate_of_local_region,
+         'end': end_coordinate_of_local_region,
+         'tree': local_tree}
+
+        {'tag': 'SPR',
+         'pos': coordinate of recombination point,
+         'recomb_node': name_of_recombination_node,
+         'recomb_time': time_of_recombination,
+         'coal_node': name_of_branch_with_recoalescence,
+         'coal_time': time_of_recoalescence}
+    """
 
     if region:
         tree = None
@@ -119,7 +157,9 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False,
 
 
 def iter_subsmc(smc, region):
-    """Iterate through a region of an SMC stream"""
+    """
+    Iterate through a region of an SMC stream.
+    """
     for item in smc:
         if item["tag"] == "NAMES":
             yield item
@@ -141,14 +181,10 @@ def iter_subsmc(smc, region):
                 yield item
 
 
-def read_smc(filename, parse_trees=False, apply_spr=False):
-    """Read an SMC file"""
-    return list(iter_smc_file(filename, parse_trees=parse_trees,
-                              apply_spr=apply_spr))
-
-
 def smc_apply_spr(tree, spr):
-    """Apply an SPR operation to a local tree"""
+    """
+    Apply an SPR operation to a local tree.
+    """
 
     recomb = tree[spr["recomb_node"]]
     coal = tree[spr["coal_node"]]

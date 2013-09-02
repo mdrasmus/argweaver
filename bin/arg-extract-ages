@@ -27,6 +27,7 @@ import random
 import sys
 
 import arghmm
+import arghmm.smc
 
 from rasmus import stats
 from rasmus import treelib
@@ -60,7 +61,7 @@ def iter_allele_ages(smc, sites, region=None, maxage=1000000):
 
             # Get local tree.
             tree = item["tree"]
-            arghmm.rename_tree(tree, names)
+            arghmm.smc.rename_tree(tree, names)
 
             # Iterate through sites contained in local tree.
             for pos, col in sites.iter_region(item["start"], item["end"]):

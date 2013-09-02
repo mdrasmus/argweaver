@@ -46,21 +46,15 @@ from arghmm.sim import sample_tree
 
 from arghmm.smc import SMCReader
 from arghmm.smc import arg2smc
-from arghmm.smc import format_tree
 from arghmm.smc import get_smc_sample_iter
 from arghmm.smc import iter_smc_file
 from arghmm.smc import iter_smc_trees
 from arghmm.smc import iter_subsmc
 from arghmm.smc import list_smc_files
 from arghmm.smc import read_smc
-from arghmm.smc import parse_tree
-from arghmm.smc import parse_tree_data
-from arghmm.smc import rename_tree
-from arghmm.smc import smc_apply_spr
 from arghmm.smc import smc2arg
 from arghmm.smc import smc2sprs
 from arghmm.smc import read_arg
-from arghmm.smc import rename_tree_nodes
 from arghmm.smc import write_smc
 
 from arghmmc import calc_joint_prob
@@ -83,21 +77,15 @@ sample_next_recomb
 sample_tree
 SMCReader
 arg2smc
-format_tree
 get_smc_sample_iter
 iter_smc_file
 iter_smc_trees
 iter_subsmc
 list_smc_files
 read_smc
-parse_tree
-parse_tree_data
-rename_tree
-smc_apply_spr
 smc2arg
 smc2sprs
 read_arg
-rename_tree_nodes
 write_smc
 
 

@@ -5,6 +5,7 @@ import optparse
 import os
 
 import arghmm
+import arghmm.smc
 
 from compbio import arglib
 from rasmus import treelib
@@ -65,11 +66,11 @@ def get_smc_lineages(smc, times, chrom="chr", step=None):
         elif item["tag"] == "TREE":
             if step:
                 for pos in get_pos(item["start"]-1, item["end"], step):
-                    tree = arghmm.parse_tree(item["tree"])
+                    tree = arghmm.smc.parse_tree(item["tree"])
                     nbranches = get_nlineages(tree, times)
                     yield [chrom, pos, pos] + nbranches
             else:
-                tree = arghmm.parse_tree(item["tree"])
+                tree = arghmm.smc.parse_tree(item["tree"])
                 nbranches = get_nlineages(tree, times)
                 yield [chrom, item["start"], item["end"]] + nbranches
 
