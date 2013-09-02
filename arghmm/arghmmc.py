@@ -614,6 +614,7 @@ def sample_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     return arg
 
 
+'''
 def sample_posterior(model, n, verbose=False):
 
     if verbose:
@@ -651,6 +652,7 @@ def sample_posterior(model, n, verbose=False):
         util.toc()
 
     return path2
+'''
 
 
 #=============================================================================
@@ -1376,61 +1378,22 @@ def ctrees2arg(trees, names, times, verbose=False, delete_arg=True):
     return arg
 
 
-def iter_arg_sprs(arg, start=None, end=None):
+def iter_local_ptrees(arg, times, start=None, end=None):
     """
-    Iterates through the SPRs of an ARG
+    Iterate through the local trees as ptrees (parent arrays)
 
-    Yields (block, tree, last_tree, spr)
-    where spr = (recomb_node, recomb_time, coal_node, coal_time)
+    Node maintain the same index across trees until it is broken
+    (parent of recomb node).  The recoal node takes the index of the broken
+    node.
     """
-
-    if start is None:
-        start = arg.start
-    if end is None:
-        end = arg.end
-
-    last_tree_full = None
-    last_tree = None
-    for block, tree_full in arglib.iter_local_trees(arg, start, end):
-        if last_tree_full:
-            recomb = (x for x in tree_full if x.pos == block[0]).next()
-            spr = arghmm.find_recomb_coal(tree_full, last_tree_full,
-                                          recomb_name=recomb.name)
-        else:
-            spr = None
-
-        tree = tree_full.copy()
-        tree = arglib.remove_single_lineages(tree)
-
-        # convert block to our system
-        a, b = block
-        if a == start:
-            a -= 1
-        if b == end:
-            b -= 1
-        block = [a+1, b+1]
-
-        yield block, tree, last_tree, spr
-
-        last_tree_full = tree_full
-        last_tree = tree
-
-
-def get_treeset(arg, times, start=None, end=None):
-
     times_lookup = dict((t, i) for i, t in enumerate(times))
 
-    ptrees = []
-    ages = []
-    sprs = []
-    blocks = []
-    all_nodes = []
     last_tree2 = None
     last_nodes = None
     last_nodelookup = {}
 
-    for block, tree, last_tree, spr in iter_arg_sprs(arg, start, end):
-
+    for block, tree, last_tree, spr in arghmm.iter_arg_sprs(arg, start, end):
+        # get treelib.Tree from arglib.ARG
         tree2 = tree.get_tree()
 
         if last_tree is None:
@@ -1441,16 +1404,21 @@ def get_treeset(arg, times, start=None, end=None):
 
         else:
             (rname, rtime), (cname, ctime) = spr
+
+            # assert ARG is SMC-style (no bubbles)
             assert rname != cname
 
-            # find old node and new node
+            # find recoal node in tree2, it does not exist in last_tree2
             recomb_parent = last_tree2[rname].parent
             recoal = [x for x in tree2 if x.name not in last_tree2][0]
 
             # make nodes array consistent
             nodes = [tree2.nodes.get(x.name, None) for x in last_nodes]
             i = last_nodes.index(recomb_parent)
+            # recomb_parent is 'broken' and should not be in nodes list
             assert nodes[i] is None
+
+            # recoal takes broken node's spot in nodes list
             nodes[i] = recoal
 
             # get ptree
@@ -1463,22 +1431,40 @@ def get_treeset(arg, times, start=None, end=None):
             ispr = [recomb_name, times_lookup[rtime],
                     coal_name, times_lookup[ctime]]
 
-        # append integer-based data
+        yield ptree, age, ispr, block, nodes
+
+        # setup last tree
+        last_tree2 = tree2
+        last_ptree, last_nodes, last_nodelookup = ptree, nodes, nodelookup
+
+
+def get_treeset(arg, times, start=None, end=None):
+    """
+    Convert ARG into a ptree representation.
+
+    Returns ((ptrees, ages, sprs, blocks), all_nodes).
+    """
+    ptrees = []
+    ages = []
+    sprs = []
+    blocks = []
+    all_nodes = []
+
+    for ptree, age, ispr, block, nodes in iter_local_ptrees(
+            arg, times, start=start, end=end):
         ptrees.append(ptree)
         ages.append(age)
         sprs.append(ispr)
         blocks.append(block)
         all_nodes.append([x.name for x in nodes])
 
-        # setup last tree
-        last_tree = tree
-        last_tree2 = tree2
-        last_ptree, last_nodes, last_nodelookup = ptree, nodes, nodelookup
-
     return (ptrees, ages, sprs, blocks), all_nodes
 
 
 def treeset2arg(ptrees, ages, sprs, blocks, names, times):
+    """
+    Converts a ptree representation into an ARG.
+    """
 
     seqlen = blocks[-1][1]
     arg = arglib.ARG(0, seqlen)
@@ -1505,7 +1491,7 @@ def treeset2arg(ptrees, ages, sprs, blocks, names, times):
     # convert sprs
     sprs2 = []
     for i, (rinode, ritime, cinode, citime) in enumerate(sprs):
-        pos = blocks[i][0] - 1
+        pos = blocks[i][0]  # - 1
 
         # check for null spr
         if rinode == -1:

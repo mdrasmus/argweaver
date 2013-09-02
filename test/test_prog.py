@@ -86,6 +86,16 @@ def test_popsize():
         > test/data/test_prog_small/0.popsize.txt""")
 
 
+def test_breaks():
+
+    if not os.path.exists("test/data/test_prog_small/0.sample"):
+        test_prog_small()
+
+    run_cmd("""bin/arg-extract-breaks \
+        test/data/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/data/test_prog_small/0.breaks.txt""")
+
+
 def test_recomb():
 
     if not os.path.exists("test/data/test_prog_small/0.sample"):

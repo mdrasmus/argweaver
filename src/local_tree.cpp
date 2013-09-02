@@ -1775,54 +1775,6 @@ void get_local_trees_ptrees(LocalTrees *trees, int **ptrees, int **ages,
 }
 
 
-void get_local_trees_ptrees2(LocalTrees *trees, int **ptrees, int **ages,
-                             int **sprs, int *blocklens)
-{
-    // setup permutation
-    const int nleaves = trees->get_num_leaves();
-    int perm[trees->nnodes];
-    for (int i=0; i<nleaves; i++)
-        perm[i] = trees->seqids[i];
-    for (int i=nleaves; i<trees->nnodes; i++)
-        perm[i] = i;
-
-    // debug
-    assert_trees(trees);
-
-    // convert trees
-    int i = 0;
-    for (LocalTrees::iterator it=trees->begin(); it!=trees->end(); ++it, i++) {
-        LocalTree *tree = it->tree;
-
-        for (int j=0; j<tree->nnodes; j++) {
-            int parent = tree->nodes[j].parent;
-            if (parent != -1)
-                parent = perm[parent];
-            ptrees[i][perm[j]] = parent;
-            ages[i][perm[j]] = tree->nodes[j].age;
-        }
-        blocklens[i] = it->blocklen;
-
-        if (!it->spr.is_null()) {
-            sprs[i][0] = perm[it->spr.recomb_node];
-            sprs[i][1] = it->spr.recomb_time;
-            sprs[i][2] = perm[it->spr.coal_node];
-            sprs[i][3] = it->spr.coal_time;
-
-            assert(it->spr.recomb_time >= ages[i-1][sprs[i][0]]);
-            assert(it->spr.coal_time >= ages[i-1][sprs[i][2]]);
-
-        } else {
-            sprs[i][0] = it->spr.recomb_node;
-            sprs[i][1] = it->spr.recomb_time;
-            sprs[i][2] = it->spr.coal_node;
-            sprs[i][3] = it->spr.coal_time;
-        }
-
-    }
-}
-
-
 void delete_local_trees(LocalTrees *trees)
 {
     delete trees;

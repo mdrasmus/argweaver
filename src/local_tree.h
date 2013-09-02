@@ -761,6 +761,9 @@ void assert_uncompress_local_trees(LocalTrees *trees,
 int get_recoal_node(const LocalTree *tree, const Spr &spr, const int *mapping);
 
 
+// Make a mapping for nodes between two local trees in SMC
+// Assume every node maps to the same node name except the broken node
+// (the parent of the recomb node).
 inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
                               int *mapping)
 {
@@ -768,8 +771,8 @@ inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
         mapping[j] = j;
 
     // parent of recomb is broken and therefore does not map
-    const int parent = ptree[recomb_node];
-    mapping[parent] = -1;
+    const int broken = ptree[recomb_node];
+    mapping[broken] = -1;
 }
 
 void print_local_tree(const LocalTree *tree, FILE *out=stdout);

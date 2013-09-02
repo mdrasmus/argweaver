@@ -24,6 +24,7 @@ smc_file = args[1]
 arg = arglib.read_arg(arg_file)
 
 if conf.ntimes:
+    # discretize ARG according to given times
     if not conf.maxtime:
         print >>sys.stderr, 'option --maxtime is needed'
         sys.exit(1)
@@ -31,8 +32,13 @@ if conf.ntimes:
     times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
     arghmm.discretize_arg(arg, times)
     arg = arglib.smcify_arg(arg)
+
+    # use C-interface for speed
     trees, names = arghmmc.arg2ctrees(arg, times)
     arghmmc.write_local_trees(smc_file, trees, names, times, len(times))
 
 else:
-    raise NotImplementedError
+    # convert ARG without discretization
+    arg = arglib.smcify_arg(arg)
+    smc = arghmm.arg2smc(arg)
+    arghmm.write_smc(smc_file, smc)

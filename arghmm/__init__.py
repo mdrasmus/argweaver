@@ -676,6 +676,9 @@ def seqs2sites(seqs, chrom=None, region=None, start=None):
 
 
 def sites2seqs(sites, default_char="A"):
+    """
+    Convert Sites object to FASTA object.
+    """
 
     seqlen = sites.length()
 
@@ -1027,7 +1030,7 @@ def smc2sprs(smc):
 
 def smc2arg(smc):
     """
-    Convert SMC to ARG
+    Convert SMC to ARG.
 
     NOTE: SMC is 1-index and ARG is 0-index
     """
@@ -1039,8 +1042,106 @@ def smc2arg(smc):
     return arg
 
 
-def arg2smc(arg):
-    raise Exception("not implemented yet")
+def arg2smc(arg, names=None, chrom="chr", start=None, end=None):
+    """
+    Convert ARG to SMC.
+
+    NOTE: SMC is 1-index and ARG is 0-index
+    """
+
+    if names:
+        leaf_names = names
+    else:
+        leaf_names = list(arg.leaf_names())
+
+    # convert from 0-index to 1-index
+    if start:
+        region_start = start + 1
+    else:
+        region_start = arg.start + 1
+    if end:
+        region_end = end
+    else:
+        region_end = arg.end
+
+    # yield SMC header
+    yield {"tag": "NAMES",
+           "names": leaf_names}
+    yield {"tag": "REGION",
+           "chrom": chrom,
+           "start": region_start,
+           "end": region_end}
+
+    last_node_index = None
+    for block, tree, last_tree, spr in iter_arg_sprs(
+            arg, start=start, end=end):
+        mapping = get_local_node_mapping(tree, last_tree, spr)
+
+        # get node numbering
+        node_index = {}
+        if last_tree is None:
+            # initialize node numbering
+            index = 0
+            for leaf_name in leaf_names:
+                node_index[leaf_name] = index
+                index += 1
+            for node in tree:
+                if not node.is_leaf():
+                    node_index[node.name] = index
+                    index += 1
+        else:
+            # determine node numbering using mapping.
+            broken_index = None
+            for last_node in last_tree:
+                node_name = mapping[last_node.name]
+                if node_name:
+                    node_index[node_name] = last_node_index[last_node.name]
+                else:
+                    broken_index = last_node_index[last_node.name]
+
+            # find out which node does not have an index and give it the
+            # broken index
+            for node in tree:
+                if node.name not in node_index:
+                    node_index[node.name] = broken_index
+                    break
+
+            # yield SPR
+            yield {"tag": "SPR",
+                   "pos": block[0],
+                   "recomb_node": last_node_index[spr[0][0]],
+                   "recomb_time": spr[0][1],
+                   "coal_node": last_node_index[spr[1][0]],
+                   "coal_time": spr[1][1]}
+
+        # add age data and rename nodes using index
+        tree2 = tree.get_tree()
+        ages = treelib.get_tree_ages(tree2)
+        for node in tree2:
+            node.data["age"] = ages[node]
+        rename_tree_nodes(tree2, [(node.name, node_index[node.name])
+                                  for node in tree2])
+
+        yield {"tag": "TREE",
+               "start": block[0] + 1,
+               "end": block[1],
+               "tree": format_tree(tree2)}
+
+        last_node_index = node_index
+
+
+def rename_tree_nodes(tree, renames):
+    """Rename all the nodes in a tree."""
+
+    nodes = {}
+    for old_name, new_name in renames:
+        nodes[old_name] = tree[old_name]
+        del tree.nodes[old_name]
+
+    for old_name, new_name in renames:
+        tree[new_name] = nodes[old_name]
+
+    return tree
 
 
 def read_arg(smc_filename, region=None):
@@ -1231,7 +1332,6 @@ def iter_chrom_thread(arg, node, by_block=True, use_clades=False):
     recombs = chain((x.pos for x in iter_visible_recombs(arg)), [arg.end-1])
 
     for recomb_pos in recombs:
-        #print recomb_pos
         if start >= arg.end:
             continue
         tree = arg.get_marginal_tree(recomb_pos-.5)
@@ -1648,6 +1748,74 @@ def find_recomb_coal(tree, last_tree, recomb_name=None, pos=None):
     recomb_branch = recomb.name
 
     return (recomb_branch, recomb_time), (coal_branch, coal_time)
+
+
+def iter_arg_sprs(arg, start=None, end=None):
+    """
+    Iterates through the SPRs of an ARG
+
+    Yields (block, tree, last_tree, spr)
+    where spr = (recomb_node, recomb_time, coal_node, coal_time)
+    """
+
+    if start is None:
+        start = arg.start
+    if end is None:
+        end = arg.end
+
+    last_tree_full = None
+    last_tree = None
+    for block, tree_full in arglib.iter_local_trees(arg, start, end):
+        if last_tree_full:
+            recomb = (x for x in tree_full if x.pos == block[0]).next()
+            spr = find_recomb_coal(tree_full, last_tree_full,
+                                   recomb_name=recomb.name)
+        else:
+            spr = None
+
+        # get tree with only leaves and coalescent nodes
+        tree = tree_full.copy()
+        tree = arglib.remove_single_lineages(tree)
+
+        # convert block to our system
+        # TODO: perhaps keep this in 0-index
+        # most uses just convert to blocklens anyways
+        #a, b = block
+        #if a == start:
+        #    a -= 1
+        #if b == end:
+        #    b -= 1
+        #block = [a+1, b+1]
+
+        yield block, tree, last_tree, spr
+
+        last_tree_full = tree_full
+        last_tree = tree
+
+
+def get_local_node_mapping(tree, last_tree, spr):
+    """
+    Determine the mapping between nodes in local trees across ARG.
+
+    A maps across local trees until it is broken (parent of recomb node).
+    This method assumes tree and last_tree share the same node naming
+    and do not contain intermediary nodes (i.e. single lineages).
+    """
+    if last_tree is None:
+        # no mapping if last_tree is None
+        return None
+
+    else:
+        (rname, rtime), (cname, ctime) = spr
+
+        # assert ARG is SMC-style (no bubbles)
+        assert rname != cname
+
+        # recomb_parent is broken and does not map to anyone
+        recomb_parent = last_tree[rname].parents[0]
+        mapping = dict((node.name, node.name) for node in last_tree)
+        mapping[recomb_parent.name] = None
+        return mapping
 
 
 #=============================================================================
@@ -2111,8 +2279,6 @@ def est_arg_popsizes(arg, times=None, popsize_mu=1e4, popsize_sigma=.5e4):
             def func(x):
                 return A*x*x*x + B*x*x + C*x + D
 
-            #print [func(n) for n in util.frange(0, 2.0*popsize_mu,
-            #                               .2*popsize_mu)]
             try:
                 popsizes.append(
                     scipy.optimize.brentq(func, 0, 2.0*popsize_mu))
