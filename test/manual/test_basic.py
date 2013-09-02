@@ -693,6 +693,7 @@ class Basic (unittest.TestCase):
         assert arghmm.arghmm_assert_emit(trees, len(times), times, mu,
                                          seqs2, nseqs, seqlen)
 
+
     def test_emit_internal(self):
         """
         Calculate emission probabilities
@@ -716,7 +717,6 @@ class Basic (unittest.TestCase):
 
         assert arghmm.arghmm_assert_emit_internal(trees, len(times), times, mu,
                                                   seqs2, nseqs, seqlen)
-
 
 
     def test_emit_argmax(self):
@@ -761,7 +761,6 @@ class Basic (unittest.TestCase):
         assert data[0][1] == state
 
 
-
     def test_emit_parsimony(self):
         """
         Calculate emission probabilities with parsimony
@@ -791,155 +790,6 @@ class Basic (unittest.TestCase):
         p.plot([min(x), max(x)], [min(x), max(x)], style="lines")
         pause()
 
-
-
-    '''
-    def test_trans_c(self):
-
-        k = 10
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 1000
-        times = arghmm.get_time_points(20)
-
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        arghmm.discretize_arg(arg, times)
-        new_chrom = "n%d" % (k-1)
-        arg = arghmm.remove_arg_thread(arg, new_chrom)
-
-        print "recomb", arglib.get_recomb_pos(arg)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times,
-                              mu=mu, rho=rho, popsize=n)
-
-        i = 1
-        nstates1 = model.get_num_states(i-1)
-        for i in xrange(0, 1):
-            print i, nstates1
-            nstates2 = model.get_num_states(i)
-            states = model.states[i]
-            trans = model.transmat
-            trans2 = arghmm.calc_transition_probs_c(
-                model.local_tree, model.states[i], model.nlineages,
-                model.times, model.time_steps, model.popsizes, model.rho)
-
-            print times
-            t = model.local_tree.get_tree()
-            treelib.remove_single_children(t)
-            t.write()
-
-            for a in xrange(nstates1):
-                for b in xrange(nstates1):
-                    try:
-                        print states[a], states[b], trans[a][b], trans2[a][b]
-                        fequal(trans[a][b], trans2[a][b])
-                    except:
-                        print "!", states[a], states[b], trans[a][b], trans2[a][b]
-                        #raise
-
-            nstates1 = nstates2
-
-
-    def test_trans_switch_c(self):
-
-        k = 10
-        n = 1e4
-        rho = 1.5e-8 * 20
-        mu = 2.5e-8 * 20
-        length = 5000
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        times = arghmm.get_time_points(20)
-        arghmm.discretize_arg(arg, times)
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-        arg = arglib.smcify_arg(arg)
-        print "recomb", arglib.get_recomb_pos(arg)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name="n%d" % (k-1), times=times)
-
-        for pos in model.recomb_pos[:-1][1:50]:
-            nstates1 = model.get_num_states(pos)
-            print pos, nstates1
-            nstates2 = model.get_num_states(pos+1)
-
-            last_tree = model.arg.get_marginal_tree(pos-.5)
-            tree = model.arg.get_marginal_tree(pos+1-.5)
-
-            nlineages = arghmm.get_nlineages_recomb_coal(last_tree, model.times)
-            recomb = arghmm.find_tree_next_recomb(arg, pos)
-
-            states1 = model.states[pos]
-            states2 = model.states[pos+1]
-
-            trans = arghmm.calc_transition_probs_switch(
-                tree, last_tree, recomb.name,
-                states1, states2,
-                nlineages, model.times,
-                model.time_steps, model.popsizes, model.rho)
-
-            for a in xrange(nstates1):
-                fequal(sum(map(exp, trans[a])), 1.0, rel=.01)
-
-            trans2 = arghmm.calc_transition_probs_switch_c(
-                tree, last_tree, recomb.name,
-                states1, states2,
-                nlineages, model.times,
-                model.time_steps, model.popsizes, model.rho, raw=False)
-
-            for a in xrange(nstates1):
-                for b in xrange(nstates2):
-                    #if trans[a][b] == 0.0:
-                    #    print a, states1[a], states2[b], \
-                    #          trans[a].index(0.0), trans2[a].index(0.0), \
-                    #          trans[a][b] == trans2[a][b]
-
-                    if trans[a][b] in (0.0, -util.INF) or \
-                       trans2[a][b] in (0.0, -util.INF):
-                        assert trans[a][b] == trans2[a][b], (
-                            trans[a][b], trans2[a][b])
-                    fequal(trans[a][b], trans2[a][b])
-
-    def test_emit_c(self):
-
-        k = 10
-        n = 1e4
-        rho = 0.0
-        mu = 2.5e-8 * 100
-        length = 100
-        arg = arglib.sample_arg(k, n, rho, start=0, end=length)
-        muts = arglib.sample_arg_mutations(arg, mu)
-        seqs = arglib.make_alignment(arg, muts)
-
-        times = arghmm.get_time_points(10)
-        arghmm.discretize_arg(arg, times)
-
-        new_name = "n%d" % (k-1)
-        thread = list(arghmm.iter_chrom_thread(arg, arg[new_name]))
-
-        keep = ["n%d" % i for i in range(k-1)]
-        arglib.subarg_by_leaf_names(arg, keep)
-
-        model = arghmm.ArgHmm(arg, seqs, new_name=new_name, times=times)
-
-        nstates = model.get_num_states(1)
-        emit = arghmm.iter_trans_emit_matrices(model, length).next()[4]
-
-        for i in xrange(1, length):
-            for j in xrange(nstates):
-                try:
-                    fequal(emit[i][j], model.prob_emission(i, j))
-                except:
-                    print i, j, emit[i][j], model.prob_emission(i, j)
-                    print model.states[i][j]
-                    raise
-    '''
 
     #========================
     # HMM algorithms
@@ -980,7 +830,6 @@ class Basic (unittest.TestCase):
         for pcol in probs:
             p = sum(map(exp, pcol))
             print p, " ".join("%.3f" % f for f in map(exp, pcol))
-
 
 
     def test_post(self):

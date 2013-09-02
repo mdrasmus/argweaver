@@ -2,6 +2,7 @@
 from itertools import izip
 
 import arghmm
+from arghmm import arghmmc
 
 from compbio import arglib
 from compbio import phylo
@@ -68,7 +69,7 @@ def test_arg_convert():
                                  times=times)
 
     # convert to C++ and back
-    trees, names = arghmm.arg2ctrees(arg, times)
-    arg2 = arghmm.ctrees2arg(trees, names, times)
+    trees, names = arghmmc.arg2ctrees(arg, times)
+    arg2 = arghmmc.ctrees2arg(trees, names, times)
 
     arg_equal(arg, arg2)

@@ -5,6 +5,7 @@ import os
 import sys
 
 import arghmm
+from arghmm import arghmmc
 
 from rasmus import intervals
 from rasmus import stats
@@ -48,16 +49,16 @@ for filename in filenames:
     smc = arghmm.SMCReader(filename)
     chrom, region_start, region_end = (
         smc.header["chrom"], smc.header["start"], smc.header["end"])
-    trees = arghmm.read_local_trees(filename, times, len(times))
-    ntrees = arghmm.get_local_trees_ntrees(trees)
+    trees = arghmmc.read_local_trees(filename, times, len(times))
+    ntrees = arghmmc.get_local_trees_ntrees(trees)
     treelen = [0.0] * ntrees
     blocklens = [0.0] * ntrees
     starts = [0] * ntrees
     ends = [0] * ntrees
-    arghmm.get_treelens(trees, times, len(times), treelen)
-    arghmm.get_local_trees_blocks(trees, starts, ends)
+    arghmmc.get_treelens(trees, times, len(times), treelen)
+    arghmmc.get_local_trees_blocks(trees, starts, ends)
     treelens.append(zip(starts, ends, treelen))
-    arghmm.delete_local_trees(trees)
+    arghmmc.delete_local_trees(trees)
 
 # Get average tree lengths and recombination positions.
 avg_treelens = [[s, e, stats.mean(util.cget(group, 2))]

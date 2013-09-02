@@ -7,6 +7,7 @@ Tests for basic low-level ARG and sequence functions.
 import os
 
 import arghmm
+from arghmm import arghmmc
 
 from rasmus.testing import make_clean_dir
 
@@ -23,6 +24,6 @@ def test_read_sites():
         --ntimes 10 --maxtime 400e3  \
         -o test/data/test_read_sites/0 > /dev/null""")
 
-    sites = arghmm.arghmm_read_sites(
+    sites = arghmmc.arghmm_read_sites(
         'test/data/test_read_sites/0.sites', -1, -1)
-    arghmm.arghmm_delete_sites(sites)
+    arghmmc.arghmm_delete_sites(sites)

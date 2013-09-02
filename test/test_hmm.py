@@ -10,6 +10,7 @@ from math import log
 
 import arghmm
 import arghmm.popsize
+from arghmm import arghmmc
 
 from compbio import arglib
 from rasmus import util
@@ -26,35 +27,32 @@ def test_trans_two():
     k = 2
     n = 1e4
     rho = 1.5e-8 * 20
-    mu = 2.5e-8 * 20
     length = 1000
     times = arghmm.get_time_points(ntimes=5, maxtime=200000)
+    time_steps = [times[i] - times[i-1]
+                  for i in range(1, len(times))]
+    time_steps.append(200000*10000.0)
+    popsizes = [n] * len(times)
 
     arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
-    muts = arglib.sample_arg_mutations(arg, mu)
-    seqs = arglib.make_alignment(arg, muts)
 
     arghmm.discretize_arg(arg, times)
     print "recomb", arglib.get_recomb_pos(arg)
 
-    new_name = "n%d" % (k-1)
     arg = arghmm.make_trunk_arg(0, length, "n0")
-    model = arghmm.ArgHmm(arg, seqs, new_name=new_name,
-                          popsize=n, rho=rho, mu=mu,
-                          times=times)
 
     pos = 10
     tree = arg.get_marginal_tree(pos)
-    model.check_local_tree(pos, force=True)
+    nlineages = arghmm.get_nlineages_recomb_coal(tree, times)
+    states = list(arghmm.iter_coal_states(tree, times))
     mat = arghmm.calc_transition_probs(
-        tree, model.states[pos], model.nlineages,
-        model.times, model.time_steps, model.popsizes, rho)
+        tree, states, nlineages,
+        times, time_steps, popsizes, rho)
 
-    states = model.states[pos]
     nstates = len(states)
 
     def coal(j):
-        return 1.0 - exp(-model.time_steps[j]/(2.0 * n))
+        return 1.0 - exp(-time_steps[j]/(2.0 * n))
 
     def recoal2(k, j):
         p = coal(j)
@@ -64,22 +62,22 @@ def test_trans_two():
 
     def recoal(k, j):
         if j == nstates-1:
-            return exp(- sum(model.time_steps[m] / (2.0 * n)
+            return exp(- sum(time_steps[m] / (2.0 * n)
                              for m in range(k, j)))
         else:
-            return ((1.0 - exp(-model.time_steps[j]/(2.0 * n))) *
-                    exp(- sum(model.time_steps[m] / (2.0 * n)
+            return ((1.0 - exp(-time_steps[j]/(2.0 * n))) *
+                    exp(- sum(time_steps[m] / (2.0 * n)
                               for m in range(k, j))))
 
     def isrecomb(i):
-        return 1.0 - exp(-max(rho * 2.0 * model.times[i], rho))
+        return 1.0 - exp(-max(rho * 2.0 * times[i], rho))
 
     def recomb(i, k):
-        treelen = 2*model.times[i] + model.time_steps[i]
+        treelen = 2*times[i] + time_steps[i]
         if k < i:
-            return 2.0 * model.time_steps[k] / treelen / 2.0
+            return 2.0 * time_steps[k] / treelen / 2.0
         else:
-            return model.time_steps[k] / treelen / 2.0
+            return time_steps[k] / treelen / 2.0
 
     def trans(i, j):
         a = states[i][1]
@@ -132,12 +130,12 @@ def test_trans():
     pos = 10
     tree = arg.get_marginal_tree(pos)
 
-    assert arghmm.assert_transition_probs(tree, times, popsizes, rho)
+    assert arghmmc.assert_transition_probs(tree, times, popsizes, rho)
 
 
 def test_trans_switch():
     """
-    Calculate transition probabilities for k=2
+    Calculate transition probabilities for switch matrix
 
     Only calculate a single matrix
     """
@@ -161,13 +159,13 @@ def test_trans_switch():
     rpos, r, c = arglib.iter_arg_sprs(arg, start=pos-.5).next()
     spr = (r, c)
 
-    assert arghmm.assert_transition_switch_probs(tree, spr,
-                                                 times, popsizes, rho)
+    assert arghmmc.assert_transition_switch_probs(tree, spr,
+                                                  times, popsizes, rho)
 
 
 def test_trans_internal():
     """
-    Calculate transition probabilities for k=2
+    Calculate transition probabilities for internal branch re-sampling
 
     Only calculate a single matrix
     """
@@ -185,13 +183,13 @@ def test_trans_internal():
     pos = 10
     tree = arg.get_marginal_tree(pos)
 
-    assert arghmm.assert_transition_probs_internal(
+    assert arghmmc.assert_transition_probs_internal(
         tree, times, popsizes, rho)
 
 
 def test_trans_switch_internal():
     """
-    Calculate transition probabilities for k=2
+    Calculate transition probabilities for switch matrix and internal branches
 
     Only calculate a single matrix
     """
@@ -205,9 +203,9 @@ def test_trans_switch_internal():
 
     arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
                                  times=times)
-    trees, names = arghmm.arg2ctrees(arg, times)
+    trees, names = arghmmc.arg2ctrees(arg, times)
 
-    assert arghmm.assert_transition_probs_switch_internal(
+    assert arghmmc.assert_transition_probs_switch_internal(
         trees, times, popsizes, rho)
 
 
@@ -232,16 +230,16 @@ def test_emit():
     new_name = "n%d" % (k-1)
     arg = arghmm.remove_arg_thread(arg, new_name)
 
-    trees, names = arghmm.arg2ctrees(arg, times)
-    seqs2, nseqs, seqlen = arghmm.seqs2cseqs(seqs, names + [new_name])
+    trees, names = arghmmc.arg2ctrees(arg, times)
+    seqs2, nseqs, seqlen = arghmmc.seqs2cseqs(seqs, names + [new_name])
 
-    assert arghmm.arghmm_assert_emit(trees, len(times), times, mu,
-                                     seqs2, nseqs, seqlen)
+    assert arghmmc.arghmm_assert_emit(trees, len(times), times, mu,
+                                      seqs2, nseqs, seqlen)
 
 
 def test_emit_internal():
     """
-    Calculate emission probabilities
+    Calculate emission probabilities for internal branches
     """
 
     k = 10
@@ -257,11 +255,11 @@ def test_emit_internal():
     muts = arghmm.sample_arg_mutations(arg, mu, times)
     seqs = arghmm.make_alignment(arg, muts)
 
-    trees, names = arghmm.arg2ctrees(arg, times)
-    seqs2, nseqs, seqlen = arghmm.seqs2cseqs(seqs, names)
+    trees, names = arghmmc.arg2ctrees(arg, times)
+    seqs2, nseqs, seqlen = arghmmc.seqs2cseqs(seqs, names)
 
-    assert arghmm.arghmm_assert_emit_internal(trees, len(times), times, mu,
-                                              seqs2, nseqs, seqlen)
+    assert arghmmc.arghmm_assert_emit_internal(trees, len(times), times, mu,
+                                               seqs2, nseqs, seqlen)
 
 
 def test_prior_counts():
@@ -274,7 +272,7 @@ def test_prior_counts():
     t = 1e3
 
     for b in range(1, a):
-        x = arghmm.prob_coal_counts_matrix(a, b, t, 2*n)
+        x = arghmmc.prob_coal_counts_matrix(a, b, t, 2*n)
         y = arghmm.popsize.prob_coal_counts(a, b, t, 2*n)
         fequal(x, y)
 
@@ -301,15 +299,15 @@ def test_forward():
     new_name = "n%d" % (k - 1)
     arg = arghmm.remove_arg_thread(arg, new_name)
 
-    carg = arghmm.arg2ctrees(arg, times)
+    carg = arghmmc.arg2ctrees(arg, times)
 
     util.tic("C fast")
-    probs1 = arghmm.arghmm_forward_algorithm(carg, seqs, times=times)
+    probs1 = arghmmc.arghmm_forward_algorithm(carg, seqs, times=times)
     util.toc()
 
     util.tic("C slow")
-    probs2 = arghmm.arghmm_forward_algorithm(carg, seqs, times=times,
-                                             slow=True)
+    probs2 = arghmmc.arghmm_forward_algorithm(carg, seqs, times=times,
+                                              slow=True)
     util.toc()
 
     for i, (col1, col2) in enumerate(izip(probs1, probs2)):
