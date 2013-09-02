@@ -51,17 +51,13 @@ def iter_trees_arg(filename, attr, region=None):
     attr["names"] = list(arg.leaf_names())
     attr["region"] = ["chr", arg.start, arg.end]
 
-    #for block, tree in arglib.iter_tree_tracks(arg):
     for block in arglib.iter_recomb_blocks(arg):
         yield (int(block[0]), int(block[1]), "chr",
                (arg, (block[0] + block[1]) / 2.0))
-        #arglib.remove_single_lineages(tree)
-        #yield block[0], block[1], "chr", tree.get_tree()
 
 
 def get_tree(tree_repr):
     if isinstance(tree_repr, basestring):
-        #return arghmm.parse_tree(tree_repr)
         return treelib.parse_newick(tree_repr)
     else:
         arg, pos = tree_repr
@@ -95,7 +91,6 @@ def cons_smc(trees, attr, positions=None):
                 continue
         print >>sys.stderr, start, end
 
-        #chrom = group[0][2]
         treeset = map(get_tree, util.cget(group, 3))
         tree = phylo.consensus_majority_rule(treeset, rooted=True)
         treelib.assert_tree(tree)

@@ -68,7 +68,7 @@ def iter_trees_arg(filename, attr):
     attr["names"] = list(arg.leaf_names())
     attr["region"] = ["chr", arg.start, arg.end]
 
-    for block, tree in arglib.iter_tree_tracks(arg):
+    for block, tree in arglib.iter_local_trees(arg):
         arglib.remove_single_lineages(tree)
         yield block[0], block[1], "chr", tree.get_tree()
 

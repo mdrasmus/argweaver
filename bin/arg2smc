@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 
 import optparse
+import sys
 
 import arghmm
+from arghmm import arghmmc
 
 from compbio import arglib
 
 
 o = optparse.OptionParser()
-o.add_option("-t", "--ntimes", type="int", default=20)
-o.add_option("", "--maxtime", type="float", default=180e3)
+o.add_option("-t", "--ntimes", type="int")
+o.add_option("", "--maxtime", type="float")
 
 conf, args = o.parse_args()
 
@@ -19,9 +21,18 @@ conf, args = o.parse_args()
 arg_file = args[0]
 smc_file = args[1]
 
-times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
 arg = arglib.read_arg(arg_file)
-arghmm.discretize_arg(arg, times)
-arg = arglib.smcify_arg(arg)
-trees, names = arghmm.arg2ctrees(arg, times)
-arghmm.write_local_trees(smc_file, trees, names, times, len(times))
+
+if conf.ntimes:
+    if not conf.maxtime:
+        print >>sys.stderr, 'option --maxtime is needed'
+        sys.exit(1)
+
+    times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+    arghmm.discretize_arg(arg, times)
+    arg = arglib.smcify_arg(arg)
+    trees, names = arghmmc.arg2ctrees(arg, times)
+    arghmmc.write_local_trees(smc_file, trees, names, times, len(times))
+
+else:
+    raise NotImplementedError

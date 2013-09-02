@@ -15,12 +15,14 @@ import subprocess
 # add pre-bundled dependencies to the python path,
 # if they are not available already
 try:
-    import rasmus, compbio
+    import compbio
+    import rasmus
     rasmus, compbio  # suppress unused pyflakes warning
 except ImportError:
     from . import dep
     dep.load_deps()
-    import rasmus, compbio
+    import compbio
+    import rasmus
 
 # rasmus combio libs
 rasmus, compbio  # suppress unused pyflakes warning
@@ -31,7 +33,6 @@ from rasmus.stats import logadd
 # arghmm libs
 from arghmmc import *
 from . import emit
-#from arghmm.sample import *
 from arghmm.sim import find_region
 from arghmm.sim import get_coal_time_steps
 from arghmm.sim import get_coal_times
@@ -87,17 +88,6 @@ else:
 #=============================================================================
 # discretization
 
-'''
-def get_time_point(i, ntimes, maxtime, delta=10):
-    """Returns a discretized time point"""
-    return (exp(i/float(ntimes) * log(1 + delta * maxtime)) - 1) / delta
-
-
-def get_time_points(ntimes=30, maxtime=80000, delta=.01):
-    """Returns a list of discretized time points"""
-    return [get_time_point(i, ntimes, maxtime, delta)
-            for i in range(ntimes+1)]
-'''
 
 def get_time_point(i, ntimes, maxtime, delta=10):
     """Returns a discretized time point"""
@@ -250,8 +240,10 @@ def discretize_arg(arg, times, ignore_top=True, round_age="closer"):
 
     for node in arg:
         i, j = util.binsearch(times, node.age)
-        if j is None: j = len(times) - 1
-        if i is None: i = 0
+        if j is None:
+            j = len(times) - 1
+        if i is None:
+            i = 0
 
         if round_age == "up":
             node.age = times[j]
@@ -264,7 +256,6 @@ def discretize_arg(arg, times, ignore_top=True, round_age="closer"):
                 node.age = times[j]
         else:
             raise Exception("unknown round_age '%s'" % round_age)
-
 
     recombs = [node for node in arg if node.event == "recomb"]
     recombs.sort(key=lambda x: x.pos)
@@ -360,9 +351,9 @@ def get_basal_length(tree, times, node=None, time=None):
     return root_time
 
 
-
 #=============================================================================
 # alignment compression
+
 
 def is_variant(seqs, pos):
     """Returns True if site 'pos' in align 'seqs' is polymorphic"""
@@ -474,7 +465,6 @@ class Sites (object):
         """Returns number of sites in alignment"""
         return len(self._cols)
 
-
     def append(self, pos, col):
         """Adds a site to alignment with position 'pos' and column 'col'"""
         self.positions.append(pos)
@@ -550,7 +540,9 @@ class Sites (object):
         return func()
 
     def iter_region(self, start=None, end=None):
-        """Iterates through the positions and columns between 'start' and 'end'"""
+        """
+        Iterates through the positions and columns between 'start' and 'end'
+        """
         if start is None:
             i = 0
         else:
@@ -561,11 +553,13 @@ class Sites (object):
             j2, j = util.binsearch(self.positions, end)
             if j == j2:
                 j += 1
+
         def func():
             if i is None:
                 return
             for pos in self.positions[i:j]:
                 yield pos, self._cols[pos]
+
         return func()
 
     def __getitem__(self, pos):
@@ -587,10 +581,8 @@ class Sites (object):
         """Returns True if position is within the laignment"""
         return pos in self._cols
 
-
     def write(self, filename):
         write_sites(filename, self)
-
 
 
 def iter_sites(filename):
@@ -615,7 +607,6 @@ def iter_sites(filename):
 
         elif line.startswith("RANGE"):
             raise Exception("deprecated RANGE line, use REGION instead")
-
 
     yield header
 
@@ -643,8 +634,10 @@ def read_sites(filename, region=None):
         sites.region = region
 
     for pos, col in reader:
-        if region and (pos < region[0]): continue
-        if region and (pos > region[1]): break
+        if region and (pos < region[0]):
+            continue
+        if region and (pos > region[1]):
+            break
         sites.append(pos, col)
 
     return sites
@@ -704,9 +697,9 @@ def sites2seqs(sites, default_char="A"):
     return seqs
 
 
-
 #=============================================================================
 # SMC input/output (sequentially Markov coalescent)
+
 
 class SMCReader (object):
     """
@@ -765,7 +758,6 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False,
                     item["tree"] = tree
             yield item
         return
-
 
     with closing(open_stream(filename)) as infile:
         spr = None
@@ -882,7 +874,6 @@ def smc_apply_spr(tree, spr):
             util.replace(new_node.parent.children, coal, new_node)
         else:
             assert new_node in new_node.parent.children
-
 
     # change root
     while tree.root.parent is not None:
@@ -1062,7 +1053,6 @@ def iter_smc_trees(smc, pos):
     """
     Iterate through local trees at positions 'pos' in filename 'smc_file'
     """
-
     need_close = False
     if isinstance(smc, basestring):
         need_close = True
@@ -1082,9 +1072,9 @@ def iter_smc_trees(smc, pos):
         smc.close()
 
 
-
 #=============================================================================
 # multiple SMC files
+
 
 def get_smc_sample_iter(filename):
     """Returns the iteration number of an SMC filename"""
@@ -1114,21 +1104,19 @@ def find_high_freq_allele(col):
 
 
 def find_pair_allele_freqs(col1, col2):
-    #A1 = find_high_freq_allele(col1)
-    #B1 = find_high_freq_allele(col2)
     A1 = col1[0]
     B1 = col2[0]
 
     x = {}
-    x[(0,0)] = 0
-    x[(0,1)] = 0
-    x[(1,0)] = 0
-    x[(1,1)] = 0
+    x[(0, 0)] = 0
+    x[(0, 1)] = 0
+    x[(1, 0)] = 0
+    x[(1, 1)] = 0
 
     for i in range(len(col1)):
         a = int(col1[i] == A1)
         b = int(col2[i] == B1)
-        x[(a,b)] += 1
+        x[(a, b)] += 1
 
     n = float(len(col1))
     for k, v in x.items():
@@ -1142,9 +1130,9 @@ def calc_ld_D(col1, col2, x=None):
         x = find_pair_allele_freqs(col1, col2)
 
     # D = x_11 - p_1 * q_1
-    p1 = x[(0,0)] + x[(0,1)]
-    q1 = x[(0,0)] + x[(1,0)]
-    D = x[(0,0)] - p1 * q1
+    p1 = x[(0, 0)] + x[(0, 1)]
+    q1 = x[(0, 0)] + x[(1, 0)]
+    D = x[(0, 0)] - p1 * q1
     return D
 
 
@@ -1153,9 +1141,9 @@ def calc_ld_Dp(col1, col2, x=None):
         x = find_pair_allele_freqs(col1, col2)
 
     # D = x_11 - p_1 * q_1
-    p1 = x[(0,0)] + x[(0,1)]
-    q1 = x[(0,0)] + x[(1,0)]
-    D = x[(0,0)] - p1 * q1
+    p1 = x[(0, 0)] + x[(0, 1)]
+    q1 = x[(0, 0)] + x[(1, 0)]
+    D = x[(0, 0)] - p1 * q1
 
     p2 = 1.0 - p1
     q2 = 1.0 - q1
@@ -1174,10 +1162,9 @@ def calc_ld_r2(col1, col2, x=None):
     if x is None:
         x = find_pair_allele_freqs(col1, col2)
 
-    # D = x_11 - p_1 * q_1
-    p1 = x[(0,0)] + x[(0,1)]
-    q1 = x[(0,0)] + x[(1,0)]
-    D = x[(0,0)] - p1 * q1
+    p1 = x[(0, 0)] + x[(0, 1)]
+    q1 = x[(0, 0)] + x[(1, 0)]
+    D = x[(0, 0)] - p1 * q1
 
     p2 = 1.0 - p1
     q2 = 1.0 - q1
@@ -1195,8 +1182,6 @@ def calc_ld_matrix(cols, func):
             ld[i][j] = ld[j][i] = func(cols[i], cols[j])
 
     return ld
-
-
 
 
 #=============================================================================
@@ -1228,14 +1213,12 @@ def iter_visible_recombs(arg, start=None, end=None):
 
     pos = start if start is not None else 0
     while True:
-        #recomb = find_tree_next_recomb(arg, pos+1)
         recomb = find_tree_next_recomb(arg, pos)
         if recomb:
             yield recomb
             pos = recomb.pos
         else:
             break
-
 
 
 #=============================================================================
@@ -1245,8 +1228,7 @@ def iter_visible_recombs(arg, start=None, end=None):
 def iter_chrom_thread(arg, node, by_block=True, use_clades=False):
 
     start = 0
-    recombs = chain((x.pos for x in iter_visible_recombs(arg)),
-                     [arg.end-1])
+    recombs = chain((x.pos for x in iter_visible_recombs(arg)), [arg.end-1])
 
     for recomb_pos in recombs:
         #print recomb_pos
@@ -1303,7 +1285,6 @@ def get_coal_point(arg, node, pos):
     return sib.name, parent.age
 
 
-
 def iter_chrom_timeline(arg, node, by_block=True):
 
     for node, time, block in iter_chrom_thread(arg, node, by_block=True):
@@ -1313,7 +1294,6 @@ def iter_chrom_timeline(arg, node, by_block=True):
         else:
             for i in range(block[0]+1, block[1]+1):
                 yield time
-
 
 
 def iter_posterior_times(model, probs, perc=.5):
@@ -1349,17 +1329,16 @@ def iter_thread_from_path(model, path):
 
 
 def get_clade_point(arg, node_name, time, pos):
-    """Returns a point along a branch in the ARG in terms of a clade and time"""
+    """Return a point along a branch in the ARG in terms of a clade and time"""
 
     if node_name in arg:
         tree = arg.get_marginal_tree(pos - .5)
         if (time > tree.root.age or
-            (time == tree.root.age and node_name not in tree)):
+                (time == tree.root.age and node_name not in tree)):
             return (list(tree.leaf_names()), time)
         return (list(tree.leaf_names(tree[node_name])), time)
     else:
         return ([node_name], time)
-
 
 
 #=============================================================================
@@ -1370,7 +1349,6 @@ def make_trunk_arg(start, end, name="ind1"):
     """
     Returns a trunk genealogy
     """
-
     arg = arglib.ARG(start=start, end=end)
     arg.new_node(name, event="gene", age=0)
     return arg
@@ -1387,7 +1365,6 @@ def remove_arg_thread(arg, *chroms):
     return arglib.smcify_arg(arg)
 
 
-
 def add_arg_thread(arg, new_name, thread, recombs):
     """Add a thread to an ARG"""
 
@@ -1398,8 +1375,6 @@ def add_arg_thread(arg, new_name, thread, recombs):
                 node.children[1] in local and
                 arg.get_local_parent(node.children[1], pos-.5) == node and
                 node.children[0] != node.children[1])
-
-
 
     def walk_up(arg, leaves, time, pos, ignore=None):
 
@@ -1437,7 +1412,6 @@ def add_arg_thread(arg, new_name, thread, recombs):
         node = queue[0][1]
         parent = arg.get_local_parent(node, pos-.5)
 
-
         while parent and parent.age <= time:
             if is_local_coal(arg, parent, pos, local):
                 break
@@ -1454,7 +1428,6 @@ def add_arg_thread(arg, new_name, thread, recombs):
 
         return node
 
-
     def add_node(arg, node, time, pos, event):
 
         node2 = arg.new_node(event=event, age=time, children=[node], pos=pos)
@@ -1470,7 +1443,6 @@ def add_arg_thread(arg, new_name, thread, recombs):
             node.parents.append(node2)
 
         return node2
-
 
     arg_recomb = dict((x.pos, x) for x in iter_visible_recombs(arg))
     recomb_clades = [
@@ -1492,7 +1464,6 @@ def add_arg_thread(arg, new_name, thread, recombs):
     leaf.parents.append(node2)
     node2.children.append(leaf)
 
-
     # add each recomb and re-coal
     for rpos, rname, rleaves, rtime in recomb_clades:
         if rpos in arg_recomb:
@@ -1506,7 +1477,7 @@ def add_arg_thread(arg, new_name, thread, recombs):
                         maxlen=8, minlen=8)
                     treelib.draw_tree_names(
                         arg.get_marginal_tree(rpos+.5).get_tree(),
-                    maxlen=8, minlen=8)
+                        maxlen=8, minlen=8)
                     assert False
 
             node = arg_recomb[rpos]
@@ -1566,7 +1537,6 @@ def add_arg_thread(arg, new_name, thread, recombs):
             node1 = walk_up(arg2, rleaves, rtime, rpos+1)
             node2 = walk_up(arg2, cleaves, ctime, rpos+1, node1.name)
 
-
         else:
             # find re-coal for new recomb
 
@@ -1594,7 +1564,6 @@ def add_arg_thread(arg, new_name, thread, recombs):
                 node1 = walk_up(arg2, rleaves, rtime, rpos+1)
                 node2 = walk_up(arg2, cleaves, ctime, rpos+1, node1.name)
 
-
         assert node1.parents
         assert rtime <= ctime
 
@@ -1609,10 +1578,7 @@ def add_arg_thread(arg, new_name, thread, recombs):
         node, time = get_coal_point(arg2, arg2[new_name], rpos+1)
         assert time == thread[rpos+1][1], (time, thread[rpos+1][1])
 
-
-
     return arg2
-
 
 
 def arg_lca(arg, leaves, time, pos, ignore=None):
@@ -1625,7 +1591,6 @@ def arg_lca(arg, leaves, time, pos, ignore=None):
                 node.children[1] in local and
                 arg.get_local_parent(node.children[1], pos-.5) == node and
                 node.children[0] != node.children[1])
-
 
     order = dict((node, i) for i, node in enumerate(
         arg.postorder_marginal_tree(pos-.5)))
@@ -1679,7 +1644,9 @@ def arg_lca(arg, leaves, time, pos, ignore=None):
 
 def find_recomb_coal(tree, last_tree, recomb_name=None, pos=None):
     """
-    Returns the recomb and coal points for the SPR between two trees
+    Find the recomb and coal points for the SPR between two trees
+
+    Returns ((recomb_node_name, recomb_time), (coal_node_name, coal_time))
     """
 
     if recomb_name is None:
@@ -1713,9 +1680,6 @@ def find_recomb_coal(tree, last_tree, recomb_name=None, pos=None):
     recomb_branch = recomb.name
 
     return (recomb_branch, recomb_time), (coal_branch, coal_time)
-
-
-
 
 
 #=============================================================================
@@ -1766,7 +1730,6 @@ def prob_recoal(tree, state, nlineages, times, time_steps, popsizes,
         p *= ((1.0 - exp(-time_steps[b] * nbranches_b / (2.0 * popsizes[b]))) /
               ncoals_b)
 
-
     return p
 
 
@@ -1813,7 +1776,7 @@ def calc_transition_probs(tree, states, nlineages, times,
 
             p = 0.0
             for recomb_node, recomb_time in iter_transition_recombs(
-                tree, states[i], states[j], times):
+                    tree, states[i], states[j], times):
                 p += (prob_recomb(tree, states[i], nlineages, times,
                                   time_steps, rho, recomb_time) *
                       prob_recoal(tree, states[i], nlineages, times,
@@ -1829,7 +1792,6 @@ def calc_transition_probs(tree, states, nlineages, times,
             transprob[i][j] = log(p)
 
     return transprob
-
 
 
 def get_recomb_transition_switch(tree, last_tree, spr, states1, states2,
@@ -1861,8 +1823,6 @@ def get_recomb_transition_switch(tree, last_tree, spr, states1, states2,
     return (a, b)
 
 
-
-
 def calc_transition_probs_switch(tree, last_tree, recomb_name,
                                  states1, states2,
                                  nlineages, times,
@@ -1889,7 +1849,6 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
                                            recomb_branch, k,
                                            coal_branch, coal_time)
 
-
     for i, (node1, a) in enumerate(states1):
         if (node1, a) == (recomb_branch, k):
             # probabilistic transition case (recomb case)
@@ -1900,7 +1859,6 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
             # placeholders
             transprob[i][recomb_next_states[0]] = log(.5)
             transprob[i][recomb_next_states[1]] = log(.5)
-
 
         elif (node1, a) == (coal_branch, coal_time):
             # probabilistic transition case (re-coal case)
@@ -1915,7 +1873,6 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
             else:
                 node3 = node1
 
-
             # find parent of recomb_branch and node1
             last_parent_age = times.index(last_parent.age)
             parent = tree2[recomb_branch].parents[0]
@@ -1929,7 +1886,6 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
                 treelen2 += time_steps[a]
             else:
                 treelen2 += time_steps[times.index(last_tree2.root.age)]
-
 
             for j, (node2, b) in enumerate(states2):
                 transprob[i][j] = 0.0
@@ -1971,10 +1927,7 @@ def calc_transition_probs_switch(tree, last_tree, recomb_name,
             assert determ[i] != -1, determ
             transprob[i][determ[i]] = 0.0
 
-
     return transprob
-
-
 
 
 def get_deterministic_transitions(states1, states2, times,
@@ -2006,7 +1959,6 @@ def get_deterministic_transitions(states1, states2, times,
                                         minlen=8, maxlen=8)
                 raise Exception("unknown node name '%s'" % node1)
 
-
             if node.is_leaf():
                 # SPR can't disrupt leaf branch
                 node2 = node1
@@ -2029,7 +1981,7 @@ def get_deterministic_transitions(states1, states2, times,
 
             # optionally walk up
             if ((coal_branch == node1 or coal_branch == node2) and
-                coal_time <= a):
+                    coal_time <= a):
                 # coal occurs under us
                 node2 = tree[node2].parents[0].name
             next_states.append(state2_lookup[(node2, a)])
@@ -2077,18 +2029,13 @@ def calc_state_priors(tree, states, nlineages,
 
     priormat = [
         log((1 - exp(- time_steps[b] * nlineages[0][b] /
-                 (2.0 * popsizes[b]))) / nlineages[2][b] *
-             exp(-sum(time_steps[m] * nlineages[0][m] /
-                      (2.0 * popsizes[m])
-                      for m in range(0, b))))
-            for node, b in states]
+                     (2.0 * popsizes[b]))) / nlineages[2][b] *
+            exp(-sum(time_steps[m] * nlineages[0][m] /
+                     (2.0 * popsizes[m])
+                     for m in range(0, b))))
+        for node, b in states]
 
     return priormat
-
-
-
-
-
 
 
 #=============================================================================
@@ -2120,7 +2067,7 @@ class ArgHmm (hmm.HMM):
         else:
             self.times = times
             ntimes = len(self.times) - 1
-        self.time_steps = [self.times[i] -  self.times[i-1]
+        self.time_steps = [self.times[i] - self.times[i-1]
                            for i in range(1, ntimes+1)]
         self.time_steps.append(maxtime*10000.0)
         self.ntimes = ntimes
@@ -2159,8 +2106,6 @@ class ArgHmm (hmm.HMM):
                 self.states.append(self.states[-1])
                 self.state_spaces.append(j-1)
 
-        #print self.state_spaces[:30]
-
         # current local tree
         self.local_block = [-1, self.recomb_pos[1]]
         self.local_tree = None
@@ -2172,21 +2117,17 @@ class ArgHmm (hmm.HMM):
 
         self.check_local_tree(0, force=True)
 
-
     def get_state_space(self, pos):
         """Returns the state_space ids for (pos-1, pos)"""
         return self.state_spaces[pos]
 
-
     def get_local_block(self, space):
         return (self.recomb_pos[space]+1, self.recomb_pos[space+1]+1)
-
-
 
     def check_local_tree(self, pos, force=False):
 
         # update local block
-        if force or not (self.local_block[0] <=  pos < self.local_block[1]):
+        if force or not (self.local_block[0] <= pos < self.local_block[1]):
 
             # get new local information
             self.local_tree = self.arg.get_marginal_tree(pos-.5)
@@ -2226,25 +2167,20 @@ class ArgHmm (hmm.HMM):
             # makes computing emissions easier
             arglib.remove_single_lineages(self.local_tree)
 
-
         # update local site
         if force or pos != self.last_pos:
             self.emit_col = emit.calc_emission(self.local_tree, self, pos,
                                                self.new_name)
 
-
         self.last_pos = pos
-
 
     def get_num_states(self, pos):
         return len(self.states[pos])
-
 
     def prob_prior(self, pos, state):
 
         self.check_local_tree(pos)
         return self.priormat[state]
-
 
     def prob_transition(self, pos1, state1, pos2, state2):
 
@@ -2256,18 +2192,14 @@ class ArgHmm (hmm.HMM):
         else:
             return self.transmat[state1][state2]
 
-
     def prob_emission(self, pos, state):
 
         self.check_local_tree(pos)
         return self.emit_col[state]
 
 
-
-
 #=============================================================================
 # HMM methods
-
 
 
 def iter_trans_emit_matrices(model, n):
@@ -2296,7 +2228,6 @@ def iter_trans_emit_matrices(model, n):
         #treelen = sum(x.dist for x in tree2)
         treelen = get_treelen(tree, model.times)
 
-
         # get new transition matrices
         transmat = new_transition_probs(
             len(nodes), ptree, ages_index, treelen,
@@ -2305,7 +2236,6 @@ def iter_trans_emit_matrices(model, n):
             len(model.time_steps), model.times, model.time_steps,
             nbranches, nrecombs, ncoals,
             model.popsizes, model.rho)
-
 
         # get switch matrix for beginning of block
         start = block[0]
@@ -2357,7 +2287,6 @@ def iter_trans_emit_matrices(model, n):
         yield block, nstates, transmat, transmat_switch, emit
 
 
-
 def forward_algorithm(model, n, verbose=False, matrices=None,
                       prior=[], internal=False):
 
@@ -2379,7 +2308,6 @@ def forward_algorithm(model, n, verbose=False, matrices=None,
                             model.popsizes, model.rho, model.mu,
                             (c_char_p * len(seqs))(*seqs), len(seqs),
                             seqlen, len(prior) > 0, prior, internal)
-
 
     # map states to python state space
     all_states = get_state_spaces(trees, len(model.times), internal)
@@ -2403,7 +2331,6 @@ def forward_algorithm(model, n, verbose=False, matrices=None,
             for j in xrange(nstates):
                 col.append(fw[i][mapping[j]])
 
-
     delete_state_spaces(all_states, len(ptrees))
     delete_forward_matrix(fw, seqlen)
 
@@ -2411,7 +2338,6 @@ def forward_algorithm(model, n, verbose=False, matrices=None,
         util.toc()
 
     return probs
-
 
 
 def backward_algorithm(model, n, verbose=False, matrices=None):
@@ -2481,7 +2407,6 @@ def backward_algorithm(model, n, verbose=False, matrices=None):
             delete_emissions(emit, blocklen)
             delete_transition_probs(transmat, nstates)
 
-
     if verbose:
         util.toc()
 
@@ -2511,7 +2436,6 @@ def get_posterior_probs(model, n, verbose=False,
     if matrices:
         delete_trans_emit_matrices(matrices)
 
-
     total_prob = -util.INF
     for j in xrange(model.get_num_states(0)):
         total_prob = logadd(total_prob,
@@ -2525,7 +2449,6 @@ def get_posterior_probs(model, n, verbose=False,
         for i in xrange(n)]
 
     return probs_post
-
 
 
 def est_arg_popsizes(arg, times=None, popsize_mu=1e4, popsize_sigma=.5e4):
@@ -2545,20 +2468,22 @@ def est_arg_popsizes(arg, times=None, popsize_mu=1e4, popsize_sigma=.5e4):
         return parent
 
     ntimes = len(times)
-    time_steps = [times[i] -  times[i-1]
+    time_steps = [times[i] - times[i-1]
                   for i in range(1, ntimes)]
 
     ncoals = [0] * ntimes
     k_lineages = [0] * ntimes
 
     # loop through sprs
-    for recomb_pos, (rnode, rtime), (cnode, ctime), local in arglib.iter_arg_sprs(arg, use_local=True):
+    for recomb_pos, (rnode, rtime), (cnode, ctime), local in \
+            arglib.iter_arg_sprs(arg, use_local=True):
         i, _ = util.binsearch(times, ctime)
         ncoals[i] += 1
 
         recomb_node = arg[rnode]
         broken_node = get_parent(recomb_node, recomb_pos-eps, local)
-        coals = [0.0] + [node.age for node in local
+        coals = [0.0] + [
+            node.age for node in local
             if len(get_local_children(node, recomb_pos-eps, local)) == 2]
 
         coals.sort()
@@ -2569,8 +2494,7 @@ def est_arg_popsizes(arg, times=None, popsize_mu=1e4, popsize_sigma=.5e4):
         r = coals.index(recomb_node.age)
         r2 = coals.index(broken_node.age)
         for i in range(r, r2):
-             nlineages[i] -= 1
-
+            nlineages[i] -= 1
 
         # get average number of branches in the time interval
         data = zip(coals, nlineages)
@@ -2605,7 +2529,6 @@ def est_arg_popsizes(arg, times=None, popsize_mu=1e4, popsize_sigma=.5e4):
         for j in range(r, c):
             k_lineages[j] += lineages_per_time[j]
 
-
     # add first tree
     tree = arg.get_marginal_tree(arg.start)
     arglib.remove_single_lineages(tree)
@@ -2620,8 +2543,6 @@ def est_arg_popsizes(arg, times=None, popsize_mu=1e4, popsize_sigma=.5e4):
         if not node.is_leaf():
             ncoals[a] += 1
 
-    #print zip(ncoals, k_lineages)
-
     try:
         import scipy.optimize
 
@@ -2631,8 +2552,10 @@ def est_arg_popsizes(arg, times=None, popsize_mu=1e4, popsize_sigma=.5e4):
             B = popsize_mu / popsize_sigma / popsize_sigma
             C = - ncoals[j]
             D = time_steps[j] * k_lineages[j] / 2.0
+
             def func(x):
                 return A*x*x*x + B*x*x + C*x + D
+
             #print [func(n) for n in util.frange(0, 2.0*popsize_mu,
             #                               .2*popsize_mu)]
             try:
@@ -2646,9 +2569,4 @@ def est_arg_popsizes(arg, times=None, popsize_mu=1e4, popsize_sigma=.5e4):
                      if ncoals[j] > 0 else util.INF)
                     for j in range(len(time_steps))]
 
-
-
     return popsizes
-
-
-
