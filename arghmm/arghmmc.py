@@ -30,263 +30,323 @@ if arghmmclib:
     # replace python function with c
 
     # Sequences.
-    export(arghmmclib, "arghmm_read_sites", C.c_void_p,
-           [C.c_char_p, "filename", C.c_int, "subregion_start",
-            C.c_int, "subregion_end"])
-    export(arghmmclib, "arghmm_delete_sites", C.c_int,
-           [C.c_void_p, "sites"])
+    arghmm_read_sites = export(
+        arghmmclib, "arghmm_read_sites", C.c_void_p,
+        [C.c_char_p, "filename", C.c_int, "subregion_start",
+         C.c_int, "subregion_end"])
+    arghmm_delete_sites = export(
+        arghmmclib, "arghmm_delete_sites", C.c_int,
+        [C.c_void_p, "sites"])
 
     # Basic HMM functions.
-    export(arghmmclib, "forward_alg", C.c_int,
-           [C.c_int, "n", C.c_int, "nstates",
-            C.c_double_p_p, "trans", C.c_double_p_p, "emit",
-            C.c_out(C.c_double_matrix), "fw"])
-    export(arghmmclib, "backward_alg", C.c_int,
-           [C.c_int, "n", C.c_int, "nstates",
-            C.c_double_p_p, "trans", C.c_double_p_p, "emit",
-            C.c_out(C.c_double_matrix), "bw"])
-    export(arghmmclib, "sample_hmm_posterior", C.c_int,
-           [C.c_int, "n", C.c_int, "nstates",
-            C.c_double_p_p, "trans", C.c_double_p_p, "emit",
-            C.c_out(C.c_double_matrix), "fw", C.c_out(C.c_int_list), "path"])
+    forward_alg = export(
+        arghmmclib, "forward_alg", C.c_int,
+        [C.c_int, "n", C.c_int, "nstates",
+         C.c_double_p_p, "trans", C.c_double_p_p, "emit",
+         C.c_out(C.c_double_matrix), "fw"])
+    backward_alg = export(
+        arghmmclib, "backward_alg", C.c_int,
+        [C.c_int, "n", C.c_int, "nstates",
+         C.c_double_p_p, "trans", C.c_double_p_p, "emit",
+         C.c_out(C.c_double_matrix), "bw"])
+    sample_hmm_posterior = export(
+        arghmmclib, "sample_hmm_posterior", C.c_int,
+        [C.c_int, "n", C.c_int, "nstates",
+         C.c_double_p_p, "trans", C.c_double_p_p, "emit",
+         C.c_out(C.c_double_matrix), "fw", C.c_out(C.c_int_list), "path"])
 
     # Transition matrices calculation.
-    export(arghmmclib, "new_transition_probs", C.c_double_p_p,
-           [C.c_int, "nnodes", C.c_int_list, "ptree",
-            C.c_int_list, "ages_index", C.c_double, "treelen",
-            POINTER(C.c_int * 2), "states", C.c_int, "nstates",
-            C.c_int, "ntimes", C.c_double_list, "times",
-            C.c_double_list, "time_steps",
-            C.c_int_list, "nbranches", C.c_int_list, "nrecombs",
-            C.c_int_list, "ncoals",
-            C.c_double_list, "popsizes", C.c_double, "rho"])
-    export(arghmmclib, "new_transition_probs_switch", C.c_double_p_p,
-           [C.c_int_list, "ptree", C.c_int_list, "last_ptree",
-            C.c_int, "nnodes",
-            C.c_int, "recomb_name", C.c_int, "recomb_time",
-            C.c_int, "coal_name", C.c_int, "coal_time",
-            C.c_int_list, "ages_index", C.c_int_list, "last_ages_index",
-            C.c_double, "treelen", C.c_double, "last_treelen",
-            POINTER(C.c_int * 2), "states1", C.c_int, "nstates1",
-            POINTER(C.c_int * 2), "states2", C.c_int, "nstates2",
-            C.c_int, "ntimes", C.c_double_list, "times",
-            C.c_double_list, "time_steps",
-            C.c_int_list, "nbranches", C.c_int_list, "nrecombs",
-            C.c_int_list, "ncoals",
-            C.c_double_list, "popsizes", C.c_double, "rho"])
-    export(arghmmclib, "delete_transition_probs", C.c_int,
-           [C.c_double_p_p, "transition_probs", C.c_int, "nstates"])
-    export(arghmmclib, "arghmm_assert_transmat", C.c_bool,
-           [C.c_int, "nnodes", C.c_int_list, "ptree", C.c_int_list, "ages",
-            C.c_int, "ntimes", C.c_double_list, "times",
-            C.c_double_list, "popsizes", C.c_double, "rho"])
-    export(arghmmclib, "arghmm_assert_transmat_switch", C.c_bool,
-           [C.c_int, "nnodes", C.c_int_list, "ptree", C.c_int_list, "ages",
-            C.c_int, "recomb_name", C.c_int, "recomb_time",
-            C.c_int, "coal_name", C.c_int, "coal_time",
-            C.c_int, "ntimes", C.c_double_list, "times",
-            C.c_double_list, "popsizes", C.c_double, "rho"])
-    export(arghmmclib, "arghmm_assert_transmat_internal", C.c_bool,
-           [C.c_int, "nnodes", C.c_int_list, "ptree", C.c_int_list, "ages",
-            C.c_int, "ntimes", C.c_double_list, "times",
-            C.c_double_list, "popsizes", C.c_double, "rho"])
-    export(arghmmclib, "arghmm_assert_transmat_switch_internal", C.c_bool,
-           [C.c_void_p, "trees", C.c_int, "ntimes", C.c_double_list, "times",
-            C.c_double_list, "popsizes", C.c_double, "rho"])
+    new_transition_probs = export(
+        arghmmclib, "new_transition_probs", C.c_double_p_p,
+        [C.c_int, "nnodes", C.c_int_list, "ptree",
+         C.c_int_list, "ages_index", C.c_double, "treelen",
+         POINTER(C.c_int * 2), "states", C.c_int, "nstates",
+         C.c_int, "ntimes", C.c_double_list, "times",
+         C.c_double_list, "time_steps",
+         C.c_int_list, "nbranches", C.c_int_list, "nrecombs",
+         C.c_int_list, "ncoals",
+         C.c_double_list, "popsizes", C.c_double, "rho"])
+    new_transition_probs_switch = export(
+        arghmmclib, "new_transition_probs_switch", C.c_double_p_p,
+        [C.c_int_list, "ptree", C.c_int_list, "last_ptree",
+         C.c_int, "nnodes",
+         C.c_int, "recomb_name", C.c_int, "recomb_time",
+         C.c_int, "coal_name", C.c_int, "coal_time",
+         C.c_int_list, "ages_index", C.c_int_list, "last_ages_index",
+         C.c_double, "treelen", C.c_double, "last_treelen",
+         POINTER(C.c_int * 2), "states1", C.c_int, "nstates1",
+         POINTER(C.c_int * 2), "states2", C.c_int, "nstates2",
+         C.c_int, "ntimes", C.c_double_list, "times",
+         C.c_double_list, "time_steps",
+         C.c_int_list, "nbranches", C.c_int_list, "nrecombs",
+         C.c_int_list, "ncoals",
+         C.c_double_list, "popsizes", C.c_double, "rho"])
+    delete_transition_probs = export(
+        arghmmclib, "delete_transition_probs", C.c_int,
+        [C.c_double_p_p, "transition_probs", C.c_int, "nstates"])
+    arghmm_assert_transmat = export(
+        arghmmclib, "arghmm_assert_transmat", C.c_bool,
+        [C.c_int, "nnodes", C.c_int_list, "ptree", C.c_int_list, "ages",
+         C.c_int, "ntimes", C.c_double_list, "times",
+         C.c_double_list, "popsizes", C.c_double, "rho"])
+    arghmm_assert_transmat_switch = export(
+        arghmmclib, "arghmm_assert_transmat_switch", C.c_bool,
+        [C.c_int, "nnodes", C.c_int_list, "ptree", C.c_int_list, "ages",
+         C.c_int, "recomb_name", C.c_int, "recomb_time",
+         C.c_int, "coal_name", C.c_int, "coal_time",
+         C.c_int, "ntimes", C.c_double_list, "times",
+         C.c_double_list, "popsizes", C.c_double, "rho"])
+    arghmm_assert_transmat_internal = export(
+        arghmmclib, "arghmm_assert_transmat_internal", C.c_bool,
+        [C.c_int, "nnodes", C.c_int_list, "ptree", C.c_int_list, "ages",
+         C.c_int, "ntimes", C.c_double_list, "times",
+         C.c_double_list, "popsizes", C.c_double, "rho"])
+    arghmm_assert_transmat_switch_internal = export(
+        arghmmclib, "arghmm_assert_transmat_switch_internal", C.c_bool,
+        [C.c_void_p, "trees", C.c_int, "ntimes", C.c_double_list, "times",
+         C.c_double_list, "popsizes", C.c_double, "rho"])
 
     # Emission calculation.
-    export(arghmmclib, "new_emissions", C.c_double_p_p,
-           [POINTER(C.c_int * 2), "states",
-            C.c_int, "nstates",
-            C.c_int_list, "ptree", C.c_int, "nnodes", C.c_int_list, "ages",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double, "mu"])
-    export(arghmmclib, "delete_emissions", C.c_int,
-           [C.c_double_p_p, "emit", C.c_int, "seqlen"])
-    export(arghmmclib, "arghmm_assert_emit", C.c_bool,
-           [C.c_void_p, "trees", C.c_int, "ntimes", C.c_double_list, "times",
-            C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    export(arghmmclib, "arghmm_assert_emit_internal", C.c_bool,
-           [C.c_void_p, "trees", C.c_int, "ntimes", C.c_double_list, "times",
-            C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
+    new_emissions = export(
+        arghmmclib, "new_emissions", C.c_double_p_p,
+        [POINTER(C.c_int * 2), "states",
+         C.c_int, "nstates",
+         C.c_int_list, "ptree", C.c_int, "nnodes", C.c_int_list, "ages",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double, "mu"])
+    delete_emissions = export(
+        arghmmclib, "delete_emissions", C.c_int,
+        [C.c_double_p_p, "emit", C.c_int, "seqlen"])
+    arghmm_assert_emit = export(
+        arghmmclib, "arghmm_assert_emit", C.c_bool,
+        [C.c_void_p, "trees", C.c_int, "ntimes", C.c_double_list, "times",
+         C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
+    arghmm_assert_emit_internal = export(
+        arghmmclib, "arghmm_assert_emit_internal", C.c_bool,
+        [C.c_void_p, "trees", C.c_int, "ntimes", C.c_double_list, "times",
+         C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
 
     # ArgHMM Forward algorithm.
-    export(arghmmclib, "arghmm_forward_alg", C.c_double_p_p,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_bool, "prior_given", C.c_double_list, "prior",
-            C.c_bool, "internal", C.c_bool, "slow"])
-    export(arghmmclib, "delete_double_matrix", C.c_int,
-           [C.c_double_p_p, "mat", C.c_int, "nrows"])
-    export(arghmmclib, "delete_forward_matrix", C.c_int,
-           [C.c_double_p_p, "mat", C.c_int, "nrows"])
+    arghmm_forward_alg = export(
+        arghmmclib, "arghmm_forward_alg", C.c_double_p_p,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_bool, "prior_given", C.c_double_list, "prior",
+         C.c_bool, "internal", C.c_bool, "slow"])
+    delete_double_matrix = export(
+        arghmmclib, "delete_double_matrix", C.c_int,
+        [C.c_double_p_p, "mat", C.c_int, "nrows"])
+    delete_forward_matrix = export(
+        arghmmclib, "delete_forward_matrix", C.c_int,
+        [C.c_double_p_p, "mat", C.c_int, "nrows"])
 
     # ARG thread sampling.
-    export(arghmmclib, "arghmm_sample_posterior", POINTER(C.c_int * 2),
-           [C.c_int_matrix, "ptrees", C.c_int_matrix, "ages",
-            C.c_int_matrix, "sprs", C.c_int_list, "blocklens",
-            C.c_int, "ntrees", C.c_int, "nnodes",
-            C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            POINTER(POINTER(C.c_int * 2)), "path"])
-    export(arghmmclib, "arghmm_sample_thread", C.c_void_p,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    export(arghmmclib, "arghmm_sample_arg_thread_internal", C.c_int,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_out(C.c_int_list), "thread_path"])
+    arghmm_sample_posterior = export(
+        arghmmclib, "arghmm_sample_posterior", POINTER(C.c_int * 2),
+        [C.c_int_matrix, "ptrees", C.c_int_matrix, "ages",
+         C.c_int_matrix, "sprs", C.c_int_list, "blocklens",
+         C.c_int, "ntrees", C.c_int, "nnodes",
+         C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         POINTER(POINTER(C.c_int * 2)), "path"])
+    arghmm_sample_thread = export(
+        arghmmclib, "arghmm_sample_thread", C.c_void_p,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
+    arghmm_sample_arg_thread_internal = export(
+        arghmmclib, "arghmm_sample_arg_thread_internal", C.c_int,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_out(C.c_int_list), "thread_path"])
 
     # ARG sampling.
-    export(arghmmclib, "arghmm_sample_arg_seq", C.c_void_p,
-           [C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    export(arghmmclib, "arghmm_sample_arg_refine", C.c_void_p,
-           [C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_int, "niters", C.c_int, "nremove"])
-    export(arghmmclib, "arghmm_resample_arg", C.c_void_p,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_int, "niters", C.c_int, "nremove"])
-    export(arghmmclib, "arghmm_resample_all_arg", C.c_void_p,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_int, "niters", C.c_double, "prob_path_switch"])
-    export(arghmmclib, "arghmm_resample_mcmc_arg", C.c_void_p,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_int, "niters", C.c_int, "niters2", C.c_int, "window"])
-    export(arghmmclib, "arghmm_resample_climb_arg", C.c_void_p,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_int, "niters", C.c_double, "recomb_preference"])
-    export(arghmmclib, "arghmm_resample_arg_cut", C.c_void_p,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_int, "niters"])
-    export(arghmmclib, "arghmm_resample_arg_region", C.c_void_p,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_int, "region_start", C.c_int, "region_end", C.c_int, "niters"])
-    export(arghmmclib, "arghmm_sample_arg_seq_gibbs", C.c_void_p,
-           [C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-            C.c_int, "seqiters", C.c_int, "gibbsiters"])
+    arghmm_sample_arg_seq = export(
+        arghmmclib, "arghmm_sample_arg_seq", C.c_void_p,
+        [C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
+    arghmm_sample_arg_refine = export(
+        arghmmclib, "arghmm_sample_arg_refine", C.c_void_p,
+        [C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_int, "niters", C.c_int, "nremove"])
+    arghmm_resample_arg = export(
+        arghmmclib, "arghmm_resample_arg", C.c_void_p,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_int, "niters", C.c_int, "nremove"])
+    arghmm_resample_all_arg = export(
+        arghmmclib, "arghmm_resample_all_arg", C.c_void_p,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_int, "niters", C.c_double, "prob_path_switch"])
+    arghmm_resample_mcmc_arg = export(
+        arghmmclib, "arghmm_resample_mcmc_arg", C.c_void_p,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_int, "niters", C.c_int, "niters2", C.c_int, "window"])
+    arghmm_resample_climb_arg = export(
+        arghmmclib, "arghmm_resample_climb_arg", C.c_void_p,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_int, "niters", C.c_double, "recomb_preference"])
+    arghmm_resample_arg_cut = export(
+        arghmmclib, "arghmm_resample_arg_cut", C.c_void_p,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_int, "niters"])
+    arghmm_resample_arg_region = export(
+        arghmmclib, "arghmm_resample_arg_region", C.c_void_p,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_int, "region_start", C.c_int, "region_end", C.c_int, "niters"])
+    arghmm_sample_arg_seq_gibbs = export(
+        arghmmclib, "arghmm_sample_arg_seq_gibbs", C.c_void_p,
+        [C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+         C.c_int, "seqiters", C.c_int, "gibbsiters"])
 
     # ARG probability.
-    export(arghmmclib, "arghmm_likelihood", C.c_double,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    export(arghmmclib, "arghmm_likelihood_parsimony", C.c_double,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double, "mu",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    export(arghmmclib, "arghmm_joint_prob", C.c_double,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes",
-            C.c_double, "mu", C.c_double, "rho",
-            C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    export(arghmmclib, "arghmm_prior_prob", C.c_double,
-           [C.c_void_p, "trees",
-            C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes", C.c_double, "rho"])
-    export(arghmmclib, "arghmm_tree_prior_prob", C.c_double,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_double_list, "popsizes"])
-    export(arghmmclib, "prob_coal_counts_matrix", C.c_double,
-           [C.c_int, "a", C.c_int, "b", C.c_double, "t", C.c_double, "n"])
+    arghmm_likelihood = export(
+        arghmmclib, "arghmm_likelihood", C.c_double,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
+    arghmm_likelihood_parsimony = export(
+        arghmmclib, "arghmm_likelihood_parsimony", C.c_double,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double, "mu",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
+    arghmm_joint_prob = export(
+        arghmmclib, "arghmm_joint_prob", C.c_double,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes",
+         C.c_double, "mu", C.c_double, "rho",
+         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
+    arghmm_prior_prob = export(
+        arghmmclib, "arghmm_prior_prob", C.c_double,
+        [C.c_void_p, "trees",
+         C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes", C.c_double, "rho"])
+    arghmm_tree_prior_prob = export(
+        arghmmclib, "arghmm_tree_prior_prob", C.c_double,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_double_list, "popsizes"])
+    prob_coal_counts_matrix = export(
+        arghmmclib, "prob_coal_counts_matrix", C.c_double,
+        [C.c_int, "a", C.c_int, "b", C.c_double, "t", C.c_double, "n"])
 
     # Estimating population sizes.
-    export(arghmmclib, "arghmm_est_popsizes_trees", C.c_double,
-           [C.c_void_p, "trees",
-            C.c_double_list, "times", C.c_int, "ntimes", C.c_int, "step",
-            C.c_out(C.c_double_list), "popsizes"])
+    arghmm_est_popsizes_trees = export(
+        arghmmclib, "arghmm_est_popsizes_trees", C.c_double,
+        [C.c_void_p, "trees",
+         C.c_double_list, "times", C.c_int, "ntimes", C.c_int, "step",
+         C.c_out(C.c_double_list), "popsizes"])
 
     # Threading.
-    export(arghmmclib, "arghmm_sample_arg_removal_path", C.c_int,
-           [C.c_void_p, "trees", C.c_int, "node",
-            C.c_out(C.c_int_list), "path"])
-    export(arghmmclib, "arghmm_sample_arg_removal_leaf_path", C.c_int,
-           [C.c_void_p, "trees", C.c_int, "node",
-            C.c_out(C.c_int_list), "path"])
-    export(arghmmclib, "arghmm_sample_arg_removal_path2", C.c_int,
-           [C.c_void_p, "trees", C.c_int, "node", C.c_int, "pos",
-            C.c_out(C.c_int_list), "path"])
-    export(arghmmclib, "arghmm_sample_arg_removal_path_recomb", C.c_int,
-           [C.c_void_p, "trees", C.c_double, "recomb_preference",
-            C.c_out(C.c_int_list), "path"])
-    export(arghmmclib, "arghmm_remove_arg_thread_path", C.c_int,
-           [C.c_void_p, "trees", C.c_int_list, "path", C.c_int, "maxtime"])
-    export(arghmmclib, "arghmm_remove_arg_thread_path2", C.c_int,
-           [C.c_void_p, "trees", C.c_int_list, "path", C.c_int, "maxtime",
-            C.c_out(C.c_int_list), "original_thread"])
-    export(arghmmclib, "arghmm_get_thread_times", C.c_int,
-           [C.c_void_p, "trees", C.c_int, "ntimes", C.c_int_list, "path",
-            C.c_out(C.c_int_list), "path_times"])
+    arghmm_sample_arg_removal_path = export(
+        arghmmclib, "arghmm_sample_arg_removal_path", C.c_int,
+        [C.c_void_p, "trees", C.c_int, "node",
+         C.c_out(C.c_int_list), "path"])
+    arghmm_sample_arg_removal_leaf_path = export(
+        arghmmclib, "arghmm_sample_arg_removal_leaf_path", C.c_int,
+        [C.c_void_p, "trees", C.c_int, "node",
+         C.c_out(C.c_int_list), "path"])
+    arghmm_sample_arg_removal_path2 = export(
+        arghmmclib, "arghmm_sample_arg_removal_path2", C.c_int,
+        [C.c_void_p, "trees", C.c_int, "node", C.c_int, "pos",
+         C.c_out(C.c_int_list), "path"])
+    arghmm_sample_arg_removal_path_recomb = export(
+        arghmmclib, "arghmm_sample_arg_removal_path_recomb", C.c_int,
+        [C.c_void_p, "trees", C.c_double, "recomb_preference",
+         C.c_out(C.c_int_list), "path"])
+    arghmm_remove_arg_thread_path = export(
+        arghmmclib, "arghmm_remove_arg_thread_path", C.c_int,
+        [C.c_void_p, "trees", C.c_int_list, "path", C.c_int, "maxtime"])
+    arghmm_remove_arg_thread_path2 = export(
+        arghmmclib, "arghmm_remove_arg_thread_path2", C.c_int,
+        [C.c_void_p, "trees", C.c_int_list, "path", C.c_int, "maxtime",
+         C.c_out(C.c_int_list), "original_thread"])
+    arghmm_get_thread_times = export(
+        arghmmclib, "arghmm_get_thread_times", C.c_int,
+        [C.c_void_p, "trees", C.c_int, "ntimes", C.c_int_list, "path",
+         C.c_out(C.c_int_list), "path_times"])
 
     # ARG data structure API.
-    export(arghmmclib, "arghmm_new_trees", C.c_void_p,
-           [C.c_int_matrix, "ptrees", C.c_int_matrix, "ages",
-            C.c_int_matrix, "sprs", C.c_int_list, "blocklens",
-            C.c_int, "ntrees", C.c_int, "nnodes", C.c_int, "start_coord"])
-    export(arghmmclib, "arghmm_copy_trees", C.c_void_p,
-           [C.c_void_p, "trees"])
-    export(arghmmclib, "get_local_trees_ntrees", C.c_int,
-           [C.c_void_p, "trees"])
-    export(arghmmclib, "get_local_trees_nnodes", C.c_int,
-           [C.c_void_p, "trees"])
-    export(arghmmclib, "get_local_trees_ptrees", C.c_int,
-           [C.c_void_p, "trees", C.c_out(C.c_int_matrix), "ptrees",
-            C.c_out(C.c_int_matrix), "ages",
-            C.c_out(C.c_int_matrix), "sprs",
-            C.c_out(C.c_int_list), "blocklens"])
-    export(arghmmclib, "get_treelens", C.c_int,
-           [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-            C.c_out(C.c_double_list), "treelens"])
-    export(arghmmclib, "get_local_trees_blocks", C.c_int,
-           [C.c_void_p, "trees", C.c_out(C.c_int_list), "starts",
-            C.c_out(C.c_int_list), "ends"])
-    export(arghmmclib, "delete_local_trees", C.c_int,
-           [C.c_void_p, "trees"])
-    export(arghmmclib, "write_local_trees", C.c_int,
-           [C.c_char_p, "filename", C.c_void_p, "trees",
-            C.c_char_p_list, "names",
-            C.c_double_list, "times", C.c_int, "ntimes"])
-    export(arghmmclib, "read_local_trees", C.c_void_p,
-           [C.c_char_p, "filename",
-            C.c_double_list, "times", C.c_int, "ntimes"])
+    arghmm_new_trees = export(
+        arghmmclib, "arghmm_new_trees", C.c_void_p,
+        [C.c_int_matrix, "ptrees", C.c_int_matrix, "ages",
+         C.c_int_matrix, "sprs", C.c_int_list, "blocklens",
+         C.c_int, "ntrees", C.c_int, "nnodes", C.c_int, "start_coord"])
+    arghmm_copy_trees = export(
+        arghmmclib, "arghmm_copy_trees", C.c_void_p,
+        [C.c_void_p, "trees"])
+    get_local_trees_ntrees = export(
+        arghmmclib, "get_local_trees_ntrees", C.c_int,
+        [C.c_void_p, "trees"])
+    get_local_trees_nnodes = export(
+        arghmmclib, "get_local_trees_nnodes", C.c_int,
+        [C.c_void_p, "trees"])
+    get_local_trees_ptrees = export(
+        arghmmclib, "get_local_trees_ptrees", C.c_int,
+        [C.c_void_p, "trees", C.c_out(C.c_int_matrix), "ptrees",
+         C.c_out(C.c_int_matrix), "ages",
+         C.c_out(C.c_int_matrix), "sprs",
+         C.c_out(C.c_int_list), "blocklens"])
+    get_treelens = export(
+        arghmmclib, "get_treelens", C.c_int,
+        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+         C.c_out(C.c_double_list), "treelens"])
+    get_local_trees_blocks = export(
+        arghmmclib, "get_local_trees_blocks", C.c_int,
+        [C.c_void_p, "trees", C.c_out(C.c_int_list), "starts",
+         C.c_out(C.c_int_list), "ends"])
+    delete_local_trees = export(
+        arghmmclib, "delete_local_trees", C.c_int,
+        [C.c_void_p, "trees"])
+    write_local_trees = export(
+        arghmmclib, "write_local_trees", C.c_int,
+        [C.c_char_p, "filename", C.c_void_p, "trees",
+         C.c_char_p_list, "names",
+         C.c_double_list, "times", C.c_int, "ntimes"])
+    read_local_trees = export(
+        arghmmclib, "read_local_trees", C.c_void_p,
+        [C.c_char_p, "filename",
+         C.c_double_list, "times", C.c_int, "ntimes"])
 
     # Thread data structures.
-    export(arghmmclib, "delete_path", C.c_int,
-           [POINTER(C.c_int * 2), "path"])
-    export(arghmmclib, "arghmm_get_nstates", int,
-           [C.c_void_p, "trees",  C.c_int, "ntimes", C.c_bool, "internal",
-            C.c_out(C.c_int_list), "nstates"])
-    export(arghmmclib, "get_state_spaces", POINTER(POINTER(C.c_int * 2)),
-           [C.c_void_p, "trees",  C.c_int, "ntimes", C.c_bool, "internal"])
-    export(arghmmclib, "delete_state_spaces", C.c_int,
-           [POINTER(POINTER(C.c_int * 2)), "all_states", C.c_int, "ntrees"])
+    delete_path = export(
+        arghmmclib, "delete_path", C.c_int,
+        [POINTER(C.c_int * 2), "path"])
+    arghmm_get_nstates = export(
+        arghmmclib, "arghmm_get_nstates", int,
+        [C.c_void_p, "trees",  C.c_int, "ntimes", C.c_bool, "internal",
+         C.c_out(C.c_int_list), "nstates"])
+    get_state_spaces = export(
+        arghmmclib, "get_state_spaces", POINTER(POINTER(C.c_int * 2)),
+        [C.c_void_p, "trees",  C.c_int, "ntimes", C.c_bool, "internal"])
+    delete_state_spaces = export(
+        arghmmclib, "delete_state_spaces", C.c_int,
+        [POINTER(POINTER(C.c_int * 2)), "all_states", C.c_int, "ntrees"])
 
-    export(arghmmclib, "setLogLevel", C.c_int,
-           [C.c_int, "level"])
+    setLogLevel = export(
+        arghmmclib, "setLogLevel", C.c_int,
+        [C.c_int, "level"])
 
 
 # By default use a random seed.
@@ -522,11 +582,12 @@ def arghmm_forward_algorithm(arg, seqs, rho=1.5e-8,
 # sampling ARG threads
 
 
-def sample_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4, times=None,
-                  verbose=False):
+def sample_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
+                  times=None, ntimes=20, maxtime=200000, verbose=False):
 
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = arghmm.get_time_points(
+            ntimes=ntimes, maxtime=maxtime, delta=.01)
     popsizes = [popsize] * len(times)
 
     if verbose:
@@ -545,38 +606,6 @@ def sample_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4, times=None,
         trees, times, len(times),
         popsizes, rho, mu,
         (C.c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen, None)
-    arg = ctrees2arg(trees, names, times, verbose=verbose)
-
-    if verbose:
-        util.toc()
-
-    return arg
-
-
-def max_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4, times=None,
-               verbose=False):
-
-    if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
-    popsizes = [popsize] * len(times)
-
-    if verbose:
-        util.tic("sample thread")
-
-    trees, names = arg2ctrees(arg, times)
-
-    seqs2 = [seqs[name] for name in names]
-
-    new_name = [x for x in seqs.keys() if x not in names][0]
-    names.append(new_name)
-    seqs2.append(seqs[new_name])
-    seqlen = len(seqs2[0])
-
-    trees = arghmm_max_thread(
-        trees, times, len(times),
-        popsizes, rho, mu,
-        (C.c_char_p * len(seqs2))(*seqs2), len(seqs2),
-        seqlen, None)
     arg = ctrees2arg(trees, names, times, verbose=verbose)
 
     if verbose:
