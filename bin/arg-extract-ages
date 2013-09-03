@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """
-Estimate the ages of alleles using an ARG or samples of ARGs.
 
 Output format
 -------------
@@ -20,6 +19,7 @@ The output is tab-delimited and contains the following columns:
 
 """
 
+
 from itertools import izip
 import os
 import optparse
@@ -34,12 +34,22 @@ from rasmus import treelib
 from rasmus import util
 
 
-o = optparse.OptionParser(usage="%prog SMC_FILE SITES_FILE")
-o.add_option("-s", "--start", default=0, type="int")
-o.add_option("-e", "--end", default=5000, type="int")
-o.add_option("-d", "--step", default=1, type="int")
-o.add_option("-r", "--region")
-o.add_option("", "--sample", action="store_true")
+o = optparse.OptionParser(
+    usage="%prog SMC_FILE SITES_FILE",
+    description="""
+Estimate allele ages using an ARG or samples of ARGs.  SMC_FILE can
+be a pattern, where '%d' denotes the sample iteration.
+""")
+o.add_option("-s", "--start", default=0, type="int",
+             help="Starting sample iteration to use")
+o.add_option("-e", "--end", default=5000, type="int",
+             help="Last sample iteration to use")
+o.add_option("-d", "--step", default=1, type="int",
+             help="Step size through samples")
+o.add_option("-r", "--region",
+             help="Only process region 'start-end'")
+o.add_option("", "--sample", action="store_true",
+             help="Sample allele age uniformly along branches")
 conf, args = o.parse_args()
 
 

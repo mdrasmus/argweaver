@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 import optparse
 import os
 import sys
@@ -12,13 +13,24 @@ from rasmus import treelib
 from rasmus import util
 
 
-o = optparse.OptionParser()
-o.add_option("-s", "--start", default=0, type="int")
-o.add_option("-e", "--end", default=5000, type="int")
-o.add_option("-d", "--step", default=1, type="int")
-o.add_option("-n", "--ntrees", default=-1, type="int")
-o.add_option("-b", "--binary", action="store_true")
-o.add_option("-r", "--region")
+o = optparse.OptionParser(
+    usage="%prog ARG_FILES ...",
+    description="""
+Determines consensus local trees from a set of ARG samples. ARGs can be
+specified in *.arg or *.smc file formats.
+""")
+o.add_option("-s", "--start", default=0, type="int",
+             help="Starting sample iteration to use")
+o.add_option("-e", "--end", default=5000, type="int",
+             help="Last sample iteration to use")
+o.add_option("-d", "--step", default=1, type="int",
+             help="Step size through samples")
+o.add_option("-n", "--ntrees", default=-1, type="int",
+             help="Number of local trees to extract from each ARG")
+o.add_option("-b", "--binary", action="store_true",
+             help="Ensure each local tree is binary")
+o.add_option("-r", "--region",
+             help="Extract trees only from region 'start-end'")
 
 conf, args = o.parse_args()
 
@@ -109,6 +121,10 @@ def cons_smc(trees, attr, positions=None):
 
 
 #=============================================================================
+
+if len(args) == 0:
+    o.print_help()
+    sys.exit(1)
 
 region = None
 if conf.region:

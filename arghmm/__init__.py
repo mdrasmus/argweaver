@@ -8,6 +8,7 @@ from contextlib import closing
 import heapq
 from itertools import chain
 from math import exp, log
+import random
 import os
 import subprocess
 
@@ -708,8 +709,13 @@ def sites2seqs(sites, default_char="A"):
 
     # create blank alignment
     seqs2 = []
-    for i in range(sites.nseqs()):
-        seqs2.append([default_char] * seqlen)
+    if default_char:
+        for i in range(sites.nseqs()):
+            seqs2.append([default_char] * seqlen)
+    else:
+        seq = ["ACGT"[random.randint(0, 3)] for i in range(seqlen)]
+        for i in range(sites.nseqs()):
+            seqs2.append(list(seq))
 
     # fill in sites
     for pos in sites.positions:

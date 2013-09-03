@@ -9,14 +9,24 @@ from arghmm import arghmmc
 from compbio import arglib
 
 
-o = optparse.OptionParser()
-o.add_option("-t", "--ntimes", type="int")
-o.add_option("", "--maxtime", type="float")
+o = optparse.OptionParser(
+    usage="%prog ARG_FILE SMC_FILE",
+    description="""
+Converts an ARG stored in *.arg format to *.smc format.
+If `--ntimes` and `--maxtime` are given, the ARG is also discretized.
+""")
+o.add_option("-t", "--ntimes", type="int",
+             help="If given, ARG will be discretized in 'ntimes' time points")
+o.add_option("", "--maxtime", type="float",
+             help="Maximum time discretized time point")
 
 conf, args = o.parse_args()
 
-#=============================================================================
 
+# Parse arguments
+if len(args) != 2:
+    o.print_help()
+    sys.exit(1)
 
 arg_file = args[0]
 smc_file = args[1]

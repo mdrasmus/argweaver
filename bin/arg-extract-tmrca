@@ -2,6 +2,7 @@
 
 import optparse
 import os
+import sys
 
 import arghmm
 
@@ -10,15 +11,22 @@ from rasmus import stats
 from rasmus import util
 
 
-o = optparse.OptionParser()
-o.add_option("-s", "--start", default=0, type="int")
-o.add_option("-e", "--end", default=5000, type="int")
-o.add_option("-d", "--step", default=1, type="int")
-
+o = optparse.OptionParser(
+    usage="%prog SMC_FILE ...",
+    description="""
+Estimate the TMRCA using an ARG or samples of ARGs.
+SMC_FILE can be a pattern, where '%d' denotes the sample iteration.
+""")
+o.add_option("-s", "--start", default=0, type="int",
+             help="Starting sample iteration to use")
+o.add_option("-e", "--end", default=5000, type="int",
+             help="Last sample iteration to use")
+o.add_option("-d", "--step", default=1, type="int",
+             help="Step size through samples")
 conf, args = o.parse_args()
 
-#=============================================================================
 
+#=============================================================================
 
 def iter_tmrcas(filename):
     chrom = "chr"
@@ -31,8 +39,11 @@ def iter_tmrcas(filename):
             yield (item["start"]-1, item["end"], chrom,
                    item["tree"].root.data["age"])
 
-
 #=============================================================================
+
+if len(args) == 0:
+    o.print_help()
+    sys.exit(1)
 
 # get filenames
 filename = args[0]

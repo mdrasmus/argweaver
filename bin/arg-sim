@@ -10,21 +10,37 @@ from compbio import arglib
 from rasmus import util
 
 
-o = optparse.OptionParser()
-o.add_option("-k", "--nseqs", type="int")
-o.add_option("-N", "--popsize", type="float", default=1e4)
-o.add_option("-r", "--recombrate", type="float", default=1.5e-8)
-o.add_option("-m", "--mutrate", type="float", default=2.5e-8)
-o.add_option("-L", "--seqlen", type="int", default=int(200e3))
-o.add_option("-c", "--chrom", default="chr")
-o.add_option("-o", "--output", default="out")
-o.add_option("", "--ntimes", type="int", default=20)
-o.add_option("", "--maxtime", type="float", default=180e3)
+o = optparse.OptionParser(
+    description="""
+Simulate an ARG and DNA sequences according to an evolutionary
+model. The model can be Coalescent with Recombination (coal_recomb),
+the Sequentially Markov Coalescent (smc), or the Discretized
+Sequentially Markov Coalescent (dsmc).
+""")
+o.add_option("-k", "--nseqs", type="int",
+             help="Number of sequences to simulate")
+o.add_option("-N", "--popsize", type="float", default=1e4,
+             help="Effective population size (default=1e4)")
+o.add_option("-r", "--recombrate", type="float", default=1.5e-8,
+             help="Recombination rate (recombination/generation/site)")
+o.add_option("-m", "--mutrate", type="float", default=2.5e-8,
+             help="Mutation rate (mutations/generation/site)")
+o.add_option("-L", "--seqlen", type="int", default=int(200e3),
+             help="Sequence length")
+o.add_option("-c", "--chrom", default="chr",
+             help="Chromosome/sequence name (default='chr')")
+o.add_option("-o", "--output", default="out",
+             help="Output prefix (default='out')")
+o.add_option("", "--ntimes", type="int", default=20,
+             help="Number of discretized time point (default=20)")
+o.add_option("", "--maxtime", type="float", default=200e3,
+             help="Maximum discretized time point (default=200e3)")
 o.add_option("", "--model", default="dsmc",
-             help="simulation model: dsmc, smc, coal_recomb (default=dsmc)")
-o.add_option("", "--infsites", action="store_true", default=False)
+             help="Simulation model: dsmc, smc, coal_recomb (default=dsmc)")
+o.add_option("", "--infsites", action="store_true", default=False,
+             help="Use infinite site assumption")
 o.add_option("-R", "--recombmap", metavar="<recombination rate map file>",
-             help="recombination map file")
+             help="Recombination map file")
 
 if len(sys.argv) == 1:
     o.print_help()
@@ -82,6 +98,5 @@ print "writing output: ", conf.output + ".{sites,arg}"
 path = os.path.dirname(conf.output)
 util.makedirs(path)
 
-#seqs.write(conf.output + ".fa")
 sites.write(conf.output + ".sites")
 arglib.write_arg(conf.output + ".arg", arg)

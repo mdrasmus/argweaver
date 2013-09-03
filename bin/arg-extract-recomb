@@ -12,19 +12,32 @@ from rasmus import stats
 from rasmus import util
 
 
-o = optparse.OptionParser()
-o.add_option("-w", "--window", default=1000, type="int")
-o.add_option("-s", "--start", default=0, type="int")
-o.add_option("-e", "--end", default=10000, type="int")
-o.add_option("-d", "--step", default=1, type="int")
-o.add_option("-n", "--normalize", action="store_true",
-             help="normalize by generations")
-o.add_option("-t", "--ntimes", type="int", default=20)
-o.add_option("", "--maxtime", type="float", default=180e3)
+o = optparse.OptionParser(
+    usage="%prog SMC_FILE ...",
+    description="""
+Estimate the recombination rate using an ARG or samples of ARGs.
+SMC_FILE can be a pattern, where '%d' denotes the sample iteration.
+""")
+o.add_option("-w", "--window", default=10000, type="int",
+             help="Window over which to average number of break points")
+o.add_option("-s", "--start", default=0, type="int",
+             help="Starting sample iteration to use")
+o.add_option("-e", "--end", default=5000, type="int",
+             help="Last sample iteration to use")
+o.add_option("-d", "--step", default=1, type="int",
+             help="Step size through samples")
+o.add_option("-t", "--ntimes", type="int", default=20,
+             help="Number of discretized time points")
+o.add_option("", "--maxtime", type="float", default=180e3,
+             help="Maximum time point")
 
 conf, args = o.parse_args()
 
 #=============================================================================
+
+if len(args) == 0:
+    o.print_help()
+    sys.exit(1)
 
 # Get all ARG filenames.
 filename = args[0]

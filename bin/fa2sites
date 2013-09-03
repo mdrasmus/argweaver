@@ -9,7 +9,10 @@ from compbio import fasta
 from rasmus import util
 
 
-o = optparse.OptionParser()
+o = optparse.OptionParser(
+    description="""
+Convert a Fasta file into a *.sites file.
+""")
 o.add_option("-c", "--chrom", default="chr", help="chromosome name")
 o.add_option("-s", "--start", type="int", default=0, help="start of region")
 o.add_option("-f", "--fasta", help="input FASTA file")

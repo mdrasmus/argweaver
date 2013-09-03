@@ -2,6 +2,7 @@
 
 import optparse
 import os
+import sys
 
 import arghmm
 
@@ -10,11 +11,18 @@ from rasmus import stats
 from rasmus import util
 
 
-o = optparse.OptionParser()
-o.add_option("-s", "--start", default=0, type="int")
-o.add_option("-e", "--end", default=5000, type="int")
-o.add_option("-d", "--step", default=1, type="int")
-
+o = optparse.OptionParser(
+    usage="%prog SMC_FILE ...",
+    description="""
+Extract the local effective population size.
+SMC_FILE can be a pattern where '%d' denotes the sample iteration.
+""")
+o.add_option("-s", "--start", default=0, type="int",
+             help="Starting sample iteration to use")
+o.add_option("-e", "--end", default=5000, type="int",
+             help="Last sample iteration to use")
+o.add_option("-d", "--step", default=1, type="int",
+             help="Step size through samples")
 conf, args = o.parse_args()
 
 
@@ -50,6 +58,10 @@ def iter_popsize(filename, mintime=0):
 
 
 #=============================================================================
+
+if len(args) == 0:
+    o.print_help()
+    sys.exit(1)
 
 filename = args[0]
 
