@@ -193,32 +193,6 @@ def get_nlineages(tree, times):
         return nbranches
 
 
-def get_nlineages2(tree, times):
-    """
-    Count the number of lineages at each time point that can coal and recomb
-    """
-
-    nbranches = [0 for i in times]
-
-    for name, timei in iter_coal_states(tree, times):
-        node = tree[name]
-
-        # find parent node
-        if node.parents:
-            parent = node.parents[0]
-            while len(parent.children) == 1:
-                parent = parent.parents[0]
-        else:
-            parent = None
-
-        # count who passes through this time segment
-        if not parent or times[timei] < parent.age:
-            nbranches[timei] += 1
-    nbranches[-1] = 1
-
-    return nbranches
-
-
 def get_nlineages_recomb_coal(tree, times):
     """
     Count the number of lineages at each time point that can coal and recomb
@@ -430,23 +404,31 @@ def open_stream(filename, mode="r"):
 
     if isinstance(filename, basestring):
         if filename.endswith(".gz"):
-            null = open(os.devnull, 'w')
-            if mode == "r":
-                if not os.path.exists(filename):
-                    raise Exception("unknown file '%s'" % filename)
-                return subprocess.Popen(["zcat", filename],
-                                        stdout=subprocess.PIPE,
-                                        stderr=null).stdout
-            elif mode == "w":
-                with closing(open(filename, "w")) as out:
-                    return subprocess.Popen(["gzip", "-"],
-                                            stdout=out,
-                                            stdin=subprocess.PIPE,
-                                            stderr=null).stdin
-            else:
-                raise Exception("unknown mode '%s'" % mode)
-
+            return open_zip_stream(filename, mode)
     return util.open_stream(filename, mode)
+
+
+def open_zip_stream(filename, mode="r"):
+    """Open a compressed stream (*.gz)"""
+
+    unzip_command = ["gzip", "-d", "-c"]
+    zip_command = ["gzip", "-"]
+
+    null = open(os.devnull, 'w')
+    if mode == "r":
+        if not os.path.exists(filename):
+            raise Exception("unknown file '%s'" % filename)
+        return subprocess.Popen(unzip_command + [filename],
+                                stdout=subprocess.PIPE,
+                                stderr=null).stdout
+    elif mode == "w":
+        with closing(open(filename, "w")) as out:
+            return subprocess.Popen(zip_command,
+                                    stdout=out,
+                                    stdin=subprocess.PIPE,
+                                    stderr=null).stdin
+    else:
+        raise Exception("unknown mode '%s'" % mode)
 
 
 #=============================================================================
@@ -1312,16 +1294,6 @@ def iter_arg_sprs(arg, start=None, end=None):
         # get tree with only leaves and coalescent nodes
         tree = tree_full.copy()
         tree = arglib.remove_single_lineages(tree)
-
-        # convert block to our system
-        # TODO: perhaps keep this in 0-index
-        # most uses just convert to blocklens anyways
-        #a, b = block
-        #if a == start:
-        #    a -= 1
-        #if b == end:
-        #    b -= 1
-        #block = [a+1, b+1]
 
         yield block, tree, last_tree, spr
 

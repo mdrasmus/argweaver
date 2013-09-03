@@ -10,8 +10,8 @@ from rasmus import util
 
 o = optparse.OptionParser()
 o.add_option("-d", "--db")
-o.add_option("", "--add-smc", action="append", default=[])
-
+o.add_option("", "--add-smc", action="append", default=[],
+             help="Add SMC file to DB")
 conf, args = o.parse_args()
 
 #=============================================================================
@@ -19,6 +19,7 @@ conf, args = o.parse_args()
 
 db = ArgDB().connect(conf.db)
 
+# add SMC files
 for fn in conf.add_smc:
     util.tic("adding %s..." % fn)
     db.add_smc_file(fn)

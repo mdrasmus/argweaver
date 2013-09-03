@@ -389,7 +389,8 @@ def smc2arg(smc):
     return arg
 
 
-def arg2smc(arg, names=None, chrom="chr", start=None, end=None):
+def arg2smc(arg, names=None, chrom="chr", start=None, end=None,
+            format_trees=True):
     """
     Convert ARG to SMC.
 
@@ -468,11 +469,13 @@ def arg2smc(arg, names=None, chrom="chr", start=None, end=None):
             node.data["age"] = ages[node]
         rename_tree_nodes(tree2, [(node.name, node_index[node.name])
                                   for node in tree2])
+        if format_trees:
+            tree2 = format_tree(tree2)
 
         yield {"tag": "TREE",
                "start": block[0] + 1,
                "end": block[1],
-               "tree": format_tree(tree2)}
+               "tree": tree2}
 
         last_node_index = node_index
 

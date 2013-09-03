@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+
+import optparse
+import sys
+
+import arghmm
+
+from compbio import fasta
+from rasmus import util
+
+
+o = optparse.OptionParser(
+    description="""
+Convert a *.sites file into a Fasta file
+""")
+o.add_option("-f", "--fasta", help="output FASTA file")
+o.add_option("-s", "--sites", help="input sites file")
+o.add_option("-c", "--char", default=None, help="Default character")
+
+conf, args = o.parse_args()
+
+if not conf.sites:
+    print "sites file required (--sites)"
+    sys.exit(1)
+
+if conf.fasta:
+    fasta_file = conf.fasta
+else:
+    if conf.sites.endswith(".sites"):
+        fasta_file = util.replace_ext(conf.sites, ".sites", ".fa")
+    elif conf.sites.endswith(".sites.gz"):
+        fasta_file = util.replace_ext(conf.sites, ".sites.gz", ".fa")
+    else:
+        fasta_file = conf.sites + ".fa"
+
+sites = arghmm.read_sites(conf.sites)
+seqs = arghmm.sites2seqs(sites, default_char=conf.char)
+fasta.write_fasta(fasta_file, seqs)

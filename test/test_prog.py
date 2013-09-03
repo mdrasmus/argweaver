@@ -127,6 +127,34 @@ def test_ages():
         > test/data/test_prog_small/0.ages.txt""")
 
 
+def test_arg_smc():
+
+    if not os.path.exists("test/data/test_prog_small/0.sample"):
+        test_prog_small()
+
+    run_cmd("""bin/arg2smc \
+        test/data/test_prog_small/0.arg \
+        test/data/test_prog_small/0.smc""")
+    run_cmd("""bin/smc2arg \
+        test/data/test_prog_small/0.smc \
+        test/data/test_prog_small/0.smc.arg""")
+
+
+def test_db():
+
+    if not os.path.exists("test/data/test_prog_small/0.sample"):
+        test_prog_small()
+
+    run_cmd("""bin/arg-db \
+        --db test/data/test_prog_small/arg.db \
+        --add-smc test/data/test_prog_small/0.sample/out.0.smc.gz
+        """)
+    run_cmd("""bin/sites-db \
+        --db test/data/test_prog_small/sites.db \
+        --add-sites test/data/test_prog_small/0.sites
+        """)
+
+
 def _test_prog_infsites():
 
     make_clean_dir("test/data/test_prog_infsites")

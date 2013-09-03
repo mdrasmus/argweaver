@@ -177,13 +177,3 @@ clean:
 
 clean-obj:
 	rm -f $(ALL_OBJS)
-
-
-#=============================================================================
-# dependencies
-
-dep:
-	touch Makefile.dep
-	makedepend -f Makefile.dep -Y src/*.cpp src/*.h
-
-include Makefile.dep

@@ -1,14 +1,24 @@
 #!/usr/bin/env python
 
 import json
+import os
 import optparse
 
 import arghmm
-from arghmm.bottle import request, get, HTTPResponse, run
-from arghmm.db import ArgDB, SitesDB
+from arghmm.bottle import get
+from arghmm.bottle import HTTPResponse
+from arghmm.bottle import request
+from arghmm.bottle import response
+from arghmm.bottle import run
+from arghmm.bottle import static_file
+from arghmm.bottle import template
+from arghmm.db import ArgDB
+from arghmm.db import SitesDB
 
 from rasmus import util
 
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 o = optparse.OptionParser()
 o.add_option("-p", "--port", type="int", default=8080)
@@ -114,6 +124,23 @@ def get_sites(region=""):
 
     return callback + "('" + json.dumps(result) + "');"
 
+
+# get static files
+@get('/static/<filename:re:.*>')
+def get_static_file(filename):
+    root_path = os.path.join(BASE_DIR, 'argserver/static')
+    return static_file(filename, root=root_path)
+
+
+# get argtrack.js
+@get('/argtrack.js')
+def get_argtrack():
+    response.headers['Content-Type'] = 'text/javascript'
+    root_path = os.path.join(BASE_DIR, 'argserver/templates')
+    host = "%s://%s" % (request.urlparts.scheme,
+                        request.urlparts.netloc)
+    return template(root_path + '/argtrack.js',
+                    {"host": host})
 
 #=============================================================================
 
