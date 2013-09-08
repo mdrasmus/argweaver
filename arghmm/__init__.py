@@ -399,36 +399,62 @@ def compress_align(seqs, compress):
 #=============================================================================
 # input/output
 
-def open_stream(filename, mode="r"):
+
+class WrapStream(object):
+    """Wrap file input/output with additional commands."""
+
+    def __init__(self, write_command=None, read_command=None):
+        self.write_command = write_command
+        self.read_command = read_command
+
+    def set_gzip(self):
+        """Use gzip for compression/decompression"""
+        self.write_command = ["gzip", "-"]
+        self.read_command = ["gzip", "-d", "-c"]
+
+    def set_bgzip(self):
+        """Use bgzip for compression/decompression"""
+        self.write_command = ["bgzip"]
+        self.read_command = ["bgzip", "-d", "-c"]
+
+    def open(self, filename, mode="r"):
+        """Open a stream."""
+        null = open(os.devnull, 'w')
+        if mode == "r":
+            if not os.path.exists(filename):
+                raise Exception("unknown file '%s'" % filename)
+            return subprocess.Popen(self.read_command + [filename],
+                                    stdout=subprocess.PIPE,
+                                    stderr=null).stdout
+        elif mode == "w":
+            with closing(open(filename, "w")) as out:
+                return subprocess.Popen(self.write_command,
+                                        stdout=out,
+                                        stdin=subprocess.PIPE,
+                                        stderr=null).stdin
+        else:
+            raise Exception("unknown mode '%s'" % mode)
+
+
+gzip_stream = WrapStream()
+gzip_stream.set_gzip()
+
+bgzip_stream = WrapStream()
+bgzip_stream.set_bgzip()
+
+
+def open_stream(filename, mode="r", compress='gzip'):
     """Open a stream and auto-detect whether file is compressed (*.gz)"""
 
-    if isinstance(filename, basestring):
-        if filename.endswith(".gz"):
-            return open_zip_stream(filename, mode)
+    # auto-detect compressed filenames
+    if isinstance(filename, basestring) and filename.endswith(".gz"):
+        if compress == 'gzip':
+            return gzip_stream.open(filename, mode)
+        elif compress == 'bgzip':
+            return bgzip_stream.open(filename, mode)
+        else:
+            raise Exception("unknown compression '%s'" % compress)
     return util.open_stream(filename, mode)
-
-
-def open_zip_stream(filename, mode="r"):
-    """Open a compressed stream (*.gz)"""
-
-    unzip_command = ["gzip", "-d", "-c"]
-    zip_command = ["gzip", "-"]
-
-    null = open(os.devnull, 'w')
-    if mode == "r":
-        if not os.path.exists(filename):
-            raise Exception("unknown file '%s'" % filename)
-        return subprocess.Popen(unzip_command + [filename],
-                                stdout=subprocess.PIPE,
-                                stderr=null).stdout
-    elif mode == "w":
-        with closing(open(filename, "w")) as out:
-            return subprocess.Popen(zip_command,
-                                    stdout=out,
-                                    stdin=subprocess.PIPE,
-                                    stderr=null).stdin
-    else:
-        raise Exception("unknown mode '%s'" % mode)
 
 
 #=============================================================================

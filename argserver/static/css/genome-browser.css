@@ -1,0 +1,84 @@
+
+body {
+  margin: 0px;
+  font-family: helvetica, sans serif;
+}
+
+#topbar {
+  background-color: #eee;
+  padding: 5px;
+  margin-bottom: 5px;
+}
+
+.title {
+  color: #777;
+  font-weight: bold;
+}
+
+#browser-border {
+  width: 1024px;
+  border: 0px;
+  padding: 0px;
+  margin: auto;
+}
+
+#browser {
+  width: 1024px;
+  border: 1px solid #ccc;
+  background-color: #eee;
+  font-size: 14px;
+  
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+}
+
+#browser-ui {
+  padding: 2px;  
+  padding-left: 10px;
+}
+
+#sidebar {
+  width: 200px;
+}
+
+input {
+  height: 20px;
+  margin: 1px;
+  border: 1px solid #555;
+}
+
+input[name='view'] {
+  width: 200px;
+}
+
+input[name='browser_width'] {
+  width: 70px;
+}
+
+.button {
+  padding: 2px;
+  width: 35px;
+  height: 18px;
+  display: inline-block;
+  background-color: #dde;
+  border-bottom: 1px solid #555;
+  border-right: 1px solid #555;
+  border-top: 1px solid #fff;
+  border-left: 1px solid #fff;
+  text-align: center;
+}
+
+.button:hover {
+  background-color: #ccf;
+  cursor: pointer;
+}
+
+.toolbar-label {
+  padding: 2px;
+}
+
+.explain {
+  width: 1024px;
+  margin: auto;
+}
+

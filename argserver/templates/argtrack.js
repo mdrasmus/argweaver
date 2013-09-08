@@ -31,17 +31,17 @@ function max(a, b) {
 
 //=================================================================
 // sites functions
-    
+
 
 function getHighFreq(col) {
     var counts = {};
-    
+
     for (var i=0; i<col.length; i++) {
         if (!(col[i] in counts))
             counts[col[i]] = 0;
         counts[col[i]]++;
     }
-    
+
     var maxcount = 0;
     var maxchar;
     for (var c in counts) {
@@ -50,7 +50,7 @@ function getHighFreq(col) {
             maxchar = c;
         }
     }
-    
+
     return maxchar;
 };
 
@@ -63,7 +63,7 @@ function isParsimonySite(col, tree)
     function walk(name) {
         var node = tree.nodes[name];
         var costs = new Array(4);
-        
+
         if (node.children.length == 0) {
             var i = parseInt(name);
             for (var a=0; a<4; a++)
@@ -86,11 +86,11 @@ function isParsimonySite(col, tree)
         return costs;
     }
     var costs = walk(tree.root);
-    
+
     var root_min = maxcost;
     for (var a=0; a<4; a++)
         root_min = min(root_min, costs[a]);
-    
+
     return root_min <= 1;
 }
 
@@ -102,19 +102,19 @@ function getTreeAges(tree) {
 
     function walk(name) {
         var node = tree.nodes[name];
-        
+
         if (node.children.length == 0)
             ages[name] = 0.0;
         else {
             for (var i in node.children)
                 walk(node.children[i]);
-            
+
             var child = tree.nodes[node.children[0]];
             ages[name] = ages[node.children[0]] + child.dist;
         }
     }
     walk(tree.root);
-    
+
     return ages;
 }
 
@@ -149,44 +149,44 @@ function layoutTree(tree, options)
             options.yscale = 1.0;
     var minlen = 0;
     var maxlen = 1e12;
-        
+
     var sizes = {};
     var nodept = {}; // distance between node x and left bracket x
     var layout = {};
 
-        
-    function walk(name) {    
+
+    function walk(name) {
         var node = tree.nodes[name];
-        
+
         // compute node sizes
         sizes[name] = 0;
         for (var i in node.children) {
             var cname = node.children[i];
             sizes[name] += walk(cname);
         }
-        
+
         if (node.children == 0) {
             sizes[name] = 1;
             nodept[name] = 1;
         } else {
             var n = node.children.length;
             var top = nodept[node.children[0]];
-            var bot = (sizes[name] - sizes[node.children[n-1]]) + 
+            var bot = (sizes[name] - sizes[node.children[n-1]]) +
                 nodept[node.children[n-1]];
             nodept[name] = (top + bot) / 2.0;
         }
-        
+
         return sizes[name];
     }
     walk(tree.root);
-        
+
     // determine x, y coordinates
     function walk2(name, x, y) {
         var node = tree.nodes[name];
-        var ychildren = y + min(max(node.dist, minlen), maxlen) * 
+        var ychildren = y + min(max(node.dist, minlen), maxlen) *
             options.yscale;
         layout[name] = [x + nodept[name], ychildren];
-        
+
         if (!node.children.length == 0) {
             var xchild = x;
             for (var i in node.children) {
@@ -197,7 +197,7 @@ function layoutTree(tree, options)
         }
     }
     walk2(tree.root, options.x, options.y);
-    
+
     return layout;
 }
 
@@ -210,29 +210,29 @@ function drawTree(tree, layout, labels)
     var ages = getTreeAges(tree);
     if (typeof layout == "undefined")
         layout = layoutTree(tree, {x:0, y:ages[tree.root], yscale: -1.0});
-        
+
     var g = group();
-    
+
     function walk(name) {
         var size = 1;
         var node = tree.nodes[name];
-        
+
         var x = layout[name][0];
         var y = layout[name][1];
-        
-        if (node.parent) {            
+
+        if (node.parent) {
             var px = layout[node.parent][0];
             var py = layout[node.parent][1];
             g.push(lines(x, y, x, py));
         }
-        
+
         if (node.children.length > 0) {
             var n = node.children.length;
             var x1 = layout[node.children[0]][0];
             var x2 = layout[node.children[n-1]][0];
-            
+
             g.push(lines(x1, y, x2, y));
-            
+
             for (var i in node.children)
                 walk(node.children[i]);
         }
@@ -279,12 +279,12 @@ function drawSpr(spr, layout)
 function setup() {
 
     // setup argtrack url
-    var argtrackurl = mashome.getCookie("argtrack-url") || 
+    var argtrackurl = mashome.getCookie("argtrack-url") ||
         "http://localhost:8080";
 
     // create ruler track
-    var ruler = new mashome.RulerTrack({name: "ruler", 
-                                        height: 20, 
+    var ruler = new mashome.RulerTrack({name: "ruler",
+                                        height: 20,
                                         select: function (pos) {
             treetrack.showTree(ruler.view.chrom, pos);
             sitetrack.showSites(ruler.view.chrom, pos); }});
@@ -298,24 +298,24 @@ function setup() {
         this.view = view;
 
         // limit range
-        if (this.view.end - this.view.start > 4e6) {            
+        if (this.view.end - this.view.start > 4e6) {
             this.ctx.clearRect(0, 0, this.mainWidth, this.height);
             return;
         }
 
         $.ajax({dataType: 'jsonp',
-                url: (argtrackurl + '/sprs/' + view.chrom + ':' + 
+                url: (argtrackurl + '/sprs/' + view.chrom + ':' +
                       view.start + '-' + view.end),
-                success: function (result) { 
+                success: function (result) {
                     that.plot(JSON.parse(result)); }
             });
     };
     recombs.plot = function (sprs) {
         var c = this.ctx;
         this.beginTransform(this.view);
-        
+
         c.strokeStyle = "#f00";
-                
+
         c.beginPath();
         for (var i in sprs) {
             var spr = sprs[i];
@@ -324,20 +324,20 @@ function setup() {
             c.lineTo(x, this.height);
         }
         c.stroke();
-        c.closePath();                
-        
+        c.closePath();
+
         this.endTransform();
     };
     mashome.addTrack(recombs);
 
 
     // plot mutations
-    var muts = new mashome.CanvasTrack({name: "sites", height: 50});    
+    var muts = new mashome.CanvasTrack({name: "sites", height: 50});
     muts.onViewChange = function (view) {
         var that = this;
         this.view = view;
         this.fullSites = true;
-        
+
         // limit range
         if (this.view.end - this.view.start > 4e6) {
             this.ctx.clearRect(0, 0, this.mainWidth, this.height);
@@ -345,9 +345,9 @@ function setup() {
         }
 
         $.ajax({dataType: 'jsonp',
-                url: (argtrackurl + '/sites/' + view.chrom + ':' + 
+                url: (argtrackurl + '/sites/' + view.chrom + ':' +
                       view.start+'-'+view.end),
-                success: function (result) { 
+                success: function (result) {
                     that.plot(JSON.parse(result)); }
             });
     };
@@ -373,7 +373,7 @@ function setup() {
                 var site = sites[i];
                 var highFreq = getHighFreq(site.col);
                 var x = site.pos;
-                    
+
                 for (var j=0; j<site.col.length; j++) {
                     if (site.col[j] != highFreq) {
                         c.moveTo(x, j * scale);
@@ -390,7 +390,7 @@ function setup() {
             }
         }
         c.stroke();
-        c.closePath();                
+        c.closePath();
 
         this.endTransform();
     };
@@ -404,7 +404,7 @@ function setup() {
         this.view = view;
         this.main.css("border-top", "1px solid #ccc");
         this.main.css("border-bottom", "1px solid #ccc");
-        
+
         // limit range
         if (this.view.end - this.view.start > 1e6) {
             this.ctx.clearRect(0, 0, this.mainWidth, this.height);
@@ -414,13 +414,13 @@ function setup() {
         $.ajax({dataType: 'jsonp',
                 url: (argtrackurl + '/sites/'+view.chrom+':'+
                       view.start+'-'+view.end),
-                success: function (result) { 
-                    var sites = JSON.parse(result); 
+                success: function (result) {
+                    var sites = JSON.parse(result);
 
                     $.ajax({dataType: 'jsonp',
                             url: (argtrackurl + '/trees/'+view.chrom+
                                   ':'+view.start+'-'+view.end),
-                            success: function (result) { 
+                            success: function (result) {
                                 var trees = JSON.parse(result);
                                 that.plot(trees, sites);
                             }
@@ -445,15 +445,15 @@ function setup() {
             return;
         var nseqs = sites[0].col.length;
         var scale = this.height / nseqs;
-        var treei = 0;            
+        var treei = 0;
 
         var tree = parseNewick(trees[treei].tree);
         var order = getTreeLeaves(tree);
         for (var i in order)
             order[i] = parseInt(order[i]);
-            
+
         c.strokeStyle = "#00f";
-            
+
         c.beginPath();
         // draw full site pattern
         for (var i in sites) {
@@ -493,7 +493,7 @@ function setup() {
             }
         }
         c.stroke();
-        c.closePath();                
+        c.closePath();
 
         this.endTransform();
     };
@@ -502,11 +502,11 @@ function setup() {
 
 
     // plot IBD
-    var ibd = new mashome.CanvasTrack({name: "IBD", height: 200});    
+    var ibd = new mashome.CanvasTrack({name: "IBD", height: 200});
     ibd.onViewChange = function (view) {
         var that = this;
         this.view = view;
-        
+
         // limit range
         if (this.view.end - this.view.start > 4e6) {
             this.ctx.clearRect(0, 0, this.mainWidth, this.height);
@@ -514,9 +514,9 @@ function setup() {
         }
 
         $.ajax({dataType: 'jsonp',
-                url: (argtrackurl + '/trees/' + view.chrom + ':' + 
+                url: (argtrackurl + '/trees/' + view.chrom + ':' +
                       view.start+'-'+view.end),
-                success: function (result) { 
+                success: function (result) {
                     that.plot(JSON.parse(result)); }
             });
     };
@@ -534,8 +534,8 @@ function setup() {
 
         var colors = ["#00f", "#0ff", "#0f0", "#ff0", "#f80", "#f00"];
         c.lineWidth = scale;
-        
-        
+
+
         for (var i in trees) {
             if (trees[i].tag != "TREE")
                 continue;
@@ -551,7 +551,7 @@ function setup() {
 
             for (var j in leafSets) {
                 var nodeLeaves = leafSets[j];
-                c.strokeStyle = colors[min(j, colors.length-1)];                
+                c.strokeStyle = colors[min(j, colors.length-1)];
                 c.beginPath();
                 for (var k in nodeLeaves) {
                     var y = (parseInt(nodeLeaves[k]) + .5) * scale
@@ -559,17 +559,17 @@ function setup() {
                     c.lineTo(x2, y);
                 }
                 c.stroke();
-                c.closePath();           
+                c.closePath();
             }
         }
-        
+
         this.endTransform();
     };
     //mashome.addTrack(ibd);
 
     function getIBD(tree, ages, age, name, leaves) {
         var node = tree.nodes[name];
-        
+
         if (node.children.length > 0) {
             if (ages[name] < age) {
                 leaves.push(getTreeLeaves(tree, name));
@@ -588,15 +588,15 @@ function setup() {
     treetrack.onAddTrack = function (view) {
         this.main.css({"border-top": "1px solid #ccc",
                        "border-bottom": "1px solid #ccc"});
-        
+
         this.text = $("<div></div>");
         this.main.append(this.text);
-        
+
         this.canvas = $('<canvas></canvas>');
         this.canvas.attr("width", this.mainWidth-2);
         this.canvas.attr("height", this.height-2);
         this.main.append(this.canvas);
-        
+
         this.scanvas = new Summon.Canvas(this.canvas.get(0));
         this.firstDisplay = true;
         this.labels = null;
@@ -617,7 +617,7 @@ function setup() {
     }
     treetrack.displayTree = function(treeInfo) {
         var tree = parseNewick(treeInfo.tree);
-        
+
         this.scanvas.clear();
         this.scanvas.add(drawTree(tree));
         this.scanvas.draw();
@@ -653,15 +653,15 @@ function setup() {
         this.labels = labels;
     }
     mashome.addTrack(treetrack);
-    
 
-    
+
+
     // create site viewer
     var sitetrack = new mashome.Track({name: "local sites", height: 200});
     sitetrack.onViewChange = function (view) {
         this.view = view;
         this.main.css("overflow", "auto");
-    };        
+    };
     sitetrack.showSites = function(chrom, pos) {
         var that = this;
 
@@ -674,9 +674,9 @@ function setup() {
                     $.ajax({dataType: 'jsonp',
                             url: (argtrackurl + '/sites/'+
                                   chrom+':'+item.start+'-'+item.end),
-                            success: function (result) { 
+                            success: function (result) {
                                 that.plot(tree, JSON.parse(result)); }
-                    }); 
+                    });
                 }});
     }
     sitetrack.plot = function (tree, sites) {
@@ -685,7 +685,7 @@ function setup() {
         var order = getTreeLeaves(tree);
         for (var i in order)
             order[i] = parseInt(order[i]);
-        
+
         for (var i in sites) {
             var site = sites[i];
             var highFreq = getHighFreq(site.col);
@@ -711,7 +711,7 @@ function setup() {
 
 
     // tree track config
-    var treeConfigTrack = new mashome.Track({name: "ARG URL", 
+    var treeConfigTrack = new mashome.Track({name: "ARG URL",
                                       height: 20});
     treeConfigTrack.onAddTrack = function (view) {
         var that = this;
@@ -729,7 +729,7 @@ function setup() {
                       "padding-left": "20px",
                       "text-align": "left"});
         this.elm.find("#argtrack-tree-labels").css({width: 400, height: 200});
-        
+
         this.labelsInput = this.elm.find("#argtrack-tree-labels");
         this.elm.find("#argtrack-tree-config-form").submit(function(e){
                 that.onSubmit(e)});
@@ -757,7 +757,7 @@ function setup() {
 
 
     // create url track
-    var urlTrack = new mashome.Track({name: "ARG URL", 
+    var urlTrack = new mashome.Track({name: "ARG URL",
                                       height: 20});
     urlTrack.onAddTrack = function (view) {
         var that = this;
@@ -774,7 +774,7 @@ function setup() {
                       "padding-left": "20px",
                       "text-align": "left"});
         this.elm.find("#argtrack-url").css("width", 400);
-        
+
         this.urlInput = this.elm.find("#argtrack-url");
         this.elm.find("#argtrack-toolbar-form").submit(function(e){
                 that.onSubmit(e)});
@@ -805,13 +805,14 @@ function setup() {
     };
     mashome.addTrack(urlTrack);
 
-    
+
 }
-    
+
+window.arghost = "{{ host }}";
+
 // import dependencies
 mashome.importScripts(
-    ["{{ host }}" + "/static/js/summon.js", 
-     "{{ host }}" + "/static/js/newick.js"],
+    [window.arghost + "/static/js/summon.js",
+     window.arghost + "/static/js/newick.js"],
     setup);
 })();
-

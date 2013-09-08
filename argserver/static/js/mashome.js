@@ -35,7 +35,8 @@ function importScripts(urls, onLoad, serial) {
     var nwait = urls.length;
     
     if (nwait == 0) {
-        onLoad();
+        if (onLoad)
+            onLoad();
         return;
     }
 
@@ -49,7 +50,7 @@ function importScripts(urls, onLoad, serial) {
             i++;
             if (i < nwait)
                 importScript(urls[i], onLoadScript);
-            else
+            else if (onLoad)
                 onLoad();
         }
         importScript(urls[i], onLoadScript);
@@ -58,7 +59,7 @@ function importScripts(urls, onLoad, serial) {
         // parallel loading
         function onLoadScript() {
             nwait--;
-            if (nwait == 0)
+            if (nwait == 0 && onLoad)
                 onLoad();
         }
     
@@ -428,7 +429,7 @@ function GenericBrowser () {
     var sidebarId = "#sidebar";
     var viewId = "#view";
     var lastPostext = null;
-    var lastView = null;
+    var lastView = {"chrom": "chr", "start": 0, "end": 1000};
     var browser = null;
     
     // initializes HostBrowser information
@@ -778,12 +779,14 @@ var mashome = {
 
 // load dependencies and start mashome module
 var scripts = [];
-
 if (!window.jQuery)
     scripts.push('//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js');
 
-importScripts(scripts, function() { mashome.init() });
-    
+importScripts(scripts, function () {
+    if (!window.mashomeConfig.noautoload)
+        $(document).ready(function () {mashome.init() });
+});
+
 window.mashome = mashome;
 return mashome;
 })(window);

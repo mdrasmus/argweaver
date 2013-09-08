@@ -1,0 +1,71 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>ARGweaver genome browser</title>
+
+<link type="text/css" rel="stylesheet" href="/static/css/genome-browser.css">
+
+<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+<script type="text/javascript" src="/static/js/genome-browser.js"></script>
+<script type="text/javascript" src="static/js/mashome.js"></script>
+</head>
+<body>
+
+
+<!-- ====================================================================== -->
+<!-- topbar -->
+<div id="topbar">
+
+<span class="title">
+ARGweaver genome browser
+</span>
+
+<div style="clear:both"></div>
+</div>
+
+
+<!-- ====================================================================== -->
+<!-- stub genome browser -->
+
+<form action="javascript: window.browser.goToView();">
+<div id="browser-border">
+<div id="browser">
+<div id="browser-ui">
+
+  <!-- view coordinates -->
+  <b>position</b> <input name="view" type="text" value="chr:1-1000">
+  <span id="go" class="button">go</span>
+
+  <!-- browser width -->
+  <!--
+  <div style="float: right">
+  <span>width</span>
+  <input name="browser_width" type="text">
+  </div>
+  -->
+  
+  <br>
+
+  <!-- move view -->
+  <span class="toolbar-label">move</span>
+  <span id="move_left3" class="button">&lt;&lt;&lt;</span><span id="move_left2" class="button">&lt;&lt;</span><span id="move_left1" class="button">&lt;</span><span id="move_right1" class="button">&gt;</span><span id="move_right2" class="button">&gt;&gt;</span><span id="move_right3" class="button">&gt;&gt;&gt;</span>
+
+  <!-- zoom in view -->
+  <span class="toolbar-label">&nbsp;zoom in</span><span id="zoomin1" class="button">1.5x</span><span id="zoomin2" class="button">3.5x</span><span id="zoomin3" class="button">10x</span><span id="zoomin4" class="button">base</span>
+
+  <!-- zoom out view -->
+  <span class="toolbar-label">&nbsp;zoom out</span>
+  <span id="zoomout1" class="button">1.5x</span><span id="zoomout2" class="button">3.5x</span><span id="zoomout3" class="button">10x</span>
+
+  <div style="clear:both"></div>
+</div>
+
+<div id="sidebar"></div>
+</div>
+</div>
+</form>
+
+
+</body>
+</html>

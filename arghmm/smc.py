@@ -21,11 +21,19 @@ class SMCReader (object):
     """
 
     def __init__(self, filename, parse_trees=False, apply_spr=False):
-        self._filename = filename
-        self._infile = iter_smc_file(filename,
-                                     parse_trees=parse_trees,
-                                     apply_spr=apply_spr)
-        self._stream = util.PushIter(self._infile)
+
+        if isinstance(filename, basestring):
+            # read SMC from file
+            self._filename = filename
+            self._infile = iter_smc_file(filename,
+                                         parse_trees=parse_trees,
+                                         apply_spr=apply_spr)
+            self._stream = util.PushIter(self._infile)
+        else:
+            # read SMC from list of items
+            self._filename = None
+            self._infile = None
+            self._stream = util.PushIter(filename)
 
         # read header
         header_tags = ("NAMES", "REGION")
@@ -48,7 +56,8 @@ class SMCReader (object):
         return tree
 
     def close(self):
-        self._infile.close()
+        if self._infile:
+            self._infile.close()
 
 
 def read_smc(filename, parse_trees=False, apply_spr=False):

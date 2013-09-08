@@ -1,6 +1,7 @@
 import sqlite3 as sqlite
 
 import arghmm
+import arghmm.vis
 
 
 class SitesDB (object):
@@ -211,3 +212,19 @@ class ArgDB (object):
                    "recomb_time": row[2],
                    "coal_node": row[3],
                    "coal_time": row[4]}
+
+
+class ArgLayoutDB(object):
+
+    def __init__(self):
+        self.files = []
+
+    def add_layout_file(self, filename):
+        self.files.append(filename)
+
+    def get_layout(self, chrom, start, end):
+
+        for filename in self.files:
+            for block_layout in arghmm.vis.query_arg_layout(
+                    filename, chrom, start, end):
+                yield block_layout

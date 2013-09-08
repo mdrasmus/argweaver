@@ -13,18 +13,46 @@ from arghmm.bottle import run
 from arghmm.bottle import static_file
 from arghmm.bottle import template
 from arghmm.db import ArgDB
+from arghmm.db import ArgLayoutDB
 from arghmm.db import SitesDB
 
 from rasmus import util
 
-
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+# pyflakes ignore
+arghmm
 
 o = optparse.OptionParser()
+o.add_option("-a", "--arg", action="append", default=[])
+o.add_option("-s", "--sites", action="append", default=[])
+o.add_option("-l", "--layout", action="append", default=[])
 o.add_option("-p", "--port", type="int", default=8080)
 o.add_option("", "--pub", action="store_true")
 
+
 conf, args = o.parse_args()
+
+#=============================================================================
+# constants
+
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, 'argserver/static')
+TEMPLATES_DIR = os.path.join(BASE_DIR, 'argserver/templates')
+
+
+#=============================================================================
+# functions
+
+
+def parse_region(region):
+    chrom, region = region.split(":")
+    tokens = region.split("-")
+    if len(tokens) != 2:
+        raise Exception("bad region format")
+    start = int(tokens[0])
+    end = int(tokens[1])
+    return chrom, start, end
+
 
 #=============================================================================
 # routes
@@ -66,14 +94,7 @@ def get_tree_spr(pos=0):
 # get a region of trees and sprs
 @get('/trees/:region')
 def get_trees(region=""):
-    chrom, region = region.split(":")
-    tokens = region.split("-")
-    if len(tokens) != 2:
-        raise HTTPResponse(status=404)
-
-    start = int(tokens[0])
-    end = int(tokens[1])
-
+    chrom, start, end = parse_region(region)
     callback = request.query.get("callback", "jsonp_callback")
 
     result = []
@@ -88,18 +109,10 @@ def get_trees(region=""):
 # get a region of sprs
 @get('/sprs/:region')
 def get_sprs(region=""):
-    chrom, region = region.split(":")
-    tokens = region.split("-")
-    if len(tokens) != 2:
-        raise HTTPResponse(status=404)
-
-    start = int(tokens[0])
-    end = int(tokens[1])
-
+    chrom, start, end = parse_region(region)
     callback = request.query.get("callback", "jsonp_callback")
 
-    result = []
-    result.extend(smc_db.get_sprs(chrom, start, end))
+    result = list(smc_db.get_sprs(chrom, start, end))
 
     return callback + "('" + json.dumps(result) + "');"
 
@@ -107,14 +120,7 @@ def get_sprs(region=""):
 # get a region of sprs
 @get('/sites/:region')
 def get_sites(region=""):
-    chrom, region = region.split(":")
-    tokens = region.split("-")
-    if len(tokens) != 2:
-        raise HTTPResponse(status=404)
-
-    start = int(tokens[0])
-    end = int(tokens[1])
-
+    chrom, start, end = parse_region(region)
     callback = request.query.get("callback", "jsonp_callback")
 
     result = []
@@ -125,54 +131,73 @@ def get_sites(region=""):
     return callback + "('" + json.dumps(result) + "');"
 
 
+# get a layout of the ARG for a region
+@get('/arg-layout/:region')
+def get_arg_layout(region=""):
+    chrom, start, end = parse_region(region)
+    callback = request.query.get("callback", "jsonp_callback")
+    result = [{"block": block, "leaf_layout": leaf_layout}
+              for block, leaf_layout in layout_db.get_layout(
+                  chrom, start, end)]
+    return callback + "('" + json.dumps(result) + "');"
+
+
 # get static files
 @get('/static/<filename:re:.*>')
 def get_static_file(filename):
-    root_path = os.path.join(BASE_DIR, 'argserver/static')
-    return static_file(filename, root=root_path)
+    return static_file(filename, root=STATIC_DIR)
+
+
+# home page
+@get('/')
+def get_home():
+    return template(TEMPLATES_DIR + '/index.html')
 
 
 # get argtrack.js
 @get('/argtrack.js')
 def get_argtrack():
     response.headers['Content-Type'] = 'text/javascript'
-    root_path = os.path.join(BASE_DIR, 'argserver/templates')
     host = "%s://%s" % (request.urlparts.scheme,
                         request.urlparts.netloc)
-    return template(root_path + '/argtrack.js',
+    return template(TEMPLATES_DIR + '/argtrack.js',
                     {"host": host})
 
 #=============================================================================
 
-smc_file = args[0]
-
-if len(args) > 1:
-    sites_file = args[1]
-else:
-    sites_file = None
-
-util.tic("reading arg...")
-if smc_file.endswith(".db"):
-    smc_db = ArgDB().connect(smc_file)
-else:
-    smc_db = ArgDB().connect(":memory:")
-    smc_db.add_smc_file(smc_file)
+# read ARGs
+util.tic("reading ARGs...")
+smc_db = None
+for smc_file in conf.arg:
+    if smc_file.endswith(".db"):
+        smc_db = ArgDB().connect(smc_file)
+    else:
+        if not smc_db:
+            smc_db = ArgDB().connect(":memory:")
+        smc_db.add_smc_file(smc_file)
+arg_names = smc_db.get_names()
 util.toc()
 
-arg_names = smc_db.get_names()
 
-
-if sites_file:
-    util.tic("reading sites...")
+# read sites
+util.tic("reading sites...")
+sites_db = None
+for sites_file in conf.sites:
     if sites_file.endswith(".db"):
         sites_db = SitesDB().connect(sites_file)
     else:
-        sites_db = SitesDB().connect(":memory:")
+        if not sites_db:
+            sites_db = SitesDB().connect(":memory:")
         sites_db.add_sites_file(sites_file)
-    util.toc()
-else:
-    sites = None
-print "done"
+util.toc()
+
+
+# read ARG layout
+util.tic("reading ARG lauouts...")
+layout_db = ArgLayoutDB()
+for layout_file in conf.layout:
+    layout_db.add_layout_file(layout_file)
+util.toc()
 
 
 if conf.pub:

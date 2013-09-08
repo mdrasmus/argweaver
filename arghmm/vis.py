@@ -1,4 +1,7 @@
 
+import os
+import subprocess
+
 import arghmm
 import arghmm.smc
 
@@ -100,15 +103,54 @@ def iter_layout_smc(smc, names=None):
             last_tree = tree
 
 
-def layout_smc(smc, names=None):
-    blocks = []
-    layout = []
+class ArgLayout(object):
+    """
+    """
+    def __init__(self):
+        self.chrom = "chr"
+        self.blocks = []
+        self.leaf_layout = []
 
-    for block, tree_layout in iter_layout_smc(smc, names=names):
-        blocks.append(block)
-        layout.append(tree_layout)
+    def layout_smc(self, smc):
+        names = smc.header["names"]
+        self.chrom = smc.header["chrom"]
+        self.blocks = []
+        self.leaf_layout = []
 
-    return blocks, layout
+        for block, leaf_layout in iter_layout_smc(smc, names=names):
+            self.blocks.append(block)
+            self.leaf_layout.append(leaf_layout)
+
+    def read(self, filename):
+        self.blocks = []
+        self.leaf_layout = []
+
+        for block, leaf_layout in iter_arg_layout(filename):
+            self.chrom = block[0]
+            self.blocks.append(block[1:])
+            self.leaf_layout.append(leaf_layout)
+
+
+def iter_arg_layout(filename):
+    """
+    Iterate through an ARG layout file.
+    """
+    with arghmm.open_stream(filename, compress='bgzip') as infile:
+        for line in infile:
+            tokens = line.rstrip().split("\t")
+            block = [tokens[0], int(tokens[1]), int(tokens[2])]
+            leaf_layout = {}
+            for i in range(3, len(tokens), 2):
+                leaf_layout[tokens[i]] = float(tokens[i+1])
+            yield block, leaf_layout
+
+
+def query_arg_layout(filename, chrom, start, end):
+    cmd = ["tabix", filename, "%s:%d-%d" % (chrom, start, end)]
+    null = open(os.devnull, 'w')
+    infile = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                              stderr=null).stdout
+    return iter_arg_layout(infile)
 
 
 def layout_arg(arg, start=None, end=None):
