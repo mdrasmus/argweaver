@@ -127,7 +127,7 @@ class ArgLayout(object):
 
         for block, leaf_layout in iter_arg_layout(filename):
             self.chrom = block[0]
-            self.blocks.append(block[1:])
+            self.blocks.append([block[1] - 1, block[2]])
             self.leaf_layout.append(leaf_layout)
 
 
@@ -143,6 +143,10 @@ def iter_arg_layout(filename):
             for i in range(3, len(tokens), 2):
                 leaf_layout[tokens[i]] = float(tokens[i+1])
             yield block, leaf_layout
+
+
+def index_arg_layout(filename):
+    subprocess.call(["tabix", "-s", "1", "-b", "2", "-e", "3", "-f", filename])
 
 
 def query_arg_layout(filename, chrom, start, end):

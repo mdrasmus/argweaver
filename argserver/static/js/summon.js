@@ -793,6 +793,14 @@ Summon.Canvas = function (canvas)
             throw "unknown zoom mode '" + mode + "'";
         }
     };
+
+    this.getVisible = function() {
+        var winsize = this.getSize();
+        var pos1 = screenToWorld(0, 0);
+        var pos2 = screenToWorld(winsize[0], winsize[1]);
+        
+        return [pos1[0], pos1[1], pos2[0], pos2[1]];
+    };
     
     this.home = function(mode) {
         if (typeof mode == "undefined")

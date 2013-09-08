@@ -42,4 +42,4 @@ smc_files = args[1:]
 with arghmm.open_stream(layout_file, 'w', compress='bgzip') as out:
     for smc_file in smc_files:
         layout_arg(smc_file, out)
-    arghmm.vis.index_arg_layout(layout_file)
+arghmm.vis.index_arg_layout(layout_file)

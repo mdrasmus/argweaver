@@ -105,11 +105,11 @@ function GenomeBrowser() {
     this.parsePosition = function (text) {
         var tokens = text.split(":");
         if (tokens.length != 2) {
-            tokens = ["chr", "0-0"];
+            tokens = ["chr", "1-1"];
         }
 
         var tokens2 = tokens[1].split("-");
-        var start = parseInt(tokens2[0].replace(/,/g, ""));
+        var start = parseInt(tokens2[0].replace(/,/g, "")) - 1;
         var end = parseInt(tokens2[1].replace(/,/g, ""));
 
         return {chrom: tokens[0], start: start, end: end};
