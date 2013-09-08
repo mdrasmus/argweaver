@@ -20,6 +20,12 @@ function max(a, b) {
     return (a > b) ? a : b;
 }
 
+function formatView(view, oneIndex) {
+    var start = view.start;
+    if (oneIndex)
+        start += 1
+    return view.chrom+':'+start+'-'+view.end;
+}
 
 //=================================================================
 // sites functions
@@ -44,7 +50,7 @@ function getHighFreq(col) {
     }
 
     return maxchar;
-};
+}
 
 
 function isParsimonySite(col, tree)
@@ -296,8 +302,7 @@ function setup() {
         }
 
         $.ajax({dataType: 'jsonp',
-                url: (argtrackurl + '/sprs/' + view.chrom + ':' +
-                      view.start + '-' + view.end),
+                url: argtrackurl + '/sprs/' + formatView(view),
                 success: function (result) {
                     that.plot(JSON.parse(result)); }
             });
@@ -337,8 +342,7 @@ function setup() {
         }
 
         $.ajax({dataType: 'jsonp',
-                url: (argtrackurl + '/sites/' + view.chrom + ':' +
-                      view.start+'-'+view.end),
+                url: argtrackurl + '/sites/' + formatView(view),
                 success: function (result) {
                     that.plot(JSON.parse(result)); }
             });
@@ -410,8 +414,7 @@ function setup() {
                     var sites = JSON.parse(result);
 
                     $.ajax({dataType: 'jsonp',
-                            url: (argtrackurl + '/trees/'+view.chrom+
-                                  ':'+view.start+'-'+view.end),
+                            url: argtrackurl + '/trees/'+ formatView(view),
                             success: function (result) {
                                 var trees = JSON.parse(result);
                                 that.plot(trees, sites);
@@ -489,12 +492,13 @@ function setup() {
 
         this.endTransform();
     };
-    mashome.addTrack(muts2);
+    //mashome.addTrack(muts2);
 
 
     // create arg track
     var argtrack = new mashome.Track({name: "ARG", height: 200});
     argtrack.onAddTrack = function (view) {
+        var that = this;
         this.main.css({"border-top": "1px solid #ccc",
                        "border-bottom": "1px solid #ccc"});
 
@@ -506,19 +510,38 @@ function setup() {
         this.canvas.attr("height", this.height-2);
         this.main.append(this.canvas);
 
+        this.view = null;
         this.scanvas = new Summon.Canvas(this.canvas.get(0));
         this.firstDisplay = true;
         this.labels = null;
+
+        //var updateInterval = 500;
+        //this.updateId = null;
+        //if (!this.updateId)
+        //    this.updateId = setInterval(function() {that.update();}, 
+        //                                updateInterval);
     };
+    /*argtrack.onRemoveTrack = function (view) {
+        clearInterval(this.updateId);
+        this.updateId = null;
+    }
+    argtrack.update = function() {
+        if (this.view) {
+            var visible = this.scanvas.getVisible();
+            this.view.start = visible[0];
+            this.view.end = visible[2];
+        }
+    };*/
     argtrack.onViewChange = function (view) {
+        // don't redraw if view hasn't changed
         this.view = view;
         this.show(view);
     };
     argtrack.show = function(view) {
         var that = this;
+
         $.ajax({dataType: 'jsonp',
-                url: argtrackurl + '/arg-layout/'+
-                view.chrom+':'+view.start+'-'+view.end,
+                url: argtrackurl + '/arg-layout/' + formatView(view),
                 success: function (result) {
                     that.draw(JSON.parse(result))
                 }});
@@ -538,107 +561,37 @@ function setup() {
         this.firstDisplay = false;
     }
     argtrack.drawARG = function(layout) {
-
-        var g = group();
+        var gap = 5;
+        var g = group(style({stroke: "rgba(0, 0, 0, .5)"}));
         
+        var lastLeafLayout = null;
         for (var i=0; i<layout.length; i++) {
             var block = layout[i].block;
-            var leaf_layout = layout[i].leaf_layout;
-            var x1 = block[1];
+            var leafLayout = layout[i].leafLayout;
+            var x1 = block[1] - 1 + gap;
             var x2 = block[2];
+            var l = lines();
 
-            for (var name in leaf_layout) {
-                if (leaf_layout.hasOwnProperty(name)) {
-                    var y = leaf_layout[name];
-                    g.push(lines(x1, y, x2, y));
+            for (var name in leafLayout) {
+                if (leafLayout.hasOwnProperty(name)) {
+                    var y = leafLayout[name];
+                    l.extend([x1, y, x2, y]);
+                    if (lastLeafLayout) {
+                        var y0 = lastLeafLayout[name];
+                        l.extend([x1 - gap, y0, x1, y]);
+                    }
                 }
             }
+            g.push(l);
+            lastLeafLayout = leafLayout;
         }
         
         return g;
     }
-    mashome.addTrack(argtrack);
-
-
-    // plot IBD
-    var ibd = new mashome.CanvasTrack({name: "IBD", height: 200});
-    ibd.onViewChange = function (view) {
-        var that = this;
-        this.view = view;
-
-        // limit range
-        if (this.view.end - this.view.start > 4e6) {
-            this.ctx.clearRect(0, 0, this.mainWidth, this.height);
-            return;
-        }
-
-        $.ajax({dataType: 'jsonp',
-                url: (argtrackurl + '/trees/' + view.chrom + ':' +
-                      view.start+'-'+view.end),
-                success: function (result) {
-                    that.plot(JSON.parse(result)); }
-            });
-    };
-    ibd.plot = function (trees) {
-        var c = this.ctx;
-        this.beginTransform(this.view);
-
-        if (trees.length == 0)
-            return;
-        var tree = parseNewick(trees[0].tree);
-        var leaves = getTreeLeaves(tree);
-        var nseqs = leaves.length;
-        var scale = this.height / nseqs;
-        var cutoff = 1000;
-
-        var colors = ["#00f", "#0ff", "#0f0", "#ff0", "#f80", "#f00"];
-        c.lineWidth = scale;
-
-
-        for (var i in trees) {
-            if (trees[i].tag != "TREE")
-                continue;
-            var tree = parseNewick(trees[i].tree);
-            var ages = getTreeAges(tree);
-            var x1 = trees[i].start;
-            var x2 = trees[i].end;
-            var leafSets = [];
-            getIBD(tree, ages, cutoff, tree.root, leafSets);
-            leafSets.sort(function (a,b) { return b.length - a.length; });
-            //console.log(trees[i].tree);
-            //console.log(leafSets);
-
-            for (var j in leafSets) {
-                var nodeLeaves = leafSets[j];
-                c.strokeStyle = colors[min(j, colors.length-1)];
-                c.beginPath();
-                for (var k in nodeLeaves) {
-                    var y = (parseInt(nodeLeaves[k]) + .5) * scale
-                    c.moveTo(x1, y);
-                    c.lineTo(x2, y);
-                }
-                c.stroke();
-                c.closePath();
-            }
-        }
-
-        this.endTransform();
-    };
-    //mashome.addTrack(ibd);
-
-    function getIBD(tree, ages, age, name, leaves) {
-        var node = tree.nodes[name];
-
-        if (node.children.length > 0) {
-            if (ages[name] < age) {
-                leaves.push(getTreeLeaves(tree, name));
-                //console.log("push", name, ages[name], age, leaves);
-            } else {
-                for (var i in node.children)
-                    getIBD(tree, ages, age, node.children[i], leaves);
-            }
-        }
+    argtrack.drawSites = function(layout, sites) {
+        
     }
+    mashome.addTrack(argtrack);
 
 
     // create arg track
@@ -785,7 +738,7 @@ function setup() {
                       "padding": "1px",
                       "padding-left": "20px",
                       "text-align": "left"});
-        this.elm.find("#argtrack-tree-labels").css({width: 400, height: 200});
+        this.elm.find("#argtrack-tree-labels").css({width: 400, height: 20});
 
         this.labelsInput = this.elm.find("#argtrack-tree-labels");
         this.elm.find("#argtrack-tree-config-form").submit(function(e){

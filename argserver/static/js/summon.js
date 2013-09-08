@@ -245,9 +245,14 @@ var Graphic = Summon.Graphic = function (kind, data)
 Graphic.prototype = new Group;
 Graphic.prototype.children = []; // Graphics can't have children
 
-Graphic.prototype.push = function push(x) {
-    this.data.push(x);
+Graphic.prototype.push = function (value) {
+    this.data.push(value);
 };
+Graphic.prototype.extend = function (values) {
+    for (var i=0; i<values.length; i++)
+        this.data.push(values[i]);
+};
+
 
 Graphic.prototype.findBounding = function findBounding(
     transmat, camera, boundbox) 

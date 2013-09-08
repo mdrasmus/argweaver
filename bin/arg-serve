@@ -136,7 +136,7 @@ def get_sites(region=""):
 def get_arg_layout(region=""):
     chrom, start, end = parse_region(region)
     callback = request.query.get("callback", "jsonp_callback")
-    result = [{"block": block, "leaf_layout": leaf_layout}
+    result = [{"block": block, "leafLayout": leaf_layout}
               for block, leaf_layout in layout_db.get_layout(
                   chrom, start, end)]
     return callback + "('" + json.dumps(result) + "');"
