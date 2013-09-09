@@ -79,7 +79,7 @@ function calcMouseWheelDelta(event) {
         event = window.event;
     if (event.wheelDelta) { /* IE/Opera. */
         delta = event.wheelDelta/120;
-	
+
         // In Opera 9, delta differs in sign as compared to IE.
         if (window.opera)
             delta = -delta;
@@ -125,12 +125,12 @@ Group.prototype.replace = function replace(oldGrp, newGrp) {
     this.children[i] = newGrp;
 };
 
-Group.prototype.findBounding = function(transmat, camera, boundbox) 
+Group.prototype.findBounding = function(transmat, camera, boundbox)
 {
     // boundbox = [left, bottom, right, top];
     for (var i=0; i<this.children.length; i++) {
         var child = this.children[i];
-        child.findBounding(transmat, camera, boundbox); 
+        child.findBounding(transmat, camera, boundbox);
     }
 };
 
@@ -153,7 +153,7 @@ Transform.prototype.getMatrix = function()
 {
     return identityMatrix;
 };
-Transform.prototype.findBounding = function(transmat, camera, boundbox) 
+Transform.prototype.findBounding = function(transmat, camera, boundbox)
 {
     // boundbox = [left, bottom, right, top];
     var transmat2 = multMatrix(transmat, this.getMatrix());
@@ -182,7 +182,7 @@ var Scale = Summon.Scale = function (x, y, children)
 {
     this.parent = null;
     this.children = children;
-    this.data = [x, y];    
+    this.data = [x, y];
 };
 Scale.prototype = new Transform;
 Scale.prototype.kind = "scale";
@@ -195,7 +195,7 @@ var Rotate = Summon.Rotate = function (r, children)
 {
     this.parent = null;
     this.children = children;
-    this.data = [r];    
+    this.data = [r];
 }
 Rotate.prototype = new Transform;
 Rotate.prototype.kind = "rotate";
@@ -255,7 +255,7 @@ Graphic.prototype.extend = function (values) {
 
 
 Graphic.prototype.findBounding = function findBounding(
-    transmat, camera, boundbox) 
+    transmat, camera, boundbox)
 {
     // boundbox = [left, bottom, right, top];
     for (var i=0; i<this.data.length; i+=2) {
@@ -277,7 +277,7 @@ var TextLabel = Summon.TextLabel = function (text, x1, y1, x2, y2, options)
     if (y1 > y2) {
         var tmp = y1; y1 = y2; y2 = tmp;
     }
-    
+
     this.parent = null;
     this.data = [x1, y1, x2, y2];
     this.text = text;
@@ -344,7 +344,7 @@ window.quads = Summon.quads = quads;
 
 function polygon()
 {
-    return new Graphic("polygon", Array.prototype.slice.call(arguments));    
+    return new Graphic("polygon", Array.prototype.slice.call(arguments));
 }
 window.polygon = Summon.polygon = polygon;
 
@@ -426,7 +426,7 @@ Summon.Canvas = function (canvas)
     var that = this;
     var c = canvas.getContext("2d");
     var camera = new Summon.Camera();
-    var bindings = {keydown: {}, 
+    var bindings = {keydown: {},
                     keyup: {},
                     mouse: {}};
     var loopid = null;
@@ -442,7 +442,7 @@ Summon.Canvas = function (canvas)
     // models
     this.world = group();
     this.bgcolor = "white";
-    
+
 
     //====================================================================
     // main loop
@@ -469,7 +469,7 @@ Summon.Canvas = function (canvas)
     this.queueDraw = function() {
         drawQueued = true;
     }
-    
+
     //====================================================================
     // mouse events
 
@@ -485,7 +485,7 @@ Summon.Canvas = function (canvas)
         return [e.pageX - canvas.offsetLeft,
                 canvas.height - e.pageY + canvas.offsetTop];
     }
-    
+
     function mouseMove(e)
     {
         var pt = getScreenMousePoint(e);
@@ -499,7 +499,7 @@ Summon.Canvas = function (canvas)
             that.queueDraw();
 	} else {
             mousePt = pt;
-        }   
+        }
     }
 
     function mouseDown(e)
@@ -523,7 +523,7 @@ Summon.Canvas = function (canvas)
 
         // lookup callback
         var func = bindings.mouse["wheel" + mod];
-        if (func) 
+        if (func)
             func(delta);
 
         // Prevent default actions caused by mouse wheel.
@@ -540,12 +540,12 @@ Summon.Canvas = function (canvas)
 
         // lookup by charCode
         var func = bindings.keydown["code" + charCode];
-        if (func) 
+        if (func)
             return func();
 
         // lookup by charStr
         func = bindings.keydown[charStr];
-        if (func) 
+        if (func)
             return func();
     }
 
@@ -561,17 +561,17 @@ Summon.Canvas = function (canvas)
 
             if (!grp.children)
                 alert(grp.kind);
-            
+
             for (var i=0; i<grp.children.length; i++)
                 walk(grp.children[i]);
         }
         walk(this.world);
     }
 
-    
+
     //======================================================================
     // coordinate conversions
-    
+
     function screenToWorld(x, y)
     {
 	return [(x - camera.trans[0] - camera.focus[0]) / camera.zoom[0] +
@@ -587,20 +587,20 @@ Summon.Canvas = function (canvas)
 
 
     function getCameraTransmat()
-    {	    
+    {
 	var transmat = identityMatrix;
 
 	// perform translation
 	transmat = multTransMatrix(transmat, camera.trans[0], camera.trans[1]);
-	
+
 	// perform zoom with respect to focus point
 	transmat = multTransMatrix(transmat, camera.focus[0], camera.focus[1]);
 	transmat = multScaleMatrix(transmat, camera.zoom[0], camera.zoom[1]);
 	transmat = multTransMatrix(transmat, -camera.focus[0], -camera.focus[1]);
 	return transmat;
     }
-    
-    
+
+
     //======================================================================
     // model methods
 
@@ -643,8 +643,8 @@ Summon.Canvas = function (canvas)
 	c.fillRect(0, 0, canvas.width, canvas.height);
         c.restore();
     };
-    
-    
+
+
     //=======================
     // camera methods
 
@@ -720,9 +720,9 @@ Summon.Canvas = function (canvas)
         return [canvas.width, canvas.height];
     };
 
-    
+
     // sets the current view to the specified bounding box
-    //    
+    //
     //    mode -- specifies the zoom using one of the following
     //            "one2one" sets zoom to 1:1
     //            "keep"    keeps zoom at current ratio
@@ -746,7 +746,7 @@ Summon.Canvas = function (canvas)
 
         // get window dimensions
         var winsize = this.getSize();
-        
+
         // do nothing if window has zero width or height
         if (winsize[0] == 0 || winsize[1] == 0)
             return;
@@ -755,7 +755,7 @@ Summon.Canvas = function (canvas)
         if (mode == "one2one") {
             camera.zoom = [1, 1];
             this.setVisible(x1, y1, x2, y2, "keep");
-            
+
         } else if (mode == "keep") {
             var zoomx = camera.zoom[0];
             var zoomy = camera.zoom[1];
@@ -764,30 +764,30 @@ Summon.Canvas = function (canvas)
             var worldh = y2 - y1;
             var vieww = worldw * zoomx;
             var viewh = worldh * zoomy;
-            
+
             // determine which dimension is tight
             var offset, zoomx2, zoomy2;
             if (vieww / viewh < winsize[0] / winsize[1]) {
                 // height is tight
                 zoomy2 = winsize[1] / worldh;
                 zoomx2 = zoomy2 * zoomratio;
-                
+
                 var worldw2 = winsize[0] / zoomx2;
                 offset = [- (worldw2 - worldw) / 2.0, 0.0];
             } else {
                 // width is tight
                 zoomx2 = winsize[0] / worldw;
                 zoomy2 = zoomx2 / zoomratio;
-                
+
                 var worldh2 = winsize[1] / zoomy2;
                 offset = [0.0, - (worldh2 - worldh) / 2.0];
             }
-            
+
             camera.focus = [x1 + offset[0], y1 + offset[1]];
             camera.zoom = [zoomx2, zoomy2];
             camera.trans = [-x1 - offset[0], -y1 - offset[1]];
             this.queueDraw();
-            
+
         } else if (mode == "exact") {
             camera.focus = [x1, y1];
             camera.zoom = [winsize[0] / (x2 - x1), winsize[1] / (y2 - y1)];
@@ -825,9 +825,9 @@ Summon.Canvas = function (canvas)
 
     function parseKeyMod(input) {
         var mod = "";
-        if (input.indexOf("shift") != -1) 
+        if (input.indexOf("shift") != -1)
             mod += "+shift";
-        if (input.indexOf("ctrl") != -1) 
+        if (input.indexOf("ctrl") != -1)
             mod += "+ctrl";
         return mod;
     }
@@ -847,7 +847,7 @@ Summon.Canvas = function (canvas)
             if (typeof input[1] == "number") {
                 input[1] = "code" + input[1];
             }
-            
+
             bindings.keydown[input[1]] = func;
         } else if (input[0] == "mouse") {
             var mod = parseKeyMod(input.slice(2));
@@ -868,9 +868,9 @@ Summon.Canvas = function (canvas)
         this.setBinding(["keydown", "Z"], this.doZoom(1/1.2, 1/1.2));
 
         this.setBinding(["mouse", "wheel"], this.doMouseWheel(true, true));
-        this.setBinding(["mouse", "wheel", "shift"], 
+        this.setBinding(["mouse", "wheel", "shift"],
                         this.doMouseWheel(false, true));
-        this.setBinding(["mouse", "wheel", "ctrl"], 
+        this.setBinding(["mouse", "wheel", "ctrl"],
                         this.doMouseWheel(true, false));
     }
 
@@ -920,7 +920,7 @@ var drawElements = Summon.drawElements = function (c, grp, transmat)
     } else if (elm == "lines") {
         c.beginPath();
 	d = grp.data;
-	m0 = m[0]; m1=m[1]; m2=m[2]; m3=m[3]; m4=m[4]; m5=m[5];	
+	m0 = m[0]; m1=m[1]; m2=m[2]; m3=m[3]; m4=m[4]; m5=m[5];
 
         for (var i=0; i<d.length; i+=4) {
             c.moveTo(d[i]*m0 + d[i+1]*m1 + m2,
@@ -934,7 +934,7 @@ var drawElements = Summon.drawElements = function (c, grp, transmat)
     } else if (elm == "lineStrip") {
         c.beginPath();
 	d = grp.data;
-	m0 = m[0]; m1=m[1]; m2=m[2]; m3=m[3]; m4=m[4]; m5=m[5];	
+	m0 = m[0]; m1=m[1]; m2=m[2]; m3=m[3]; m4=m[4]; m5=m[5];
 
         c.moveTo(d[0]*m0 + d[1]*m1 + m2,
 	         d[0]*m3 + d[1]*m4 + m5)
@@ -959,8 +959,8 @@ var drawElements = Summon.drawElements = function (c, grp, transmat)
             c.lineTo(v[0], v[1]);
         }
         c.fill();
-        c.closePath();	
-	
+        c.closePath();
+
     } else if (elm == "quads") {
         c.beginPath();
 	d = grp.data;
@@ -977,7 +977,7 @@ var drawElements = Summon.drawElements = function (c, grp, transmat)
             c.lineTo(v[0], v[1]);
         }
         c.fill();
-        c.closePath();	
+        c.closePath();
 
     } else if (elm == "polygon") {
         c.beginPath();
@@ -1001,7 +1001,7 @@ var drawElements = Summon.drawElements = function (c, grp, transmat)
         var textWidth = d[2] - d[0];
         var textHeight = d[3] - d[1];
         var textWidth2 = c.measureText(font, textHeight, text);
-        var transmat2 = multScaleMatrix(multTransMatrix(transmat, d[0], d[1]), 
+        var transmat2 = multScaleMatrix(multTransMatrix(transmat, d[0], d[1]),
                                         textWidth / textWidth2, -1);
         if (options.minsize) {
             var zoom = getMatrixZoom(transmat2);
@@ -1053,14 +1053,14 @@ var drawElements = Summon.drawElements = function (c, grp, transmat)
         for (var i=0; i<grp.children.length; i++)
             drawElements(c, grp.children[i], transmat2);
         c.restore();
-        
+
     } else if (elm == "zoomClamp") {
         c.save();
         var zoom = getMatrixZoom(transmat);
 	var transmat2 = multScaleMatrix(transmat, 1/zoom[0], 1/zoom[1]);
         for (var i=0; i<grp.children.length; i++)
             drawElements(c, grp.children[i], transmat2);
-        c.restore();        
+        c.restore();
     }
 
 };
@@ -1073,7 +1073,7 @@ var drawElements = Summon.drawElements = function (c, grp, transmat)
 //
 // This code is adapted from CanvasText.js, which was original released
 //  to the public domain by Jim Studt, 2007.
-// He may keep some sort of up to date copy at 
+// He may keep some sort of up to date copy at
 // http://www.federated.com/~jim/canvastext/
 //
 Summon.Text = (function (Text) {
@@ -1215,13 +1215,13 @@ Summon.Text = (function (Text) {
 
         ctx.save();
         ctx.lineCap = lineCap;
-	
+
         for (var i = 0; i < len; i++) {
 	    var c = letter(str.charAt(i));
 	    if (!c) continue;
-            
+
 	    ctx.beginPath();
-            
+
 	    var penUp = 1;
 	    var needStroke = 0;
 	    for (var j = 0; j < c.points.length; j++) {
@@ -1248,11 +1248,11 @@ Summon.Text = (function (Text) {
     // install methods in drawing context
     Text.enable = function(ctx)
     {
-        ctx.drawText = function(font, size, x, y, text, transmat) { 
-            return draw(ctx, font, size, x, y, text, transmat); 
+        ctx.drawText = function(font, size, x, y, text, transmat) {
+            return draw(ctx, font, size, x, y, text, transmat);
         };
         ctx.measureText = function(font, size, text) {
-            return measure(font, size, text); 
+            return measure(font, size, text);
         };
         ctx.fontAscent = function(font, size) {
             return ascent(font, size);
@@ -1260,13 +1260,13 @@ Summon.Text = (function (Text) {
         ctx.fontDescent = function(font, size) {
             return descent(font, size);
         };
-        ctx.drawTextRight = function(font, size, x, y, text) { 
+        ctx.drawTextRight = function(font, size, x, y, text) {
 	    var w = measure(font, size, text);
-	    return draw(ctx, font, size, x-w, y, text); 
+	    return draw(ctx, font, size, x-w, y, text);
         };
-        ctx.drawTextCenter = function(font, size, x, y, text) { 
+        ctx.drawTextCenter = function(font, size, x, y, text) {
 	    var w = measure(font, size, text);
-	    return draw(ctx, font, size, x-w/2, y, text); 
+	    return draw(ctx, font, size, x-w/2, y, text);
         };
     };
 
@@ -1351,7 +1351,7 @@ function multRotateMatrix(m, r)
 {
     var s = Math.sin(r * (Math.PI/180.0));
     var o = Math.cos(r * (Math.PI/180.0));
-    
+
     return [
         m[0] * o + m[1] * s,
         m[1] * o - m[0] * s,
@@ -1373,10 +1373,10 @@ function multScaleMatrix(m, x, y)
     return [m[0]*x, m[1]*y, m[2],
 	    m[3]*x, m[4]*y, m[5],
 	    m[6]*x, m[7]*y, m[8]];
-	    
+
 }
 
-/* 
+/*
 code for FLIP
   double angle = acos(trans->GetParam1()) / M_PI * 180;
   glRotated(-angle, 0, 0, 1);
@@ -1398,7 +1398,7 @@ function getMatrixZoom(m)
 }
 
 
-function inLeftHalfspace(a, b, p)  
+function inLeftHalfspace(a, b, p)
 {
     // define left if at a and facing towards b
      return (b[0]-a[0]) * (p[1]-a[1]) - (b[1]-a[1]) * (p[0]-a[0]) <= 0;
@@ -1410,12 +1410,12 @@ function inTriangle(a, b, c, pos)
     var clockwise = inLeftHalfspace(b, a, c);
     if (clockwise)
     {
-        return inLeftHalfspace(b, a, pos) && 
-               inLeftHalfspace(c, b, pos) && 
+        return inLeftHalfspace(b, a, pos) &&
+               inLeftHalfspace(c, b, pos) &&
                inLeftHalfspace(a, c, pos);
     } else {
-        return inLeftHalfspace(a, b, pos) && 
-               inLeftHalfspace(b, c, pos) && 
+        return inLeftHalfspace(a, b, pos) &&
+               inLeftHalfspace(b, c, pos) &&
                inLeftHalfspace(c, a, pos);
     }
 }
@@ -1426,13 +1426,13 @@ function inQuad(a, b, c, d, pos)
     var clockwise = inLeftHalfspace(b, a, c);
     if (clockwise)
     {
-        return inLeftHalfspace(b, a, pos) && 
-               inLeftHalfspace(c, b, pos) && 
+        return inLeftHalfspace(b, a, pos) &&
+               inLeftHalfspace(c, b, pos) &&
                inLeftHalfspace(d, c, pos) &&
                inLeftHalfspace(a, d, pos);
     } else {
-        return inLeftHalfspace(a, b, pos) && 
-               inLeftHalfspace(b, c, pos) && 
+        return inLeftHalfspace(a, b, pos) &&
+               inLeftHalfspace(b, c, pos) &&
                inLeftHalfspace(c, d, pos) &&
                inLeftHalfspace(d, a, pos);
     }

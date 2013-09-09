@@ -93,7 +93,7 @@ write_smc
 #=============================================================================
 # constants
 
-PROGRAM_NAME = u"arghmm"
+PROGRAM_NAME = u"argweaver"
 PROGRAM_VERSION_MAJOR = 0
 PROGRAM_VERSION_MINOR = 1
 PROGRAM_VERSION_RELEASE = 0

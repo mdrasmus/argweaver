@@ -147,3 +147,21 @@ def test_pep8():
         print "pep8 errors:"
         print "".join(lines)
         raise Exception()
+
+
+def _test_arghmm():
+    """
+    See if arghmm is used anywhere within the code.
+    """
+
+    def key(line):
+        if ".pyc" in line:
+            return False
+        return True
+
+    cmd = "grep -r arghmm bin arghmm"
+    pipe = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+    lines = [line for line in pipe.stdout if key(line)]
+    pipe.wait()
+    for line in lines:
+        print line,

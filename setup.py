@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# setup for the ArgWeaver library package
+# setup for the ARGweaver library package
 #
 # use the following to install:
 #   python setup.py install
@@ -15,7 +15,7 @@ VERSION = arghmm.PROGRAM_VERSION_TEXT
 scripts = [os.path.join('bin', x) for x in os.listdir('bin')]
 
 setup(
-    name='arghmm',
+    name='argweaver',
     version=VERSION,
     description='Ancestral recombination graph sampling method',
     long_description = """
@@ -23,6 +23,6 @@ setup(
     author='Matt Rasmussen',
     author_email='matt.rasmus@gmail.edu',
 
-    packages=['arghmm', 'arghmm.deps.rasmus', 'arghmm.deps.compbio'],
+    packages=['argweaver', 'argweaver.deps.rasmus', 'argweaver.deps.compbio'],
     scripts=scripts,
 )

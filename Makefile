@@ -1,7 +1,7 @@
 #
-# ArgHmm
+# ARGweaver
 # Matt Rasmussen
-# Copyright 2012
+# Copyright 2012-2013
 #
 # Makefile
 #
@@ -37,7 +37,7 @@ endif
 
 
 #=============================================================================
-# ArgHmm files
+# ARGweaver files
 
 # package
 PKG_VERSION:=$(shell $(PYTHON) -c 'import arghmm; print arghmm.PROGRAM_VERSION_TEXT' 2>/dev/null)

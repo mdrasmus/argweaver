@@ -6,7 +6,7 @@ import optparse
 
 import arghmm
 from arghmm.bottle import get
-from arghmm.bottle import HTTPResponse
+#from arghmm.bottle import HTTPResponse
 from arghmm.bottle import request
 from arghmm.bottle import response
 from arghmm.bottle import run
