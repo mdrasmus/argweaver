@@ -21,11 +21,8 @@ void calc_arghmm_matrices_internal(
     LineageCounts lineages(model->ntimes);
     States last_states;
     States states;
-    matrices->states_model.set(internal, minage);
-    //printf(">> %d %d\n", matrices->states_model.internal,
-    //       matrices->states_model.minage);
-    matrices->states_model.get_coal_states(tree, model->ntimes, states);
-    //get_coal_states_internal(tree, model->ntimes, states);
+    matrices->states_model.set(model->ntimes, internal, minage);
+    matrices->states_model.get_coal_states(tree, states);
     const int nstates = states.size();
 
     // calculate emissions
@@ -50,8 +47,7 @@ void calc_arghmm_matrices_internal(
 
     } else {
         LocalTree *last_tree = last_tree_spr->tree;
-        //get_coal_states_internal(last_tree, model->ntimes, last_states);
-        matrices->states_model.get_coal_states(last_tree, model->ntimes, last_states);
+        matrices->states_model.get_coal_states(last_tree, last_states);
         matrices->nstates1 = last_states.size();
         matrices->nstates2 = nstates;
         lineages.count(last_tree, internal);
@@ -91,9 +87,8 @@ void calc_arghmm_matrices_external(
     LineageCounts lineages(model->ntimes);
     States last_states;
     States states;
-    matrices->states_model.set(false, 0);
-    matrices->states_model.get_coal_states(tree, model->ntimes, states);
-    //get_coal_states(tree, model->ntimes, states, false);
+    matrices->states_model.set(model->ntimes, false, 0);
+    matrices->states_model.get_coal_states(tree, states);
     const int nstates = states.size();
 
     // calculate emissions
@@ -119,8 +114,7 @@ void calc_arghmm_matrices_external(
 
     } else {
         LocalTree *last_tree = last_tree_spr->tree;
-        //get_coal_states(last_tree, model->ntimes, last_states, false);
-        matrices->states_model.get_coal_states(last_tree, model->ntimes, last_states);
+        matrices->states_model.get_coal_states(last_tree, last_states);
         matrices->nstates1 = last_states.size();
         matrices->nstates2 = nstates;
         lineages.count(last_tree);

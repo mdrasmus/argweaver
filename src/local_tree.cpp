@@ -3,7 +3,7 @@
 #include "math.h"
 #include "stdio.h"
 
-// arghmm includes
+// argweaver includes
 #include "compress.h"
 #include "common.h"
 #include "local_tree.h"
@@ -175,6 +175,7 @@ double get_treelen_internal(const LocalTree *tree, const double *times,
     return treelen;
 }
 
+
 double get_treelen_branch(const LocalTree *tree, const double *times,
                           int ntimes, int node, int time,
                           double treelen, bool use_basal)
@@ -315,7 +316,6 @@ void apply_spr(LocalTree *tree, const Spr &spr)
 
 //=============================================================================
 // local trees methods
-
 
 
 LocalTrees::LocalTrees(int **ptrees, int**ages, int **isprs, int *blocklens,
@@ -1690,8 +1690,6 @@ bool assert_trees(const LocalTrees *trees)
 }
 
 
-
-
 //=============================================================================
 // C inferface
 extern "C" {
@@ -1784,12 +1782,7 @@ void delete_local_trees(LocalTrees *trees)
 void write_local_trees(char *filename, LocalTrees *trees, char **names,
                        double *times, int ntimes)
 {
-    //Sequences seqs;
-    //int nleaves = trees->get_num_leaves();
-    //for (int i=0; i<nleaves; i++)
-    //    seqs.append(names[i], (char*) "");
     write_local_trees(filename, trees, names, times);
-    //write_local_trees(filename, trees, seqs, times);
 }
 
 
@@ -1825,15 +1818,19 @@ void get_treelens(const LocalTrees *trees, const double *times, int ntimes,
 {
     const bool use_basal = false;
     int i = 0;
-    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it, i++)
+    for (LocalTrees::const_iterator it=trees->begin();
+         it!=trees->end(); ++it, i++)
         treelens[i] = get_treelen(it->tree, times, ntimes, use_basal);
 }
+
 
 void get_local_trees_blocks(const LocalTrees *trees, int *starts, int *ends)
 {
     int i = 0;
     int end = trees->start_coord;
-    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it, i++) {
+    for (LocalTrees::const_iterator it=trees->begin();
+         it!=trees->end(); ++it, i++)
+    {
         int start = end;
         end += it->blocklen;
         starts[i] = start;
@@ -1842,9 +1839,7 @@ void get_local_trees_blocks(const LocalTrees *trees, int *starts, int *ends)
 }
 
 
-
 } // extern C
-
 
 } // namespace argweaver
 

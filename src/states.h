@@ -153,34 +153,34 @@ void get_coal_states_internal(const LocalTree *tree, int ntimes,
 int get_num_coal_states_internal(const LocalTree *tree, int ntimes);
 
 
-
 class StatesModel
 {
 public:
-    StatesModel(bool internal=false, int minage=0) :
+     StatesModel(int ntimes=0, bool internal=false, int minage=0) :
+        ntimes(ntimes),
         internal(internal),
         minage(minage)
     {}
 
-    void set(bool _internal, int _minage) {
+    void set(int _ntimes, bool _internal, int _minage) {
+        ntimes = _ntimes;
         internal = _internal;
         minage = _minage;
     }
 
-    void get_coal_states(const LocalTree *tree, int ntimes, States &states) const {
+    void get_coal_states(const LocalTree *tree, States &states) const {
         if (!internal)
             get_coal_states_external(tree, ntimes, states);
         else
             get_coal_states_internal(tree, ntimes, states, minage);
     }
 
+    int ntimes;
     bool internal;
     int minage;
 };
 
 
-
 } // namespace argweaver
-
 
 #endif // ARGWEAVER_STATES_H

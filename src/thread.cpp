@@ -292,7 +292,7 @@ void add_arg_thread(LocalTrees *trees, const StatesModel &states_model,
         //Spr *spr = &(it->spr);
         int start = end;
         end += it->blocklen;
-        states_model.get_coal_states(tree, ntimes, states);
+        states_model.get_coal_states(tree, states);
 
         // add new branch to local tree
         it->ensure_capacity(nnodes2);
@@ -1332,7 +1332,7 @@ void add_arg_thread_path(LocalTrees *trees, const StatesModel &states_model,
         int start = end;
         end += it->blocklen;
         const int subtree_root = nodes[tree->root].child[0];
-        states_model.get_coal_states(tree, ntimes, states);
+        states_model.get_coal_states(tree, states);
         int nstates = states.size();
 
 

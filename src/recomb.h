@@ -23,11 +23,6 @@ void sample_recombinations(
     int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs,
     bool internal=false);
 
-void max_recombinations(
-    const LocalTrees *trees, const ArgModel *model,
-    ArgHmmMatrixIter *matrix_list,
-    int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs);
-
 
 } // namespace argweaver
 

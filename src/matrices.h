@@ -80,9 +80,9 @@ public:
         emit = NULL;
     }
 
-    void set_states(bool internal, int minage=0)
+    void set_states(int ntimes, bool internal, int minage=0)
     {
-        states_model.set(internal, minage);
+        states_model.set(ntimes, internal, minage);
     }
 
 
@@ -237,11 +237,9 @@ public:
     virtual void clear() {}
 
     // calculate matrix for internal branch resampling
-    void set_internal(bool _internal, int _minage=0)
+    void set_internal(bool internal, int minage=0)
     {
-        states_model.set(_internal, _minage);
-        //internal = _internal;
-        //minage = _minage;
+        states_model.set(model->ntimes, internal, minage);
     }
 
     //==================================================
@@ -327,8 +325,12 @@ public:
         model->get_local_model(blocks.at(block_index).start, local_model);
     }
 
-    void get_coal_states(const LocalTree *tree, int ntimes, States &states) const {
-        states_model.get_coal_states(tree, ntimes, states);
+    void get_coal_states(const LocalTree *tree, States &states) const {
+        states_model.get_coal_states(tree, states);
+    }
+
+    void get_coal_states(States &states) const {
+        states_model.get_coal_states(get_tree_spr()->tree, states);
     }
 
 
@@ -341,7 +343,6 @@ protected:
         ArgModel local_model;
         ArgModelBlock &block = blocks.at(block_index);
 
-        //model->get_local_model(block.start, local_model);
         model->get_local_model_index(block.model_index, local_model);
         const LocalTreeSpr * last_tree_spr = get_last_tree_spr();
 
@@ -356,10 +357,6 @@ protected:
     const Sequences *seqs;
     const LocalTrees *trees;
     int new_chrom;
-
-
-    //int minage;
-    //bool internal;
 
     ArgHmmMatrices mat;
 

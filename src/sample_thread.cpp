@@ -416,7 +416,7 @@ void arghmm_forward_alg(const LocalTrees *trees, const ArgModel *model,
             forward->new_block(pos, pos+matrices.blocklen, matrices.nstates2);
         double **fw_block = &fw[pos];
 
-        matrices.states_model.get_coal_states(tree, model->ntimes, states);
+        matrices.states_model.get_coal_states(tree, states);
         lineages.count(tree, internal);
 
         // use switch matrix for first column of forward table
@@ -541,7 +541,7 @@ double stochastic_traceback(
     for (; matrix_iter->more(); matrix_iter->prev()) {
         ArgHmmMatrices &mat = matrix_iter->ref_matrices();
         LocalTree *tree = matrix_iter->get_tree_spr()->tree;
-        mat.states_model.get_coal_states(tree, model->ntimes, states);
+        mat.states_model.get_coal_states(tree, states);
         pos -= mat.blocklen;
 
         lnl += sample_hmm_posterior(mat.blocklen, tree, states,
@@ -687,7 +687,6 @@ void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences,
     // allocate temp variables
     ArgHmmForwardTable forward(trees->start_coord, trees->length());
     States states;
-    LocalTree *tree;
     double **fw = forward.get_table();
     int *thread_path_alloc = new int [trees->length()];
     int *thread_path = &thread_path_alloc[-trees->start_coord];
@@ -700,8 +699,7 @@ void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences,
 
     // fill in first column of forward table
     matrix_list.begin();
-    tree = matrix_list.get_tree_spr()->tree;
-    matrix_list.get_coal_states(tree, model->ntimes, states);
+    matrix_list.get_coal_states(states);
     forward.new_block(matrix_list.get_block_start(),
                       matrix_list.get_block_end(), states.size());
     int j = find_vector(states, start_state);
@@ -719,8 +717,7 @@ void cond_sample_arg_thread(const ArgModel *model, const Sequences *sequences,
 
     // fill in last state of traceback
     matrix_list.rbegin();
-    tree = matrix_list.get_tree_spr()->tree;
-    matrix_list.get_coal_states(tree, model->ntimes, states);
+    matrix_list.get_coal_states(states);
     thread_path[trees->end_coord-1] = find_vector(states, end_state);
     assert(thread_path[trees->end_coord-1] != -1);
 
@@ -760,7 +757,6 @@ void cond_sample_arg_thread_internal(
     // allocate temp variables
     ArgHmmForwardTable forward(trees->start_coord, trees->length());
     States states;
-    LocalTree *tree;
     double **fw = forward.get_table();
     int *thread_path_alloc = new int [trees->length()];
     int *thread_path = &thread_path_alloc[-trees->start_coord];
@@ -774,8 +770,7 @@ void cond_sample_arg_thread_internal(
 
     // fill in first column of forward table
     matrix_iter.begin();
-    tree = matrix_iter.get_tree_spr()->tree;
-    matrix_iter.get_coal_states(tree, model->ntimes, states);
+    matrix_iter.get_coal_states(states);
     forward.new_block(matrix_iter.get_block_start(),
                       matrix_iter.get_block_end(), states.size());
 
@@ -808,8 +803,7 @@ void cond_sample_arg_thread_internal(
 
     // fill in last state of traceback
     matrix_iter.rbegin();
-    tree = matrix_iter.get_tree_spr()->tree;
-    matrix_iter.get_coal_states(tree, model->ntimes, states);
+    matrix_iter.get_coal_states(states);
     if (states.size() > 0) {
         if (!end_state.is_null()) {
             thread_path[trees->end_coord-1] = find_vector(states, end_state);

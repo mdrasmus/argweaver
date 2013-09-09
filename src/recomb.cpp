@@ -66,11 +66,7 @@ void sample_recombinations(
         ArgHmmMatrices &matrices = matrix_iter->ref_matrices();
         LocalTree *tree = matrix_iter->get_tree_spr()->tree;
         lineages.count(tree, internal);
-        matrices.states_model.get_coal_states(tree, model->ntimes, states);
-        //if (internal)
-        //    get_coal_states_internal(tree, model->ntimes, states);
-        //else
-        //    get_coal_states(tree, model->ntimes, states);
+        matrices.states_model.get_coal_states(tree, states);
         int next_recomb = -1;
 
         // don't sample recombination if there is no state space
@@ -150,86 +146,6 @@ void sample_recombinations(
             // sample recombination
             recomb_pos.push_back(i);
             recombs.push_back(candidates[sample(&probs[0], probs.size())]);
-
-            assert(recombs[recombs.size()-1].time <= min(state.time,
-                                                         last_state.time));
-        }
-    }
-}
-
-
-
-void max_recombinations(
-    const LocalTrees *trees, const ArgModel *model,
-    ArgHmmMatrixIter *matrix_iter,
-    int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs)
-{
-    States states;
-    LineageCounts lineages(model->ntimes);
-    const int new_node = -1;
-    vector <NodePoint> candidates;
-    vector <double> probs;
-
-
-    // loop through local blocks
-    for (matrix_iter->begin(); matrix_iter->more(); matrix_iter->next()) {
-        // get local block information
-        ArgHmmMatrices &matrices = matrix_iter->ref_matrices();
-        LocalTree *tree = matrix_iter->get_tree_spr()->tree;
-        lineages.count(tree);
-        get_coal_states(tree, model->ntimes, states);
-
-        int start = matrix_iter->get_block_start();
-        int end = matrix_iter->get_block_end();
-        if (matrices.transmat_switch || start == trees->start_coord) {
-            // don't allow new recomb at start if we are switching blocks
-            start++;
-        }
-
-        //int start = end + 1;  // don't allow new recomb at start
-        //end = start - 1 + matrices.blocklen;
-
-        // loop through positions in block
-        for (int i=start; i<end; i++) {
-            // its never worth sampling a recombination if you don't have to
-            if (thread_path[i] == thread_path[i-1])
-                continue;
-
-            State state = states[thread_path[i]];
-            State last_state = states[thread_path[i-1]];
-
-            // find candidate recombinations
-            candidates.clear();
-            int end_time = min(state.time, last_state.time);
-            if (state.node == last_state.node) {
-                // y = node, k in [node.age, min(timei, last_timei)]
-                for (int k=tree->nodes[state.node].age; k<=end_time; k++)
-                    candidates.push_back(NodePoint(state.node, k));
-            }
-
-            // y = v, k in [0, min(timei, last_timei)]
-            for (int k=0; k<=end_time; k++)
-                candidates.push_back(NodePoint(new_node, k));
-
-            // compute probability of each candidate
-            probs.clear();
-            for (vector<NodePoint>::iterator it=candidates.begin();
-                 it != candidates.end(); ++it) {
-                probs.push_back(recomb_prob_unnormalized(
-                    model, tree, lineages, last_state, state, *it));
-            }
-
-            // find max prob recombination
-            recomb_pos.push_back(i);
-            int argmax = 0;
-            double maxprob = probs[0];
-            for (unsigned int m=1; m<probs.size(); m++) {
-                if (probs[m] > maxprob) {
-                    argmax = m;
-                    maxprob = probs[m];
-                }
-            }
-            recombs.push_back(candidates[argmax]);
 
             assert(recombs[recombs.size()-1].time <= min(state.time,
                                                          last_state.time));
