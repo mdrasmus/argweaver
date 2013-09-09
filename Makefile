@@ -42,11 +42,12 @@ endif
 # package
 PKG_VERSION:=$(shell $(PYTHON) -c 'import argweaver; print argweaver.PROGRAM_VERSION_TEXT' 2>/dev/null)
 PKG_NAME=argweaver
-PKG=dist/$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_DIR=dist/$(PKG_NAME)-$(PKG_VERSION)
+DIST=dist
+PKG=$(DIST)/$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_DIR=$(DIST)/$(PKG_NAME)-$(PKG_VERSION)
 
 # program files
-SCRIPTS =  
+SCRIPTS = 
 PROGS = bin/arg-sample
 BINARIES = $(PROGS) $(SCRIPTS)
 
@@ -130,12 +131,12 @@ $(LIBARGWEAVER_SHARED): $(LIBARGWEAVER_OBJS)
 # packaging
 
 pkg:
-	mkdir -p $(PKG_DIR)
+	mkdir -p $(DIST)
 	git archive --format=tar --prefix=$(PKG_NAME)-$(PKG_VERSION)/ HEAD | \
 	gzip > $(PKG)	
 
 $(PKG):
-	mkdir -p $(PKG_DIR)
+	mkdir -p $(DIST)
 	git archive --format=tar --prefix=$(PKG_NAME)-$(PKG_VERSION)/ | \
 	gzip > $(PKG)
 
@@ -154,7 +155,6 @@ cq:
 install: $(BINARIES) $(LIBARGWEAVER_SHARED_INSTALL)
 	mkdir -p $(prefix)/bin
 	cp $(BINARIES) $(prefix)/bin
-	echo $(LIBARGWEAVER_SHARED_INSTALL)
 	$(PYTHON) setup.py install --prefix=$(prefix)
 
 pylib: $(LIBARGWEAVER_SHARED_INSTALL)

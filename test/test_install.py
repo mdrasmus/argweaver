@@ -21,6 +21,7 @@ def test_install():
     """
 
     make_clean_dir("test/data/install")
+    run_cmd("python setup.py clean > /dev/null")
     run_cmd("make install prefix=test/data/install > /dev/null")
     run_cmd("PYTHONPATH=test/data/install python -c 'import argweaver'")
     assert os.path.exists("test/data/install/bin/arg-sample")
