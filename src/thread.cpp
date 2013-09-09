@@ -2,7 +2,7 @@
 #include "thread.h"
 #include "trans.h"
 
-namespace arghmm {
+namespace argweaver {
 
     /*
 // assert that a thread is compatiable with an ARG
@@ -1844,4 +1844,4 @@ void arghmm_get_thread_times(LocalTrees *trees, int ntimes, int *path,
 
 } // extern C
 
-} // namespace arghmm
+} // namespace argweaver

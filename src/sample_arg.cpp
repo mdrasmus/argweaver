@@ -16,7 +16,7 @@
 
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -855,7 +855,7 @@ LocalTrees *arghmm_sample_arg_seq_gibbs(double *times, int ntimes,
 
 } // extern C
 
-} // namespace arghmm
+} // namespace argweaver
 
 
 

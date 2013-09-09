@@ -4,7 +4,7 @@
 
 #include "est_popsize.h"
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -151,5 +151,5 @@ void arghmm_est_popsizes_trees(LocalTrees *trees, double *times, int ntimes,
 
 } // extern C
 
-} // namespace arghmm
+} // namespace argweaver
 

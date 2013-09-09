@@ -21,7 +21,7 @@
 
 using namespace std;
 
-namespace arghmm {
+namespace argweaver {
 
 enum {
     OPTION_ARG,

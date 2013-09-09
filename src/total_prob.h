@@ -4,7 +4,7 @@
 #include "local_tree.h"
 #include "model.h"
 
-namespace arghmm {
+namespace argweaver {
 
 void calc_coal_rates_full_tree(const ArgModel *model, const LocalTree *tree,
                                const Spr &spr, LineageCounts &lineages,
@@ -28,6 +28,6 @@ double calc_arg_joint_prob(const ArgModel *model, const Sequences *sequences,
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_TOTAL_PROB_H

@@ -22,7 +22,7 @@
 
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -346,7 +346,7 @@ protected:
         model->get_local_model_index(block.model_index, local_model);
         const LocalTreeSpr * last_tree_spr = get_last_tree_spr();
 
-        arghmm::calc_arghmm_matrices(
+        argweaver::calc_arghmm_matrices(
             &local_model, seqs, trees, last_tree_spr, block.tree_spr,
             block.start, block.end, new_chrom, states_model, matrices);
     }
@@ -449,7 +449,7 @@ protected:
 };
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 
 #endif // ARGHMM_MATRICES_H

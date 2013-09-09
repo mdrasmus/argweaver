@@ -4,11 +4,11 @@
 #include "local_tree.h"
 #include "model.h"
 
-namespace arghmm {
+namespace argweaver {
 
 void est_popsize_local_trees(const ArgModel *model, const LocalTrees *trees,
                              double *popsizes);
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_EST_POPSIZE_H

@@ -6,7 +6,7 @@
 #include "prior.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 static inline double H(int i, int j, double n)
@@ -54,5 +54,5 @@ double prob_coal_counts_matrix(int a, int b, double t, double n)
 } // extern "C"
 
 
-} // namespace arghmm
+} // namespace argweaver
 

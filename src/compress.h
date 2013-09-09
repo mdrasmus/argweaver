@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-namespace arghmm {
+namespace argweaver {
 
 
 // default zip/unzip commands
@@ -68,6 +68,6 @@ public:
 };
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_COMPRESS_H

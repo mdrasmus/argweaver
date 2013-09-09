@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -98,7 +98,7 @@ char *concat_strs(char **strs, int nstrs);
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_PARSING_H
 

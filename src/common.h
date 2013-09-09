@@ -13,7 +13,7 @@
 #include "t2exp.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -323,6 +323,6 @@ inline bool fequal(double f1, double f2, double rel=.0001, double eabs=1e-12)
 }
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_COMMON_H

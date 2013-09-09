@@ -12,7 +12,7 @@
 #include <stdio.h>
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -29,6 +29,6 @@ void max_recombinations(
     int *thread_path, vector<int> &recomb_pos, vector<NodePoint> &recombs);
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_RECOMB_H

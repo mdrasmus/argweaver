@@ -7,7 +7,7 @@
 #include "trans.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 void calc_coal_rates_partial_tree(const ArgModel *model, const LocalTree *tree,
@@ -1376,7 +1376,7 @@ bool arghmm_assert_transmat_switch_internal(
 
 } // extern C
 
-} // namespace arghmm
+} // namespace argweaver
 
 
 

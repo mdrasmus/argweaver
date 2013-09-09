@@ -17,7 +17,7 @@
 #include "logging.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 bool readDist(FILE *infile, float *dist)
@@ -297,4 +297,4 @@ bool writeNewickTree(const char *filename, Tree *tree, bool oneline)
 
 
 
-} // namespace arghmm
+} // namespace argweaver

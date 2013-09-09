@@ -7,7 +7,7 @@
 #include "model.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 void make_tavare_matrix(int k, double n, double *matrix);
@@ -66,7 +66,7 @@ double prob_coal_counts_matrix(int a, int b, double t, double n);
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_PRIOR_H
 

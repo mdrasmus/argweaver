@@ -12,7 +12,7 @@
 #define ARGHMM_SEQ_H
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 // convert dna characters into standard numbers
@@ -40,6 +40,6 @@ extern int dnatype[];
 void computeBgfreq(int nseq, char **seqs, float *bgfreq);
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_SEQ_H

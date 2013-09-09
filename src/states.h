@@ -8,7 +8,7 @@
 #include "common.h"
 #include "local_tree.h"
 
-namespace arghmm {
+namespace argweaver {
 
 
 // A state in the ArgHmm
@@ -180,7 +180,7 @@ public:
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 
 #endif // ARGHMM_STATES_H

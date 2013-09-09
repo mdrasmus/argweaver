@@ -3,7 +3,7 @@
 
 #include "parsing.h"
 
-namespace arghmm {
+namespace argweaver {
 
 const int DEFAULT_LINE_SIZE = 4 * 1024;
 
@@ -140,4 +140,4 @@ char *concat_strs(char **strs, int nstrs)
 
 
 
-} // namespace arghmm
+} // namespace argweaver

@@ -14,7 +14,7 @@
 #include "sequences.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -68,6 +68,6 @@ double resample_arg_regions(
     const ArgModel *model, const Sequences *sequences,
     LocalTrees *trees, int window, int step, int niters=1);
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_SAMPLE_ARG_H

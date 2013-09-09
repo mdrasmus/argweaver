@@ -11,7 +11,7 @@
 #include "parsing.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 //=============================================================================
@@ -1846,5 +1846,5 @@ void get_local_trees_blocks(const LocalTrees *trees, int *starts, int *ends)
 } // extern C
 
 
-} // namespace arghmm
+} // namespace argweaver
 

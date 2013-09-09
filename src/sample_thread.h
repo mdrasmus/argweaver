@@ -23,7 +23,7 @@
 
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -160,6 +160,6 @@ void cond_sample_arg_thread_internal(
     LocalTrees *trees, State start_state, State end_state);
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_SAMPLE_THREAD_H

@@ -2,7 +2,7 @@
 
 #include "matrices.h"
 
-namespace arghmm {
+namespace argweaver {
 
 // calculate transition and emission matrices for current block
 void calc_arghmm_matrices_internal(
@@ -161,5 +161,5 @@ void calc_arghmm_matrices(
 }
 
 
-} // namespace arghmm
+} // namespace argweaver
 

@@ -9,7 +9,7 @@
 
 #include "seq.h"
 
-namespace arghmm {
+namespace argweaver {
 
 
 const int dna2int [256] =
@@ -77,4 +77,4 @@ void computeBgfreq(int nseqs, char **seqs, float *bgfreq)
 }
 
 
-} // namespace arghmm
+} // namespace argweaver

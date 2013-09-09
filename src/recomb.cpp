@@ -2,7 +2,7 @@
 #include "local_tree.h"
 #include "matrices.h"
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -238,4 +238,4 @@ void max_recombinations(
 }
 
 
-} // namespace arghmm
+} // namespace argweaver

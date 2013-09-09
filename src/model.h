@@ -12,7 +12,7 @@
 #include "track.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 // Returns a discretized time point
@@ -329,7 +329,7 @@ public:
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 
 #endif // ARGHMM_MODEL_H

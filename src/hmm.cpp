@@ -1,7 +1,7 @@
 
 #include "common.h"
 
-namespace arghmm {
+namespace argweaver {
 
 extern "C" {
 
@@ -99,7 +99,7 @@ int sample_hmm_posterior_step(int nstates1, double **trans, double *col1,
 
 
 } // extern C
-} // namespace arghmm
+} // namespace argweaver
 
 
 

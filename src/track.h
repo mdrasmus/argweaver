@@ -11,7 +11,7 @@
 #include "parsing.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -315,6 +315,6 @@ bool read_track_filter(const char *filename, Track<T> *track,
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_TRACK

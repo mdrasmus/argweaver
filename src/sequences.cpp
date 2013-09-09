@@ -10,7 +10,7 @@
 //       - bases should be acceptable characters
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 //=============================================================================
@@ -606,4 +606,4 @@ void arghmm_delete_sites(Sites *sites)
 
 
 } // extern "C"
-} // namespace arghmm
+} // namespace argweaver

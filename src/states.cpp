@@ -3,7 +3,7 @@
 #include "states.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 
@@ -263,4 +263,4 @@ void delete_state_spaces(intstate **all_states, int ntrees)
 
 } // extern "C"
 
-} // namespace arghmm
+} // namespace argweaver

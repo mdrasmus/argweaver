@@ -5,7 +5,7 @@
 #include "compress.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -72,6 +72,6 @@ int close_compress(FILE *stream)
 }
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 

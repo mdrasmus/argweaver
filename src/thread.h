@@ -5,7 +5,7 @@
 #include "states.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 // assert that a thread is compatiable with an ARG
 bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes);
@@ -149,6 +149,6 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif //ARGHMM_THREAD_H

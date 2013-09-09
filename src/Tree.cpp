@@ -18,7 +18,7 @@
 
 namespace spidir {
 
-using namespace arghmm;
+using namespace argweaver;
 
 
 // return a copy of the tree

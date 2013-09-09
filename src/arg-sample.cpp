@@ -21,7 +21,7 @@
 
 
 
-using namespace arghmm;
+using namespace argweaver;
 
 
 // version info

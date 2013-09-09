@@ -3,7 +3,7 @@
 
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 void get_coal_time_steps(const double *times, int ntimes,
@@ -169,4 +169,4 @@ bool ArgModel::setup_maps(string chrom, int start, int end) {
 }
 
 
-} // namespace arghmm
+} // namespace argweaver

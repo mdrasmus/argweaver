@@ -4,7 +4,7 @@
 #include "seq.h"
 #include "thread.h"
 
-namespace arghmm {
+namespace argweaver {
 
 
 //=============================================================================
@@ -1293,6 +1293,6 @@ bool arghmm_assert_emit_internal(
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 

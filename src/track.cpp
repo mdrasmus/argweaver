@@ -3,7 +3,7 @@
 #include "track.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 
 template <>
@@ -48,6 +48,6 @@ bool read_track_line<NullValue>(const char *line, RegionNullValue &region)
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 

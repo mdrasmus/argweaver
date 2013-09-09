@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 
-namespace arghmm {
+namespace argweaver {
 
 
 // logging
@@ -256,6 +256,6 @@ void setLogLevel(int level);
 } // extern "C"
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_LOGGING_H

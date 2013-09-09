@@ -1,6 +1,6 @@
 """
 
-Tests for installing ArgWeaver.
+Tests for installing ARGweaver.
 
 """
 
@@ -17,7 +17,7 @@ def run_cmd(cmd):
 
 def test_install():
     """
-    Test installing ArgWeaver.
+    Test installing ARGweaver.
     """
 
     make_clean_dir("test/data/install")

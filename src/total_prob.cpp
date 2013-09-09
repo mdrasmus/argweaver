@@ -13,7 +13,7 @@
 
 using namespace std;
 
-namespace arghmm {
+namespace argweaver {
 
 
 double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
@@ -381,5 +381,5 @@ double arghmm_joint_prob(LocalTrees *trees,
 } // extern "C"
 
 
-} // namespace arghmm
+} // namespace argweaver
 

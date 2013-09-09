@@ -14,7 +14,7 @@
 
 #include "Tree.h"
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace spidir;
 
@@ -26,7 +26,7 @@ void writeNewickTree(FILE *out, Tree *tree, int depth, bool oneline=false);
 bool writeNewickTree(const char *filename, Tree *tree, bool oneline=false);
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 
 #endif // ARGHMM_NEWICK_H

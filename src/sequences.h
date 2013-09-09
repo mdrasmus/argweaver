@@ -18,7 +18,7 @@
 // arghmm includes
 #include "track.h"
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -326,6 +326,6 @@ void compress_sites(Sites *sites, const SitesMapping *sites_mapping);
 void uncompress_sites(Sites *sites, const SitesMapping *sites_mapping);
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_SEQUENCES_H

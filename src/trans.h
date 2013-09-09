@@ -9,7 +9,7 @@
 #include "model.h"
 #include "states.h"
 
-namespace arghmm {
+namespace argweaver {
 
 
 // A compressed representation of the transition matrix
@@ -276,6 +276,6 @@ void get_recomb_transition_switch(
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_TRANS_H

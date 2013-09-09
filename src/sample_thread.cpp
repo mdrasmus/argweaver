@@ -21,7 +21,7 @@
 
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -1038,7 +1038,7 @@ void delete_forward_matrix(double **mat, int nrows)
 
 } // extern "C"
 
-} // namespace arghmm
+} // namespace argweaver
 
 
 

@@ -15,7 +15,7 @@
 #include "sequences.h"
 
 
-namespace arghmm {
+namespace argweaver {
 
 using namespace std;
 
@@ -816,6 +816,6 @@ bool assert_trees(const LocalTrees *trees);
 
 
 
-} // namespace arghmm
+} // namespace argweaver
 
 #endif // ARGHMM_LOCAL_TREES

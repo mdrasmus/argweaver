@@ -9,7 +9,7 @@
 // arghmm headers
 #include "logging.h"
 
-namespace arghmm {
+namespace argweaver {
 
 //=============================================================================
 // Errors and Logging
