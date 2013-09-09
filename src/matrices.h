@@ -214,6 +214,7 @@ public:
     ArgHmmMatrixIter(const ArgModel *model, const Sequences *seqs,
                       const LocalTrees *trees,
                       int _new_chrom=-1) :
+        states_model(model->ntimes),
         model(model),
         seqs(seqs),
         trees(trees),

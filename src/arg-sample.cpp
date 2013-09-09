@@ -25,7 +25,7 @@ using namespace argweaver;
 
 
 // version info
-#define VERSION_TEXT "1.0"
+#define VERSION_TEXT "0.8"
 #define VERSION_INFO  "\
 ARGweaver " VERSION_TEXT " \n\
 Matt Rasmussen\n\

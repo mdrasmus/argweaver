@@ -693,42 +693,6 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     return arg
 
 
-def sample_arg_seq_gibbs(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
-                         seqiters=4, gibbsiters=3, times=None, verbose=False,
-                         carg=False):
-    """
-    Sample ARG for sequences using sequential and gibbs stages
-    """
-    if times is None:
-        times = argweaver.get_time_points(
-            ntimes=ntimes, maxtime=80000, delta=.01)
-    if isinstance(popsizes, float) or isinstance(popsizes, int):
-        popsizes = [popsizes] * len(times)
-
-    if verbose:
-        util.tic("sample arg")
-
-    names, seqs2 = zip(* seqs.items())
-
-    # sample arg
-    trees = argweaver_sample_arg_seq_gibbs(
-        times, len(times),
-        popsizes, rho, mu,
-        (C.c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]),
-        seqiters, gibbsiters)
-
-    if carg:
-        arg = (trees, names)
-    else:
-        # convert to python
-        arg = ctrees2arg(trees, names, times, verbose=verbose)
-
-    if verbose:
-        util.toc()
-
-    return arg
-
-
 def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
                  refine=1, nremove=1, times=None, verbose=False, carg=False):
     """
