@@ -1,8 +1,8 @@
 //=============================================================================
 // Local trees
 
-#ifndef ARGHMM_LOCAL_TREES_H
-#define ARGHMM_LOCAL_TREES_H
+#ifndef ARGWEAVER_LOCAL_TREES_H
+#define ARGWEAVER_LOCAL_TREES_H
 
 // c++ includes
 #include <assert.h>
@@ -818,4 +818,4 @@ bool assert_trees(const LocalTrees *trees);
 
 } // namespace argweaver
 
-#endif // ARGHMM_LOCAL_TREES
+#endif // ARGWEAVER_LOCAL_TREES

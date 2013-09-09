@@ -1,8 +1,8 @@
 //=============================================================================
 // transitions
 
-#ifndef ARGHMM_TRANS_H
-#define ARGHMM_TRANS_H
+#ifndef ARGWEAVER_TRANS_H
+#define ARGWEAVER_TRANS_H
 
 #include "common.h"
 #include "local_tree.h"
@@ -278,4 +278,4 @@ void get_recomb_transition_switch(
 
 } // namespace argweaver
 
-#endif // ARGHMM_TRANS_H
+#endif // ARGWEAVER_TRANS_H

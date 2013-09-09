@@ -7,8 +7,8 @@
 =============================================================================*/
 
 
-#ifndef ARGHMM_LOGGING_H
-#define ARGHMM_LOGGING_H
+#ifndef ARGWEAVER_LOGGING_H
+#define ARGWEAVER_LOGGING_H
 
 // c/c++ includes
 #include <assert.h>
@@ -258,4 +258,4 @@ void setLogLevel(int level);
 
 } // namespace argweaver
 
-#endif // ARGHMM_LOGGING_H
+#endif // ARGWEAVER_LOGGING_H

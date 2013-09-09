@@ -1,5 +1,5 @@
-#ifndef ARGHMM_COMPRESS_H
-#define ARGHMM_COMPRESS_H
+#ifndef ARGWEAVER_COMPRESS_H
+#define ARGWEAVER_COMPRESS_H
 
 #include <string.h>
 #include <stdio.h>
@@ -70,4 +70,4 @@ public:
 
 } // namespace argweaver
 
-#endif // ARGHMM_COMPRESS_H
+#endif // ARGWEAVER_COMPRESS_H

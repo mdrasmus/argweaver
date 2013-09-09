@@ -2,8 +2,8 @@
 // ArgHmm model
 
 
-#ifndef ARGHMM_MODEL_H
-#define ARGHMM_MODEL_H
+#ifndef ARGWEAVER_MODEL_H
+#define ARGWEAVER_MODEL_H
 
 // c/c++ includes
 #include <math.h>
@@ -332,4 +332,4 @@ public:
 } // namespace argweaver
 
 
-#endif // ARGHMM_MODEL_H
+#endif // ARGWEAVER_MODEL_H

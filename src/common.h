@@ -1,5 +1,5 @@
-#ifndef ARGHMM_COMMON_H
-#define ARGHMM_COMMON_H
+#ifndef ARGWEAVER_COMMON_H
+#define ARGWEAVER_COMMON_H
 
 
 // headers c++
@@ -325,4 +325,4 @@ inline bool fequal(double f1, double f2, double rel=.0001, double eabs=1e-12)
 
 } // namespace argweaver
 
-#endif // ARGHMM_COMMON_H
+#endif // ARGWEAVER_COMMON_H

@@ -2,8 +2,8 @@
 // sample full ARGs
 //
 
-#ifndef ARGHMM_SAMPLE_ARG_H
-#define ARGHMM_SAMPLE_ARG_H
+#ifndef ARGWEAVER_SAMPLE_ARG_H
+#define ARGWEAVER_SAMPLE_ARG_H
 
 // c++ includes
 #include <vector>
@@ -70,4 +70,4 @@ double resample_arg_regions(
 
 } // namespace argweaver
 
-#endif // ARGHMM_SAMPLE_ARG_H
+#endif // ARGWEAVER_SAMPLE_ARG_H

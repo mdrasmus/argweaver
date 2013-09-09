@@ -1,5 +1,5 @@
-#ifndef ARGHMM_THREAD_H
-#define ARGHMM_THREAD_H
+#ifndef ARGWEAVER_THREAD_H
+#define ARGWEAVER_THREAD_H
 
 #include "local_tree.h"
 #include "states.h"
@@ -151,4 +151,4 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
 
 } // namespace argweaver
 
-#endif //ARGHMM_THREAD_H
+#endif //ARGWEAVER_THREAD_H

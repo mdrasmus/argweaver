@@ -1,5 +1,5 @@
-#ifndef ARGHMM_TRACK_H
-#define ARGHMM_TRACK_H
+#ifndef ARGWEAVER_TRACK_H
+#define ARGWEAVER_TRACK_H
 
 // c++ includes
 #include <string.h>
@@ -317,4 +317,4 @@ bool read_track_filter(const char *filename, Track<T> *track,
 
 } // namespace argweaver
 
-#endif // ARGHMM_TRACK
+#endif // ARGWEAVER_TRACK

@@ -1,8 +1,8 @@
 //=============================================================================
 // Local trees
 
-#ifndef ARGHMM_RECOMB_H
-#define ARGHMM_RECOMB_H
+#ifndef ARGWEAVER_RECOMB_H
+#define ARGWEAVER_RECOMB_H
 
 // c++ includes
 #include <assert.h>
@@ -31,4 +31,4 @@ void max_recombinations(
 
 } // namespace argweaver
 
-#endif // ARGHMM_RECOMB_H
+#endif // ARGWEAVER_RECOMB_H

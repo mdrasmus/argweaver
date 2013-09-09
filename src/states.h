@@ -2,8 +2,8 @@
 // ArgHmm states
 
 
-#ifndef ARGHMM_STATES_H
-#define ARGHMM_STATES_H
+#ifndef ARGWEAVER_STATES_H
+#define ARGWEAVER_STATES_H
 
 #include "common.h"
 #include "local_tree.h"
@@ -183,4 +183,4 @@ public:
 } // namespace argweaver
 
 
-#endif // ARGHMM_STATES_H
+#endif // ARGWEAVER_STATES_H

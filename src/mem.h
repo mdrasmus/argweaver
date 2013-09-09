@@ -6,8 +6,8 @@
 
 =============================================================================*/
 
-#ifndef ARGHMM_MEM_H
-#define ARGHMM_MEM_H
+#ifndef ARGWEAVER_MEM_H
+#define ARGWEAVER_MEM_H
 
 long get_max_memory_usage();
 

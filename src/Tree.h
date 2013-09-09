@@ -7,8 +7,8 @@
 
 =============================================================================*/
 
-#ifndef ARGHMM_TREE_H
-#define ARGHMM_TREE_H
+#ifndef ARGWEAVER_TREE_H
+#define ARGWEAVER_TREE_H
 
 #include <stdio.h>
 #include <stdlib.h>

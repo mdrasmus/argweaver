@@ -1,5 +1,5 @@
-#ifndef ARGHMM_SAMPLE_THREAD_H
-#define ARGHMM_SAMPLE_THREAD_H
+#ifndef ARGWEAVER_SAMPLE_THREAD_H
+#define ARGWEAVER_SAMPLE_THREAD_H
 
 // c++ includes
 #include <list>
@@ -162,4 +162,4 @@ void cond_sample_arg_thread_internal(
 
 } // namespace argweaver
 
-#endif // ARGHMM_SAMPLE_THREAD_H
+#endif // ARGWEAVER_SAMPLE_THREAD_H

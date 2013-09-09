@@ -1,5 +1,5 @@
-#ifndef ARGHMM_EST_POPSIZE_H
-#define ARGHMM_EST_POPSIZE_H
+#ifndef ARGWEAVER_EST_POPSIZE_H
+#define ARGWEAVER_EST_POPSIZE_H
 
 #include "local_tree.h"
 #include "model.h"
@@ -11,4 +11,4 @@ void est_popsize_local_trees(const ArgModel *model, const LocalTrees *trees,
 
 } // namespace argweaver
 
-#endif // ARGHMM_EST_POPSIZE_H
+#endif // ARGWEAVER_EST_POPSIZE_H

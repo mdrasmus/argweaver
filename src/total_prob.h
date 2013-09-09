@@ -1,5 +1,5 @@
-#ifndef ARGHMM_TOTAL_PROB_H
-#define ARGHMM_TOTAL_PROB_H
+#ifndef ARGWEAVER_TOTAL_PROB_H
+#define ARGWEAVER_TOTAL_PROB_H
 
 #include "local_tree.h"
 #include "model.h"
@@ -30,4 +30,4 @@ double calc_arg_joint_prob(const ArgModel *model, const Sequences *sequences,
 
 } // namespace argweaver
 
-#endif // ARGHMM_TOTAL_PROB_H
+#endif // ARGWEAVER_TOTAL_PROB_H

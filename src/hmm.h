@@ -1,5 +1,5 @@
-#ifndef ARGHMM_HMM_H
-#define ARGHMM_HMM_H
+#ifndef ARGWEAVER_HMM_H
+#define ARGWEAVER_HMM_H
 
 
 namespace argweaver {
@@ -26,4 +26,4 @@ int sample_hmm_posterior_step(int nstates1, double **trans, double *col1,
 
 
 
-#endif // ARGHMM_HMM_H
+#endif // ARGWEAVER_HMM_H

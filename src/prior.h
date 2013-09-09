@@ -1,5 +1,5 @@
-#ifndef ARGHMM_PRIOR_H
-#define ARGHMM_PRIOR_H
+#ifndef ARGWEAVER_PRIOR_H
+#define ARGWEAVER_PRIOR_H
 
 // arghmm includes
 #include "expm/matrix_exponential.h"
@@ -68,6 +68,6 @@ double prob_coal_counts_matrix(int a, int b, double t, double n);
 
 } // namespace argweaver
 
-#endif // ARGHMM_PRIOR_H
+#endif // ARGWEAVER_PRIOR_H
 
 

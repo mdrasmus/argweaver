@@ -1,8 +1,8 @@
 //=============================================================================
 // transition and emission matrices
 
-#ifndef ARGHMM_MATRICES_H
-#define ARGHMM_MATRICES_H
+#ifndef ARGWEAVER_MATRICES_H
+#define ARGWEAVER_MATRICES_H
 
 
 // c++ includes
@@ -452,6 +452,6 @@ protected:
 } // namespace argweaver
 
 
-#endif // ARGHMM_MATRICES_H
+#endif // ARGWEAVER_MATRICES_H
 
 

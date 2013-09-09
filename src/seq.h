@@ -8,8 +8,8 @@
 =============================================================================*/
 
 
-#ifndef ARGHMM_SEQ_H
-#define ARGHMM_SEQ_H
+#ifndef ARGWEAVER_SEQ_H
+#define ARGWEAVER_SEQ_H
 
 
 namespace argweaver {
@@ -42,4 +42,4 @@ void computeBgfreq(int nseq, char **seqs, float *bgfreq);
 
 } // namespace argweaver
 
-#endif // ARGHMM_SEQ_H
+#endif // ARGWEAVER_SEQ_H

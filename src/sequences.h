@@ -8,8 +8,8 @@
 =============================================================================*/
 
 
-#ifndef ARGHMM_SEQUENCES_H
-#define ARGHMM_SEQUENCES_H
+#ifndef ARGWEAVER_SEQUENCES_H
+#define ARGWEAVER_SEQUENCES_H
 
 // c++ includes
 #include <string>
@@ -328,4 +328,4 @@ void uncompress_sites(Sites *sites, const SitesMapping *sites_mapping);
 
 } // namespace argweaver
 
-#endif // ARGHMM_SEQUENCES_H
+#endif // ARGWEAVER_SEQUENCES_H

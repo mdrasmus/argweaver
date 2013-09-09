@@ -1,5 +1,5 @@
-#ifndef ARGHMM_PARSING_H
-#define ARGHMM_PARSING_H
+#ifndef ARGWEAVER_PARSING_H
+#define ARGWEAVER_PARSING_H
 
 
 // headers c++
@@ -100,5 +100,5 @@ char *concat_strs(char **strs, int nstrs);
 
 } // namespace argweaver
 
-#endif // ARGHMM_PARSING_H
+#endif // ARGWEAVER_PARSING_H
 

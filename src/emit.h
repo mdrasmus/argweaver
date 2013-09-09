@@ -1,5 +1,5 @@
-#ifndef ARGHMM_EMIT_H
-#define ARGHMM_EMIT_H
+#ifndef ARGWEAVER_EMIT_H
+#define ARGWEAVER_EMIT_H
 
 #include "local_tree.h"
 #include "model.h"
@@ -48,4 +48,4 @@ void delete_emissions(double **emit, int seqlen);
 
 } // namesapce arghmm
 
-#endif // ARGHMM_EMIT_H
+#endif // ARGWEAVER_EMIT_H

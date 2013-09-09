@@ -6,8 +6,8 @@
 
 =============================================================================*/
 
-#ifndef ARGHMM_NEWICK_H
-#define ARGHMM_NEWICK_H
+#ifndef ARGWEAVER_NEWICK_H
+#define ARGWEAVER_NEWICK_H
 
 #include <stdlib.h>
 #include <string>
@@ -29,5 +29,5 @@ bool writeNewickTree(const char *filename, Tree *tree, bool oneline=false);
 } // namespace argweaver
 
 
-#endif // ARGHMM_NEWICK_H
+#endif // ARGWEAVER_NEWICK_H
 
