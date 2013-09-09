@@ -6,8 +6,8 @@ Tests for basic low-level ARG and sequence functions.
 
 import os
 
-import arghmm
-from arghmm import arghmmc
+import argweaver
+from argweaver import argweaverc
 
 from rasmus.testing import make_clean_dir
 
@@ -24,6 +24,6 @@ def test_read_sites():
         --ntimes 10 --maxtime 400e3  \
         -o test/data/test_read_sites/0 > /dev/null""")
 
-    sites = arghmmc.arghmm_read_sites(
+    sites = argweaverc.argweaver_read_sites(
         'test/data/test_read_sites/0.sites', -1, -1)
-    arghmmc.arghmm_delete_sites(sites)
+    argweaverc.argweaver_delete_sites(sites)

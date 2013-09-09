@@ -4,8 +4,8 @@ import StringIO
 
 import nose
 
-import arghmm
-from arghmm import arghmmc
+import argweaver
+from argweaver import argweaverc
 
 from compbio import arglib
 from compbio import phylo
@@ -58,14 +58,14 @@ def test_arg_convert():
     n = 1e4
     rho = 1.5e-8 * 20
     length = 10000
-    times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=20, maxtime=200000)
 
-    arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                 times=times)
+    arg = argweaver.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                    times=times)
 
     # convert to C++ and back
-    trees, names = arghmmc.arg2ctrees(arg, times)
-    arg2 = arghmmc.ctrees2arg(trees, names, times)
+    trees, names = argweaverc.arg2ctrees(arg, times)
+    arg2 = argweaverc.ctrees2arg(trees, names, times)
 
     arg_equal(arg, arg2)
 
@@ -83,13 +83,13 @@ def test_node_numbering():
     n = 1e4
     rho = 1.5e-8 * 20
     length = 10000
-    times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=20, maxtime=200000)
 
-    arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                 times=times)
+    arg = argweaver.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                    times=times)
 
     (ptrees, ages, sprs, blocks), all_nodes = (
-        arghmmc.get_treeset(arg, times))
+        argweaverc.get_treeset(arg, times))
 
     # check nodes list
     nnodes = len(all_nodes[0])
@@ -113,10 +113,10 @@ def test_arg2smc():
     Test that an ARG be converted to SMC and back.
     """
     infile = StringIO.StringIO(_smc_example)
-    smc = arghmm.read_smc(infile)
-    arg = arghmm.smc2arg(smc)
+    smc = argweaver.read_smc(infile)
+    arg = argweaver.smc2arg(smc)
 
-    smc2 = list(arghmm.arg2smc(arg, names=smc[0]["names"]))
-    arg2 = arghmm.smc2arg(smc2)
+    smc2 = list(argweaver.arg2smc(arg, names=smc[0]["names"]))
+    arg2 = argweaver.smc2arg(smc2)
 
     arg_equal(arg, arg2)

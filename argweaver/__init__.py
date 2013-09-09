@@ -1,5 +1,5 @@
 #
-# Ancestral Recombination Graph Hidden Markov Model (ArgHmm)
+# ARGweaver: Ancestral Recombination Graph sampling
 #
 
 # python libs
@@ -29,36 +29,36 @@ rasmus, compbio  # suppress unused pyflakes warning
 from compbio import arglib, alignlib, fasta
 from rasmus import util, treelib
 
-# arghmm libs
-from arghmm.sim import find_region
-from arghmm.sim import get_coal_time_steps
-from arghmm.sim import get_coal_times
-from arghmm.sim import make_alignment
-from arghmm.sim import make_sites
-from arghmm.sim import sample_arg_dsmc
-from arghmm.sim import sample_arg_mutations
-from arghmm.sim import sample_dsmc_sprs_round_both
-from arghmm.sim import sample_dsmc_sprs_round_closer
-from arghmm.sim import sample_dsmc_sprs_round_closer2
-from arghmm.sim import sample_dsmc_sprs_round_closer3
-from arghmm.sim import sample_dsmc_sprs_round_down
-from arghmm.sim import sample_next_recomb
-from arghmm.sim import sample_tree
+# argweaver libs
+from argweaver.sim import find_region
+from argweaver.sim import get_coal_time_steps
+from argweaver.sim import get_coal_times
+from argweaver.sim import make_alignment
+from argweaver.sim import make_sites
+from argweaver.sim import sample_arg_dsmc
+from argweaver.sim import sample_arg_mutations
+from argweaver.sim import sample_dsmc_sprs_round_both
+from argweaver.sim import sample_dsmc_sprs_round_closer
+from argweaver.sim import sample_dsmc_sprs_round_closer2
+from argweaver.sim import sample_dsmc_sprs_round_closer3
+from argweaver.sim import sample_dsmc_sprs_round_down
+from argweaver.sim import sample_next_recomb
+from argweaver.sim import sample_tree
 
-from arghmm.smc import SMCReader
-from arghmm.smc import arg2smc
-from arghmm.smc import get_smc_sample_iter
-from arghmm.smc import iter_smc_file
-from arghmm.smc import iter_smc_trees
-from arghmm.smc import iter_subsmc
-from arghmm.smc import list_smc_files
-from arghmm.smc import read_smc
-from arghmm.smc import smc2arg
-from arghmm.smc import smc2sprs
-from arghmm.smc import read_arg
-from arghmm.smc import write_smc
+from argweaver.smc import SMCReader
+from argweaver.smc import arg2smc
+from argweaver.smc import get_smc_sample_iter
+from argweaver.smc import iter_smc_file
+from argweaver.smc import iter_smc_trees
+from argweaver.smc import iter_subsmc
+from argweaver.smc import list_smc_files
+from argweaver.smc import read_smc
+from argweaver.smc import smc2arg
+from argweaver.smc import smc2sprs
+from argweaver.smc import read_arg
+from argweaver.smc import write_smc
 
-from arghmmc import calc_joint_prob
+from argweaverc import calc_joint_prob
 
 # suppress unused pyflakes warning
 calc_joint_prob

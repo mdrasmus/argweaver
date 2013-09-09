@@ -4,7 +4,7 @@
 
 import optparse
 
-import arghmm
+import argweaver
 
 
 o = optparse.OptionParser()
@@ -23,7 +23,7 @@ conf, args = o.parse_args()
 #=============================================================================
 
 # read sites file
-sites_iter = arghmm.iter_sites(conf.sites)
+sites_iter = argweaver.iter_sites(conf.sites)
 header = sites_iter.next()
 first_pos, first_col = sites_iter.next()
 

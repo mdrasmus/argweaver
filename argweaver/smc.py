@@ -8,7 +8,7 @@
 from contextlib import closing
 import StringIO
 
-import arghmm
+import argweaver
 
 from compbio import arglib
 from rasmus import treelib
@@ -120,7 +120,7 @@ def iter_smc_file(filename, parse_trees=False, apply_spr=False,
             yield item
         return
 
-    with closing(arghmm.open_stream(filename)) as infile:
+    with closing(argweaver.open_stream(filename)) as infile:
         spr = None
         tree = None
 
@@ -242,7 +242,7 @@ def smc_apply_spr(tree, spr):
 def write_smc(filename, smc):
     """Writes a SMC file"""
 
-    out = arghmm.open_stream(filename, "w")
+    out = argweaver.open_stream(filename, "w")
 
     for item in smc:
         if item["tag"] == "NAMES":
@@ -430,9 +430,9 @@ def arg2smc(arg, names=None, chrom="chr", start=None, end=None,
            "end": region_end}
 
     last_node_index = None
-    for block, tree, last_tree, spr in arghmm.iter_arg_sprs(
+    for block, tree, last_tree, spr in argweaver.iter_arg_sprs(
             arg, start=start, end=end):
-        mapping = arghmm.get_local_node_mapping(tree, last_tree, spr)
+        mapping = argweaver.get_local_node_mapping(tree, last_tree, spr)
 
         # get node numbering
         node_index = {}

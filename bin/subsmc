@@ -2,7 +2,7 @@
 
 import optparse
 
-import arghmm
+import argweaver
 
 
 o = optparse.OptionParser()
@@ -25,7 +25,7 @@ if conf.region:
     region = map(int, conf.region.split("-"))
 else:
     region = None
-smc = arghmm.iter_smc_file(conf.smc, region=region)
+smc = argweaver.iter_smc_file(conf.smc, region=region)
 
 # write
-arghmm.write_smc(conf.output, smc)
+argweaver.write_smc(conf.output, smc)

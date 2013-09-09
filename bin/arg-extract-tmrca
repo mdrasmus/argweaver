@@ -4,7 +4,7 @@ import optparse
 import os
 import sys
 
-import arghmm
+import argweaver
 
 from rasmus import intervals
 from rasmus import stats
@@ -31,8 +31,8 @@ conf, args = o.parse_args()
 def iter_tmrcas(filename):
     chrom = "chr"
 
-    for item in arghmm.iter_smc_file(filename, parse_trees=True,
-                                     apply_spr=True):
+    for item in argweaver.iter_smc_file(filename, parse_trees=True,
+                                        apply_spr=True):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
         if item["tag"] == "TREE":

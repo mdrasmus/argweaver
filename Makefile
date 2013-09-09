@@ -40,8 +40,8 @@ endif
 # ARGweaver files
 
 # package
-PKG_VERSION:=$(shell $(PYTHON) -c 'import arghmm; print arghmm.PROGRAM_VERSION_TEXT' 2>/dev/null)
-PKG_NAME=arghmm
+PKG_VERSION:=$(shell $(PYTHON) -c 'import argweaver; print argweaver.PROGRAM_VERSION_TEXT' 2>/dev/null)
+PKG_NAME=argweaver
 PKG=dist/$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_DIR=dist/$(PKG_NAME)-$(PKG_VERSION)
 
@@ -50,7 +50,7 @@ SCRIPTS =
 PROGS = bin/arg-sample
 BINARIES = $(PROGS) $(SCRIPTS)
 
-ARGHMM_SRC = \
+ARGWEAVER_SRC = \
     src/compress.cpp \
     src/emit.cpp \
     src/est_popsize.cpp \
@@ -82,11 +82,11 @@ ARGHMM_SRC = \
     src/expm/r8lib.cpp
 
 ALL_SRC = \
-    $(ARGHMM_SRC) \
+    $(ARGWEAVER_SRC) \
     src/arg-sample.cpp
 
 
-ARGHMM_OBJS = $(ARGHMM_SRC:.cpp=.o)
+ARGWEAVER_OBJS = $(ARGWEAVER_SRC:.cpp=.o)
 ALL_OBJS = $(ALL_SRC:.cpp=.o) 
 
 LIBS =
@@ -95,35 +95,35 @@ LIBS =
 
 
 #=======================
-# ArgHmm C-library files
-LIBARGHMM = lib/libarghmm.a
-LIBARGHMM_SHARED_NAME = libarghmm.so
-LIBARGHMM_SHARED = lib/$(LIBARGHMM_SHARED_NAME)
-LIBARGHMM_SHARED_INSTALL = $(prefix)/lib/$(LIBARGHMM_SHARED_NAME)
-LIBARGHMM_OBJS = $(ARGHMM_OBJS)
+# ARGweaver C-library files
+LIBARGWEAVER = lib/libargweaver.a
+LIBARGWEAVER_SHARED_NAME = libargweaver.so
+LIBARGWEAVER_SHARED = lib/$(LIBARGWEAVER_SHARED_NAME)
+LIBARGWEAVER_SHARED_INSTALL = $(prefix)/lib/$(LIBARGWEAVER_SHARED_NAME)
+LIBARGWEAVER_OBJS = $(ARGWEAVER_OBJS)
 
 
 #=============================================================================
 # targets
 
 # default targets
-all: $(PROGS) $(LIBARGHMM) $(LIBARGHMM_SHARED)
+all: $(PROGS) $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED)
 
-bin/arg-sample: src/arg-sample.o $(LIBARGHMM)
-	$(CXX) $(CFLAGS) -o bin/arg-sample src/arg-sample.o $(LIBARGHMM)
+bin/arg-sample: src/arg-sample.o $(LIBARGWEAVER)
+	$(CXX) $(CFLAGS) -o bin/arg-sample src/arg-sample.o $(LIBARGWEAVER)
 
 
 #-----------------------------
-# ARGHMM C-library
-lib: $(LIBARGHMM) $(LIBARGHMM_SHARED)
+# ARGWEAVER C-library
+lib: $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED)
 
-$(LIBARGHMM): $(LIBARGHMM_OBJS)
+$(LIBARGWEAVER): $(LIBARGWEAVER_OBJS)
 	mkdir -p lib
-	$(AR) -r $(LIBARGHMM) $(LIBARGHMM_OBJS)
+	$(AR) -r $(LIBARGWEAVER) $(LIBARGWEAVER_OBJS)
 
-$(LIBARGHMM_SHARED): $(LIBARGHMM_OBJS) 
+$(LIBARGWEAVER_SHARED): $(LIBARGWEAVER_OBJS) 
 	mkdir -p lib
-	$(CXX) -o $(LIBARGHMM_SHARED) -shared $(LIBARGHMM_OBJS) $(LIBS)
+	$(CXX) -o $(LIBARGWEAVER_SHARED) -shared $(LIBARGWEAVER_OBJS) $(LIBS)
 
 
 #-----------------------------
@@ -151,19 +151,19 @@ cq:
 #-----------------------------
 # install
 
-install: $(BINARIES) $(LIBARGHMM_SHARED_INSTALL)
+install: $(BINARIES) $(LIBARGWEAVER_SHARED_INSTALL)
 	mkdir -p $(prefix)/bin
 	cp $(BINARIES) $(prefix)/bin
-	echo $(LIBARGHMM_SHARED_INSTALL)
+	echo $(LIBARGWEAVER_SHARED_INSTALL)
 	$(PYTHON) setup.py install --prefix=$(prefix)
 
-pylib: $(LIBARGHMM_SHARED_INSTALL)
+pylib: $(LIBARGWEAVER_SHARED_INSTALL)
 	$(PYTHON) setup.py install --prefix=$(prefix)
 
 
-$(LIBARGHMM_SHARED_INSTALL): $(LIBARGHMM_SHARED)
+$(LIBARGWEAVER_SHARED_INSTALL): $(LIBARGWEAVER_SHARED)
 	mkdir -p $(prefix)/lib
-	cp $(LIBARGHMM_SHARED) $(LIBARGHMM_SHARED_INSTALL)
+	cp $(LIBARGWEAVER_SHARED) $(LIBARGWEAVER_SHARED_INSTALL)
 
 #=============================================================================
 # basic rules
@@ -173,7 +173,7 @@ $(ALL_OBJS): %.o: %.cpp
 
 
 clean:
-	rm -f $(ALL_OBJS) $(LIBARGHMM) $(LIBARGHMM_SHARED)
+	rm -f $(ALL_OBJS) $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED)
 
 clean-obj:
 	rm -f $(ALL_OBJS)

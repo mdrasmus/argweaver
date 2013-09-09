@@ -2,10 +2,13 @@
 
 import optparse
 
-import arghmm
-from arghmm.db import SitesDB
+import argweaver
+from argweaver.db import SitesDB
 
 from rasmus import util
+
+
+argweaver
 
 o = optparse.OptionParser()
 o.add_option("-d", "--db")

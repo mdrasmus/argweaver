@@ -27,7 +27,7 @@ using namespace arghmm;
 // version info
 #define VERSION_TEXT "1.0"
 #define VERSION_INFO  "\
-ArgHmm " VERSION_TEXT " \n\
+ARGweaver " VERSION_TEXT " \n\
 Matt Rasmussen\n\
 Gibbs sampler for ancestral recombination graphs\n\
 "

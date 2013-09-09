@@ -2,12 +2,13 @@
 
 import optparse
 
-import arghmm
+import argweaver
 
 from rasmus import intervals
 from rasmus import stats
 from rasmus import util
 
+argweaver
 
 o = optparse.OptionParser()
 conf, args = o.parse_args()

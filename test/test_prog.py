@@ -1,7 +1,7 @@
 
 import os
 
-import arghmm
+import argweaver
 
 from compbio import arglib
 from compbio import phylo
@@ -174,8 +174,9 @@ def _test_prog_infsites():
         -x 1 \
         -o test/data/test_prog_infsites/0.sample/out""")
 
-    arg = arghmm.read_arg("test/data/test_prog_infsites/0.sample/out.0.smc.gz")
-    sites = arghmm.read_sites("test/data/test_prog_infsites/0.sites")
+    arg = argweaver.read_arg(
+        "test/data/test_prog_infsites/0.sample/out.0.smc.gz")
+    sites = argweaver.read_sites("test/data/test_prog_infsites/0.sites")
     print "names", sites.names
     print
 

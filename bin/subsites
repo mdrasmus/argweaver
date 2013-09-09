@@ -3,7 +3,7 @@
 import optparse
 import random
 
-import arghmm
+import argweaver
 
 from rasmus import util
 
@@ -34,7 +34,7 @@ def is_variant(col):
 
 
 # read data
-sites = arghmm.read_sites(conf.sites)
+sites = argweaver.read_sites(conf.sites)
 
 
 # get individuals
@@ -62,8 +62,8 @@ else:
     region = sites.region
 
 # make subset
-sites2 = arghmm.Sites(names=util.mget(sites.names, ind), chrom=sites.chrom,
-                      region=region)
+sites2 = argweaver.Sites(names=util.mget(sites.names, ind), chrom=sites.chrom,
+                         region=region)
 
 for i, bases in sites:
     if region[0] <= i <= region[1]:
@@ -72,4 +72,4 @@ for i, bases in sites:
             sites2.append(i, bases)
 
 # write new sites
-arghmm.write_sites(conf.output, sites2)
+argweaver.write_sites(conf.output, sites2)

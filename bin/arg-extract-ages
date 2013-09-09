@@ -26,8 +26,8 @@ import optparse
 import random
 import sys
 
-import arghmm
-import arghmm.smc
+import argweaver
+import argweaver.smc
 
 from rasmus import stats
 from rasmus import treelib
@@ -71,7 +71,7 @@ def iter_allele_ages(smc, sites, region=None, maxage=1000000):
 
             # Get local tree.
             tree = item["tree"]
-            arghmm.smc.rename_tree(tree, names)
+            argweaver.smc.rename_tree(tree, names)
 
             # Iterate through sites contained in local tree.
             for pos, col in sites.iter_region(item["start"], item["end"]):
@@ -131,8 +131,8 @@ else:
     region = None
 
 # Read sites and ARGs.
-sites = arghmm.read_sites(sites_file, region)
-smcs = [arghmm.SMCReader(f, parse_trees=True, apply_spr=True)
+sites = argweaver.read_sites(sites_file, region)
+smcs = [argweaver.SMCReader(f, parse_trees=True, apply_spr=True)
         for f in smc_files]
 
 # Gather all ages accross samples.

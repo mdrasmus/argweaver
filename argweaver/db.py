@@ -1,7 +1,7 @@
 import sqlite3 as sqlite
 
-import arghmm
-import arghmm.vis
+import argweaver
+import argweaver.vis
 
 
 class SitesDB (object):
@@ -65,7 +65,7 @@ class SitesDB (object):
         return self._names
 
     def add_sites_file(self, filename):
-        it = arghmm.iter_sites(filename)
+        it = argweaver.iter_sites(filename)
         header = it.next()
         self.add_seq_names(header["names"])
 
@@ -171,7 +171,7 @@ class ArgDB (object):
         return self._names
 
     def add_smc_file(self, filename, sample=0):
-        it = arghmm.iter_smc_file(filename)
+        it = argweaver.iter_smc_file(filename)
         header = it.next()
         self.add_seq_names(header["names"])
         region = it.next()
@@ -225,6 +225,6 @@ class ArgLayoutDB(object):
     def get_layout(self, chrom, start, end):
 
         for filename in self.files:
-            for block_layout in arghmm.vis.query_arg_layout(
+            for block_layout in argweaver.vis.query_arg_layout(
                     filename, chrom, start, end):
                 yield block_layout

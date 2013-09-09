@@ -3,8 +3,8 @@
 import optparse
 import sys
 
-import arghmm
-import arghmm.vis
+import argweaver
+import argweaver.vis
 
 from rasmus import util
 
@@ -19,11 +19,11 @@ conf, args = o.parse_args()
 
 
 def layout_arg(smc_file, out):
-    smc = arghmm.SMCReader(smc_file, parse_trees=True)
+    smc = argweaver.SMCReader(smc_file, parse_trees=True)
     names = smc.header["names"]
     chrom = smc.header["chrom"]
 
-    for block, tree_layout in arghmm.vis.iter_layout_smc(smc, names=names):
+    for block, tree_layout in argweaver.vis.iter_layout_smc(smc, names=names):
         # Convert back to 1 index
         row = [chrom, block[0] + 1, block[1]]
         for name in names:
@@ -39,7 +39,7 @@ if len(args) < 2:
 layout_file = args[0]
 smc_files = args[1:]
 
-with arghmm.open_stream(layout_file, 'w', compress='bgzip') as out:
+with argweaver.open_stream(layout_file, 'w', compress='bgzip') as out:
     for smc_file in smc_files:
         layout_arg(smc_file, out)
-arghmm.vis.index_arg_layout(layout_file)
+argweaver.vis.index_arg_layout(layout_file)

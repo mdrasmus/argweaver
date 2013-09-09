@@ -4,22 +4,22 @@ import json
 import os
 import optparse
 
-import arghmm
-from arghmm.bottle import get
-#from arghmm.bottle import HTTPResponse
-from arghmm.bottle import request
-from arghmm.bottle import response
-from arghmm.bottle import run
-from arghmm.bottle import static_file
-from arghmm.bottle import template
-from arghmm.db import ArgDB
-from arghmm.db import ArgLayoutDB
-from arghmm.db import SitesDB
+import argweaver
+from argweaver.bottle import get
+#from argweaver.bottle import HTTPResponse
+from argweaver.bottle import request
+from argweaver.bottle import response
+from argweaver.bottle import run
+from argweaver.bottle import static_file
+from argweaver.bottle import template
+from argweaver.db import ArgDB
+from argweaver.db import ArgLayoutDB
+from argweaver.db import SitesDB
 
 from rasmus import util
 
 # pyflakes ignore
-arghmm
+argweaver
 
 o = optparse.OptionParser()
 o.add_option("-a", "--arg", action="append", default=[])

@@ -10,7 +10,7 @@ try:
 except ImportError:
     pass
 
-import arghmm
+import argweaver
 
 from compbio import arglib
 from rasmus import stats
@@ -208,7 +208,7 @@ def count_tree_lineages(tree, times):
     time_steps = [midpoints[i+1] - midpoints[i] for i in range(ntimes-1)]
 
     # count lineages
-    nbranches = arghmm.get_nlineages(tree, times)
+    nbranches = argweaver.get_nlineages(tree, times)
     nleaves = util.ilen(tree.leaves())
 
     for j in range(ntimes-1):

@@ -3,8 +3,8 @@
 import optparse
 import sys
 
-import arghmm
-from arghmm import arghmmc
+import argweaver
+from argweaver import argweaverc
 
 from compbio import arglib
 
@@ -39,16 +39,16 @@ if conf.ntimes:
         print >>sys.stderr, 'option --maxtime is needed'
         sys.exit(1)
 
-    times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
-    arghmm.discretize_arg(arg, times)
+    times = argweaver.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+    argweaver.discretize_arg(arg, times)
     arg = arglib.smcify_arg(arg)
 
     # use C-interface for speed
-    trees, names = arghmmc.arg2ctrees(arg, times)
-    arghmmc.write_local_trees(smc_file, trees, names, times, len(times))
+    trees, names = argweaverc.arg2ctrees(arg, times)
+    argweaverc.write_local_trees(smc_file, trees, names, times, len(times))
 
 else:
     # convert ARG without discretization
     arg = arglib.smcify_arg(arg)
-    smc = arghmm.arg2smc(arg)
-    arghmm.write_smc(smc_file, smc)
+    smc = argweaver.arg2smc(arg)
+    argweaver.write_smc(smc_file, smc)

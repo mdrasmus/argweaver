@@ -5,7 +5,7 @@ import optparse
 import os
 import sys
 
-import arghmm
+import argweaver
 
 from compbio import phylo, arglib
 from rasmus import intervals
@@ -44,8 +44,8 @@ def treelen(tree):
 def iter_trees(filename, attr, region=None):
     chrom = "chr"
 
-    for item in arghmm.iter_smc_file(filename, parse_trees=False,
-                                     region=region):
+    for item in argweaver.iter_smc_file(filename, parse_trees=False,
+                                        region=region):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
             attr["region"] = [item["chrom"], item["start"]-1, item["end"]]
@@ -162,4 +162,4 @@ else:
     positions = None
 
 smc = cons_smc(trees, attr, positions=positions)
-arghmm.write_smc(sys.stdout, smc)
+argweaver.write_smc(sys.stdout, smc)

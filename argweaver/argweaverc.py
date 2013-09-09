@@ -1,5 +1,5 @@
 #
-# C interface for ArgHmm
+# C interface for ARGweaver
 #
 
 # python imports
@@ -11,12 +11,12 @@ from rasmus import stats
 from rasmus import treelib
 from rasmus import util
 
-# import arghmm C lib
-import arghmm
-import arghmm.ctypes_export as C
-from arghmm.ctypes_export import POINTER
+# import argweaver C lib
+import argweaver
+import argweaver.ctypes_export as C
+from argweaver.ctypes_export import POINTER
 
-arghmmclib = C.load_library(["..", "lib"], "libarghmm.so")
+argweaverclib = C.load_library(["..", "lib"], "libargweaver.so")
 
 
 #=============================================================================
@@ -26,38 +26,38 @@ ex = C.Exporter(globals())
 export = ex.export
 
 
-if arghmmclib:
+if argweaverclib:
     # replace python function with c
 
     # Sequences.
-    arghmm_read_sites = export(
-        arghmmclib, "arghmm_read_sites", C.c_void_p,
+    argweaver_read_sites = export(
+        argweaverclib, "arghmm_read_sites", C.c_void_p,
         [C.c_char_p, "filename", C.c_int, "subregion_start",
          C.c_int, "subregion_end"])
-    arghmm_delete_sites = export(
-        arghmmclib, "arghmm_delete_sites", C.c_int,
+    argweaver_delete_sites = export(
+        argweaverclib, "arghmm_delete_sites", C.c_int,
         [C.c_void_p, "sites"])
 
     # Basic HMM functions.
     forward_alg = export(
-        arghmmclib, "forward_alg", C.c_int,
+        argweaverclib, "forward_alg", C.c_int,
         [C.c_int, "n", C.c_int, "nstates",
          C.c_double_p_p, "trans", C.c_double_p_p, "emit",
          C.c_out(C.c_double_matrix), "fw"])
     backward_alg = export(
-        arghmmclib, "backward_alg", C.c_int,
+        argweaverclib, "backward_alg", C.c_int,
         [C.c_int, "n", C.c_int, "nstates",
          C.c_double_p_p, "trans", C.c_double_p_p, "emit",
          C.c_out(C.c_double_matrix), "bw"])
     sample_hmm_posterior = export(
-        arghmmclib, "sample_hmm_posterior", C.c_int,
+        argweaverclib, "sample_hmm_posterior", C.c_int,
         [C.c_int, "n", C.c_int, "nstates",
          C.c_double_p_p, "trans", C.c_double_p_p, "emit",
          C.c_out(C.c_double_matrix), "fw", C.c_out(C.c_int_list), "path"])
 
     # Transition matrices calculation.
     new_transition_probs = export(
-        arghmmclib, "new_transition_probs", C.c_double_p_p,
+        argweaverclib, "new_transition_probs", C.c_double_p_p,
         [C.c_int, "nnodes", C.c_int_list, "ptree",
          C.c_int_list, "ages_index", C.c_double, "treelen",
          POINTER(C.c_int * 2), "states", C.c_int, "nstates",
@@ -67,7 +67,7 @@ if arghmmclib:
          C.c_int_list, "ncoals",
          C.c_double_list, "popsizes", C.c_double, "rho"])
     new_transition_probs_switch = export(
-        arghmmclib, "new_transition_probs_switch", C.c_double_p_p,
+        argweaverclib, "new_transition_probs_switch", C.c_double_p_p,
         [C.c_int_list, "ptree", C.c_int_list, "last_ptree",
          C.c_int, "nnodes",
          C.c_int, "recomb_name", C.c_int, "recomb_time",
@@ -82,33 +82,33 @@ if arghmmclib:
          C.c_int_list, "ncoals",
          C.c_double_list, "popsizes", C.c_double, "rho"])
     delete_transition_probs = export(
-        arghmmclib, "delete_transition_probs", C.c_int,
+        argweaverclib, "delete_transition_probs", C.c_int,
         [C.c_double_p_p, "transition_probs", C.c_int, "nstates"])
-    arghmm_assert_transmat = export(
-        arghmmclib, "arghmm_assert_transmat", C.c_bool,
+    argweaver_assert_transmat = export(
+        argweaverclib, "arghmm_assert_transmat", C.c_bool,
         [C.c_int, "nnodes", C.c_int_list, "ptree", C.c_int_list, "ages",
          C.c_int, "ntimes", C.c_double_list, "times",
          C.c_double_list, "popsizes", C.c_double, "rho"])
-    arghmm_assert_transmat_switch = export(
-        arghmmclib, "arghmm_assert_transmat_switch", C.c_bool,
+    argweaver_assert_transmat_switch = export(
+        argweaverclib, "arghmm_assert_transmat_switch", C.c_bool,
         [C.c_int, "nnodes", C.c_int_list, "ptree", C.c_int_list, "ages",
          C.c_int, "recomb_name", C.c_int, "recomb_time",
          C.c_int, "coal_name", C.c_int, "coal_time",
          C.c_int, "ntimes", C.c_double_list, "times",
          C.c_double_list, "popsizes", C.c_double, "rho"])
-    arghmm_assert_transmat_internal = export(
-        arghmmclib, "arghmm_assert_transmat_internal", C.c_bool,
+    argweaver_assert_transmat_internal = export(
+        argweaverclib, "arghmm_assert_transmat_internal", C.c_bool,
         [C.c_int, "nnodes", C.c_int_list, "ptree", C.c_int_list, "ages",
          C.c_int, "ntimes", C.c_double_list, "times",
          C.c_double_list, "popsizes", C.c_double, "rho"])
-    arghmm_assert_transmat_switch_internal = export(
-        arghmmclib, "arghmm_assert_transmat_switch_internal", C.c_bool,
+    argweaver_assert_transmat_switch_internal = export(
+        argweaverclib, "arghmm_assert_transmat_switch_internal", C.c_bool,
         [C.c_void_p, "trees", C.c_int, "ntimes", C.c_double_list, "times",
          C.c_double_list, "popsizes", C.c_double, "rho"])
 
     # Emission calculation.
     new_emissions = export(
-        arghmmclib, "new_emissions", C.c_double_p_p,
+        argweaverclib, "new_emissions", C.c_double_p_p,
         [POINTER(C.c_int * 2), "states",
          C.c_int, "nstates",
          C.c_int_list, "ptree", C.c_int, "nnodes", C.c_int_list, "ages",
@@ -116,37 +116,37 @@ if arghmmclib:
          C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double, "mu"])
     delete_emissions = export(
-        arghmmclib, "delete_emissions", C.c_int,
+        argweaverclib, "delete_emissions", C.c_int,
         [C.c_double_p_p, "emit", C.c_int, "seqlen"])
-    arghmm_assert_emit = export(
-        arghmmclib, "arghmm_assert_emit", C.c_bool,
+    argweaver_assert_emit = export(
+        argweaverclib, "arghmm_assert_emit", C.c_bool,
         [C.c_void_p, "trees", C.c_int, "ntimes", C.c_double_list, "times",
          C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    arghmm_assert_emit_internal = export(
-        arghmmclib, "arghmm_assert_emit_internal", C.c_bool,
+    argweaver_assert_emit_internal = export(
+        argweaverclib, "arghmm_assert_emit_internal", C.c_bool,
         [C.c_void_p, "trees", C.c_int, "ntimes", C.c_double_list, "times",
          C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
 
-    # ArgHMM Forward algorithm.
-    arghmm_forward_alg = export(
-        arghmmclib, "arghmm_forward_alg", C.c_double_p_p,
+    # Argweaver Forward algorithm.
+    argweaver_forward_alg = export(
+        argweaverclib, "arghmm_forward_alg", C.c_double_p_p,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_bool, "prior_given", C.c_double_list, "prior",
          C.c_bool, "internal", C.c_bool, "slow"])
     delete_double_matrix = export(
-        arghmmclib, "delete_double_matrix", C.c_int,
+        argweaverclib, "delete_double_matrix", C.c_int,
         [C.c_double_p_p, "mat", C.c_int, "nrows"])
     delete_forward_matrix = export(
-        arghmmclib, "delete_forward_matrix", C.c_int,
+        argweaverclib, "delete_forward_matrix", C.c_int,
         [C.c_double_p_p, "mat", C.c_int, "nrows"])
 
     # ARG thread sampling.
-    arghmm_sample_posterior = export(
-        arghmmclib, "arghmm_sample_posterior", POINTER(C.c_int * 2),
+    argweaver_sample_posterior = export(
+        argweaverclib, "arghmm_sample_posterior", POINTER(C.c_int * 2),
         [C.c_int_matrix, "ptrees", C.c_int_matrix, "ages",
          C.c_int_matrix, "sprs", C.c_int_list, "blocklens",
          C.c_int, "ntrees", C.c_int, "nnodes",
@@ -154,210 +154,210 @@ if arghmmclib:
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          POINTER(POINTER(C.c_int * 2)), "path"])
-    arghmm_sample_thread = export(
-        arghmmclib, "arghmm_sample_thread", C.c_void_p,
+    argweaver_sample_thread = export(
+        argweaverclib, "arghmm_sample_thread", C.c_void_p,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    arghmm_sample_arg_thread_internal = export(
-        arghmmclib, "arghmm_sample_arg_thread_internal", C.c_int,
+    argweaver_sample_arg_thread_internal = export(
+        argweaverclib, "arghmm_sample_arg_thread_internal", C.c_int,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_out(C.c_int_list), "thread_path"])
 
     # ARG sampling.
-    arghmm_sample_arg_seq = export(
-        arghmmclib, "arghmm_sample_arg_seq", C.c_void_p,
+    argweaver_sample_arg_seq = export(
+        argweaverclib, "arghmm_sample_arg_seq", C.c_void_p,
         [C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    arghmm_sample_arg_refine = export(
-        arghmmclib, "arghmm_sample_arg_refine", C.c_void_p,
+    argweaver_sample_arg_refine = export(
+        argweaverclib, "arghmm_sample_arg_refine", C.c_void_p,
         [C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "niters", C.c_int, "nremove"])
-    arghmm_resample_arg = export(
-        arghmmclib, "arghmm_resample_arg", C.c_void_p,
+    argweaver_resample_arg = export(
+        argweaverclib, "arghmm_resample_arg", C.c_void_p,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "niters", C.c_int, "nremove"])
-    arghmm_resample_all_arg = export(
-        arghmmclib, "arghmm_resample_all_arg", C.c_void_p,
+    argweaver_resample_all_arg = export(
+        argweaverclib, "arghmm_resample_all_arg", C.c_void_p,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "niters", C.c_double, "prob_path_switch"])
-    arghmm_resample_mcmc_arg = export(
-        arghmmclib, "arghmm_resample_mcmc_arg", C.c_void_p,
+    argweaver_resample_mcmc_arg = export(
+        argweaverclib, "arghmm_resample_mcmc_arg", C.c_void_p,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "niters", C.c_int, "niters2", C.c_int, "window"])
-    arghmm_resample_climb_arg = export(
-        arghmmclib, "arghmm_resample_climb_arg", C.c_void_p,
+    argweaver_resample_climb_arg = export(
+        argweaverclib, "arghmm_resample_climb_arg", C.c_void_p,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "niters", C.c_double, "recomb_preference"])
-    arghmm_resample_arg_cut = export(
-        arghmmclib, "arghmm_resample_arg_cut", C.c_void_p,
+    argweaver_resample_arg_cut = export(
+        argweaverclib, "arghmm_resample_arg_cut", C.c_void_p,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "niters"])
-    arghmm_resample_arg_region = export(
-        arghmmclib, "arghmm_resample_arg_region", C.c_void_p,
+    argweaver_resample_arg_region = export(
+        argweaverclib, "arghmm_resample_arg_region", C.c_void_p,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "region_start", C.c_int, "region_end", C.c_int, "niters"])
-    arghmm_sample_arg_seq_gibbs = export(
-        arghmmclib, "arghmm_sample_arg_seq_gibbs", C.c_void_p,
+    argweaver_sample_arg_seq_gibbs = export(
+        argweaverclib, "arghmm_sample_arg_seq_gibbs", C.c_void_p,
         [C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "seqiters", C.c_int, "gibbsiters"])
 
     # ARG probability.
-    arghmm_likelihood = export(
-        arghmmclib, "arghmm_likelihood", C.c_double,
+    argweaver_likelihood = export(
+        argweaverclib, "arghmm_likelihood", C.c_double,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    arghmm_likelihood_parsimony = export(
-        arghmmclib, "arghmm_likelihood_parsimony", C.c_double,
+    argweaver_likelihood_parsimony = export(
+        argweaverclib, "arghmm_likelihood_parsimony", C.c_double,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    arghmm_joint_prob = export(
-        arghmmclib, "arghmm_joint_prob", C.c_double,
+    argweaver_joint_prob = export(
+        argweaverclib, "arghmm_joint_prob", C.c_double,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes",
          C.c_double, "mu", C.c_double, "rho",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen"])
-    arghmm_prior_prob = export(
-        arghmmclib, "arghmm_prior_prob", C.c_double,
+    argweaver_prior_prob = export(
+        argweaverclib, "arghmm_prior_prob", C.c_double,
         [C.c_void_p, "trees",
          C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho"])
-    arghmm_tree_prior_prob = export(
-        arghmmclib, "arghmm_tree_prior_prob", C.c_double,
+    argweaver_tree_prior_prob = export(
+        argweaverclib, "arghmm_tree_prior_prob", C.c_double,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes"])
     prob_coal_counts_matrix = export(
-        arghmmclib, "prob_coal_counts_matrix", C.c_double,
+        argweaverclib, "prob_coal_counts_matrix", C.c_double,
         [C.c_int, "a", C.c_int, "b", C.c_double, "t", C.c_double, "n"])
 
     # Estimating population sizes.
-    arghmm_est_popsizes_trees = export(
-        arghmmclib, "arghmm_est_popsizes_trees", C.c_double,
+    argweaver_est_popsizes_trees = export(
+        argweaverclib, "arghmm_est_popsizes_trees", C.c_double,
         [C.c_void_p, "trees",
          C.c_double_list, "times", C.c_int, "ntimes", C.c_int, "step",
          C.c_out(C.c_double_list), "popsizes"])
 
     # Threading.
-    arghmm_sample_arg_removal_path = export(
-        arghmmclib, "arghmm_sample_arg_removal_path", C.c_int,
+    argweaver_sample_arg_removal_path = export(
+        argweaverclib, "arghmm_sample_arg_removal_path", C.c_int,
         [C.c_void_p, "trees", C.c_int, "node",
          C.c_out(C.c_int_list), "path"])
-    arghmm_sample_arg_removal_leaf_path = export(
-        arghmmclib, "arghmm_sample_arg_removal_leaf_path", C.c_int,
+    argweaver_sample_arg_removal_leaf_path = export(
+        argweaverclib, "arghmm_sample_arg_removal_leaf_path", C.c_int,
         [C.c_void_p, "trees", C.c_int, "node",
          C.c_out(C.c_int_list), "path"])
-    arghmm_sample_arg_removal_path2 = export(
-        arghmmclib, "arghmm_sample_arg_removal_path2", C.c_int,
+    argweaver_sample_arg_removal_path2 = export(
+        argweaverclib, "arghmm_sample_arg_removal_path2", C.c_int,
         [C.c_void_p, "trees", C.c_int, "node", C.c_int, "pos",
          C.c_out(C.c_int_list), "path"])
-    arghmm_sample_arg_removal_path_recomb = export(
-        arghmmclib, "arghmm_sample_arg_removal_path_recomb", C.c_int,
+    argweaver_sample_arg_removal_path_recomb = export(
+        argweaverclib, "arghmm_sample_arg_removal_path_recomb", C.c_int,
         [C.c_void_p, "trees", C.c_double, "recomb_preference",
          C.c_out(C.c_int_list), "path"])
-    arghmm_remove_arg_thread_path = export(
-        arghmmclib, "arghmm_remove_arg_thread_path", C.c_int,
+    argweaver_remove_arg_thread_path = export(
+        argweaverclib, "arghmm_remove_arg_thread_path", C.c_int,
         [C.c_void_p, "trees", C.c_int_list, "path", C.c_int, "maxtime"])
-    arghmm_remove_arg_thread_path2 = export(
-        arghmmclib, "arghmm_remove_arg_thread_path2", C.c_int,
+    argweaver_remove_arg_thread_path2 = export(
+        argweaverclib, "arghmm_remove_arg_thread_path2", C.c_int,
         [C.c_void_p, "trees", C.c_int_list, "path", C.c_int, "maxtime",
          C.c_out(C.c_int_list), "original_thread"])
-    arghmm_get_thread_times = export(
-        arghmmclib, "arghmm_get_thread_times", C.c_int,
+    argweaver_get_thread_times = export(
+        argweaverclib, "arghmm_get_thread_times", C.c_int,
         [C.c_void_p, "trees", C.c_int, "ntimes", C.c_int_list, "path",
          C.c_out(C.c_int_list), "path_times"])
 
     # ARG data structure API.
-    arghmm_new_trees = export(
-        arghmmclib, "arghmm_new_trees", C.c_void_p,
+    argweaver_new_trees = export(
+        argweaverclib, "arghmm_new_trees", C.c_void_p,
         [C.c_int_matrix, "ptrees", C.c_int_matrix, "ages",
          C.c_int_matrix, "sprs", C.c_int_list, "blocklens",
          C.c_int, "ntrees", C.c_int, "nnodes", C.c_int, "start_coord"])
-    arghmm_copy_trees = export(
-        arghmmclib, "arghmm_copy_trees", C.c_void_p,
+    argweaver_copy_trees = export(
+        argweaverclib, "arghmm_copy_trees", C.c_void_p,
         [C.c_void_p, "trees"])
     get_local_trees_ntrees = export(
-        arghmmclib, "get_local_trees_ntrees", C.c_int,
+        argweaverclib, "get_local_trees_ntrees", C.c_int,
         [C.c_void_p, "trees"])
     get_local_trees_nnodes = export(
-        arghmmclib, "get_local_trees_nnodes", C.c_int,
+        argweaverclib, "get_local_trees_nnodes", C.c_int,
         [C.c_void_p, "trees"])
     get_local_trees_ptrees = export(
-        arghmmclib, "get_local_trees_ptrees", C.c_int,
+        argweaverclib, "get_local_trees_ptrees", C.c_int,
         [C.c_void_p, "trees", C.c_out(C.c_int_matrix), "ptrees",
          C.c_out(C.c_int_matrix), "ages",
          C.c_out(C.c_int_matrix), "sprs",
          C.c_out(C.c_int_list), "blocklens"])
     get_treelens = export(
-        arghmmclib, "get_treelens", C.c_int,
+        argweaverclib, "get_treelens", C.c_int,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_out(C.c_double_list), "treelens"])
     get_local_trees_blocks = export(
-        arghmmclib, "get_local_trees_blocks", C.c_int,
+        argweaverclib, "get_local_trees_blocks", C.c_int,
         [C.c_void_p, "trees", C.c_out(C.c_int_list), "starts",
          C.c_out(C.c_int_list), "ends"])
     delete_local_trees = export(
-        arghmmclib, "delete_local_trees", C.c_int,
+        argweaverclib, "delete_local_trees", C.c_int,
         [C.c_void_p, "trees"])
     write_local_trees = export(
-        arghmmclib, "write_local_trees", C.c_int,
+        argweaverclib, "write_local_trees", C.c_int,
         [C.c_char_p, "filename", C.c_void_p, "trees",
          C.c_char_p_list, "names",
          C.c_double_list, "times", C.c_int, "ntimes"])
     read_local_trees = export(
-        arghmmclib, "read_local_trees", C.c_void_p,
+        argweaverclib, "read_local_trees", C.c_void_p,
         [C.c_char_p, "filename",
          C.c_double_list, "times", C.c_int, "ntimes"])
 
     # Thread data structures.
     delete_path = export(
-        arghmmclib, "delete_path", C.c_int,
+        argweaverclib, "delete_path", C.c_int,
         [POINTER(C.c_int * 2), "path"])
-    arghmm_get_nstates = export(
-        arghmmclib, "arghmm_get_nstates", int,
+    argweaver_get_nstates = export(
+        argweaverclib, "arghmm_get_nstates", int,
         [C.c_void_p, "trees",  C.c_int, "ntimes", C.c_bool, "internal",
          C.c_out(C.c_int_list), "nstates"])
     get_state_spaces = export(
-        arghmmclib, "get_state_spaces", POINTER(POINTER(C.c_int * 2)),
+        argweaverclib, "get_state_spaces", POINTER(POINTER(C.c_int * 2)),
         [C.c_void_p, "trees",  C.c_int, "ntimes", C.c_bool, "internal"])
     delete_state_spaces = export(
-        arghmmclib, "delete_state_spaces", C.c_int,
+        argweaverclib, "delete_state_spaces", C.c_int,
         [POINTER(POINTER(C.c_int * 2)), "all_states", C.c_int, "ntrees"])
 
     setLogLevel = export(
-        arghmmclib, "setLogLevel", C.c_int,
+        argweaverclib, "setLogLevel", C.c_int,
         [C.c_int, "level"])
 
 
 # By default use a random seed.
-if arghmmclib:
-    arghmmclib.srand(int((time.time() * 1000) % 1e9))
-    arghmmclib.setLogLevel(1)
+if argweaverclib:
+    argweaverclib.srand(int((time.time() * 1000) % 1e9))
+    argweaverclib.setLogLevel(1)
 
 
 def set_random_seed(num):
     """Set the C random number generator seed"""
-    arghmmclib.srand(num)
+    argweaverclib.srand(num)
 
 
 #=============================================================================
@@ -378,7 +378,7 @@ def calc_transition_probs_c(tree, states, nlineages, times,
     ages_index = [times_lookup[tree[node.name].age]
                   for node in nodes]
     #treelen = sum(x.dist for x in tree2)
-    treelen = arghmm.get_treelen(tree, times)
+    treelen = argweaver.get_treelen(tree, times)
     transmat = new_transition_probs(
         len(nodes), ptree, ages_index, treelen,
         ((C.c_int * 2) * nstates)
@@ -404,7 +404,7 @@ def calc_transition_probs_switch_c(tree, last_tree, recomb_name,
     times_lookup = dict((t, i) for i, t in enumerate(times))
     nbranches, nrecombs, ncoals = nlineages
     (recomb_branch, recomb_time), (coal_branch, coal_time) = \
-        arghmm.find_recomb_coal(tree, last_tree, recomb_name=recomb_name)
+        argweaver.find_recomb_coal(tree, last_tree, recomb_name=recomb_name)
 
     recomb_time = times.index(recomb_time)
     coal_time = times.index(coal_time)
@@ -489,8 +489,8 @@ def assert_transition_probs(tree, times, popsizes, rho):
     ptree, nodes, nodelookup = make_ptree(tree2)
     ages = [times_lookup[tree[node.name].age] for node in nodes]
 
-    return arghmm_assert_transmat(len(ptree), ptree, ages,
-                                  len(times), times, popsizes, rho)
+    return argweaver_assert_transmat(len(ptree), ptree, ages,
+                                     len(times), times, popsizes, rho)
 
 
 def assert_transition_probs_internal(tree, times, popsizes, rho):
@@ -500,8 +500,8 @@ def assert_transition_probs_internal(tree, times, popsizes, rho):
     ptree, nodes, nodelookup = make_ptree(tree2)
     ages = [times_lookup[tree[node.name].age] for node in nodes]
 
-    return arghmm_assert_transmat_internal(len(ptree), ptree, ages,
-                                           len(times), times, popsizes, rho)
+    return argweaver_assert_transmat_internal(len(ptree), ptree, ages,
+                                              len(times), times, popsizes, rho)
 
 
 def assert_transition_switch_probs(tree, spr, times, popsizes, rho):
@@ -517,7 +517,7 @@ def assert_transition_switch_probs(tree, spr, times, popsizes, rho):
     recomb_time = times_lookup[rt]
     coal_time = times_lookup[ct]
 
-    return arghmm_assert_transmat_switch(
+    return argweaver_assert_transmat_switch(
         len(ptree), ptree, ages,
         recomb_name, recomb_time, coal_name, coal_time,
         len(times), times, popsizes, rho)
@@ -525,20 +525,20 @@ def assert_transition_switch_probs(tree, spr, times, popsizes, rho):
 
 def assert_transition_probs_switch_internal(trees, times, popsizes, rho):
 
-    return arghmm_assert_transmat_switch_internal(
+    return argweaver_assert_transmat_switch_internal(
         trees, len(times), times, popsizes, rho)
 
 
 #=============================================================================
 
 
-def arghmm_forward_algorithm(arg, seqs, rho=1.5e-8,
-                             mu=2.5e-8, popsizes=1e4, times=None,
-                             ntimes=20, maxtime=180000,
-                             verbose=False,
-                             prior=[], internal=False, slow=False):
+def argweaver_forward_algorithm(arg, seqs, rho=1.5e-8,
+                                mu=2.5e-8, popsizes=1e4, times=None,
+                                ntimes=20, maxtime=180000,
+                                verbose=False,
+                                prior=[], internal=False, slow=False):
     if times is None:
-        times = arghmm.get_time_points(
+        times = argweaver.get_time_points(
             ntimes=ntimes, maxtime=maxtime, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
@@ -559,14 +559,14 @@ def arghmm_forward_algorithm(arg, seqs, rho=1.5e-8,
             seqs2.append(seqs[name])
     seqlen = len(seqs2[0])
 
-    fw = arghmm_forward_alg(trees, times, len(times),
-                            popsizes, rho, mu,
-                            (C.c_char_p * len(seqs2))(*seqs2), len(seqs2),
-                            seqlen, len(prior) > 0, prior, internal,
-                            slow)
+    fw = argweaver_forward_alg(trees, times, len(times),
+                               popsizes, rho, mu,
+                               (C.c_char_p * len(seqs2))(*seqs2), len(seqs2),
+                               seqlen, len(prior) > 0, prior, internal,
+                               slow)
 
     nstates = [0] * seqlen
-    arghmm_get_nstates(trees, len(times), internal, nstates)
+    argweaver_get_nstates(trees, len(times), internal, nstates)
 
     probs = [row[:n] for row, n in zip(fw, nstates)]
 
@@ -586,7 +586,7 @@ def sample_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
                   times=None, ntimes=20, maxtime=200000, verbose=False):
 
     if times is None:
-        times = arghmm.get_time_points(
+        times = argweaver.get_time_points(
             ntimes=ntimes, maxtime=maxtime, delta=.01)
     popsizes = [popsize] * len(times)
 
@@ -602,7 +602,7 @@ def sample_thread(arg, seqs, rho=1.5e-8, mu=2.5e-8, popsize=1e4,
     seqs2.append(seqs[new_name])
     seqlen = len(seqs2[0])
 
-    trees = arghmm_sample_thread(
+    trees = argweaver_sample_thread(
         trees, times, len(times),
         popsizes, rho, mu,
         (C.c_char_p * len(seqs2))(*seqs2), len(seqs2), seqlen, None)
@@ -628,7 +628,7 @@ def sample_posterior(model, n, verbose=False):
     seqs = [model.seqs[node] for node in all_nodes[0]
             if model.arg[node].is_leaf()]
     seqs.append(model.seqs[model.new_name])
-    path = arghmm_sample_posterior(
+    path = argweaver_sample_posterior(
         ptrees, ages, sprs, blocklens,
         len(ptrees), len(ptrees[0]),
         model.times, len(model.times),
@@ -666,7 +666,8 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     Sample ARG for sequences
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -680,7 +681,7 @@ def sample_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
         seqs2.append(seq)
 
     # sample arg
-    trees = arghmm_sample_arg_refine(
+    trees = argweaver_sample_arg_refine(
         times, len(times),
         popsizes, rho, mu,
         (C.c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]), refine,
@@ -705,7 +706,8 @@ def sample_arg_seq_gibbs(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     Sample ARG for sequences using sequential and gibbs stages
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -715,7 +717,7 @@ def sample_arg_seq_gibbs(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     names, seqs2 = zip(* seqs.items())
 
     # sample arg
-    trees = arghmm_sample_arg_seq_gibbs(
+    trees = argweaver_sample_arg_seq_gibbs(
         times, len(times),
         popsizes, rho, mu,
         (C.c_char_p * len(seqs))(*seqs2), len(seqs), len(seqs2[0]),
@@ -739,7 +741,8 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     Sample ARG for sequences
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -765,7 +768,7 @@ def resample_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
     # resample arg
     seqlen = len(seqs[names[0]])
-    trees = arghmm_resample_arg(
+    trees = argweaver_resample_arg(
         trees, times, len(times),
         popsizes, rho, mu,
         (C.c_char_p * len(seqs2))(*seqs2), len(seqs2),
@@ -790,7 +793,8 @@ def sample_all_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     Sample ARG for sequences
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -801,7 +805,8 @@ def sample_all_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     if verbose:
         util.tic("convert arg")
 
-    arg = arghmm.make_trunk_arg(0, len(seqs.values()[0]), name=seqs.keys()[0])
+    arg = argweaver.make_trunk_arg(
+        0, len(seqs.values()[0]), name=seqs.keys()[0])
     trees, names = arg2ctrees(arg, times)
     if verbose:
         util.toc()
@@ -817,7 +822,7 @@ def sample_all_arg(seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
 
     # resample arg
     seqlen = len(seqs[names[0]])
-    trees = arghmm_resample_all_arg(
+    trees = argweaver_resample_all_arg(
         trees, times, len(times),
         popsizes, rho, mu,
         (C.c_char_p * len(seqs2))(*seqs2), len(seqs2),
@@ -842,7 +847,8 @@ def resample_all_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     Sample ARG for sequences
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -866,7 +872,7 @@ def resample_all_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
     seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
 
     # resample arg
-    trees = arghmm_resample_all_arg(
+    trees = argweaver_resample_all_arg(
         trees, times, len(times),
         popsizes, rho, mu,
         seqs2, nseqs, seqlen, refine, prob_path_switch)
@@ -890,7 +896,8 @@ def resample_climb_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8,
     Sample ARG for sequences
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -913,7 +920,7 @@ def resample_climb_arg(arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8,
     seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
 
     # resample arg
-    trees = arghmm_resample_climb_arg(
+    trees = argweaver_resample_climb_arg(
         trees, times, len(times),
         popsizes, rho, mu, seqs2, nseqs, seqlen, refine, recomb_pref)
 
@@ -937,7 +944,8 @@ def resample_mcmc_arg(arg, seqs, ntimes=20,
     Sample ARG for sequences
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -961,7 +969,7 @@ def resample_mcmc_arg(arg, seqs, ntimes=20,
     seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
 
     # resample arg
-    trees = arghmm_resample_mcmc_arg(
+    trees = argweaver_resample_mcmc_arg(
         trees, times, len(times),
         popsizes, rho, mu,
         seqs2, nseqs, seqlen, refine, niters2, window)
@@ -985,7 +993,8 @@ def resample_arg_cut(
     Sample ARG for sequences
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -1009,9 +1018,9 @@ def resample_arg_cut(
     seqs2, nseqs, seqlen = seqs2cseqs(seqs, names)
 
     # resample arg
-    trees = arghmm_resample_arg_cut(trees, times, len(times),
-                                    popsizes, rho, mu,
-                                    seqs2, nseqs, seqlen, refine)
+    trees = argweaver_resample_arg_cut(trees, times, len(times),
+                                       popsizes, rho, mu,
+                                       seqs2, nseqs, seqlen, refine)
 
     if carg:
         arg = (trees, names)
@@ -1033,7 +1042,8 @@ def resample_arg_region(arg, seqs, region_start, region_end,
     Sample ARG for sequences
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -1058,12 +1068,12 @@ def resample_arg_region(arg, seqs, region_start, region_end,
     # resample arg
     seqlen = len(seqs[names[0]])
 
-    trees = arghmm_resample_arg_region(
+    trees = argweaver_resample_arg_region(
         trees, times, len(times),
         popsizes, rho, mu, seqs2, nseqs, seqlen,
         region_start, region_end, refine)
 
-    #trees = arghmm_resample_arg_region(
+    #trees = argweaver_resample_arg_region(
     #    trees, times, len(times),
     #    popsizes, rho, mu, seqs2, nseqs, seqlen,
     #    region_start, region_end)
@@ -1106,9 +1116,9 @@ def resample_arg_regions(arg, seqs, niters, width=1000,
         if verbose:
             util.tic("sample ARG region %s" % region)
         print arg
-        arg = arghmm.resample_arg_region(arg, seqs, region[0], region[1],
-                                         rho=rho, mu=mu, times=times,
-                                         carg=carg, verbose=True)
+        arg = argweaver.resample_arg_region(arg, seqs, region[0], region[1],
+                                            rho=rho, mu=mu, times=times,
+                                            carg=carg, verbose=True)
         if not carg:
             recomb_pos = list(x.pos for x in arg if x.event == "recomb")
             if verbose:
@@ -1129,7 +1139,8 @@ def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8,
     Calculate arg_likelihood
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
 
     if verbose:
         util.tic("calc likelihood")
@@ -1137,7 +1148,8 @@ def calc_likelihood(arg, seqs, ntimes=20, mu=2.5e-8,
     trees, names = arg2ctrees(arg, times)
     seqs, nseqs, seqlen = seqs2cseqs(seqs, names)
 
-    lk = arghmm_likelihood(trees, times, len(times), mu, seqs, nseqs, seqlen)
+    lk = argweaver_likelihood(
+        trees, times, len(times), mu, seqs, nseqs, seqlen)
     if delete_arg:
         delete_local_trees(trees)
 
@@ -1153,7 +1165,8 @@ def calc_likelihood_parsimony(arg, seqs, ntimes=20, mu=2.5e-8,
     Calculate arg_likelihood
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
 
     if verbose:
         util.tic("calc likelihood")
@@ -1161,7 +1174,7 @@ def calc_likelihood_parsimony(arg, seqs, ntimes=20, mu=2.5e-8,
     trees, names = arg2ctrees(arg, times)
     seqs, nseqs, seqlen = seqs2cseqs(seqs, names)
 
-    lk = arghmm_likelihood_parsimony(
+    lk = argweaver_likelihood_parsimony(
         trees, times, len(times), mu, seqs, nseqs, seqlen)
     if delete_arg:
         delete_local_trees(trees)
@@ -1178,7 +1191,8 @@ def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsizes=1e4,
     Calculate arg_joint_prob
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -1187,7 +1201,7 @@ def calc_prior_prob(arg, ntimes=20, rho=1.5e-8, popsizes=1e4,
 
     trees, names = arg2ctrees(arg, times)
 
-    p = arghmm_prior_prob(trees, times, len(times), popsizes, rho)
+    p = argweaver_prior_prob(trees, times, len(times), popsizes, rho)
     if delete_arg:
         delete_local_trees(trees)
 
@@ -1203,7 +1217,8 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsizes=1e4,
     Calculate arg_joint_prob
     """
     if times is None:
-        times = arghmm.get_time_points(ntimes=ntimes, maxtime=80000, delta=.01)
+        times = argweaver.get_time_points(
+            ntimes=ntimes, maxtime=80000, delta=.01)
     if isinstance(popsizes, float) or isinstance(popsizes, int):
         popsizes = [popsizes] * len(times)
 
@@ -1213,7 +1228,7 @@ def calc_joint_prob(arg, seqs, ntimes=20, mu=2.5e-8, rho=1.5e-8, popsizes=1e4,
     trees, names = arg2ctrees(arg, times)
     seqs, nseqs, seqlen = seqs2cseqs(seqs, names)
 
-    p = arghmm_joint_prob(
+    p = argweaver_joint_prob(
         trees, times, len(times), popsizes, mu, rho, seqs, nseqs, seqlen)
     if delete_arg:
         delete_local_trees(trees)
@@ -1236,7 +1251,7 @@ def est_popsizes_trees(arg, times, step, verbose=False):
         util.tic("estimate popsizes")
 
     popsizes = [0.0] * (len(times) - 1)
-    arghmm_est_popsizes_trees(trees, times, len(times), step, popsizes)
+    argweaver_est_popsizes_trees(trees, times, len(times), step, popsizes)
 
     if verbose:
         util.toc()
@@ -1319,7 +1334,7 @@ def arg2ctrees(arg, times):
     names = [node for node in all_nodes[0]
              if arg[node].is_leaf()]
 
-    trees = arghmm_new_trees(
+    trees = argweaver_new_trees(
         ptrees, ages, sprs, blocklens,
         len(ptrees), len(ptrees[0]), arg.start)
 
@@ -1392,7 +1407,8 @@ def iter_local_ptrees(arg, times, start=None, end=None):
     last_nodes = None
     last_nodelookup = {}
 
-    for block, tree, last_tree, spr in arghmm.iter_arg_sprs(arg, start, end):
+    for block, tree, last_tree, spr in argweaver.iter_arg_sprs(
+            arg, start, end):
         # get treelib.Tree from arglib.ARG
         tree2 = tree.get_tree()
 

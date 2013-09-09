@@ -4,7 +4,7 @@ import optparse
 import os
 import sys
 
-import arghmm
+import argweaver
 
 from compbio import arglib
 from rasmus import util
@@ -78,18 +78,19 @@ elif conf.model == "smc":
 
 elif conf.model == "dsmc":
     print "simulating using the DSMC model..."
-    times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
-    arg = arghmm.sample_arg_dsmc(conf.nseqs, 2*conf.popsize, conf.recombrate,
-                                 recombmap=recombmap,
-                                 start=0, end=conf.seqlen, times=times)
-    muts = arghmm.sample_arg_mutations(arg, conf.mutrate, times=times)
+    times = argweaver.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+    arg = argweaver.sample_arg_dsmc(
+        conf.nseqs, 2*conf.popsize, conf.recombrate,
+        recombmap=recombmap,
+        start=0, end=conf.seqlen, times=times)
+    muts = argweaver.sample_arg_mutations(arg, conf.mutrate, times=times)
 
 else:
     print >>sys.stderr, "unknown simulation model:", conf.model
 
 # simulate sequence
-seqs = arghmm.make_alignment(arg, muts, infsites=conf.infsites)
-sites = arghmm.seqs2sites(seqs)
+seqs = argweaver.make_alignment(arg, muts, infsites=conf.infsites)
+sites = argweaver.seqs2sites(seqs)
 sites.chrom = conf.chrom
 
 # write output

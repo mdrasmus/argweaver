@@ -8,9 +8,9 @@ from itertools import izip
 from math import exp
 from math import log
 
-import arghmm
-import arghmm.popsize
-from arghmm import arghmmc
+import argweaver
+import argweaver.popsize
+from argweaver import argweaverc
 
 from compbio import arglib
 from rasmus import util
@@ -28,7 +28,7 @@ def test_trans_two():
     n = 1e4
     rho = 1.5e-8 * 20
     length = 1000
-    times = arghmm.get_time_points(ntimes=5, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=5, maxtime=200000)
     time_steps = [times[i] - times[i-1]
                   for i in range(1, len(times))]
     time_steps.append(200000*10000.0)
@@ -36,16 +36,16 @@ def test_trans_two():
 
     arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
 
-    arghmm.discretize_arg(arg, times)
+    argweaver.discretize_arg(arg, times)
     print "recomb", arglib.get_recomb_pos(arg)
 
-    arg = arghmm.make_trunk_arg(0, length, "n0")
+    arg = argweaver.make_trunk_arg(0, length, "n0")
 
     pos = 10
     tree = arg.get_marginal_tree(pos)
-    nlineages = arghmm.get_nlineages_recomb_coal(tree, times)
-    states = list(arghmm.iter_coal_states(tree, times))
-    mat = arghmm.calc_transition_probs(
+    nlineages = argweaver.get_nlineages_recomb_coal(tree, times)
+    states = list(argweaver.iter_coal_states(tree, times))
+    mat = argweaver.calc_transition_probs(
         tree, states, nlineages,
         times, time_steps, popsizes, rho)
 
@@ -121,16 +121,16 @@ def test_trans():
     n = 1e4
     rho = 1.5e-8 * 20
     length = 1000
-    times = arghmm.get_time_points(ntimes=4, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=4, maxtime=200000)
     popsizes = [n] * len(times)
 
     arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
-    arghmm.discretize_arg(arg, times)
+    argweaver.discretize_arg(arg, times)
 
     pos = 10
     tree = arg.get_marginal_tree(pos)
 
-    assert arghmmc.assert_transition_probs(tree, times, popsizes, rho)
+    assert argweaverc.assert_transition_probs(tree, times, popsizes, rho)
 
 
 def test_trans_switch():
@@ -144,14 +144,14 @@ def test_trans_switch():
     n = 1e4
     rho = 1.5e-8 * 20
     length = 1000
-    times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=20, maxtime=200000)
     popsizes = [n] * len(times)
 
     recombs = []
 
     while len(recombs) == 0:
-        arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                     times=times)
+        arg = argweaver.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                        times=times)
         recombs = [x.pos for x in arg if x.event == "recomb"]
 
     pos = recombs[0]
@@ -159,8 +159,8 @@ def test_trans_switch():
     rpos, r, c = arglib.iter_arg_sprs(arg, start=pos-.5).next()
     spr = (r, c)
 
-    assert arghmmc.assert_transition_switch_probs(tree, spr,
-                                                  times, popsizes, rho)
+    assert argweaverc.assert_transition_switch_probs(
+        tree, spr, times, popsizes, rho)
 
 
 def test_trans_internal():
@@ -174,16 +174,16 @@ def test_trans_internal():
     n = 1e4
     rho = 1.5e-8 * 20
     length = 1000
-    times = arghmm.get_time_points(ntimes=5, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=5, maxtime=200000)
     popsizes = [n] * len(times)
 
     arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
-    arghmm.discretize_arg(arg, times)
+    argweaver.discretize_arg(arg, times)
 
     pos = 10
     tree = arg.get_marginal_tree(pos)
 
-    assert arghmmc.assert_transition_probs_internal(
+    assert argweaverc.assert_transition_probs_internal(
         tree, times, popsizes, rho)
 
 
@@ -198,14 +198,14 @@ def test_trans_switch_internal():
     n = 1e4
     rho = 1.5e-8 * 20
     length = int(100e3) / 20
-    times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=20, maxtime=200000)
     popsizes = [n] * len(times)
 
-    arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                 times=times)
-    trees, names = arghmmc.arg2ctrees(arg, times)
+    arg = argweaver.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                    times=times)
+    trees, names = argweaverc.arg2ctrees(arg, times)
 
-    assert arghmmc.assert_transition_probs_switch_internal(
+    assert argweaverc.assert_transition_probs_switch_internal(
         trees, times, popsizes, rho)
 
 
@@ -219,22 +219,22 @@ def test_emit():
     rho = 1.5e-8 * 20
     mu = 2.5e-8 * 20
     length = int(1e3) / 20
-    times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=20, maxtime=200000)
 
-    arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                 times=times)
+    arg = argweaver.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                    times=times)
 
-    muts = arghmm.sample_arg_mutations(arg, mu, times)
-    seqs = arghmm.make_alignment(arg, muts)
+    muts = argweaver.sample_arg_mutations(arg, mu, times)
+    seqs = argweaver.make_alignment(arg, muts)
 
     new_name = "n%d" % (k-1)
-    arg = arghmm.remove_arg_thread(arg, new_name)
+    arg = argweaver.remove_arg_thread(arg, new_name)
 
-    trees, names = arghmmc.arg2ctrees(arg, times)
-    seqs2, nseqs, seqlen = arghmmc.seqs2cseqs(seqs, names + [new_name])
+    trees, names = argweaverc.arg2ctrees(arg, times)
+    seqs2, nseqs, seqlen = argweaverc.seqs2cseqs(seqs, names + [new_name])
 
-    assert arghmmc.arghmm_assert_emit(trees, len(times), times, mu,
-                                      seqs2, nseqs, seqlen)
+    assert argweaverc.argweaver_assert_emit(trees, len(times), times, mu,
+                                            seqs2, nseqs, seqlen)
 
 
 def test_emit_internal():
@@ -247,19 +247,19 @@ def test_emit_internal():
     rho = 1.5e-8 * 20
     mu = 2.5e-8 * 20
     length = int(10e3) / 20
-    times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=20, maxtime=200000)
 
-    arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                 times=times)
+    arg = argweaver.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                    times=times)
 
-    muts = arghmm.sample_arg_mutations(arg, mu, times)
-    seqs = arghmm.make_alignment(arg, muts)
+    muts = argweaver.sample_arg_mutations(arg, mu, times)
+    seqs = argweaver.make_alignment(arg, muts)
 
-    trees, names = arghmmc.arg2ctrees(arg, times)
-    seqs2, nseqs, seqlen = arghmmc.seqs2cseqs(seqs, names)
+    trees, names = argweaverc.arg2ctrees(arg, times)
+    seqs2, nseqs, seqlen = argweaverc.seqs2cseqs(seqs, names)
 
-    assert arghmmc.arghmm_assert_emit_internal(trees, len(times), times, mu,
-                                               seqs2, nseqs, seqlen)
+    assert argweaverc.argweaver_assert_emit_internal(
+        trees, len(times), times, mu, seqs2, nseqs, seqlen)
 
 
 def test_prior_counts():
@@ -272,8 +272,8 @@ def test_prior_counts():
     t = 1e3
 
     for b in range(1, a):
-        x = arghmmc.prob_coal_counts_matrix(a, b, t, 2*n)
-        y = arghmm.popsize.prob_coal_counts(a, b, t, 2*n)
+        x = argweaverc.prob_coal_counts_matrix(a, b, t, 2*n)
+        y = argweaver.popsize.prob_coal_counts(a, b, t, 2*n)
         fequal(x, y)
 
 
@@ -284,7 +284,7 @@ def test_forward():
     rho = 1.5e-8 * 20
     mu = 2.5e-8 * 20
     length = int(100e3 / 20)
-    times = arghmm.get_time_points(ntimes=100)
+    times = argweaver.get_time_points(ntimes=100)
 
     arg = arglib.sample_arg_smc(k, 2*n, rho, start=0, end=length)
     muts = arglib.sample_arg_mutations(arg, mu)
@@ -293,21 +293,21 @@ def test_forward():
     print "muts", len(muts)
     print "recomb", len(arglib.get_recomb_pos(arg))
 
-    arghmm.discretize_arg(arg, times)
+    argweaver.discretize_arg(arg, times)
 
     # remove chrom
     new_name = "n%d" % (k - 1)
-    arg = arghmm.remove_arg_thread(arg, new_name)
+    arg = argweaver.remove_arg_thread(arg, new_name)
 
-    carg = arghmmc.arg2ctrees(arg, times)
+    carg = argweaverc.arg2ctrees(arg, times)
 
     util.tic("C fast")
-    probs1 = arghmmc.arghmm_forward_algorithm(carg, seqs, times=times)
+    probs1 = argweaverc.argweaver_forward_algorithm(carg, seqs, times=times)
     util.toc()
 
     util.tic("C slow")
-    probs2 = arghmmc.arghmm_forward_algorithm(carg, seqs, times=times,
-                                              slow=True)
+    probs2 = argweaverc.argweaver_forward_algorithm(carg, seqs, times=times,
+                                                    slow=True)
     util.toc()
 
     for i, (col1, col2) in enumerate(izip(probs1, probs2)):
@@ -325,12 +325,12 @@ def test_arg_joint():
     rho = 1.5e-8 * 20
     mu = 2.5e-8 * 20
     length = 10000
-    times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=20, maxtime=200000)
 
-    arg = arghmm.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                 times=times)
-    muts = arghmm.sample_arg_mutations(arg, mu, times=times)
+    arg = argweaver.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
+                                    times=times)
+    muts = argweaver.sample_arg_mutations(arg, mu, times=times)
     seqs = arglib.make_alignment(arg, muts)
 
-    lk = arghmm.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
+    lk = argweaver.calc_joint_prob(arg, seqs, mu=mu, rho=rho, times=times)
     print lk

@@ -5,13 +5,13 @@
 import sys
 from compbio import arglib
 from compbio.vis import argvis
-import arghmm
+import argweaver
 
 
 argfile = sys.argv[1]
 
 if argfile.endswith(".smc.gz"):
-    arg = arghmm.read_arg(argfile)
+    arg = argweaver.read_arg(argfile)
 else:
     arg = arglib.read_arg(argfile)
 

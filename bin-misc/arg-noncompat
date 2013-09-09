@@ -2,7 +2,7 @@
 
 import optparse
 
-import arghmm
+import argweaver
 
 from rasmus import treelib
 
@@ -36,8 +36,8 @@ sitesfile = args[1]
 if argfile.endswith(".arg"):
     arg = arglib.read_arg(argfile)
 else:
-    arg = arghmm.read_arg(argfile)
-sites = arghmm.read_sites(sitesfile)
+    arg = argweaver.read_arg(argfile)
+sites = argweaver.read_sites(sitesfile)
 
 print "names", sites.names
 print

@@ -45,16 +45,16 @@ def pyflakes_filter(line):
     Standard filter for pyflakes.
     """
 
-    # Allow arghmm to be imported without being used since it
-    # imports arghmm.deps
-    if "'arghmm' imported but unused" in line:
+    # Allow argweaver to be imported without being used since it
+    # imports argweaver.deps
+    if "'argweaver' imported but unused" in line:
         return False
 
     # allow summon.core to use 'import *'
     if 'from summon.core import *' in line:
         return False
 
-    if 'arghmm/bottle.py' in line:
+    if 'argweaver/bottle.py' in line:
         return False
 
     return True
@@ -65,19 +65,19 @@ def pep8_filter(line):
     Standard filter for pep8.
     """
 
-    if 'arghmm/bottle.py' in line:
+    if 'argweaver/bottle.py' in line:
         return False
 
     return True
 
 
-def test_import_arghmm():
+def test_import_argweaver():
     """
-    Ensure arghmm library can be imported.
+    Ensure argweaver library can be imported.
     """
 
-    assert os.system("PYTHONPATH= python -c 'import arghmm'") == 0
-    assert os.system("PYTHONPATH= python -c 'import arghmm.popsize'") == 0
+    assert os.system("PYTHONPATH= python -c 'import argweaver'") == 0
+    assert os.system("PYTHONPATH= python -c 'import argweaver.popsize'") == 0
 
 
 def get_python_scripts(*paths):
@@ -127,7 +127,7 @@ def test_pyflakes():
     """
     Run pyflakes on python code base.
     """
-    filenames = list(get_python_scripts("arghmm", "bin", "test"))
+    filenames = list(get_python_scripts("argweaver", "bin", "test"))
     lines = run_pyflakes(filenames, key=pyflakes_filter)
 
     if len(lines) > 0:
@@ -140,7 +140,7 @@ def test_pep8():
     """
     Ensure pep8 compliance on python code base.
     """
-    filenames = list(get_python_scripts("arghmm", "bin", "test"))
+    filenames = list(get_python_scripts("argweaver", "bin", "test"))
     lines = run_pep8(filenames, key=pep8_filter)
 
     if len(lines) > 0:
@@ -151,15 +151,18 @@ def test_pep8():
 
 def _test_arghmm():
     """
-    See if arghmm is used anywhere within the code.
+    See if argweaver is used anywhere within the code.
     """
 
     def key(line):
         if ".pyc" in line:
             return False
+        if "argweaverc.py" in line and "arghmm_" in line:
+            return False
         return True
 
-    cmd = "grep -r arghmm bin arghmm"
+    cmd = ("grep -r 'arghmm\\.\\|import arghmm' "
+           "bin bin-misc argweaver test/*.py | grep -v grep")
     pipe = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     lines = [line for line in pipe.stdout if key(line)]
     pipe.wait()

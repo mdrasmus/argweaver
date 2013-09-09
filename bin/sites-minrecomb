@@ -3,7 +3,7 @@
 
 import optparse
 
-import arghmm
+import argweaver
 
 from rasmus import util
 from compbio import arglib
@@ -16,7 +16,7 @@ conf, args = o.parse_args()
 # find mutations and splits
 
 
-sites = arghmm.read_sites(args[0])
+sites = argweaver.read_sites(args[0])
 
 start, end = sites.region
 

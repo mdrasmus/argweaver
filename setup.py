@@ -9,8 +9,8 @@
 from distutils.core import setup, Extension
 import os
 
-import arghmm
-VERSION = arghmm.PROGRAM_VERSION_TEXT
+import argweaver
+VERSION = argweaver.PROGRAM_VERSION_TEXT
 
 scripts = [os.path.join('bin', x) for x in os.listdir('bin')]
 

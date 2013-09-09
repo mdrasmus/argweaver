@@ -3,7 +3,7 @@
 
 import optparse
 
-import arghmm
+import argweaver
 
 from compbio.vis import argvis
 
@@ -13,5 +13,5 @@ conf, args = o.parse_args()
 
 
 smcfile = args[0]
-smc = arghmm.iter_smc_file(smcfile, parse_trees=True)
+smc = argweaver.iter_smc_file(smcfile, parse_trees=True)
 viewer = argvis.show_smc(smc, show_labels=True)

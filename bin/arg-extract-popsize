@@ -4,7 +4,7 @@ import optparse
 import os
 import sys
 
-import arghmm
+import argweaver
 
 from rasmus import intervals
 from rasmus import stats
@@ -47,8 +47,8 @@ def mle_popsize_tree(tree, mintime=0):
 def iter_popsize(filename, mintime=0):
     chrom = "chr"
 
-    for item in arghmm.iter_smc_file(filename, parse_trees=True,
-                                     apply_spr=True):
+    for item in argweaver.iter_smc_file(filename, parse_trees=True,
+                                        apply_spr=True):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
         if item["tag"] == "TREE":

@@ -3,9 +3,11 @@
 import sys
 import optparse
 
-import arghmm
+import argweaver
 
 from compbio import arglib
+
+argweaver
 
 o = optparse.OptionParser(
     description="""

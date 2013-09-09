@@ -6,7 +6,7 @@ Tests for installing ArgWeaver.
 
 import os
 
-import arghmm
+import argweaver
 
 from rasmus.testing import make_clean_dir
 
@@ -22,5 +22,5 @@ def test_install():
 
     make_clean_dir("test/data/install")
     run_cmd("make install prefix=test/data/install > /dev/null")
-    run_cmd("PYTHONPATH=test/data/install python -c 'import arghmm'")
+    run_cmd("PYTHONPATH=test/data/install python -c 'import argweaver'")
     assert os.path.exists("test/data/install/bin/arg-sample")

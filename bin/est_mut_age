@@ -3,11 +3,13 @@
 import optparse
 import sys
 
-import arghmm
+import argweaver
 
 from compbio import arglib
 from rasmus import treelib
 
+
+argweaver
 
 o = optparse.OptionParser()
 conf, args = o.parse_args()

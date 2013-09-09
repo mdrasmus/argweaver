@@ -2,8 +2,8 @@
 import os
 import subprocess
 
-import arghmm
-import arghmm.smc
+import argweaver
+import argweaver.smc
 
 from compbio import arglib
 
@@ -135,7 +135,7 @@ def iter_arg_layout(filename):
     """
     Iterate through an ARG layout file.
     """
-    with arghmm.open_stream(filename, compress='bgzip') as infile:
+    with argweaver.open_stream(filename, compress='bgzip') as infile:
         for line in infile:
             tokens = line.rstrip().split("\t")
             block = [tokens[0], int(tokens[1]), int(tokens[2])]

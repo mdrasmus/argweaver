@@ -2,7 +2,7 @@
 
 import optparse
 
-import arghmm
+import argweaver
 
 from rasmus import util
 from compbio import fasta, arglib

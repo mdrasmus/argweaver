@@ -5,8 +5,8 @@ import optparse
 import os
 import tempfile
 
-import arghmm
-import arghmm.smc
+import argweaver
+import argweaver.smc
 
 from compbio import arglib
 from compbio import phylo
@@ -54,7 +54,7 @@ def weighted_split_error(tree, tree2):
 def iter_trees(filename, attr={}, ptrs=None):
     chrom = "chr"
 
-    for item in arghmm.iter_smc_file(filename):
+    for item in argweaver.iter_smc_file(filename):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
             attr["region"] = [item["chrom"], item["start"]-1, item["end"]]
@@ -93,7 +93,7 @@ def filter_trees(trees, pts):
 
 def parse_tree(tree, names):
     if isinstance(tree, basestring):
-        tree = arghmm.smc.parse_tree(tree)
+        tree = argweaver.smc.parse_tree(tree)
         for i, name in enumerate(names):
             tree.rename(i, name)
     return tree

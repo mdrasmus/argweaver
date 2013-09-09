@@ -4,8 +4,8 @@ from itertools import izip
 import optparse
 import os
 
-import arghmm
-import arghmm.smc
+import argweaver
+import argweaver.smc
 
 from compbio import arglib
 from rasmus import treelib
@@ -51,11 +51,11 @@ def get_arg_lineages(arg, times, step=None):
     if step:
         for i in get_pos(arg.start, arg.end, step):
             tree = arg.get_marginal_tree(i-.5)
-            nbranches = arghmm.get_nlineages(tree, times)
+            nbranches = argweaver.get_nlineages(tree, times)
             yield [arg.chrom, i, i] + nbranches
     else:
         for (start, end), tree in arglib.iter_local_trees(arg):
-            nbranches = arghmm.get_nlineages(tree, times)
+            nbranches = argweaver.get_nlineages(tree, times)
             yield [arg.chrom, start, end] + nbranches
 
 
@@ -66,11 +66,11 @@ def get_smc_lineages(smc, times, chrom="chr", step=None):
         elif item["tag"] == "TREE":
             if step:
                 for pos in get_pos(item["start"]-1, item["end"], step):
-                    tree = arghmm.smc.parse_tree(item["tree"])
+                    tree = argweaver.smc.parse_tree(item["tree"])
                     nbranches = get_nlineages(tree, times)
                     yield [chrom, pos, pos] + nbranches
             else:
-                tree = arghmm.smc.parse_tree(item["tree"])
+                tree = argweaver.smc.parse_tree(item["tree"])
                 nbranches = get_nlineages(tree, times)
                 yield [chrom, item["start"], item["end"]] + nbranches
 
@@ -98,17 +98,17 @@ def diff_lineages(true_lineages, lineages):
 #=============================================================================
 
 
-times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+times = argweaver.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
 
 # get trur lineage counts
 filename = args[0]
 if filename.endswith(".arg"):
     arg = arglib.read_arg(filename)
     arg.chrom = "chr"
-    arghmm.discretize_arg(arg, times)
+    argweaver.discretize_arg(arg, times)
     true_lineages = list(get_arg_lineages(arg, times, step=conf.window_step))
 else:
-    smc = arghmm.iter_smc_file(filename)
+    smc = argweaver.iter_smc_file(filename)
     true_lineages = list(get_smc_lineages(smc, times, step=conf.window_step))
 
 # get inferred lineage counts
@@ -125,9 +125,9 @@ else:
 
 for filename in filenames:
     try:
-        it = arghmm.get_smc_sample_iter(filename)
+        it = argweaver.get_smc_sample_iter(filename)
     except:
         it = 0
-    smc = arghmm.iter_smc_file(filename)
+    smc = argweaver.iter_smc_file(filename)
     lineages = list(get_smc_lineages(smc, times, step=conf.window_step))
     util.print_row(it, diff_lineages(true_lineages, lineages))

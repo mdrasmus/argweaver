@@ -3,9 +3,9 @@
 
 import optparse
 
-import arghmm
-import arghmm.smc
-import arghmm.vis
+import argweaver
+import argweaver.smc
+import argweaver.vis
 
 from compbio import arglib
 from compbio.vis import argvis
@@ -51,7 +51,7 @@ util.tic("reading ARG")
 if conf.arg.endswith(".arg"):
     arg = arglib.read_arg(conf.arg)
 else:
-    arg = arghmm.read_arg(conf.arg)
+    arg = argweaver.read_arg(conf.arg)
 util.toc()
 
 if conf.region:
@@ -63,9 +63,9 @@ util.tic("read sites")
 if conf.sites:
     util.tic("reading sites")
     if region:
-        sites = arghmm.read_sites(conf.sites, region)
+        sites = argweaver.read_sites(conf.sites, region)
     else:
-        sites = arghmm.read_sites(conf.sites)
+        sites = argweaver.read_sites(conf.sites)
     util.toc()
 else:
     sites = None
@@ -75,12 +75,12 @@ util.toc()
 #=============================================================================
 
 util.tic("layout chromosomes")
-smc = arghmm.smc.arg2smc(arg, start=region[0], end=region[1],
+smc = argweaver.smc.arg2smc(arg, start=region[0], end=region[1],
                          format_trees=False)
-smc = arghmm.smc.SMCReader(smc)
-layout = arghmm.vis.SMCLayout(smc)
+smc = argweaver.smc.SMCReader(smc)
+layout = argweaver.vis.SMCLayout(smc)
 blocks, leaf_layout = layout.blocks, layout.leaf_layout
-#arg_layout = arghmm.vis.layout_smc(smc)
+#arg_layout = argweaver.vis.layout_smc(smc)
 
 util.toc()
 

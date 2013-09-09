@@ -3,7 +3,7 @@
 import optparse
 import sys
 
-import arghmm
+import argweaver
 
 from compbio import fasta
 from rasmus import util
@@ -35,6 +35,6 @@ else:
         sites_file = conf.fasta + ".sites"
 
 seqs = fasta.read_fasta(conf.fasta)
-sites = arghmm.seqs2sites(seqs, chrom=conf.chrom, start=conf.start)
+sites = argweaver.seqs2sites(seqs, chrom=conf.chrom, start=conf.start)
 
-arghmm.write_sites(sites_file, sites)
+argweaver.write_sites(sites_file, sites)

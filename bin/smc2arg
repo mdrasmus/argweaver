@@ -2,7 +2,7 @@
 
 import optparse
 
-import arghmm
+import argweaver
 
 
 o = optparse.OptionParser()
@@ -12,5 +12,5 @@ conf, args = o.parse_args()
 smc_file = args[0]
 arg_file = args[1]
 
-arg = arghmm.read_arg(smc_file)
+arg = argweaver.read_arg(smc_file)
 arg.write(arg_file)

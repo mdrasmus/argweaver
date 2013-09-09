@@ -3,7 +3,7 @@
 import optparse
 import sys
 
-import arghmm
+import argweaver
 
 from compbio import fasta
 from rasmus import util
@@ -33,6 +33,6 @@ else:
     else:
         fasta_file = conf.sites + ".fa"
 
-sites = arghmm.read_sites(conf.sites)
-seqs = arghmm.sites2seqs(sites, default_char=conf.char)
+sites = argweaver.read_sites(conf.sites)
+seqs = argweaver.sites2seqs(sites, default_char=conf.char)
 fasta.write_fasta(fasta_file, seqs)

@@ -14,8 +14,8 @@ from compbio import fasta
 from rasmus import stats
 from rasmus import util
 
-# arghmm imports
-import arghmm
+# argweaver imports
+import argweaver
 
 
 def find_region(pos, track):
@@ -161,7 +161,7 @@ def sample_dsmc_sprs_round_down(
         #                              names=names, make_names=make_names)
         init_tree = sample_tree(k, popsizes, times, start=start, end=end,
                                 names=names, make_names=make_names)
-        arghmm.discretize_arg(init_tree, times, ignore_top=True)
+        argweaver.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
 
     # sample SPRs
@@ -179,8 +179,8 @@ def sample_dsmc_sprs_round_down(
         root_age_index = times.index(tree.root.age)
 
         # choose time interval for recombination
-        states = set(arghmm.iter_coal_states(tree, times))
-        nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
+        states = set(argweaver.iter_coal_states(tree, times))
+        nbranches, nrecombs, ncoals = argweaver.get_nlineages_recomb_coal(
             tree, times)
         probs = [nbranches[i] * time_steps[i]
                  for i in range(root_age_index+1)]
@@ -290,7 +290,7 @@ def sample_dsmc_sprs_round_both(
         #                              names=names, make_names=make_names)
         init_tree = sample_tree(k, popsizes, times, start=start, end=end,
                                 names=names, make_names=make_names)
-        arghmm.discretize_arg(init_tree, times, ignore_top=True)
+        argweaver.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
 
     # sample SPRs
@@ -308,8 +308,8 @@ def sample_dsmc_sprs_round_both(
         root_age_index = times.index(tree.root.age)
 
         # choose time interval for recombination
-        states = set(arghmm.iter_coal_states(tree, times))
-        nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
+        states = set(argweaver.iter_coal_states(tree, times))
+        nbranches, nrecombs, ncoals = argweaver.get_nlineages_recomb_coal(
             tree, times)
         probs = [nbranches[i] * time_steps[i]
                  for i in range(root_age_index+1)]
@@ -432,7 +432,7 @@ def sample_dsmc_sprs_round_closer2(
         #                              names=names, make_names=make_names)
         init_tree = sample_tree(k, popsizes, times, start=start, end=end,
                                 names=names, make_names=make_names)
-        arghmm.discretize_arg(init_tree, times, ignore_top=True)
+        argweaver.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
 
     # sample SPRs
@@ -450,8 +450,8 @@ def sample_dsmc_sprs_round_closer2(
         root_age_index = times.index(tree.root.age)
 
         # choose time interval for recombination
-        states = set(arghmm.iter_coal_states(tree, times))
-        nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
+        states = set(argweaver.iter_coal_states(tree, times))
+        nbranches, nrecombs, ncoals = argweaver.get_nlineages_recomb_coal(
             tree, times)
         probs = [nbranches[i] * time_steps[i]
                  for i in range(root_age_index+1)]
@@ -566,7 +566,7 @@ def sample_dsmc_sprs_round_closer(
         #                              names=names, make_names=make_names)
         init_tree = sample_tree(k, popsizes, times, start=start, end=end,
                                 names=names, make_names=make_names)
-        arghmm.discretize_arg(init_tree, times, ignore_top=True)
+        argweaver.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
 
     # sample SPRs
@@ -584,8 +584,8 @@ def sample_dsmc_sprs_round_closer(
         root_age_index = times.index(tree.root.age)
 
         # choose time interval for recombination
-        states = set(arghmm.iter_coal_states(tree, times))
-        nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
+        states = set(argweaver.iter_coal_states(tree, times))
+        nbranches, nrecombs, ncoals = argweaver.get_nlineages_recomb_coal(
             tree, times)
         probs = [nbranches[i] * time_steps[i]
                  for i in range(root_age_index+1)]
@@ -705,7 +705,7 @@ def sample_dsmc_sprs_round_closer3(
     if init_tree is None:
         init_tree = sample_tree(k, popsizes, times, start=start, end=end,
                                 names=names, make_names=make_names)
-        arghmm.discretize_arg(init_tree, times, ignore_top=True)
+        argweaver.discretize_arg(init_tree, times, ignore_top=True)
     yield init_tree
 
     # sample SPRs
@@ -723,8 +723,8 @@ def sample_dsmc_sprs_round_closer3(
         root_age_index = times.index(tree.root.age)
 
         # choose time interval for recombination
-        states = set(arghmm.iter_coal_states(tree, times))
-        nbranches, nrecombs, ncoals = arghmm.get_nlineages_recomb_coal(
+        states = set(argweaver.iter_coal_states(tree, times))
+        nbranches, nrecombs, ncoals = argweaver.get_nlineages_recomb_coal(
             tree, times)
         probs = [nbranches[i] * time_steps[i]
                  for i in range(root_age_index+1)]
@@ -830,7 +830,7 @@ def sample_arg_dsmc(k, popsize, rho, recombmap=None,
         maxtime = 160000
         delta = .01
         ntimes = 20
-        times = arghmm.get_time_points(ntimes, maxtime, delta)
+        times = argweaver.get_time_points(ntimes, maxtime, delta)
 
     it = sample_dsmc_sprs(
         k, popsize, rho, recombmap=recombmap,
@@ -867,8 +867,8 @@ def sample_arg_mutations(arg, mu, times):
 
 def make_sites(arg, mutations, chrom="chr"):
     leaves = list(arg.leaf_names())
-    sites = arghmm.Sites(names=leaves, chrom=chrom,
-                         region=[arg.start+1, arg.end])
+    sites = argweaver.Sites(names=leaves, chrom=chrom,
+                            region=[arg.start+1, arg.end])
 
     # sort mutations by position
     mutations.sort(key=lambda x: x[2])

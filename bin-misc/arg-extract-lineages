@@ -2,8 +2,8 @@
 
 import optparse
 
-import arghmm
-import arghmm.smc
+import argweaver
+import argweaver.smc
 
 from compbio import arglib
 from rasmus import util
@@ -44,7 +44,7 @@ def get_nlineages(tree, times):
 
 def get_arg_lineages(arg, times):
     for (start, end), tree in arglib.iter_local_trees(arg):
-        nbranches = arghmm.get_nlineages(tree, times)
+        nbranches = argweaver.get_nlineages(tree, times)
         yield [arg.chrom, start, end] + nbranches
 
 
@@ -53,8 +53,8 @@ def get_smc_lineages(smc, times, chrom="chr"):
         if item["tag"] == "REGION":
             chrom = item["chrom"]
         elif item["tag"] == "TREE":
-            tree = arghmm.smc.parse_tree(item["tree"])
-            nbranches = arghmm.get_nlineages(tree, times)
+            tree = argweaver.smc.parse_tree(item["tree"])
+            nbranches = argweaver.get_nlineages(tree, times)
             yield [chrom, item["start"], item["end"]] + nbranches
 
 
@@ -70,15 +70,15 @@ def get_smc_lineages2(smc, times, chrom="chr", step=10):
             chrom = item["chrom"]
         elif item["tag"] == "TREE":
             for pos in get_pos(item["start"], item["end"], step):
-                tree = arghmm.smc.parse_tree(item["tree"])
-                nbranches = arghmm.get_nlineages(tree, times)
+                tree = argweaver.smc.parse_tree(item["tree"])
+                nbranches = argweaver.get_nlineages(tree, times)
                 yield [chrom, pos, pos] + nbranches
 
 
 #=============================================================================
 
 
-times = arghmm.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
+times = argweaver.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
 
 #filename = args[0]
 '''
@@ -93,7 +93,7 @@ else:
 '''
 
 for filename in args:
-    smc = arghmm.iter_smc_file(filename)
+    smc = argweaver.iter_smc_file(filename)
     if conf.step:
         for row in get_smc_lineages2(smc, times, step=conf.step):
             util.print_row(*row)
