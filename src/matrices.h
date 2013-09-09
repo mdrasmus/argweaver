@@ -332,7 +332,6 @@ public:
     }
 
 
-
     StatesModel states_model;
 
 protected:
@@ -453,5 +452,3 @@ protected:
 
 
 #endif // ARGWEAVER_MATRICES_H
-
-

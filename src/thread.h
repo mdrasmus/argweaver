@@ -108,15 +108,6 @@ public:
 };
 
 
-
-
-void get_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
-                            const Spr &spr2, const int *mapping2,
-                            int node, int next_nodes[2]);
-void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
-                            const Spr &spr2, const int *mapping2,
-                            int node, int prev_nodes[2]);
-
 // sample removal paths
 void sample_arg_removal_path(const LocalTrees *trees, int node, int *path);
 void sample_arg_removal_path(
@@ -126,7 +117,6 @@ void sample_arg_removal_leaf_path(const LocalTrees *trees, int node, int *path);
 
 void sample_arg_removal_path_recomb(
     const LocalTrees *trees, double recomb_preference, int *path);
-
 
 // count number of removal paths
 void count_arg_removal_paths(const LocalTrees *trees,
@@ -141,13 +131,13 @@ double sample_arg_removal_path_uniform(const LocalTrees *trees, int *path);
 // count total number of removal paths
 double count_total_arg_removal_paths(const LocalTrees *trees);
 
+/*
 // sample a removal path using the branch cut method
 void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
                                  int *path, int *cuttime,
                                  int *region_start, int *region_end,
                                  int window_start=-1, int window_end=-1);
-
-
+*/
 
 } // namespace argweaver
 

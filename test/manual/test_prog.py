@@ -1,14 +1,15 @@
 
 import unittest
 
-import arghmm
+import argweaver
+from argweaver import argweaverc
 
 from compbio import arglib
 from compbio import coal
 from compbio import fasta
 from rasmus.common import *
 from rasmus.testing import *
-rplot_set_viewer("open")
+rplot_set_viewer("xpdf")
 
 
 def sites_split(names, col):
@@ -25,26 +26,26 @@ def sites_split(names, col):
 
 
 def show_plots(arg_file, sites_file, stats_file, output_prefix,
-               rho, mu, popsize):
+               rho, mu, popsize, ntimes=20, maxtime=200000):
     """
     Show plots of convergence.
     """
 
     # read true arg and seqs
-    times = arghmm.get_time_points(ntimes=20, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=ntimes, maxtime=maxtime)
     arg = arglib.read_arg(arg_file)
-    arghmm.discretize_arg(arg, times, ignore_top=False, round_age="closer")
+    argweaver.discretize_arg(arg, times, ignore_top=False, round_age="closer")
     arg = arglib.smcify_arg(arg)
-    seqs = arghmm.sites2seqs(arghmm.read_sites(sites_file))
+    seqs = argweaver.sites2seqs(argweaver.read_sites(sites_file))
 
     # compute true stats
     arglen = arglib.arglen(arg)
-    arg = arghmm.arg2ctrees(arg, times)
-    nrecombs = arghmm.get_local_trees_ntrees(arg[0]) - 1
-    lk = arghmm.calc_likelihood(
+    arg = argweaverc.arg2ctrees(arg, times)
+    nrecombs = argweaverc.get_local_trees_ntrees(arg[0]) - 1
+    lk = argweaverc.calc_likelihood(
         arg, seqs, mu=mu, times=times,
         delete_arg=False)
-    prior = arghmm.calc_prior_prob(
+    prior = argweaverc.calc_prior_prob(
         arg, rho=rho, times=times, popsizes=popsize,
                         delete_arg=False)
     joint = lk + prior
@@ -115,13 +116,12 @@ class Prog (unittest.TestCase):
 
     def test_prog(self):
 
-        #if not os.path.exists("test/data/test_prog/0.sites"):
         if 1:
             make_clean_dir("test/data/test_prog")
             os.system("""bin/arg-sim \
-                -k 8 -L 100000 --model dsmc \
+                -k 8 -L 400000 --model dsmc \
                 -N 1e4 -r 0.5e-8 -m 2.20e-8 \
-                --ntimes 10 --maxtime 200e3 \
+                --ntimes 20 --maxtime 200e3 \
                 -o test/data/test_prog/0""")
 
         if 1:
@@ -129,8 +129,8 @@ class Prog (unittest.TestCase):
             os.system("""bin/arg-sample -q \
                 -s test/data/test_prog/0.sites \
                 -N 1e4 -r 0.5e-8 -m 2.20e-8 \
-                --ntimes 20 --maxtime 200e3 -c 10 \
-                -n 5000 \
+                --ntimes 20 --maxtime 200e3 -c 20 \
+                -n 1000 \
                 -o test/data/test_prog/0.sample/out""")
 
         popsize = 1e4
@@ -140,12 +140,12 @@ class Prog (unittest.TestCase):
                    sites_file="test/data/test_prog/0.sites",
                    stats_file="test/data/test_prog/0.sample/out.stats",
                    output_prefix="test/data/test_prog/0",
-                   rho=rho, mu=mu, popsize=popsize)
+                   rho=rho, mu=mu, popsize=popsize,
+                   ntimes=20, maxtime=200e3)
 
 
     def test_prog_infsites(self):
 
-        #if not os.path.exists("test/data/test_prog/0.sites"):
         if 1:
             make_clean_dir("test/data/test_prog_infsites")
             os.system("""bin/arg-sim \
@@ -170,12 +170,12 @@ class Prog (unittest.TestCase):
                    sites_file="test/data/test_prog_infsites/0.sites",
                    stats_file="test/data/test_prog_infsites/0.sample/out.stats",
                    output_prefix="test/data/test_prog_infsites/0",
-                   rho=rho, mu=mu, popsize=popsize)
+                   rho=rho, mu=mu, popsize=popsize,
+                   ntimes=20, maxtime=200e3)
 
 
     def test_prog_gibbs(self):
 
-        #if not os.path.exists("test/data/test_prog/0.sites"):
         if 1:
             make_clean_dir("test/data/test_prog_gibbs")
             os.system("""bin/arg-sim \
@@ -200,7 +200,8 @@ class Prog (unittest.TestCase):
                    sites_file="test/data/test_prog_gibbs/0.sites",
                    stats_file="test/data/test_prog_gibbs/0.sample/out.stats",
                    output_prefix="test/data/test_prog_gibbs/0",
-                   rho=rho, mu=mu, popsize=popsize)
+                   rho=rho, mu=mu, popsize=popsize,
+                   ntimes=20, maxtime=200e3)
 
 
     def test_lineages(self):

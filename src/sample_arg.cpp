@@ -548,6 +548,7 @@ double resample_arg_regions(
 }
 
 
+/*
 // cut a branch in the ARG and resample branch
 double resample_arg_cut(
     const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
@@ -636,7 +637,7 @@ double resample_arg_cut(
 
     return 1;
 }
-
+*/
 
 
 //=============================================================================
@@ -732,7 +733,7 @@ LocalTrees *arghmm_resample_all_arg(
 }
 
 
-// resample all branches in an ARG with gibbs
+// resample all branches in an ARG with mcmc
 LocalTrees *arghmm_resample_mcmc_arg(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
@@ -778,6 +779,7 @@ LocalTrees *arghmm_resample_arg_leaf(
 }
 
 
+/*
 LocalTrees *arghmm_resample_arg_cut(
     LocalTrees *trees, double *times, int ntimes,
     double *popsizes, double rho, double mu,
@@ -793,9 +795,7 @@ LocalTrees *arghmm_resample_arg_cut(
 
     return trees;
 }
-
-
-
+*/
 
 
 // resample ARG focused on recombinations
@@ -835,95 +835,6 @@ LocalTrees *arghmm_resample_arg_region(
     return trees;
 }
 
-
-
-// DISABLED
-LocalTrees *arghmm_sample_arg_seq_gibbs(double *times, int ntimes,
-    double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, int seqiters, int gibbsiters)
-{
-    // setup model, local trees, and sequences
-    ArgModel model(ntimes, times, popsizes, rho, mu);
-    Sequences sequences(seqs, nseqs, seqlen);
-    LocalTrees *trees = new LocalTrees();
-
-    //sample_arg_seq_gibbs(&model, &sequences, trees, seqiters, gibbsiters);
-
-    return trees;
-}
-
-
 } // extern C
 
 } // namespace argweaver
-
-
-
-
-//=============================================================================
-
-
-/*
-// resample the threading of all the chromosomes
-void remax_arg(const ArgModel *model, const Sequences *sequences,
-               LocalTrees *trees, int nremove)
-{
-    const int nleaves = trees->get_num_leaves();
-
-    if (nremove == 1) {
-        // cycle through chromosomes
-
-        for (int chrom=0; chrom<nleaves; chrom++) {
-            // remove chromosome from ARG and resample its thread
-            remove_arg_thread(trees, chrom);
-            max_arg_thread(model, sequences, trees, chrom);
-        }
-    } else {
-        // clamp nremove
-        if (nremove <= 0)
-            return;
-        if (nremove > nleaves)
-            nremove = nleaves;
-
-        // randomly choose which chromosomes to remove
-        int chroms_avail[nleaves];
-        for (int i=0; i<nleaves; i++)
-            chroms_avail[i] = i;
-        shuffle(chroms_avail, nleaves);
-
-        // remove chromosomes from ARG
-        for (int i=0; i<nremove; i++) {
-            remove_arg_thread(trees, chroms_avail[i]);
-        }
-
-        // resample chromosomes
-        for (int i=0; i<nremove; i++)
-            max_arg_thread(model, sequences, trees, chroms_avail[i]);
-    }
-}
-
-
-
-// remax an ARG with viterbi
-LocalTrees *arghmm_remax_arg(
-    LocalTrees *trees, double *times, int ntimes,
-    double *popsizes, double rho, double mu,
-    char **seqs, int nseqs, int seqlen, int niters, int nremove)
-{
-    // setup model, local trees, sequences
-    ArgModel model(ntimes, times, popsizes, rho, mu);
-    Sequences sequences(seqs, nseqs, seqlen);
-
-    // sequentially sample until all chromosomes are present
-    arghmm_complete_arg(trees, &model, &sequences);
-
-    // gibbs sample
-    for (int i=0; i<niters; i++)
-        remax_arg(&model, &sequences, trees, nremove);
-
-    return trees;
-}
-
-
-*/
-

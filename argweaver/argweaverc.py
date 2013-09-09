@@ -202,24 +202,18 @@ if argweaverclib:
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "niters", C.c_double, "recomb_preference"])
-    argweaver_resample_arg_cut = export(
-        argweaverclib, "arghmm_resample_arg_cut", C.c_void_p,
-        [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
-         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-         C.c_int, "niters"])
+    #argweaver_resample_arg_cut = export(
+    #    argweaverclib, "arghmm_resample_arg_cut", C.c_void_p,
+    #    [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
+    #     C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
+    #     C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
+    #     C.c_int, "niters"])
     argweaver_resample_arg_region = export(
         argweaverclib, "arghmm_resample_arg_region", C.c_void_p,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
          C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
          C.c_int, "region_start", C.c_int, "region_end", C.c_int, "niters"])
-    argweaver_sample_arg_seq_gibbs = export(
-        argweaverclib, "arghmm_sample_arg_seq_gibbs", C.c_void_p,
-        [C.c_double_list, "times", C.c_int, "ntimes",
-         C.c_double_list, "popsizes", C.c_double, "rho", C.c_double, "mu",
-         C.c_char_p_p, "seqs", C.c_int, "nseqs", C.c_int, "seqlen",
-         C.c_int, "seqiters", C.c_int, "gibbsiters"])
 
     # ARG probability.
     argweaver_likelihood = export(
@@ -986,6 +980,7 @@ def resample_mcmc_arg(arg, seqs, ntimes=20,
     return arg
 
 
+'''
 def resample_arg_cut(
         arg, seqs, ntimes=20, rho=1.5e-8, mu=2.5e-8, popsizes=1e4,
         refine=1, times=None, verbose=False, carg=False):
@@ -1032,6 +1027,7 @@ def resample_arg_cut(
         util.toc()
 
     return arg
+'''
 
 
 def resample_arg_region(arg, seqs, region_start, region_end,

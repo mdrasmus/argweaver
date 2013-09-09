@@ -4,59 +4,10 @@
 
 namespace argweaver {
 
-    /*
-// assert that a thread is compatiable with an ARG
-bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes)
-{
-    LocalTree *last_tree = NULL;
-    States states1, states2;
-    States *states = &states1;
-    States *last_states = &states2;
-
-    // loop through blocks
-    int start = trees->start_coord;
-    for (LocalTrees::iterator it=trees->begin(); it != trees->end(); ++it) {
-        get_coal_states(it->tree, ntimes, *states);
-        NodeStateLookup state_lookup(*states, it->tree->nnodes);
-
-        // check spr
-        if (last_tree) {
-            assert(assert_spr(last_tree, it->tree, &it->spr, it->mapping));
-
-            int determ[last_states->size()];
-            get_deterministic_transitions(
-                 last_tree, it->tree, it->spr, it->mapping,
-                 *last_states, *states, state_lookup, ntimes, determ);
-
-            int a = thread_path[start-1];
-            int b = determ[thread_path[start-1]];
-            int c = thread_path[start];
-
-            printf(">> %d (%d,%d) --> (%d,%d) == (%d,%d)\n", start,
-                   (*last_states)[a].node, (*last_states)[a].time,
-                   (*states)[b].node, (*states)[b].time,
-                   (*states)[c].node, (*states)[c].time);
-        }
-
-        // set last tree and state pointers
-        last_tree = it->tree;
-        last_states = states;
-        if (states == &states1)
-            states = &states2;
-        else
-            states = &states1;
-
-        start += it->blocklen;
-    }
-
-    return true;
-}
-    */
-
 
 // rename a node from src_node to dest_node while mantaining the
 // structure of the tree
-void displace_node(LocalTree *tree, int src_node, int dest_node)
+void rename_node(LocalTree *tree, int src_node, int dest_node)
 {
     // special case
     if (src_node == dest_node)
@@ -113,7 +64,7 @@ void add_tree_branch(LocalTree *tree, int node, int time)
 
     // displace node
     if (newleaf < displaced)
-        displace_node(tree, newleaf, displaced);
+        rename_node(tree, newleaf, displaced);
 
     // add new leaf
     nodes[newleaf].parent = newcoal;
@@ -181,7 +132,7 @@ void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
     if (last_leaf != remove_leaf) {
         if (displace)
             displace[last_leaf] = remove_leaf;
-        displace_node(tree, last_leaf, remove_leaf);
+        rename_node(tree, last_leaf, remove_leaf);
     }
 
     // move nodes in nnodes-2 and nnodes-1 into holes
@@ -189,13 +140,13 @@ void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
     if (remove_coal != nnodes-2) {
         if (displace)
             displace[nnodes-2] = hole;
-        displace_node(tree, nnodes-2, hole);
+        rename_node(tree, nnodes-2, hole);
         hole = remove_coal;
     }
     if (remove_coal != nnodes-1) {
         if (displace)
             displace[nnodes-1] = hole;
-        displace_node(tree, nnodes-1, hole);
+        rename_node(tree, nnodes-1, hole);
     }
 
     // set tree data
@@ -342,7 +293,6 @@ void add_arg_thread(LocalTrees *trees, const StatesModel &states_model,
         int start = end;
         end += it->blocklen;
         states_model.get_coal_states(tree, ntimes, states);
-        //get_coal_states(tree, ntimes, states);
 
         // add new branch to local tree
         it->ensure_capacity(nnodes2);
@@ -603,9 +553,10 @@ void remove_arg_thread(LocalTrees *trees, int remove_seqid)
 // find the next possible branches in a removal path
 void get_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
                             const Spr &spr2, const int *mapping2,
-                            int node, int next_nodes[2])
+                            int node, int next_nodes[2], int recoal=-1)
 {
-    const int recoal = get_recoal_node(tree1, spr2, mapping2);
+    if (recoal == -1)
+        recoal = get_recoal_node(tree1, spr2, mapping2);
 
     // get passive transition
     next_nodes[0] = mapping2[node];
@@ -639,28 +590,8 @@ void get_all_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
     const int recoal = get_recoal_node(tree1, spr2, mapping2);
 
     for (int node=0; node<tree1->nnodes; node++) {
-        // get passive transition
-        next_nodes[node][0] = mapping2[node];
-        if (next_nodes[node][0] == -1) {
-            // node is broken by SPR
-            // next node is then non-recomb child or recoal
-            int sib = tree1->get_sibling(spr2.recomb_node);
-            if (spr2.coal_node == sib)
-                next_nodes[node][0] = recoal;
-            else
-                next_nodes[node][0] = mapping2[sib];
-        }
-
-        // get possible active transition
-        // if recoal is on this branch (node) then there is a split in the path
-        if (spr2.coal_node == node) {
-            // find recoal node, its the node with no inward mappings
-            next_nodes[node][1] = recoal;
-        } else {
-            // no second transition
-            next_nodes[node][1] = -1;
-        }
-
+        get_next_removal_nodes(tree1, tree2, spr2, mapping2,
+                               node, next_nodes[node], recoal);
         assert(next_nodes[node][0] != next_nodes[node][1]);
     }
 }
@@ -669,17 +600,19 @@ void get_all_next_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
 // find the previous possible branches in a removal path
 void get_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
                             const Spr &spr2, const int *mapping2,
-                            int node, int prev_nodes[2])
+                            int node, int prev_nodes[2], int *inv_mapping=NULL)
 {
     const int nnodes = tree1->nnodes;
 
     // make inverse mapping
-    int inv_mapping[nnodes];
-    fill(inv_mapping, inv_mapping + nnodes, -1);
-
-    for (int i=0; i<nnodes; i++)
-        if (mapping2[i] != -1)
-            inv_mapping[mapping2[i]] = i;
+    int inv_mapping_alloc[nnodes];
+    if (!inv_mapping) {
+        inv_mapping = inv_mapping_alloc;
+        fill(inv_mapping, inv_mapping + nnodes, -1);
+        for (int i=0; i<nnodes; i++)
+            if (mapping2[i] != -1)
+                inv_mapping[mapping2[i]] = i;
+    }
 
     // get first transition
     prev_nodes[0] = inv_mapping[node];
@@ -720,29 +653,8 @@ void get_all_prev_removal_nodes(const LocalTree *tree1, const LocalTree *tree2,
             inv_mapping[mapping2[i]] = i;
 
     for (int node=0; node<tree1->nnodes; node++) {
-        // get first transition
-        prev_nodes[node][0] = inv_mapping[node];
-        if (prev_nodes[node][0] == -1) {
-            // there is no inv_mapping because node is recoal
-            // the node spr.coal_node therefore is the previous node
-            prev_nodes[node][0] = spr2.coal_node;
-
-            // get optional second transition
-            int sib = tree1->get_sibling(spr2.recomb_node);
-            if (sib == spr2.coal_node) {
-                prev_nodes[node][1] = tree1->nodes[sib].parent;
-            } else
-                prev_nodes[node][1] = -1;
-        } else {
-            // get optional second transition
-            int sib = tree1->get_sibling(spr2.recomb_node);
-            if (mapping2[sib] == node && sib != spr2.coal_node) {
-                prev_nodes[node][1] = tree1->nodes[sib].parent;
-            } else
-                prev_nodes[node][1] = -1;
-        }
-
-        assert(prev_nodes[node][0] != prev_nodes[node][1]);
+        get_prev_removal_nodes(tree1, tree2, spr2, mapping2, node,
+                               prev_nodes[node], inv_mapping);
     }
 }
 
@@ -1093,16 +1005,11 @@ double count_total_arg_removal_paths(const LocalTrees *trees)
 }
 
 
+/*
+Under development.
+
 //=============================================================================
 // branch cut sampling
-
-int get_local_trees_utmrca(const LocalTrees *trees)
-{
-    int utmrca = 0;
-    for (LocalTrees::const_iterator it=trees->begin(); it!=trees->end(); ++it)
-        utmrca = max(utmrca, it->tree->get_root().age);
-    return utmrca;
-}
 
 
 void sample_arg_cut(const LocalTrees *trees, int ntimes,
@@ -1120,20 +1027,6 @@ void sample_arg_cut(const LocalTrees *trees, int ntimes,
     it = trees->get_block(site);
     assert(it != trees->end());
     const LocalTree *tree = it->tree;
-
-    /*
-    if (frand() < .5) {
-        // cut leaf
-        *time = 0;
-        vector<int> branches;
-        for (int i=0; i<tree->nnodes; i++) {
-            if (tree->nodes[i].is_leaf())
-                branches.push_back(i);
-        }
-        *branch = branches[irand(branches.size())];
-        return;
-    }
-    */
 
     // sample time
     double weights[ntimes-1];
@@ -1301,6 +1194,7 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
     }
 }
 
+*/
 
 
 //=============================================================================
@@ -1439,7 +1333,6 @@ void add_arg_thread_path(LocalTrees *trees, const StatesModel &states_model,
         end += it->blocklen;
         const int subtree_root = nodes[tree->root].child[0];
         states_model.get_coal_states(tree, ntimes, states);
-        //get_coal_states_internal(tree, ntimes, states);
         int nstates = states.size();
 
 
