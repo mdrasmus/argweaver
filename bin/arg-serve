@@ -18,10 +18,11 @@ from argweaver.db import SitesDB
 
 from rasmus import util
 
-# pyflakes ignore
-argweaver
 
-o = optparse.OptionParser()
+o = optparse.OptionParser(
+    description="""
+Web server for hosting ARGs and sites for visualization and analysis.
+""")
 o.add_option("-a", "--arg", action="append", default=[])
 o.add_option("-s", "--sites", action="append", default=[])
 o.add_option("-l", "--layout", action="append", default=[])

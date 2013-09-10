@@ -129,409 +129,7 @@ def get_coal_time_steps(times):
     return coal_time_steps
 
 
-def sample_dsmc_sprs_round_down(
-        k, popsize, rho, recombmap=None, start=0.0, end=0.0, times=None,
-        init_tree=None, names=None, make_names=True):
-    """
-    Sample ARG using Discrete Sequentially Markovian Coalescent (SMC)
-
-    k          -- chromosomes
-    popsize    -- effective population size (haploid)
-    rho        -- recombination rate (recombinations / site / generation)
-    recombmap  -- map for variable recombination rate
-    start      -- staring chromosome coordinate
-    end        -- ending chromsome coordinate
-    t          -- initial time (default: 0)
-    names      -- names to use for leaves (default: None)
-    make_names -- make names using strings (default: True)
-    """
-
-    assert times is not None
-    ntimes = len(times) - 1
-    time_steps = [times[i] - times[i-1] for i in range(1, ntimes+1)]
-    if hasattr(popsize, "__len__"):
-        popsizes = popsize
-    else:
-        popsizes = [popsize] * len(time_steps)
-
-    # yield initial tree first
-    if init_tree is None:
-        #init_tree = arglib.sample_arg(k, popsizes[0],
-        #                              rho=0.0, start=start, end=end,
-        #                              names=names, make_names=make_names)
-        init_tree = sample_tree(k, popsizes, times, start=start, end=end,
-                                names=names, make_names=make_names)
-        argweaver.discretize_arg(init_tree, times, ignore_top=True)
-    yield init_tree
-
-    # sample SPRs
-    pos = start
-    tree = init_tree.copy()
-    while True:
-        # sample next recomb point
-        treelen = sum(x.get_dist() for x in tree)
-        blocklen = int(sample_next_recomb(treelen, rho, pos=pos,
-                                          recombmap=recombmap, minlen=1))
-        pos += blocklen
-        if pos >= end - 1:
-            break
-
-        root_age_index = times.index(tree.root.age)
-
-        # choose time interval for recombination
-        states = set(argweaver.iter_coal_states(tree, times))
-        nbranches, nrecombs, ncoals = argweaver.get_nlineages_recomb_coal(
-            tree, times)
-        probs = [nbranches[i] * time_steps[i]
-                 for i in range(root_age_index+1)]
-        recomb_time_index = stats.sample(probs)
-        recomb_time = times[recomb_time_index]
-
-        # choose branch for recombination
-        branches = [x for x in states if x[1] == recomb_time_index and
-                    x[0] != tree.root.name]
-        recomb_node = tree[random.sample(branches, 1)[0][0]]
-
-        # choose coal time
-        j = recomb_time_index
-        while j < ntimes - 1:
-            kj = nbranches[j]
-            if ((recomb_node.name, j) in states and
-                    recomb_node.parents[0].age > times[j]):
-                kj -= 1
-            assert kj > 0, (j, root_age_index, states)
-            coal_prob = 1.0 - exp(- time_steps[j] * kj / float(popsizes[j]))
-            if random.random() < coal_prob:
-                break
-            j += 1
-        coal_time_index = j
-        coal_time = times[j]
-
-        # choose coal node
-        # since coal points collapse, exclude parent node, but allow sibling
-        exclude = []
-
-        def walk(node):
-            exclude.append(node.name)
-            if node.age == coal_time:
-                for child in node.children:
-                    walk(child)
-
-        walk(recomb_node)
-        exclude2 = (recomb_node.parents[0].name,
-                    times.index(recomb_node.parents[0].age))
-        branches = [x for x in states if x[1] == coal_time_index and
-                    x[0] not in exclude and x != exclude2]
-        coal_node = tree[random.sample(branches, 1)[0][0]]
-
-        # yield SPR
-        rleaves = list(tree.leaf_names(recomb_node))
-        cleaves = list(tree.leaf_names(coal_node))
-
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
-
-        # apply SPR to local tree
-        broken = recomb_node.parents[0]
-        recoal = tree.new_node(age=coal_time,
-                               children=[recomb_node, coal_node])
-
-        # add recoal node to tree
-        recomb_node.parents[0] = recoal
-        broken.children.remove(recomb_node)
-        if coal_node.parents:
-            recoal.parents.append(coal_node.parents[0])
-            util.replace(coal_node.parents[0].children, coal_node, recoal)
-            coal_node.parents[0] = recoal
-        else:
-            coal_node.parents.append(recoal)
-
-        # remove broken node
-        broken_child = broken.children[0]
-        if broken.parents:
-            broken_child.parents[0] = broken.parents[0]
-            util.replace(broken.parents[0].children, broken, broken_child)
-        else:
-            broken_child.parents.remove(broken)
-
-        del tree.nodes[broken.name]
-        tree.set_root()
-#sample_dsmc_sprs = sample_dsmc_sprs_round_down
-
-
-def sample_dsmc_sprs_round_both(
-        k, popsize, rho, recombmap=None, start=0.0, end=0.0, times=None,
-        init_tree=None, names=None, make_names=True):
-    """
-    Sample ARG using Discrete Sequentially Markovian Coalescent (SMC)
-
-    k          -- chromosomes
-    popsize    -- effective population size (haploid)
-    rho        -- recombination rate (recombinations / site / generation)
-    recombmap  -- map for variable recombination rate
-    start      -- staring chromosome coordinate
-    end        -- ending chromsome coordinate
-    t          -- initial time (default: 0)
-    names      -- names to use for leaves (default: None)
-    make_names -- make names using strings (default: True)
-    """
-
-    assert times is not None
-    ntimes = len(times) - 1
-    time_steps = [times[i] - times[i-1] for i in range(1, ntimes+1)]
-    if hasattr(popsize, "__len__"):
-        popsizes = popsize
-    else:
-        popsizes = [popsize] * len(time_steps)
-
-    # yield initial tree first
-    if init_tree is None:
-        #init_tree = arglib.sample_arg(k, popsizes[0],
-        #                              rho=0.0, start=start, end=end,
-        #                              names=names, make_names=make_names)
-        init_tree = sample_tree(k, popsizes, times, start=start, end=end,
-                                names=names, make_names=make_names)
-        argweaver.discretize_arg(init_tree, times, ignore_top=True)
-    yield init_tree
-
-    # sample SPRs
-    pos = start
-    tree = init_tree.copy()
-    while True:
-        # sample next recomb point
-        treelen = sum(x.get_dist() for x in tree)
-        blocklen = int(sample_next_recomb(treelen, rho, pos=pos,
-                                          recombmap=recombmap, minlen=1))
-        pos += blocklen
-        if pos >= end - 1:
-            break
-
-        root_age_index = times.index(tree.root.age)
-
-        # choose time interval for recombination
-        states = set(argweaver.iter_coal_states(tree, times))
-        nbranches, nrecombs, ncoals = argweaver.get_nlineages_recomb_coal(
-            tree, times)
-        probs = [nbranches[i] * time_steps[i]
-                 for i in range(root_age_index+1)]
-        recomb_time_index = stats.sample(probs)
-        recomb_time = times[recomb_time_index]
-
-        # choose branch for recombination
-        branches = [x for x in states if x[1] == recomb_time_index and
-                    x[0] != tree.root.name]
-        recomb_node = tree[random.sample(branches, 1)[0][0]]
-
-        # choose coal time
-        j = recomb_time_index
-        while j < ntimes - 1:
-            kj = nbranches[j]
-            if ((recomb_node.name, j) in states and
-                    recomb_node.parents[0].age > times[j]):
-                kj -= 1
-            assert kj > 0, (j, root_age_index, states)
-            coal_prob = 1.0 - exp(- time_steps[j] * kj / float(popsizes[j]))
-            if random.random() < coal_prob:
-                break
-            j += 1
-        if j < ntimes - 1 and random.random() < .5:
-            j += 1
-        coal_time_index = j
-        coal_time = times[j]
-
-        # choose coal node
-        # since coal points collapse, exclude parent node, but allow sibling
-        exclude = []
-
-        def walk(node):
-            exclude.append(node.name)
-            if node.age == coal_time:
-                for child in node.children:
-                    walk(child)
-
-        walk(recomb_node)
-        exclude2 = (recomb_node.parents[0].name,
-                    times.index(recomb_node.parents[0].age))
-        branches = [x for x in states if x[1] == coal_time_index and
-                    x[0] not in exclude and x != exclude2]
-        coal_node = tree[random.sample(branches, 1)[0][0]]
-
-        # yield SPR
-        rleaves = list(tree.leaf_names(recomb_node))
-        cleaves = list(tree.leaf_names(coal_node))
-
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
-
-        # apply SPR to local tree
-        broken = recomb_node.parents[0]
-        recoal = tree.new_node(age=coal_time,
-                               children=[recomb_node, coal_node])
-
-        # add recoal node to tree
-        recomb_node.parents[0] = recoal
-        broken.children.remove(recomb_node)
-        if coal_node.parents:
-            recoal.parents.append(coal_node.parents[0])
-            util.replace(coal_node.parents[0].children, coal_node, recoal)
-            coal_node.parents[0] = recoal
-        else:
-            coal_node.parents.append(recoal)
-
-        # remove broken node
-        broken_child = broken.children[0]
-        if broken.parents:
-            broken_child.parents[0] = broken.parents[0]
-            util.replace(broken.parents[0].children, broken, broken_child)
-        else:
-            broken_child.parents.remove(broken)
-
-        del tree.nodes[broken.name]
-        tree.set_root()
-#sample_dsmc_sprs = sample_dsmc_sprs_round_both
-
-
-def sample_dsmc_sprs_round_closer2(
-        k, popsize, rho, recombmap=None, start=0.0, end=0.0, times=None,
-        init_tree=None, names=None, make_names=True):
-    """
-    Sample ARG using Discrete Sequentially Markovian Coalescent (SMC)
-
-    k          -- chromosomes
-    popsize    -- effective population size (haploid)
-    rho        -- recombination rate (recombinations / site / generation)
-    recombmap  -- map for variable recombination rate
-    start      -- staring chromosome coordinate
-    end        -- ending chromsome coordinate
-    t          -- initial time (default: 0)
-    names      -- names to use for leaves (default: None)
-    make_names -- make names using strings (default: True)
-    """
-
-    assert times is not None
-    ntimes = len(times) - 1
-    time_steps = [times[i] - times[i-1] for i in range(1, ntimes+1)]
-
-    # get midpoints
-    times2 = []
-    for i in range(ntimes):
-        times2.append(times[i])
-        times2.append(((times[i+1]+1)*(times[i]+1))**.5)
-    times2.append(times[ntimes])
-
-    ntimes2 = len(times2) - 1
-    time_steps2 = [times2[i] - times2[i-1] for i in range(1, ntimes2+1)]
-
-    if hasattr(popsize, "__len__"):
-        popsizes = popsize
-    else:
-        popsizes = [popsize] * len(time_steps)
-
-    # yield initial tree first
-    if init_tree is None:
-        #init_tree = arglib.sample_arg(k, popsizes[0],
-        #                              rho=0.0, start=start, end=end,
-        #                              names=names, make_names=make_names)
-        init_tree = sample_tree(k, popsizes, times, start=start, end=end,
-                                names=names, make_names=make_names)
-        argweaver.discretize_arg(init_tree, times, ignore_top=True)
-    yield init_tree
-
-    # sample SPRs
-    pos = start
-    tree = init_tree.copy()
-    while True:
-        # sample next recomb point
-        treelen = sum(x.get_dist() for x in tree)
-        blocklen = int(sample_next_recomb(treelen, rho, pos=pos,
-                                          recombmap=recombmap, minlen=1))
-        pos += blocklen
-        if pos >= end - 1:
-            break
-
-        root_age_index = times.index(tree.root.age)
-
-        # choose time interval for recombination
-        states = set(argweaver.iter_coal_states(tree, times))
-        nbranches, nrecombs, ncoals = argweaver.get_nlineages_recomb_coal(
-            tree, times)
-        probs = [nbranches[i] * time_steps[i]
-                 for i in range(root_age_index+1)]
-        recomb_time_index = stats.sample(probs)
-        recomb_time = times[recomb_time_index]
-
-        # choose branch for recombination
-        branches = [x for x in states if x[1] == recomb_time_index and
-                    x[0] != tree.root.name]
-        recomb_node = tree[random.sample(branches, 1)[0][0]]
-
-        # choose coal time
-        j = recomb_time_index
-        j2 = j * 2
-        while j2 < ntimes2 - 2:
-            j = j2 // 2
-            kj = nbranches[j]
-            if ((recomb_node.name, j) in states and
-                    recomb_node.parents[0].age > times[j]):
-                kj -= 1
-            assert kj > 0, (j, root_age_index, states)
-            coal_prob = 1.0 - exp(- time_steps2[j2] * kj / float(popsizes[j]))
-            if random.random() < coal_prob:
-                break
-            j2 += 1
-        coal_time_index = (j2 + 1) // 2
-        coal_time = times[coal_time_index]
-
-        # choose coal node
-        # since coal points collapse, exclude parent node, but allow sibling
-        exclude = []
-
-        def walk(node):
-            exclude.append(node.name)
-            if node.age == coal_time:
-                for child in node.children:
-                    walk(child)
-
-        walk(recomb_node)
-        exclude2 = (recomb_node.parents[0].name,
-                    times.index(recomb_node.parents[0].age))
-        branches = [x for x in states if x[1] == coal_time_index and
-                    x[0] not in exclude and x != exclude2]
-        coal_node = tree[random.sample(branches, 1)[0][0]]
-
-        # yield SPR
-        rleaves = list(tree.leaf_names(recomb_node))
-        cleaves = list(tree.leaf_names(coal_node))
-
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
-
-        # apply SPR to local tree
-        broken = recomb_node.parents[0]
-        recoal = tree.new_node(age=coal_time,
-                               children=[recomb_node, coal_node])
-
-        # add recoal node to tree
-        recomb_node.parents[0] = recoal
-        broken.children.remove(recomb_node)
-        if coal_node.parents:
-            recoal.parents.append(coal_node.parents[0])
-            util.replace(coal_node.parents[0].children, coal_node, recoal)
-            coal_node.parents[0] = recoal
-        else:
-            coal_node.parents.append(recoal)
-
-        # remove broken node
-        broken_child = broken.children[0]
-        if broken.parents:
-            broken_child.parents[0] = broken.parents[0]
-            util.replace(broken.parents[0].children, broken, broken_child)
-        else:
-            broken_child.parents.remove(broken)
-
-        del tree.nodes[broken.name]
-        tree.set_root()
-#sample_dsmc_sprs = sample_dsmc_sprs_round_closer2
-
-
-def sample_dsmc_sprs_round_closer(
+def sample_dsmc_sprs(
         k, popsize, rho, recombmap=None, start=0.0, end=0.0, times=None,
         init_tree=None, names=None, make_names=True):
     """
@@ -552,7 +150,6 @@ def sample_dsmc_sprs_round_closer(
     ntimes = len(times) - 1
     time_steps = [times[i] - times[i-1] for i in range(1, ntimes+1)]
     times2 = get_coal_times(times)
-    #time_steps2 = get_coal_time_steps(times)
 
     if hasattr(popsize, "__len__"):
         popsizes = popsize
@@ -561,9 +158,6 @@ def sample_dsmc_sprs_round_closer(
 
     # yield initial tree first
     if init_tree is None:
-        #init_tree = arglib.sample_arg(k, popsizes[0],
-        #                              rho=0.0, start=start, end=end,
-        #                              names=names, make_names=make_names)
         init_tree = sample_tree(k, popsizes, times, start=start, end=end,
                                 names=names, make_names=make_names)
         argweaver.discretize_arg(init_tree, times, ignore_top=True)
@@ -590,8 +184,6 @@ def sample_dsmc_sprs_round_closer(
         probs = [nbranches[i] * time_steps[i]
                  for i in range(root_age_index+1)]
         recomb_time_index = stats.sample(probs)
-        #if recomb_time_index < root_age_index and random.random() < 0.5:
-        #    recomb_time_index += 1
         recomb_time = times[recomb_time_index]
 
         # choose branch for recombination
@@ -602,7 +194,6 @@ def sample_dsmc_sprs_round_closer(
         # choose coal time
         j = recomb_time_index
         last_kj = nbranches[max(j-1, 0)]
-        #print >>sys.stderr, ">>", j
         while j < ntimes - 1:
             kj = nbranches[j]
             if ((recomb_node.name, j) in states and
@@ -610,7 +201,6 @@ def sample_dsmc_sprs_round_closer(
                 kj -= 1
             assert kj > 0, (j, root_age_index, states)
 
-            #A = time_steps2[j] * kj
             A = (times2[2*j+1] - times2[2*j]) * kj
             if j > recomb_time_index:
                 A += (times2[2*j] - times2[2*j-1]) * last_kj
@@ -670,144 +260,6 @@ def sample_dsmc_sprs_round_closer(
 
         del tree.nodes[broken.name]
         tree.set_root()
-sample_dsmc_sprs = sample_dsmc_sprs_round_closer
-
-
-def sample_dsmc_sprs_round_closer3(
-        k, popsize, rho, recombmap=None, start=0.0, end=0.0, times=None,
-        init_tree=None, names=None, make_names=True):
-    """
-    Sample ARG using Discrete Sequentially Markovian Coalescent (SMC)
-
-    k          -- chromosomes
-    popsize    -- effective population size (haploid)
-    rho        -- recombination rate (recombinations / site / generation)
-    recombmap  -- map for variable recombination rate
-    start      -- staring chromosome coordinate
-    end        -- ending chromsome coordinate
-    t          -- initial time (default: 0)
-    names      -- names to use for leaves (default: None)
-    make_names -- make names using strings (default: True)
-    """
-
-    assert times is not None
-    ntimes = len(times) - 1
-    time_steps = [times[i] - times[i-1] for i in range(1, ntimes+1)]
-    #times2 = get_coal_times(times)
-    time_steps2 = get_coal_time_steps(times)
-
-    if hasattr(popsize, "__len__"):
-        popsizes = popsize
-    else:
-        popsizes = [popsize] * len(time_steps)
-
-    # yield initial tree first
-    if init_tree is None:
-        init_tree = sample_tree(k, popsizes, times, start=start, end=end,
-                                names=names, make_names=make_names)
-        argweaver.discretize_arg(init_tree, times, ignore_top=True)
-    yield init_tree
-
-    # sample SPRs
-    pos = start
-    tree = init_tree.copy()
-    while True:
-        # sample next recomb point
-        treelen = sum(x.get_dist() for x in tree)
-        blocklen = int(sample_next_recomb(treelen, rho, pos=pos,
-                                          recombmap=recombmap, minlen=1))
-        pos += blocklen
-        if pos >= end - 1:
-            break
-
-        root_age_index = times.index(tree.root.age)
-
-        # choose time interval for recombination
-        states = set(argweaver.iter_coal_states(tree, times))
-        nbranches, nrecombs, ncoals = argweaver.get_nlineages_recomb_coal(
-            tree, times)
-        probs = [nbranches[i] * time_steps[i]
-                 for i in range(root_age_index+1)]
-        recomb_time_index = stats.sample(probs)
-        #if recomb_time_index < root_age_index and random.random() < 0.5:
-        #    recomb_time_index += 1
-        recomb_time = times[recomb_time_index]
-
-        # choose branch for recombination
-        branches = [x for x in states if x[1] == recomb_time_index and
-                    x[0] != tree.root.name]
-        recomb_node = tree[random.sample(branches, 1)[0][0]]
-
-        # choose coal time
-        j = recomb_time_index
-        #print >>sys.stderr, ">>", j
-        while j < ntimes - 1:
-            kj = nbranches[j]
-            if ((recomb_node.name, j) in states and
-                    recomb_node.parents[0].age > times[j]):
-                kj -= 1
-            assert kj > 0, (j, root_age_index, states)
-
-            A = time_steps2[j] * kj
-            #A = (times2[2*j+1] - times2[2*j]) * kj
-            #if j > 0:# recomb_time_index:
-            #    A += (times2[2*j] - times2[2*j-1]) * last_kj
-            coal_prob = 1.0 - exp(-A/float(popsizes[j]))
-            if random.random() < coal_prob:
-                break
-            j += 1
-        coal_time_index = j
-        coal_time = times[j]
-
-        # choose coal node
-        # since coal points collapse, exclude parent node, but allow sibling
-        exclude = []
-
-        def walk(node):
-            exclude.append(node.name)
-            if node.age == coal_time:
-                for child in node.children:
-                    walk(child)
-
-        walk(recomb_node)
-        exclude2 = (recomb_node.parents[0].name,
-                    times.index(recomb_node.parents[0].age))
-        branches = [x for x in states if x[1] == coal_time_index and
-                    x[0] not in exclude and x != exclude2]
-        coal_node = tree[random.sample(branches, 1)[0][0]]
-
-        # yield SPR
-        rleaves = list(tree.leaf_names(recomb_node))
-        cleaves = list(tree.leaf_names(coal_node))
-
-        yield pos, (rleaves, recomb_time), (cleaves, coal_time)
-
-        # apply SPR to local tree
-        broken = recomb_node.parents[0]
-        recoal = tree.new_node(age=coal_time,
-                               children=[recomb_node, coal_node])
-
-        # add recoal node to tree
-        recomb_node.parents[0] = recoal
-        broken.children.remove(recomb_node)
-        if coal_node.parents:
-            recoal.parents.append(coal_node.parents[0])
-            util.replace(coal_node.parents[0].children, coal_node, recoal)
-            coal_node.parents[0] = recoal
-        else:
-            coal_node.parents.append(recoal)
-
-        # remove broken node
-        broken_child = broken.children[0]
-        if broken.parents:
-            broken_child.parents[0] = broken.parents[0]
-            util.replace(broken.parents[0].children, broken, broken_child)
-        else:
-            broken_child.parents.remove(broken)
-
-        del tree.nodes[broken.name]
-        tree.set_root()
-#sample_dsmc_sprs = sample_dsmc_sprs_round_closer3
 
 
 def sample_arg_dsmc(k, popsize, rho, recombmap=None,
@@ -842,12 +294,18 @@ def sample_arg_dsmc(k, popsize, rho, recombmap=None,
     return arg
 
 
-def sample_arg_mutations(arg, mu, times):
+def sample_arg_mutations(arg, mu, times=None):
     """
+    Simulate mutations on an ARG.
+
+    Mutations are represented as (node, parent, site, time).
+
+    arg -- ARG on which to simulate mutations
     mu -- mutation rate (mutations/site/gen)
+    times -- optional list of discretized time points
     """
     mutations = []
-    minlen = times[1] * .1
+    minlen = times[1] * .1 if times else 0.0
 
     for (start, end), tree in arglib.iter_tree_tracks(arg):
         arglib.remove_single_lineages(tree)
@@ -866,6 +324,9 @@ def sample_arg_mutations(arg, mu, times):
 
 
 def make_sites(arg, mutations, chrom="chr"):
+    """
+    Make Sites from ARG and sampled mutations.
+    """
     leaves = list(arg.leaf_names())
     sites = argweaver.Sites(names=leaves, chrom=chrom,
                             region=[arg.start+1, arg.end])
@@ -878,7 +339,7 @@ def make_sites(arg, mutations, chrom="chr"):
         pos = int(mut_group[0][2])
 
         # count mutations per branch
-        mut_count = defaultdict(lambda: 0)
+        mut_count = defaultdict(int)
         for mut in mut_group:
             mut_count[mut[0].name] += 1
 
@@ -913,6 +374,9 @@ def make_sites(arg, mutations, chrom="chr"):
 
 
 def make_alignment(arg, mutations, infsites=False):
+    """
+    Make FASTA alignment from ARG and sampled mutations.
+    """
     aln = fasta.FastaDict()
     alnlen = int(arg.end - arg.start)
     leaves = list(arg.leaf_names())
@@ -933,7 +397,7 @@ def make_alignment(arg, mutations, infsites=False):
             mat.append(ancestral * nleaves)
         else:
             # mut
-            mut_count = defaultdict(lambda: 0)
+            mut_count = defaultdict(int)
             while muti < len(mutations) and i == int(mutations[muti][2]):
                 mut_count[mutations[muti][0].name] += 1
                 muti += 1

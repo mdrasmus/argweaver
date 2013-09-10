@@ -30,20 +30,10 @@ from compbio import arglib, alignlib, fasta
 from rasmus import util, treelib
 
 # argweaver libs
-from argweaver.sim import find_region
-from argweaver.sim import get_coal_time_steps
-from argweaver.sim import get_coal_times
 from argweaver.sim import make_alignment
 from argweaver.sim import make_sites
 from argweaver.sim import sample_arg_dsmc
 from argweaver.sim import sample_arg_mutations
-from argweaver.sim import sample_dsmc_sprs_round_both
-from argweaver.sim import sample_dsmc_sprs_round_closer
-from argweaver.sim import sample_dsmc_sprs_round_closer2
-from argweaver.sim import sample_dsmc_sprs_round_closer3
-from argweaver.sim import sample_dsmc_sprs_round_down
-from argweaver.sim import sample_next_recomb
-from argweaver.sim import sample_tree
 
 from argweaver.smc import SMCReader
 from argweaver.smc import arg2smc
@@ -62,20 +52,10 @@ from argweaverc import calc_joint_prob
 
 # suppress unused pyflakes warning
 calc_joint_prob
-find_region
-get_coal_time_steps
-get_coal_times
 make_alignment
 make_sites
 sample_arg_dsmc
 sample_arg_mutations
-sample_dsmc_sprs_round_both
-sample_dsmc_sprs_round_closer
-sample_dsmc_sprs_round_closer2
-sample_dsmc_sprs_round_closer3
-sample_dsmc_sprs_round_down
-sample_next_recomb
-sample_tree
 SMCReader
 arg2smc
 get_smc_sample_iter

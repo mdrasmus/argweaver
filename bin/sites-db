@@ -8,8 +8,6 @@ from argweaver.db import SitesDB
 from rasmus import util
 
 
-argweaver
-
 o = optparse.OptionParser()
 o.add_option("-d", "--db")
 o.add_option("", "--add-sites", action="append", default=[])

@@ -7,7 +7,6 @@ from argweaver.db import ArgDB
 
 from rasmus import util
 
-argweaver
 
 o = optparse.OptionParser()
 o.add_option("-d", "--db")

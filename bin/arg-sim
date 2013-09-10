@@ -5,6 +5,7 @@ import os
 import sys
 
 import argweaver
+import argweaver.sim
 
 from compbio import arglib
 from rasmus import util
@@ -79,17 +80,17 @@ elif conf.model == "smc":
 elif conf.model == "dsmc":
     print "simulating using the DSMC model..."
     times = argweaver.get_time_points(ntimes=conf.ntimes, maxtime=conf.maxtime)
-    arg = argweaver.sample_arg_dsmc(
+    arg = argweaver.sim.sample_arg_dsmc(
         conf.nseqs, 2*conf.popsize, conf.recombrate,
         recombmap=recombmap,
         start=0, end=conf.seqlen, times=times)
-    muts = argweaver.sample_arg_mutations(arg, conf.mutrate, times=times)
+    muts = argweaver.sim.sample_arg_mutations(arg, conf.mutrate, times=times)
 
 else:
     print >>sys.stderr, "unknown simulation model:", conf.model
 
 # simulate sequence
-seqs = argweaver.make_alignment(arg, muts, infsites=conf.infsites)
+seqs = argweaver.sim.make_alignment(arg, muts, infsites=conf.infsites)
 sites = argweaver.seqs2sites(seqs)
 sites.chrom = conf.chrom
 

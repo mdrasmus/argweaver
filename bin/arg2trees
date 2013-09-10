@@ -7,7 +7,6 @@ import argweaver
 
 from compbio import arglib
 
-argweaver
 
 o = optparse.OptionParser(
     description="""
