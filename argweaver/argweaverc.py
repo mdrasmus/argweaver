@@ -241,9 +241,9 @@ if argweaverclib:
         argweaverclib, "arghmm_tree_prior_prob", C.c_double,
         [C.c_void_p, "trees", C.c_double_list, "times", C.c_int, "ntimes",
          C.c_double_list, "popsizes"])
-    prob_coal_counts_matrix = export(
-        argweaverclib, "prob_coal_counts_matrix", C.c_double,
-        [C.c_int, "a", C.c_int, "b", C.c_double, "t", C.c_double, "n"])
+    #prob_coal_counts_matrix = export(
+    #    argweaverclib, "prob_coal_counts_matrix", C.c_double,
+    #    [C.c_int, "a", C.c_int, "b", C.c_double, "t", C.c_double, "n"])
 
     # Estimating population sizes.
     argweaver_est_popsizes_trees = export(

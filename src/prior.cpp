@@ -20,12 +20,14 @@ static inline double H(int i, int j, double n)
         return 0.0;
 }
 
+
 void make_tavare_matrix(int k, double n, double *matrix)
 {
     for (int i=0; i<k; i++)
         for (int j=0; j<k; j++)
             matrix[k*i+j] = H(i+1, j+1, n);
 }
+
 
 double *calc_coal_counts_matrix(int k, double t, double n)
 {
@@ -37,11 +39,9 @@ double *calc_coal_counts_matrix(int k, double t, double n)
 }
 
 
-
-
 extern "C" {
 
-// The probabiluty of going from 'a' lineages to 'b' lineages in time 't'
+// The probability of going from 'a' lineages to 'b' lineages in time 't'
 // with population size 'n'
 double prob_coal_counts_matrix(int a, int b, double t, double n)
 {
@@ -52,7 +52,6 @@ double prob_coal_counts_matrix(int a, int b, double t, double n)
 }
 
 } // extern "C"
-
 
 } // namespace argweaver
 

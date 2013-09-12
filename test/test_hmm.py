@@ -262,6 +262,7 @@ def test_emit_internal():
         trees, len(times), times, mu, seqs2, nseqs, seqlen)
 
 
+'''
 def test_prior_counts():
     """
     Calculate initial tree prior
@@ -275,6 +276,7 @@ def test_prior_counts():
         x = argweaverc.prob_coal_counts_matrix(a, b, t, 2*n)
         y = argweaver.popsize.prob_coal_counts(a, b, t, 2*n)
         fequal(x, y)
+'''
 
 
 def test_forward():
