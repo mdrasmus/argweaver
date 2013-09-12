@@ -25,11 +25,12 @@ cd ..
 make install prefix=YOUR_INSTALL_PREFIX
 cd examples
 
-# or you can run from the source directory by just compiling the code with
+# or you can run from the source directory by just compiling the code and
+# setting the PYTHONPATH to parental directory:
 cd ..
 make
 cd examples
-
+export PYTHONPATH=$(pwd)/..:$PYTHONPATH
 
 #=============================================================================
 # Make simulation data
@@ -97,12 +98,51 @@ cd examples
 ../bin/arg-extract-recomb test1/test1.sample/out.%d.smc.gz \
     > test1/test1.recomb.txt
 
-
 # To resume a previous sampling, you can use the --resume option to add
-# additional sample or change options mid-sampling.
+# additional samples or change options mid-sampling.
 
 ../bin/arg-sample \
     -s test1/test1.sites \
     -N 10000 -r 1.6e-8 -m 1.8e-8 \
     --ntimes 20 --maxtime 200e3 -c 20 -n 200 --resume \
     -o test1/test1.sample/out
+
+#=============================================================================
+# Visualization
+
+# ARGweaver also include a way to visualize ARGs. First layout an ARG
+# for visualization:
+
+../bin/arg-layout \
+    test1/test1.layout.gz \
+    test1/test1.sample/out.100.smc.gz
+
+# Host the sites, the ARG, and its layout with a private webserver
+
+../bin/arg-serve \
+    --sites test1/test1.sites \
+    --arg test1/test1.sample/out.100.smc.gz \
+    --layout test1/test1.layout.gz
+
+# Open a web browser to http://localhost:8080/pos/chr:1-100,000
+
+# We could also visualize a larger more interesting ARG
+
+../bin/arg-sim \
+    -k 100 -L 100000 \
+    -N 10000 -r 1.6e-8 -m 1.8e-8 \
+    -o test2/test2
+
+../bin/arg2smc test2/test2.arg test2/test2.smc.gz
+
+../bin/arg-layout \
+    test2/test2.layout.gz \
+    test2/test2.smc.gz
+
+../bin/arg-serve \
+    --sites test2/test2.sites \
+    --arg test2/test2.smc.gz \
+    --layout test2/test2.layout.gz
+
+# See https://github.com/mdrasmus/mashome for more information on genome
+# browser mashups.

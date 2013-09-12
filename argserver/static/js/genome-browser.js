@@ -39,9 +39,14 @@ function GenomeBrowser() {
 	    this.view = this.parsePosition(this.viewtext);
 	} else {
 	    var viewtext = this.viewToString(view);
+            this.view = {"chrom": view.chrom,
+                         "start": view.start,
+                         "end": view.end};
 	    this.viewtext = viewtext;
 	    this.viewinput.val(viewtext);
 	}
+        history.pushState(
+            {"view": this.view}, '', '/pos/' + this.viewtext);
     };
 
     this.getViewText = function () {

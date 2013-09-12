@@ -150,9 +150,16 @@ def get_static_file(filename):
 
 
 # home page
-@get('/')
-def get_home():
-    return template(TEMPLATES_DIR + '/index.html')
+@get('/<position:re:|pos/.*>')
+def get_home(position):
+    if position and position.startswith('pos/'):
+        position = position[4:]
+    else:
+        position = 'chr:1-1000'
+    context = {
+        'position': position
+    }
+    return template(TEMPLATES_DIR + '/index.html', context)
 
 
 # get argtrack.js
@@ -176,7 +183,7 @@ for smc_file in conf.arg:
         if not smc_db:
             smc_db = ArgDB().connect(":memory:")
         smc_db.add_smc_file(smc_file)
-arg_names = smc_db.get_names()
+arg_names = smc_db.get_names() if smc_db else []
 util.toc()
 
 

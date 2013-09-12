@@ -1,10 +1,10 @@
 ARGweaver
 =========
 
-*Sampling and manipulating genome-wide ancestral recombination graphs (ARG).*  
+*Sampling and manipulating genome-wide ancestral recombination graphs (ARGs).*  
 
 The ARGweaver software package contains programs and libraries for
-sampling and manipulating ancestral recombination graphs (ARG). An ARG
+sampling and manipulating ancestral recombination graphs (ARGs). An ARG
 is a rich data structure for representing the ancestry of DNA
 sequences undergoing recombination.
 
@@ -27,16 +27,17 @@ ARGweaver software:
 To compile the ARGweaver commands and library use the Makefile.
 
 ```
-Make
+make
 ```
 
-Once compiled, to install the ARGweaver programs (default install in
-`/usr`) use:
+Once compiled, install the ARGweaver programs (default install in
+`/usr`) using:
 
 ```
 make install
 ```
 
+By default this install in `/usr`, which may require super user permissions. 
 To specify your own installation path use:
 
 ```
@@ -45,14 +46,15 @@ make install prefix=$HOME/local
 
 ARGweaver can also run directly from the source directory.  Simply add the
 `bin/` directory to your `PATH` environment variable or create symlinks to the
-scripts within `bin/` to any directory on your `PATH`.
+scripts within `bin/` to any directory on your `PATH`. Also add the
+argweaver source directory to your `PYTHONPATH`. See `examples/` for details.
 
 
 ## Quick Start
 
 Here is a brief example of an ARG simulation and analysis.
 To generate simulated data containing a set of DNA sequences and an
-ARG describing their ancestry, the following command can be used:
+ARG describing their ancestry the following command can be used:
 
 ```
 arg-sim \
