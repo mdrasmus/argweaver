@@ -209,6 +209,6 @@ util.toc()
 
 
 if conf.pub:
-    run(host='', port=8080)
+    run(host='', port=conf.port)
 else:
-    run(host='localhost', port=8080)
+    run(host='localhost', port=conf.port)

@@ -1,4 +1,5 @@
 
+from contextlib import closing
 import os
 import subprocess
 
@@ -135,7 +136,7 @@ def iter_arg_layout(filename):
     """
     Iterate through an ARG layout file.
     """
-    with argweaver.open_stream(filename, compress='bgzip') as infile:
+    with closing(argweaver.open_stream(filename, compress='bgzip')) as infile:
         for line in infile:
             tokens = line.rstrip().split("\t")
             block = [tokens[0], int(tokens[1]), int(tokens[2])]
