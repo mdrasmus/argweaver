@@ -6,17 +6,17 @@ ARGweaver
 The ARGweaver software package contains programs and libraries for
 sampling and manipulating ancestral recombination graphs (ARGs). An ARG
 is a rich data structure for representing the ancestry of DNA
-sequences undergoing recombination.
+sequences undergoing coalescence and recombination.
 
 *ARGweaver citation:*
-Matthew D. Rasmussen, Adam Siepel. Genome-wide inference of ancestral
-recombination graphs. 2013. arXiv:1306.5110 [q-bio.PE]
+[Matthew D. Rasmussen, Adam Siepel. Genome-wide inference of ancestral
+recombination graphs. 2013. arXiv:1306.5110 [q-bio.PE]](http://arxiv.org/abs/1306.5110)
 
 
 ## Requirements
 
-The following dependencies must be installed to compile and run the
-ARGweaver software:
+The following dependencies must be installed to compile and run
+ARGweaver:
 
 - C++ compiler (e.g. [g++](http://gcc.gnu.org))
 - [Python](http://python.org)
@@ -24,7 +24,7 @@ ARGweaver software:
 
 ## Install
 
-To compile the ARGweaver commands and library use the Makefile.
+To compile the ARGweaver commands and library use the Makefile:
 
 ```
 make
@@ -37,12 +37,15 @@ Once compiled, install the ARGweaver programs (default install in
 make install
 ```
 
-By default this install in `/usr`, which may require super user permissions. 
-To specify your own installation path use:
+By default this will install all files into `/usr`, which may require 
+super user permissions.  To specify your own installation path use:
 
 ```
 make install prefix=$HOME/local
 ```
+
+If you use this option, make sure `$HOME/local/bin` is in your `PATH` and
+`$HOME/local/lib/python2.X/site-packages` is in your `PYTHONPATH`.
 
 ARGweaver can also run directly from the source directory.  Simply add the
 `bin/` directory to your `PATH` environment variable or create symlinks to the
@@ -84,12 +87,12 @@ arg-sample \
     -o test1/test1.sample/out
 ```
 
-This will use the sequences in `test1/test1.sites`, assume the
+This will use the sequences in `test1/test1.sites` and it assumes the
 same population parameters as the simulation (i.e. `-N 10000 -r 1.6e-8
--m 1.8e-8`), and several sampling specific options (i.e. 20 discretized
-time steps, a maximum time of 200,000 generations, a compression of 10bp
-for the sequences, and 100 sampling iterations. After sampling the following
-files will be generated:
+-m 1.8e-8`).  Also several sampling specific options are given 
+(i.e. 20 discretized time steps, a maximum time of 200,000 generations, 
+a compression of 10bp for the sequences, and 100 sampling iterations. 
+After sampling the following files will be generated:
 
 ```
 test1/test1.sample/out.log
@@ -101,10 +104,11 @@ test1/test1.sample/out.20.smc.gz
 test1/test1.sample/out.100.smc.gz
 ```
 
-`out.log` contains a log of the sampling procedure, `out.stats` contains 
-various ARG statistics (e.g. number of recombinations, ARG posterior 
-probability, etc), and `out.0.smc.gz` through `out.100.smc.gz` contain 
-11 samples of an ARG in *.smc file format.
+The file `out.log` contains a log of the sampling procedure,
+`out.stats` contains various ARG statistics (e.g. number of
+recombinations, ARG posterior probability, etc), and `out.0.smc.gz`
+through `out.100.smc.gz` contain 11 samples of an ARG in *.smc file
+format.
 
 To estimate the time to most recent common ancestor (TMRCA) across
 these samples, the following command can be used:
@@ -120,7 +124,8 @@ lower 2.5 percentile TMRCA, and upper 97.5 percentile TMRCA. The first
 four columns define a track of TMRCA across the genomic region in
 BED file format.
 
-For more see `examples/`.
+Many other statistics can be extracted from sampled ARGs. For more details
+see `examples/`.
 
 
 ## Development
