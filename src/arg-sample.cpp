@@ -29,7 +29,7 @@ using namespace argweaver;
 #define VERSION_INFO  "\
 ARGweaver " VERSION_TEXT " \n\
 Matt Rasmussen\n\
-Gibbs sampler for ancestral recombination graphs\n\
+Sampler for large ancestral recombination graphs\n\
 "
 
 // file extensions
@@ -81,6 +81,10 @@ public:
                    ("", "--region", "<start>-<end>",
                     &subregion_str, "",
                     "sample ARG for only a region of the sites (optional)"));
+	config.add(new ConfigParam<string>
+		   ("", "--maskmap", "<sites mask>",
+                    &maskmap, "",
+                    "mask map file (optional)"));
 
         // model parameters
 	config.add(new ConfigParamComment("Model parameters"));
@@ -112,14 +116,9 @@ public:
 		   ("-R", "--recombmap", "<recombination rate map file>",
                     &recombmap, "",
                     "recombination map file (optional)"));
-	config.add(new ConfigParam<string>
-		   ("", "--maskmap", "<sites mask>",
-                    &maskmap, "",
-                    "mask map file (optional)"));
-
 
         // search
-	config.add(new ConfigParamComment("Search"));
+	config.add(new ConfigParamComment("Sampling"));
 	config.add(new ConfigParam<int>
 		   ("-n", "--iters", "<# of iterations>", &niters, 1000,
                     "(default=1000)"));
@@ -132,9 +131,6 @@ public:
         config.add(new ConfigSwitch
 		   ("", "--overwrite", &overwrite,
                     "force an overwrite of a previous run"));
-        config.add(new ConfigSwitch
-		   ("", "--gibbs", &gibbs,
-                    "use Gibbs sampling"));
 
         // misc
 	config.add(new ConfigParamComment("Miscellaneous"));
@@ -157,6 +153,9 @@ public:
 
         // advance options
         config.add(new ConfigParamComment("Advanced Options", DEBUG_OPT));
+        config.add(new ConfigSwitch
+		   ("", "--gibbs", &gibbs,
+                    "use Gibbs sampling"));
         config.add(new ConfigParam<double>
                    ("", "--prob-path-switch", "<probability>",
                     &prob_path_switch, .1,

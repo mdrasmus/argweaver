@@ -15,11 +15,11 @@
 <h2>Documentation for the ARGweaver software package</h2>
 
 <h3>
-Updated: August, 2013
-</h2>
+Updated: September, 2013
+</h3>
 
 <b>Author:</b> Matthew D. Rasmussen (<a href="http://mattrasmus.com">mattrasmus.com</a>, <a href="mailto:rasmus@alum.mit.edu">rasmus@alum.mit.edu</a>, <a href="mailto:matt.rasmus@gmail.com">matt.rasmus@gmail.com</a>)<br>
-<!-- <b>Software website:</b> <a href=""></a> -->
+<b>Software website:</b> <a href="http://github.com/mdrasmus/argweaver/">http://github.com/mdrasmus/argweaver/</a>
 
 <br><br>
 
@@ -38,21 +38,528 @@ recombination graphs. 2013. arXiv:1306.5110 [q-bio.PE]
 </div>
 
 
-<!--
 <h2>Introduction</h2>
+
+<p>
+The ARGweaver software package contains programs and libraries for
+sampling and manipulating ancestral recombination graphs (ARGs). An ARG
+is a rich data structure for representing the ancestry of DNA
+sequences undergoing coalescence and recombination. From the ARG, several
+different statistics of interest can be estimated such local trees,
+time to most recent ancestor (TMRCA), local effective population size,
+recombination rates, etc.
+</p>
+
+<p>
+ARGweaver's particular strength is the ability to sample ARGs for
+large genomic regions (many megabases). This is achieved by using a
+discretized version of the sequentially Markov coalescent (DSMC) to model
+the evolutionary history of DNA sequences. This model lends itself to
+efficient computational methods. In particular, ARGweaver implements a novel
+technique of efficiently sampling the ancestry of one sequence given the
+ancestry of <tt>n-1</tt> sequences, an operation we call "threading" and ARG.
+This is a basic building block of a Markov chain Monte Carlo (MCMC) sampling
+method which we have implemented in ARGweaver (see
+<a href="#sec-prog-arg-sample"><tt>arg-sample</tt></a>). Using the
+posterior samples the ARG, we have implemented several methods for
+extracting statistics of interest
+<a href="#sec-prog-arg-extract-tmrca"><tt>arg-extract-tmrca</tt></a>,
+<a href="#sec-prog-arg-extract-popsize"><tt>arg-extract-popsize</tt></a>,
+etc.
+</p>
 
 
 <a name="sec-prog"></a>
 <h2>Programs</h2>
 
+<p>
+ARGweaver contains several programs for simulating, inferring, and manipulating
+ARGs, which are located in the <tt>bin/</tt> directory. The main usage
+and description of each program can be found by using the <tt>--help</tt>
+option for each program.
+</p>
+
+<a name="sec-prog-arg-sample"></a>
+<h3>arg-sample</h3>
+
+<p>
+<tt>arg-sample</tt> is the main program for inferring ancestral
+recombination graphs (ARGs). It takes DNA sequences specified in
+a file format called <a href="#sec-file-sites"><tt>*.sites</tt></a> and
+samples ARGs the posterior distribution, which are stored in a
+file format called <a href="#sec-file-smc"><tt>*.smc</tt></a>.
+</p>
+
+<h4>Main arguments</h4>
+
+<div class="code">
+  -s,--sites  &lt;sites alignment&gt; <br>
+  -f,--fasta  &lt;fasta alignment&gt;
+</div>
+
+<p>
+Input DNA sequence alignments can be specified in either the
+<a href="#sec-file-sites"><tt>*.sites</tt></a> or
+<a href="#sec-file-fasta"><tt>FASTA</tt></a> file formats.
+The files can also be <tt>gzip</tt> compressed if the <tt>*.gz</tt>
+file extension is present.
+</p>
+
+<div class="code">
+  -o,--output  &lt;output prefix&gt;
+</div>
+
+<p>
+This specifies a prefix for all output filenames
+(default <tt>'arg-sample'</tt>). It is usually most convenient to specify
+a new directory since many output files can be generated (i.e. each
+ARG sample). If any of the directories in the output path do not exist,
+<tt>arg-sample</tt> will create them.
+</p>
+
+<div class="code">
+  -a,--arg  &lt;SMC file&gt;
+</div>
+
+<p>
+This optional argument specifies an initial ARG (stored in
+<a href="#sec-file-smc"><tt>*.smc</tt></a> format) for sampling.
+This is useful for resuming a previous sampling. If the ARG does not
+contain all of the sequences present in the input sequence alignment file,
+the missing sequences will first be added using the "threading" procedure.
+Once a complete ARG is obtained, normal sampling will continue.
+This feature allows one to easily build a "core ARG" of a small number of
+sequences and then add in additional sequences in a separate run.
+</p>
+
+<div class="code">
+  --region  &lt;start&gt;-&lt;end&gt;
+</div>
+
+<p>
+This optional argument specifies that an ARG should only be sampled
+for a subregion (<tt>start-end</tt>) of the sites.
+</p>
+
+<div class="code">
+  --maskmap  &lt;sites mask&gt;
+</div>
+
+<p>
+This specifies that certain regions should be masked out sites from the
+alignment.  Regions should be specified in a three column
+<a href="http://genome.ucsc.edu/FAQ/FAQformat.html#format1">BED file</a>.
+</p>
+
+
+<h4>Model parameters</h4>
+
+<p><tt>arg-sample</tt> assumes a prior model for the evolution of
+the input DNA sequences. The parameters of the prior model can be specified
+with the following arguments.
+</p>
+
+<div class="code">
+  -N,--popsize  &lt;population size&gt;
+</div>
+
+<p>
+This specifies the effective population size (default 10,000).
+<tt>arg-sample</tt> assumes the population is diploid.
+<p>
+
+<div class="code">
+  -m,--mutrate  &lt;mutation rate&gt;
+</div>
+
+<p>
+This specifies a constant mutation rate as mutations per site per generation
+(default 2.5e-8). To specify a varying mutation rate see <tt>--mutmap</tt>.
+</p>
+
+<div class="code">
+  -r,--recombrate  &lt;recombination rate&gt;
+</div>
+
+<p>
+This specifies a constant recombination rate in recombinations per site per
+generation (default 1.5e-8). To specify a varying recombination rate
+see <tt>--recombmap</tt>.
+</p>
+
+<div class="code">
+  -t,--ntimes  &lt;ntimes&gt; <br>
+  --maxtime  &lt;maxtime&gt; <br>
+  --time-step  &lt;time&gt; <br>
+  --times-file  &lt;times filename&gt;
+</div>
+
+<p>
+ARGweaver approximates the evolutionary process as occurring in
+discretized time steps. These options provide several ways of specify
+the time steps. The most common setting is to allow time steps to be spaced
+logarithmically (finer resolution in recent times and coarser resolution
+in older times). This can be done by specifying the number of time steps
+<tt>--ntimes</tt> and a maximum time <tt>--maxtime</tt>. Time is always
+expressed in number of generations ago, where 0 is the present day.
+Time steps can also be specified to be spaced linearly with a step size
+<tt>--time-step</tt>, or they can be specified explicitly in a
+file <tt>--times-file</tt> one per line.
+</p>
+
+<div class="code">
+  -M,--mutmap  &lt;mutation rate map file&gt;
+  -R,--recombmap  &lt;recombination rate map file&gt;
+</div>
+
+<p>
+These options allow varying mutation rates and recombination rates to be
+specified. The files should be in <a href="http://genome.ucsc.edu/FAQ/FAQformat.html#format1.8">bedGraph format.</a>
+</p>
+
+<h4>Sampling</h4>
+
+<p>
+<tt>arg-sample</tt> produces posterior samples of the ARG using
+Markov chain Monte Carlo (MCMC). These options customize the sampling
+process.
+</p>
+
+<div class="code">
+  -n,--iters  &lt;# of iterations&gt;
+</div>
+
+<p>
+This specifies the total number of sample iterations (default 1000).
+</p>
+
+<div class="code">
+  --resample-region  &lt;start&gt;-&lt;end&gt;
+</div>
+
+<p>
+This optional argument specifies a subregion to resample of input ARG
+</p>
+
+<div class="code">
+  --resume
+</div>
+
+<p>
+This option allows a previous sampling to be resumed if it was interrupted
+or if more iterations are desired.  Sampling options can be changed from
+previous run.
+</p>
+
+<div class="code">
+  --overwrite
+</div>
+
+<p>
+By default, <tt>arg-sample</tt> does not overwrite files that already exist,
+thus protecting against accidental loss of data. Use this
+option, if overwriting is intended.
+</p>
+
+
+<h4>Miscellaneous</h4>
+
+<div class="code">
+  -c,--compress-seq  &lt;compression factor&gt;
+</div>
+
+<p>
+To speed up the algorithm, the sequence alignment can be
+compressed during sampling into blocks such 10bp or 20bp.
+Recombinations are only allowed between blocks but within.
+By default the compression is 1bp per block.
+</p>
+
+<div class="code">
+  --sample-step  &lt;sample step size&gt;
+</div>
+
+<p>
+This specifies how often to write ARG samples to file.
+By default, the ARG is written every 10 iterations.
+</p>
+
+<div class="code">
+  --no-compress-output
+</div>
+
+<p>
+Do not use <tt>gzip</tt> to compress output.
+</p>
+
+<div class="code">
+  -x,--randseed  &lt;random seed&gt;
+</div>
+
+<p>
+<tt>arg-sample</tt> uses a random number generator in the sampling process.
+This option specifies the seed (default is based on current time).
+Using the same seed as a previous run will reproduce the run.
+</p>
+
+
+<h4>Information</h4>
+
+<div class="code">
+  -V,--verbose  &lt;verbosity level&gt;
+</div>
+
+<p>
+Set the level of logging verbosity (0=quiet, 1=low, 2=medium, 3=high)
+</p>
+
+<div class="code">
+  -q,--quiet
+</div>
+
+<p>
+Completely suppress logging to standard error (stderr).
+</p>
+
+<div class="code">
+  -v,--version <br>
+  -h,--help <br>
+  --help-advanced
+</div>
+
+<p>
+These options display version and help information.  <tt>--help-advanced</tt>
+displays additional options that are experimental or are useful for
+debugging purposes.
+</p>
+
 
 <a name="sec-file"></a>
 <h2>File formats</h2>
 
+<p>
+ARGweaver uses several different file formats for sequence alignments and 
+represent ancestral recombination graphs (ARGs) which are described here. 
+Since some of these files can be quite large, they can be compressed using
+<tt>gzip</tt>. All programs in ARGweaver can automatically detect
+if a file is compressed if the filename ends with <tt>*.gz</tt>.
+</p>
 
+
+<a name="sec-file-fasta"></a>
+<h3>FASTA file format (*.fa)</h3>
+
+<p>
+ARGweaver can use the <a href="http://en.wikipedia.org/wiki/FASTA_format">
+FASTA file format</a> for sequences
+alignments.  The file extension is not important and many different 
+extensions are in common use (*.fa, *.mfa, *.fasta, *.align).
+</p>
+
+<p>
+Each line starting with "&gt;" indicates a sequence (haplotype) name.  
+This assumes sequences are phased and that each individual contributes
+two such sequences. Note, the entire line after
+the "&gt;" is used as the sequence name.  The sequence is given on
+the following lines and it may be wrapped to any number of columns (or
+not wrapped at all).  Unknown characters in the alignment are represented 
+with the "N" character.
+</p>
+
+<a name="figure-fasta"></a>
+<div class="figure">
+
+<div class="code">
+<pre>
+&gt;individual1_haplotype1
+ATACGCGCTCGCCCATAGCTTCCTCAAACCATTCTACTACGACCCTGTATGTTTACCGAGTG
+&gt;individual1_haplotype2
+ATAGGCGCTCGCCCATAGCTTCCTCAAACCATTCAACTACGACCCTGCATGTTTACCGAGTG
+&gt;individual2_haplotype1
+ATAGGCGCTCGCCCATAGCTTCCACAAACCATTCTACTACGACCCTGCATGTTTACCGAGTG
+&gt;individual2_haplotype2
+ATACGCGCTCGCCCATAGCTTCCACAAACCATTCAACTACGACCCTGTATGTTTACCGAGTG
+</pre>
+</div>
+
+<div class="figcaption">
+<span class="figtitle">Figure: Example FASTA *.fa file.</span> Each 
+haplotype sequence is fully specified. Sequence names can be given in
+any format.  Sequences are all assumed to be randomly sampled from the
+population and no assumptions are made about how they relate to individuals.
+In practice, each individual contribute two sequences, but the ARGweaver
+software does not make use of such information.
+</div>
+</div>
+
+
+<a name="sec-file-sites"></a>
+<h3>Sites file format (*.sites, *.sites.gz)</h3>
+
+<p>
+Since in most populations the mutation rate can be quite low, more sites
+in an alignment will be invariant.  FASTA is a very inefficient
+file format for such sequences.  Instead it is often more convenient to 
+use the <tt>*.sites</tt> file format which only specifies the variant
+sites in an alignment. Sites not specified are assumed to be invariant.
+See <a href="../examples/sim1/sim1.sites">sim1.sites</a> for an example.
+</p>
+
+<p>
+The sites format is tab-delimited. It currently has two header lines
+which are distinguished by the first column.
+</p>
+
+<ul>
+  <li><tt>NAMES</tt>: this line indicates the names of the sequences in the
+    following columns. Names can have any format provided they do not 
+    contain tab or newline characters.</li>
+  <li><tt>REGION</tt>: this line indicates what genomic region is represented
+    in the file. The following columns are <tt>CHROMOSOME</tt>, 
+    <tt>START</tt>, <tt>END</tt>.
+    <tt>CHROMSOME</tt> is a chomosome name, while <tt>START</tt> and 
+    <tt>END</tt> indicate the region using 1-based and end-inclusive
+    coordinates.</li>
+</ul>
+
+<p>
+The remaining lines specify the variant positions in the sequence alignment.
+The first column gives the 1-based coordinate of the variant position and the
+second column gives the bases for each sequence at that position. Bases
+are given in the same order as the sequence names in the <tt>NAMES</tt> line.
+The sites are required to be sorted by their position.
+</p>
+
+<a name="figure-sites"></a>
+<div class="figure">
+
+<div class="code">
+<pre>
+NAMES   n0      n1      n2      n3      n4      n5      n6      n7
+REGION  chr     1       100000
+404     AAAAAAGA
+992     TTTTTTTA
+1146    CCCCGGCC
+3727    CCCCCACC
+3778    GCCCCCCC
+4791    GGGGGGTG
+5368    GGGGGGCG
+6066    AAATAAAA
+6312    GGGGGGTG
+7062    AAAAATAA
+7151    ACCAAAAA
+7398    TAATATTT
+...
+</pre>
+</div>
+
+<div class="figcaption">
+<span class="figtitle">Figure: Example *.sites file.</span> The
+sites file format only specifies the variant sites in an alignment and is
+often more convenient than the FASTA format.
+</div>
+</div>
+
+
+<a name="sec-file-smc"></a>
+<h3>Sequentially Markov coalescent SMC file format (*.smc, *.smc.gz)</h3>
+
+<p>
+ARGweaver uses the Sequentially Markov coalescent SMC model as an
+approximation of the evolutionary process.  This approximation also
+imposes are restriction on the structure of the ARG.  Namely the ARG
+can be represented as a series of local (also known as marginal) trees
+interspersed with subtree pruning and regrafting (SPR) operations that
+describe how two neighboring local trees differ from one another.
+Each SPR corresponds to a recombination event in the evolutionary past
+of the sequences.  However, not all recombination events are
+expressible as SPR operations, specifically recombinations that occur
+in non-ancestral sequences.  The SMC file format explicitly stores
+each of these local trees and the SPR operations between
+them. Although this is more verbose than storing the ARG as a directed
+acyclic graph (DAG, see
+<a href="#sec-file-arg">*.arg</a>) it is often more convenient since
+extracting local trees and their statistics is one of the most common
+operations to perform on ARGs.
+</p>
+
+<p>
+The SMC format is tab-delimited. It currently has two header lines
+which are distinguished by the first column.
+</p>
+
+<ul>
+  <li><tt>NAMES</tt>: this line indicates the names of the sequences in the
+    following columns. Names can have any format provided they do not 
+    contain tab or newline characters.</li>
+  <li><tt>REGION</tt>: this line indicates what genomic region is represented
+    in the file. The following columns are <tt>CHROMOSOME</tt>, 
+    <tt>START</tt>, <tt>END</tt>.
+    <tt>CHROMSOME</tt> is a chomosome name, while <tt>START</tt> and 
+    <tt>END</tt> indicate the region using 1-based and end-inclusive
+    coordinates.</li>
+</ul>
+
+<p>
+The remaining lines specify the local trees and SPR operations. The
+type of line is indicated by the first column and have the following formats:
+</p>
+
+<ul>
+  <li><tt>TREE start end tree</tt>: this line indicates a local tree
+    that exists from coordinates <tt>start</tt> to <tt>end</tt> (1-index,
+    end-inclusive). <tt>tree</tt> is the local tree represented in 
+    <a href="http://en.wikipedia.org/wiki/Newick_format">newick format</a>.
+    Every node in the tree is numbered. The leaves are numbered between 0 and
+    <tt>n-1</tt>, where <tt>n</tt> is the total number of sequences. The
+    numbering is given in the same ordering as the sequence names in the
+    <tt>NAMES</tt> line.  Branch lengths are given in units of generations.
+    NHX style comments are used to also indicate the age of every node.
+    Although this is redundant given branch lengths, these comments ensure
+    ages are preserved perfectly since adding branch lengths to determine
+    age is susceptible to rounding errors.</li>
+  <li><tt>SPR position recomb_node recomb_time coal_node coal_time</tt>:
+    this line specifies the subtree pruning and regrafting (SPR) operation
+    responsible for changing the previous local tree into the next 
+    local tree. <tt>position</tt> is the last base in the previous local
+    block before the recombination event. <tt>recomb_node</tt> gives the
+    branch number in the previous local tree that bares the recombination
+    event and <tt>recomb_time</tt> gives the time in generations of the 
+    recombination. <tt>coal_node</tt> gives the branch name in previous local
+    tree of where the broken branch re-coalesces and <tt>coal_time</tt>
+    gives the re-coalescence time in generations.</li>
+</ul>
+
+
+<a name="figure-smc"></a>
+<div class="figure">
+
+<div class="code">
+<pre>
+NAMES   n0      n1      n6      n3      n4      n7      n5      n2
+REGION  chr     1       100000
+TREE    1       740     ((6:1002.805899[&&NHX:age=0.000000],4:1002.805899[&&NHX:age=0.000000])12:17041.819563[&&NHX:age=1002.805899],(2:18044.625462[&&NHX:age=0.000000],((5:5363.846221[&&NHX:age=0.000000],(7:122.586947[&&NHX:age=0.000000],1:122.586947[&&NHX:age=0.000000])14:5241.259274[&&NHX:age=122.586947])10:6697.962294[&&NHX:age=5363.846221],(3:1545.314509[&&NHX:age=0.000000],0:1545.314509[&&NHX:age=0.000000])11:10516.494006[&&NHX:age=1545.314509])9:5982.816948[&&NHX:age=12061.808515])13:0.000000[&&NHX:age=18044.625462])8[&&NHX:age=18044.625462];
+SPR     740     13      18044.625462    8       26970.598323
+TREE    741     840     ((6:1002.805899[&&NHX:age=0.000000],4:1002.805899[&&NHX:age=0.000000])12:25967.792423[&&NHX:age=1002.805899],(2:18044.625462[&&NHX:age=0.000000],((5:5363.846221[&&NHX:age=0.000000],(7:122.586947[&&NHX:age=0.000000],1:122.586947[&&NHX:age=0.000000])14:5241.259274[&&NHX:age=122.586947])10:6697.962294[&&NHX:age=5363.846221],(3:1545.314509[&&NHX:age=0.000000],0:1545.314509[&&NHX:age=0.000000])11:10516.494006[&&NHX:age=1545.314509])9:5982.816948[&&NHX:age=12061.808515])13:8925.972860[&&NHX:age=18044.625462])8[&&NHX:age=26970.598323];
+SPR     840     14      5363.846221     12      18044.625462
+TREE    841     1460    (((6:1002.805899[&&NHX:age=0.000000],4:1002.805899[&&NHX:age=0.000000])12:17041.819563[&&NHX:age=1002.805899],(7:122.586947[&&NHX:age=0.000000],1:122.586947[&&NHX:age=0.000000])14:17922.038515[&&NHX:age=122.586947])10:8925.972860[&&NHX:age=18044.625462],(2:18044.625462[&&NHX:age=0.000000],(5:12061.808515[&&NHX:age=0.000000],(3:1545.314509[&&NHX:age=0.000000],0:1545.314509[&&NHX:age=0.000000])11:10516.494006[&&NHX:age=1545.314509])9:5982.816948[&&NHX:age=12061.808515])13:8925.972860[&&NHX:age=18044.625462])8[&&NHX:age=26970.598323];
+SPR     1460    5       8051.702368     11      8051.702368
+TREE    1461    2880    (((6:1002.805899[&&NHX:age=0.000000],4:1002.805899[&&NHX:age=0.000000])12:17041.819563[&&NHX:age=1002.805899],(7:122.586947[&&NHX:age=0.000000],1:122.586947[&&NHX:age=0.000000])14:17922.038515[&&NHX:age=122.586947])10:8925.972860[&&NHX:age=18044.625462],(2:18044.625462[&&NHX:age=0.000000],(5:8051.702368[&&NHX:age=0.000000],(3:1545.314509[&&NHX:age=0.000000],0:1545.314509[&&NHX:age=0.000000])11:6506.387859[&&NHX:age=1545.314509])9:9992.923095[&&NHX:age=8051.702368])13:8925.972860[&&NHX:age=18044.625462])8[&&NHX:age=26970.598323];
+...
+</pre>
+</sites>
+
+<div class="figcaption">
+<span class="figtitle">Figure: Example *.smc file.</span> The
+SMC file format describes an ARG as a series of local trees and subtree
+pruning and regrafting (SPR) operations.
+</div>
+</div>
+
+
+<!--
 <a name="references"></a>
 <h2>References</h2>
-
 -->
 
 <ul>
