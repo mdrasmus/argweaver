@@ -8,7 +8,7 @@
 # commands work.
 #
 # For documentation on all of ARGweaver's file formats, see
-# doc/dlcoal_manual.html
+# doc/argweaver_manual.html
 #
 
 #=============================================================================

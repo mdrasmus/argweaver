@@ -47,7 +47,7 @@ PKG=$(DIST)/$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_DIR=$(DIST)/$(PKG_NAME)-$(PKG_VERSION)
 
 # program files
-SCRIPTS = 
+SCRIPTS = bin/*
 PROGS = bin/arg-sample
 BINARIES = $(PROGS) $(SCRIPTS)
 
@@ -109,6 +109,8 @@ LIBARGWEAVER_OBJS = $(ARGWEAVER_OBJS)
 #=============================================================================
 # targets
 
+.PHONY: all pkg test cq install clean cleanobj lib pylib
+
 # default targets
 all: $(PROGS) $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED)
 
@@ -132,20 +134,17 @@ $(LIBARGWEAVER_SHARED): $(LIBARGWEAVER_OBJS)
 #-----------------------------
 # packaging
 
-pkg:
-	mkdir -p $(DIST)
-	git archive --format=tar --prefix=$(PKG_NAME)-$(PKG_VERSION)/ HEAD | \
-	gzip > $(PKG)	
+pkg: $(PKG)
 
 $(PKG):
 	mkdir -p $(DIST)
-	git archive --format=tar --prefix=$(PKG_NAME)-$(PKG_VERSION)/ | \
+	git archive --format=tar --prefix=$(PKG_NAME)-$(PKG_VERSION)/ HEAD | \
 	gzip > $(PKG)
 
 #-----------------------------
 # testing
 
-testing:
+test:
 	nosetests -v test
 
 cq:

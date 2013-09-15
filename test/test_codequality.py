@@ -149,9 +149,9 @@ def test_pep8():
         raise Exception()
 
 
-def _test_arghmm():
+def test_arghmm():
     """
-    See if argweaver is used anywhere within the code.
+    See if arghmm is used anywhere within the code.
     """
 
     def key(line):
