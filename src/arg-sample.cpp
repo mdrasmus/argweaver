@@ -117,7 +117,7 @@ public:
                     &recombmap, "",
                     "recombination map file (optional)"));
 
-        // search
+        // sampling
 	config.add(new ConfigParamComment("Sampling"));
 	config.add(new ConfigParam<int>
 		   ("-n", "--iters", "<# of iterations>", &niters, 1000,

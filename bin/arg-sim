@@ -98,7 +98,8 @@ sites.chrom = conf.chrom
 print "writing output: ", conf.output + ".{sites,arg}"
 
 path = os.path.dirname(conf.output)
-util.makedirs(path)
+if path:
+    util.makedirs(path)
 
 sites.write(conf.output + ".sites")
 arglib.write_arg(conf.output + ".arg", arg)
