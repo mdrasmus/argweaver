@@ -1,5 +1,7 @@
 (function (window) {
 
+UCSC_URL = "http://genome.ucsc.edu/cgi-bin/hgTracks?hdb=hg19";
+
 function GenomeBrowser() {
     this.view = {chrom: "chr", start: 0, end: 1000};
     this.viewtext = "";
@@ -7,8 +9,11 @@ function GenomeBrowser() {
     this.init = function () {
 	var that = this;
 	this.viewinput = $("input[name='view']");
-	
+
 	$("#go").click(function () { that.goToView(); });
+	$("#view-ucsc").click(function () {
+            window.open(UCSC_URL + "&position=" + that.viewtext, '_blank');
+        });
 
 	// moving
 	$("#move_left3").click(function () { that.moveByFactor(-.95); });
@@ -46,7 +51,7 @@ function GenomeBrowser() {
 	    this.viewinput.val(viewtext);
 	}
         history.pushState(
-            {"view": this.view}, '', '/pos/' + this.viewtext);
+            {"view": this.view}, "", "/pos/" + this.viewtext);
     };
 
     this.getViewText = function () {
@@ -83,6 +88,21 @@ function GenomeBrowser() {
 	this.goToView(this.view);
     };
 
+    this.zoomBase = function () {
+	var len = 100;
+	var center = (this.view.start + this.view.end) / 2.0;
+
+	this.view.start = Math.round(center - len / 2.0);
+	this.view.end = Math.round(center + len / 2.0);
+
+	if (this.view.start < 0) {
+	    this.view.end -= this.view.start;
+	    this.view.start = 0;
+	}
+
+	this.goToView(this.view);
+    };
+
     //-----------------------------------------------------------------
     // view/position string functions
 
@@ -103,7 +123,7 @@ function GenomeBrowser() {
     };
 
     this.viewToString = function(view) {
-        return view.chrom + ":" + this.positionToString(view.start+1) + "-" + 
+        return view.chrom + ":" + this.positionToString(view.start+1) + "-" +
         this.positionToString(view.end);
     };
 
@@ -115,7 +135,8 @@ function GenomeBrowser() {
 
         var tokens2 = tokens[1].split("-");
         var start = parseInt(tokens2[0].replace(/,/g, "")) - 1;
-        var end = parseInt(tokens2[1].replace(/,/g, ""));
+        var end = (tokens2.length > 1 ?
+                   parseInt(tokens2[1].replace(/,/g, "")) : start + 1);
 
         return {chrom: tokens[0], start: start, end: end};
     };
