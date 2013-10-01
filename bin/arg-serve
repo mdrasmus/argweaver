@@ -126,8 +126,9 @@ def get_sites(region=""):
 
     result = []
 
-    for pos, col in sites_db.get_sites(chrom, start, end, arg_names):
-        result.append({"pos": pos, "col": col})
+    if sites_db:
+        for pos, col in sites_db.get_sites(chrom, start, end, arg_names):
+            result.append({"pos": pos, "col": col})
 
     return callback + "('" + json.dumps(result) + "');"
 
@@ -156,7 +157,10 @@ def get_home(position):
         position = position[4:]
     else:
         position = 'chr:1-1000'
+    host = "%s://%s" % (request.urlparts.scheme,
+                        request.urlparts.netloc)
     context = {
+        'host': host,
         'position': position
     }
     return template(TEMPLATES_DIR + '/index.html', context)

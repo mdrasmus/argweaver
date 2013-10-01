@@ -536,6 +536,10 @@ function Toolbar(urlCookie) {
     this.getUrl = function () {
         return this.urlInput.val();
     }
+
+    this.setUrl = function (url) {
+        this.urlInput.val(url);
+    }
 };
 
 
@@ -572,6 +576,8 @@ var mashome = {
         }
 
         // check for initial url
+        if (this.config.tracksUrl)
+            this.toolbar.setUrl(this.config.tracksUrl);
         var url = this.toolbar.getUrl();
         if (url)
             this.loadTrackScript(url);
