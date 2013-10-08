@@ -13,9 +13,15 @@ sequences undergoing coalescence and recombination.
 recombination graphs. 2013. arXiv:1306.5110 [q-bio.PE]](http://arxiv.org/abs/1306.5110)
 
 
+## Download
+
+ARGweaver can be [downloaded](http://mdrasmus.github.io/argweaver) or 
+[forked](https://github.com/mdrasmus/argweaver/) from GitHub.
+
+
 ## Documentation
 
-See the [manual](http://mdrasmus.github.io/argweaver/doc/argweaver-manual.html)
+See the [manual](http://mdrasmus.github.io/argweaver/doc/)
 for documentation on the programs and file formats associated with ARGweaver.
 
 
