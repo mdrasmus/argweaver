@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>ARGweaver by mdrasmus</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>ARGweaver</h1>
+        <p>Sampling and manipulating genome-wide ancestral recombination graphs (ARGs)</p>
+
+        <p class="view"><a href="https://github.com/mdrasmus/argweaver">View the Project on GitHub <small>mdrasmus/argweaver</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/mdrasmus/argweaver/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/mdrasmus/argweaver/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/mdrasmus/argweaver">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a name="argweaver" class="anchor" href="#argweaver"><span class="octicon octicon-link"></span></a>ARGweaver</h1>
+
+<p><em>Sampling and manipulating genome-wide ancestral recombination graphs (ARGs).</em>  </p>
+
+<p>The ARGweaver software package contains programs and libraries for
+sampling and manipulating ancestral recombination graphs (ARGs). An ARG
+is a rich data structure for representing the ancestry of DNA
+sequences undergoing coalescence and recombination.</p>
+
+<p><em>ARGweaver citation:</em>
+<a href="http://arxiv.org/abs/1306.5110">Matthew D. Rasmussen, Adam Siepel. Genome-wide inference of ancestral
+recombination graphs. 2013. arXiv:1306.5110 [q-bio.PE]</a></p>
+
+<h2>
+<a name="requirements" class="anchor" href="#requirements"><span class="octicon octicon-link"></span></a>Requirements</h2>
+
+<p>The following dependencies must be installed to compile and run
+ARGweaver:</p>
+
+<ul>
+<li>C++ compiler (e.g. <a href="http://gcc.gnu.org">g++</a>)</li>
+<li><a href="http://python.org">Python</a></li>
+</ul><h2>
+<a name="install" class="anchor" href="#install"><span class="octicon octicon-link"></span></a>Install</h2>
+
+<p>To compile the ARGweaver commands and library use the Makefile:</p>
+
+<pre><code>make
+</code></pre>
+
+<p>Once compiled, install the ARGweaver programs (default install in
+<code>/usr</code>) using:</p>
+
+<pre><code>make install
+</code></pre>
+
+<p>By default this will install all files into <code>/usr</code>, which may require 
+super user permissions.  To specify your own installation path use:</p>
+
+<pre><code>make install prefix=$HOME/local
+</code></pre>
+
+<p>If you use this option, make sure <code>$HOME/local/bin</code> is in your <code>PATH</code> and
+<code>$HOME/local/lib/python2.X/site-packages</code> is in your <code>PYTHONPATH</code>.</p>
+
+<p>ARGweaver can also run directly from the source directory.  Simply add the
+<code>bin/</code> directory to your <code>PATH</code> environment variable or create symlinks to the
+scripts within <code>bin/</code> to any directory on your <code>PATH</code>. Also add the
+argweaver source directory to your <code>PYTHONPATH</code>. See <code>examples/</code> for details.</p>
+
+<h2>
+<a name="quick-start" class="anchor" href="#quick-start"><span class="octicon octicon-link"></span></a>Quick Start</h2>
+
+<p>Here is a brief example of an ARG simulation and analysis.
+To generate simulated data containing a set of DNA sequences and an
+ARG describing their ancestry the following command can be used:</p>
+
+<pre><code>arg-sim \
+    -k 8 -L 100000 \
+    -N 10000 -r 1.6e-8 -m 1.8e-8 \
+    -o test1/test1
+</code></pre>
+
+<p>This will create an ARG with 8 sequences each 100kb in length evolving in
+a population of effective size 10,000 (diploid), with recombination rate
+1.6e-8 recombinations/site/generation and mutation rate 1.8e-8 
+mutations/generation/site. The output will be stored in the following files:</p>
+
+<pre><code>test1/test1.arg   -- an ARG stored in *.arg format
+test1/test1.sites -- sequences stored in *.sites format
+</code></pre>
+
+<p>To infer an ARG from the simulated sequences, the following command 
+can be used:</p>
+
+<pre><code>arg-sample \
+    -s test1/test1.sites \
+    -N 10000 -r 1.6e-8 -m 1.8e-8 \
+    --ntimes 20 --maxtime 200e3 -c 10 -n 100 \
+    -o test1/test1.sample/out
+</code></pre>
+
+<p>This will use the sequences in <code>test1/test1.sites</code> and it assumes the
+same population parameters as the simulation (i.e. <code>-N 10000 -r 1.6e-8
+-m 1.8e-8</code>).  Also several sampling specific options are given 
+(i.e. 20 discretized time steps, a maximum time of 200,000 generations, 
+a compression of 10bp for the sequences, and 100 sampling iterations. 
+After sampling the following files will be generated:</p>
+
+<pre><code>test1/test1.sample/out.log
+test1/test1.sample/out.stats
+test1/test1.sample/out.0.smc.gz
+test1/test1.sample/out.10.smc.gz
+test1/test1.sample/out.20.smc.gz
+...
+test1/test1.sample/out.100.smc.gz
+</code></pre>
+
+<p>The file <code>out.log</code> contains a log of the sampling procedure,
+<code>out.stats</code> contains various ARG statistics (e.g. number of
+recombinations, ARG posterior probability, etc), and <code>out.0.smc.gz</code>
+through <code>out.100.smc.gz</code> contain 11 samples of an ARG in *.smc file
+format.</p>
+
+<p>To estimate the time to most recent common ancestor (TMRCA) across
+these samples, the following command can be used:</p>
+
+<pre><code>arg-extract-tmrca test1/test1.sample/out.%d.smc.gz \
+    &gt; test1/test1.tmrca.txt
+</code></pre>
+
+<p>This will create a tab-delimited text file containing six columns:
+chromosome, start, end, posterior mean TMRCA (generations),
+lower 2.5 percentile TMRCA, and upper 97.5 percentile TMRCA. The first
+four columns define a track of TMRCA across the genomic region in
+BED file format.</p>
+
+<p>Many other statistics can be extracted from sampled ARGs. For more details
+see <code>examples/</code>.</p>
+
+<h2>
+<a name="development" class="anchor" href="#development"><span class="octicon octicon-link"></span></a>Development</h2>
+
+<p>The following Python libraries are needed for developing ARGweaver:</p>
+
+<pre><code>nose
+pyflakes
+pep8
+</code></pre>
+
+<p>These can be installed using</p>
+
+<pre><code>pip install -r requirements-dev.txt
+</code></pre>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/mdrasmus">mdrasmus</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
