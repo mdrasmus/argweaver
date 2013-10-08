@@ -13,6 +13,12 @@ sequences undergoing coalescence and recombination.
 recombination graphs. 2013. arXiv:1306.5110 [q-bio.PE]](http://arxiv.org/abs/1306.5110)
 
 
+## Documentation
+
+See the [manual](http://mdrasmus.github.io/argweaver/doc/argweaver-manual.html)
+for documentation on the programs and file formats associated with ARGweaver.
+
+
 ## Requirements
 
 The following dependencies must be installed to compile and run
