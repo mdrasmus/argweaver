@@ -37,7 +37,7 @@ def test_trans_two():
     arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
 
     argweaver.discretize_arg(arg, times)
-    print "recomb", arglib.get_recomb_pos(arg)
+    print "recomb", arglib.get_recombs(arg)
 
     arg = argweaver.make_trunk_arg(0, length, "n0")
 
@@ -293,7 +293,7 @@ def test_forward():
     seqs = arglib.make_alignment(arg, muts)
 
     print "muts", len(muts)
-    print "recomb", len(arglib.get_recomb_pos(arg))
+    print "recomb", len(arglib.get_recombs(arg))
 
     argweaver.discretize_arg(arg, times)
 
