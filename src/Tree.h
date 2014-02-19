@@ -13,11 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <set>
 
 #include "ExtendArray.h"
-
-
-using namespace std;
 
 
 /*
@@ -46,10 +44,9 @@ using namespace std;
 
 */
 
-
+using namespace std;
 
 namespace spidir {
-
 
 // invariant: node->child->prev == last child of node
 // invariant: [last child of node].next == NULL
@@ -175,6 +172,7 @@ public:
     */
 
 
+
     int name;           // node name id (matches index in tree.nodes)
     Node *parent;       // parent pointer
     //Node *child;        // first child
@@ -186,6 +184,8 @@ public:
     int nchildren;      // number of children
     float dist;         // branch length above node
     string longname;    // node name (used mainly for leaves only)
+    string nhx;         // NHX-style comment; includes the "&&NHX"
+                        //   but not the  square brackets
 };
 
 
@@ -202,6 +202,8 @@ public:
             nodes[i] = new Node();
     }
 
+    Tree(string newick);
+
     virtual ~Tree()
     {
         for (int i=0; i<nnodes; i++)
@@ -215,6 +217,7 @@ public:
     {
         for (int i=0; i<nnodes; i++)
             nodes[i]->dist = dists[i];
+
     }
 
 
@@ -242,6 +245,7 @@ public:
     }
 
     void reorderLeaves(string *names);
+    void prune(set<string> leafs, bool allBut=false);
 
     // Gets leaf names of the nodes of a tree
     // Internal nodes are often named "" (empty string)
@@ -293,6 +297,34 @@ public:
 
     // Roots the tree on branch connecting 'node1' and 'node2'
     void reroot(Node *node1, Node *node2);
+
+    double total_branchlength();
+    double tmrca();
+    double tmrca_half();
+    double rth();
+    double popsize();
+
+ private:
+    void print_newick_recur(FILE *f, Node *n, bool internal_names=true,
+                            char *branch_format_str=NULL,
+                            bool show_nhx=true, bool oneline=true);
+ public:
+    void print_newick(FILE *f, bool internal_names=true,
+                      bool branchlen=true, int num_decimal=5,
+                      bool show_nhx=true, bool oneline=true) {
+        char *format_str=NULL;
+        if (branchlen) {
+            format_str = new char[100];
+            sprintf(format_str, "%%.%if", num_decimal);
+        }
+        print_newick_recur(f, root, internal_names,
+                           format_str, show_nhx, oneline);
+        fprintf(f, ";");
+        if (!oneline) fprintf(f, "\n");
+        if (format_str != NULL) {
+            delete [] format_str;
+        }
+    }
 
     // Returns a new copy of the tree
     Tree *copy();

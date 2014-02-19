@@ -92,10 +92,12 @@ inline char *trim(string &word)
 }
 
 
+void split(const char *str, const char delim, vector<string> &tokens);
 void split(const char *str, const char *delim, vector<string> &tokens);
 
 char *concat_strs(char **strs, int nstrs);
 
+char *quote_arg(const char *text);
 
 
 } // namespace argweaver

@@ -14,11 +14,155 @@
 // spidir headers
 #include "Tree.h"
 #include "common.h"
-
+#include "parsing.h"
+#include "logging.h"
+#include <iostream>
+#include <cstring>
+#include <string>
 
 namespace spidir {
 
 using namespace argweaver;
+
+//return true if c is one of (),:#![]
+bool isNewickChar(char c) {
+    static vector<int> vals(8);
+    static int called=0;
+    int i=(int)c;
+    if (c >= (int)'a' || (c>=(int)'0' && c <=(int)'9')) return false;
+    if (called==0) {
+        called=1;
+        vals[0]=(int)'(';
+        vals[1]=(int)')';
+        vals[2]=(int)',';
+        vals[3]=(int)':';
+        vals[4]=(int)'#';
+        vals[5]=(int)'!';
+        vals[6]=(int)'[';
+        vals[7]=(int)']';
+    }
+    return (i==vals[0] || i==vals[1] || i==vals[2] || i==vals[3] ||
+            i==vals[4] || i==vals[5] || i==vals[6] || i==vals[7]);
+}
+
+//create a tree from a newick string
+Tree::Tree(string newick)
+{
+    int len = newick.length();
+    Node * node = NULL;
+    vector <int> stack;
+
+    nnodes=0;
+    root = new Node();
+    nodes.append(root);
+    stack.push_back(nnodes);
+    root->name=nnodes++;
+
+    for (int i=0; i < len; i++) {
+        switch (newick[i]) {
+        case ',':
+            stack.pop_back();
+        case '(':
+            node = new Node();
+            nodes.append(node);
+            if (stack.size()==0) {
+                printError("bad newick: error parsing tree");
+            } else {
+                node->parent = nodes[stack.back()];
+            }
+            stack.push_back(nnodes);
+            node->name = nnodes++;
+            break;
+        case ')': {
+            stack.pop_back();
+            node = nodes[stack.back()];
+            break;
+        }
+        case ':':  { //optional dist next
+            int j=i+1;
+            while (j < len && !isNewickChar(newick[j]))
+                j++;
+            if (sscanf(&newick[i+1], "%f", &node->dist) != 1) {
+                printError("bad newick: error reading distance");
+                printf("&newick[%i+1]=%s\n", i, &newick[i+1]);
+                printf("node->dist=%f\n", node->dist);
+                i=len;
+            }
+            i=j-1;
+            break;
+        }
+        case '[': { // comment next; save in nhx field
+            int count=1;
+            int j=i+1;
+            while (count != 0) {
+                if (j==len) {
+                    printError("bad newick: no closing bracket in NHX comment");
+                    break;
+                }
+                if (newick[j]==']') count--;
+                else if (newick[j]=='[') count++;
+                j++;
+            }
+            node->nhx = newick.substr(i+1, j-i-2);
+            i=j-1;
+            break;
+        }
+        case ';':
+            break;
+        default:
+           int j=i+1;
+           while (j < len && !isNewickChar(newick[j]))
+               j++;
+           if (node->longname.length() > 0) {
+               printError("bad newick format; got multiple names for a node");
+               i=len;
+               break;
+           }
+           node->longname = newick.substr(i, j-i);
+           trim(node->longname);
+           i=j-1;
+           break;
+        }
+    }
+    if (node != root) {
+        printError("bad newick format: did not end witih root");
+    }
+    //All done, now fill in children
+    for (int i=0; i < nnodes; i++) {
+        //        cout << "node " << i << " parent==NULL=" << (int)(nodes[i]->parent==NULL) << endl;
+        if (nodes[i]->parent != NULL) {
+            //            cout << "node " << i << " has parent " << nodes[i]->parent->name << endl;
+            nodes[i]->parent->addChild(nodes[i]);
+        }
+    }
+}
+
+void Tree::print_newick_recur(FILE *f, Node *n, bool internal_names,
+                              char *branch_format_str,
+                              bool show_nhx, bool oneline) {
+    if (n->nchildren > 0) {
+        fprintf(f, "(");
+        print_newick_recur(f, n->children[0], internal_names,
+                           branch_format_str, show_nhx, oneline);
+        for (int i=1; i < n->nchildren; i++) {
+            fprintf(f, ",");
+            print_newick_recur(f, n->children[i], internal_names,
+                               branch_format_str, show_nhx, oneline);
+        }
+        fprintf(f, ")");
+        if (internal_names) fprintf(f, "%s", n->longname.c_str());
+    } else {
+        fprintf(f, "%s", n->longname.c_str());
+    }
+
+    if (branch_format_str != NULL && n->parent != NULL) {
+        fprintf(f, ":");
+        fprintf(f, branch_format_str, n->dist);
+    }
+    if (show_nhx && n->nhx.length() != 0)
+        fprintf(f, "[%s]", n->nhx.c_str());
+    if (!oneline && n->nchildren > 0) fprintf(f, "\n");
+}
 
 
 // return a copy of the tree
@@ -53,6 +197,88 @@ Tree *Tree::copy()
 
     return tree2;
 }
+
+
+void Tree::prune(set<string> leafs, bool allBut) {
+    ExtendArray<Node*> postnodes;
+    ExtendArray<Node*> newnodes;
+    getTreePostOrder(this, &postnodes);
+    vector<bool> is_leaf(postnodes.size());
+
+    for (int i=0; i < postnodes.size(); i++) {
+        is_leaf[i] = (postnodes[i]->nchildren == 0);
+    }
+
+    for (int i=0; i < postnodes.size(); i++) {
+        if (postnodes[i]->nchildren == 0) {
+            int prune;
+            if (!is_leaf[i]) {
+                //in this case, node was not originally a leaf, but now
+                // has no children, so should be pruned
+                prune = true;
+            } else {
+                prune = (leafs.find(postnodes[i]->longname) != leafs.end());
+                if (allBut) prune=!prune;
+            }
+            if (prune) {
+                Node *parent = postnodes[i]->parent;
+                if (parent != NULL) {
+                    int j, maxj=parent->nchildren;
+                    for (j=0; j < maxj; j++) {
+                        if (parent->children[j] == postnodes[i]) {
+                            parent->children[j] = parent->children[parent->nchildren-1];
+                            parent->nchildren--;
+                            delete postnodes[i];
+                            break;
+                        }
+                    }
+                    if (j == maxj) {
+                        fprintf(stderr, "error in tree.prune(): didn't find child in parent node\n");
+                        exit(-1);
+                    }
+                } else {  //entire tree has been pruned!
+                    for (i=0; i < nnodes; i++)
+                        delete nodes[i];
+                    nnodes=0;
+                    root=NULL;
+                }
+            } else {
+                newnodes.append(postnodes[i]);
+            }
+        } else if (postnodes[i]->nchildren == 1) {
+            if (postnodes[i] == root) {
+                root = postnodes[i]->children[0];
+            } else {
+                Node *parent = postnodes[i]->parent;
+                int j, maxj=parent->nchildren;
+                for (j=0; j < maxj; j++) {
+                    if (parent->children[j] == postnodes[i]) {
+                        parent->children[j] = postnodes[i]->children[0];
+                        postnodes[i]->children[0]->dist += postnodes[i]->dist;
+                        postnodes[i]->children[0]->parent = parent;
+                        delete postnodes[i];
+                        break;
+                    }
+                }
+                if (j == maxj) {
+                    fprintf(stderr, "error in tree.prune(): didn't find child in parent node2\n");
+                    exit(-1);
+                }
+            }
+        } else {
+            newnodes.append(postnodes[i]);
+        }
+    }
+
+    nodes.clear();
+    for (int i=0; i < newnodes.size(); i++) {
+        nodes.append(newnodes[i]);
+        nodes[i]->name = i;
+        nodes[i]->nhx.clear();
+    }
+    nnodes = nodes.size();
+}
+
 
 
 // assumes both trees have same number of nodes
@@ -489,6 +715,108 @@ void printTree(Tree *tree, Node *node, int depth)
 
 
 
+//some statistics
+double Tree::total_branchlength() {
+   ExtendArray<Node*> postnodes;
+   getTreePostOrder(this, &postnodes);
+   double len=0.0;
+
+   for (int i=0; i < postnodes.size(); i++) {
+       Node *node = postnodes[i];
+       if (node != root) len += node->dist;
+   }
+   return len;
+}
+
+
+
+//Note: assumes all leaf nodes have same distance to root!
+double Tree::tmrca() {
+    double len=0.0;
+    Node *node = root, *child;
+    while (node->nchildren > 0) {
+        child = node->children[0];
+        len += child->dist;
+        node = child;
+    }
+    return len;
+}
+
+
+double Tree::popsize() {
+    ExtendArray<Node*> postnodes;
+    int numleaf = (nnodes+1)/2;
+    vector<double>tmpAge(nnodes);
+    vector<double>ages;
+    getTreePostOrder(this, &postnodes);
+    for (int i=0; i < postnodes.size(); i++) {
+        if (postnodes[i]->nchildren == 0) {
+            tmpAge[postnodes[i]->name] = 0.0;
+        } else {
+            tmpAge[postnodes[i]->name] = tmpAge[postnodes[i]->children[0]->name] +
+                postnodes[i]->children[0]->dist;
+            ages.push_back(tmpAge[postnodes[i]->name]);
+        }
+    }
+    std::sort(ages.begin(), ages.end());
+    double lasttime=0;
+    int k = numleaf;
+    double popsize=0;
+    for (unsigned int i=0; i < ages.size(); i++) {
+        popsize += (double)k*(k-1)*(ages[i]-lasttime);
+        lasttime = ages[i];
+        k--;
+    }
+    return popsize/(4.0*numleaf-4);
+}
+
+
+double tmrca_half_rec(Node *node, int numnode, vector<int> numnodes,
+                      double curr_tmrca) {
+    if (node->nchildren != 2) {
+        fprintf(stderr, "Error: tmrca_half only works for bifurcating trees\n");
+    }
+    if (numnodes[node->name] == numnode) return curr_tmrca;
+    if (numnodes[node->children[0]->name] == numnode &&
+        numnodes[node->children[1]->name] == numnode) {
+        if (node->children[0]->dist >
+            node->children[1]->dist)
+            return curr_tmrca - node->children[0]->dist;
+        else return curr_tmrca - node->children[1]->dist;
+    }
+    if (numnodes[node->children[0]->name] >= numnode) {
+        assert(numnodes[node->children[1]->name] < numnode);
+        return tmrca_half_rec(node->children[0], numnode, numnodes,
+                              curr_tmrca - node->children[0]->dist);
+    } else if (numnodes[node->children[1]->name] >= numnode) {
+        assert(numnodes[node->children[0]->name] < numnode);
+        return tmrca_half_rec(node->children[1], numnode, numnodes,
+                              curr_tmrca - node->children[1]->dist);
+    }
+    return curr_tmrca;
+}
+
+
+double Tree::tmrca_half() {
+    vector<int> numnodes(nnodes);
+    ExtendArray<Node*> postnodes;
+    getTreePostOrder(this, &postnodes);
+    for (int i=0; i < postnodes.size(); i++) {
+        numnodes[postnodes[i]->name] = 1;
+        for (int j=0; j < postnodes[i]->nchildren; j++) {
+            numnodes[postnodes[i]->name] += numnodes[postnodes[i]->children[j]->name];
+        }
+    }
+    assert(nnodes == numnodes[root->name]);
+    return tmrca_half_rec(root, (nnodes+1)/2-1, numnodes, this->tmrca());
+}
+
+
+double Tree::rth() {
+    return this->tmrca_half()/this->tmrca();
+}
+
+
 //=============================================================================
 // primitive tree format conversion functions
 
@@ -595,6 +923,9 @@ void setTreeDists(Tree *tree, float *dists)
 {
     tree->setDists(dists);
 }
+
+
+
 
 } // extern C
 

@@ -48,7 +48,7 @@ PKG_DIR=$(DIST)/$(PKG_NAME)-$(PKG_VERSION)
 
 # program files
 SCRIPTS = bin/*
-PROGS = bin/arg-sample
+PROGS = bin/arg-sample bin/arg-summarize bin/smc2bed
 BINARIES = $(PROGS) $(SCRIPTS)
 
 ARGWEAVER_SRC = \
@@ -57,6 +57,7 @@ ARGWEAVER_SRC = \
     src/est_popsize.cpp \
     src/fs.cpp \
     src/hmm.cpp \
+    src/IntervalIterator.cpp \
     src/itree.cpp \
     src/local_tree.cpp \
     src/logging.cpp \
@@ -72,6 +73,7 @@ ARGWEAVER_SRC = \
     src/seq.cpp \
     src/states.cpp \
     src/sequences.cpp \
+    src/tabix.cpp \
     src/thread.cpp \
     src/total_prob.cpp \
     src/track.cpp \
@@ -86,7 +88,9 @@ ARGWEAVER_SRC = \
 
 ALL_SRC = \
     $(ARGWEAVER_SRC) \
-    src/arg-sample.cpp
+    src/arg-sample.cpp \
+    src/arg-summarize.cpp \
+    src/smc2bed.cpp
 
 
 ARGWEAVER_OBJS = $(ARGWEAVER_SRC:.cpp=.o)
@@ -116,6 +120,13 @@ all: $(PROGS) $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED)
 
 bin/arg-sample: src/arg-sample.o $(LIBARGWEAVER)
 	$(CXX) $(CFLAGS) -o bin/arg-sample src/arg-sample.o $(LIBARGWEAVER)
+
+bin/smc2bed: src/smc2bed.o $(LIBARGWEAVER)
+	$(CXX) $(CFLAGS) -o bin/smc2bed src/smc2bed.o $(LIBARGWEAVER)
+
+
+bin/arg-summarize: src/arg-summarize.o $(LIBARGWEAVER)
+	$(CXX) $(CFLAGS) -o bin/arg-summarize src/arg-summarize.o $(LIBARGWEAVER)
 
 
 #-----------------------------
