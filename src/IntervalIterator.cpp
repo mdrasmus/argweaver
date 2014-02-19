@@ -10,69 +10,45 @@
 using namespace std;
 namespace spidir {
 
-double Interval::mean() {
+double compute_mean(vector<double> scores) {
+    double rv=0.0;
     if (scores.size() ==0) {
         fprintf(stderr, "Error: trying to get mean with no scores\n");
     }
-    meanval=0;
     for (unsigned int i=0; i < scores.size(); i++) {
-        meanval += scores[i];
+        rv += scores[i];
     }
-    meanval /= (double)scores.size();
-    have_mean=1;
-    return meanval;
+    rv /= (double)scores.size();
+    return rv;
 }
 
-double Interval::stdev() {
-    double stdev=0;
+    /*
+template<class scoreT> scoreT Interval<scoreT>::mean() {
+    meanval = mean(scores);
+    have_mean = 1;
+    return meanval;
+    }*/
+
+double compute_stdev(vector<double> scores, double mean) {
+    double rv=0;
     if (scores.size() <= 1)
         fprintf(stderr, "Error: trying to get stdev with %i scores\n",
                 (int)scores.size());
+    for (unsigned int i=0; i < scores.size(); i++) {
+        double diff=scores[i]-mean;
+        rv += diff*diff;
+    }
+    return sqrt(rv/((double)(scores.size()-1)));
+}
+
+    /*template<class scoreT> scoreT Interval<scoreT>::stdev() {
     if (!have_mean)
         this->mean();
-    for (unsigned int i=0; i < scores.size(); i++) {
-        double diff=scores[i]-meanval;
-        stdev += diff*diff;
-    }
-    return sqrt(stdev/((double)(scores.size()-1)));
-}
-    /*
-vector<double> Interval::quantiles(vector<double> q) {
-    vector<double> result(q.size());
-    vector<double> p(scores.size());
-    unsigned int i;
-    double dist = 1.0/scores.size();
-    std::sort(scores.begin(), scores.end());
-    for (i=0; i < scores.size(); i++)
-        p[i] = (0.5+i)/scores.size();
-    for (i=0; i < q.size(); i++) {
-        if (q[i] < 0 || q[i] > 1) {
-            fprintf(stderr, "Error: quantiles expects values between 0 and 1\n");
-            exit(1);
-        }
-        if (q[i] <= p[0])
-            result[i]=scores[0];
-        else if (q[i] >= p[scores.size()-1])
-            result[i]=scores[scores.size()-1];
-        else {
-            int pos1=(int)(q[i]*scores.size());
-            if (q[i] < p[pos1]) pos1--;
-            int pos2=pos1+1;
-            if (q[i] < p[pos1] ||
-                q[i] > p[pos2]) {
-                fprintf(stderr, "Error: %f %f %f\n", p[pos1], q[i], p[pos2]);
-                assert(q[i] >= p[pos1] && q[i] <= p[pos2]);
-            }
-            double d1 = 1.0-(q[i]-p[pos1])/dist;
-            double d2 = 1.0-(p[pos2]-q[i])/dist;
-            result[i] = d1*scores[pos1] + d2*scores[pos2];
-        }
-    }
-    return result;
+    return stdev(scores, meanval);
     }*/
 
 
-vector<double> Interval::quantiles(vector<double> q) {
+vector<double> compute_quantiles(vector<double> scores, vector<double> q) {
     vector<double> result(q.size());
     vector<double> p(scores.size());
     unsigned int i;
@@ -92,25 +68,25 @@ vector<double> Interval::quantiles(vector<double> q) {
     }
     return result;
 }
+    /*
+template<class scoreT> vector<scoreT> Interval<scoreT>::quantiles(vector<double> q) {
+    return quantiles(scores, q);
+    }*/
 
-double Interval::quantile(double q) {
-    vector<double> qv(1);
-    qv[0]=q;
-    return this->quantiles(qv)[0];
-}
 
-Interval IntervalIterator::next() {
-    Interval rv("", -1, -1);
+    /*Interval<scoreT> IntervalIterator<scoreT>::next() {
+    Interval<scoreT> rv("", -1, -1);
     if (combined.size() > 0) {
         rv = combined.front();
         combined.pop_front();
     }
     return rv;
-}
+    }*/
 
-void IntervalIterator::pushNext(string chr, int start, int end) {
-    Interval newCombined(chr, start, end);
-    std::list<Interval>::iterator curr_it, next_it;
+    /*template<class scoreT>
+void IntervalIterator<scoreT>::pushNext(string chr, int start, int end) {
+    Interval<scoreT> newCombined(chr, start, end);
+    typename std::list<Interval<scoreT> >::iterator curr_it, next_it;
     curr_it = intervals.begin();
     next_it = intervals.begin();
     next_it++;
@@ -131,10 +107,10 @@ void IntervalIterator::pushNext(string chr, int start, int end) {
         next_it++;
     }
     combined.push_back(newCombined);
-}
+    }*/
 
 
-void IntervalIterator::finish() {
+    /*template<class scoreT> void IntervalIterator<scoreT>::finish() {
     std::set<int>::iterator it=bounds.begin();
     int startCoord, endCoord;
 
@@ -146,10 +122,11 @@ void IntervalIterator::finish() {
         startCoord = endCoord;
     }
     bounds.clear();
-}
+    }*/
 
-void IntervalIterator::append(string chr, int start, int end, double score) {
-    Interval newint(chr, start, end, score);
+    /*template<class scoreT> void IntervalIterator<scoreT>::append(string chr, int start, int end,
+                                      scoreT score) {
+    Interval<scoreT> newint(chr, start, end, score);
     std::set<int>::iterator it, prev_it;
     int startCoord, endCoord;
 
@@ -171,5 +148,30 @@ void IntervalIterator::append(string chr, int start, int end, double score) {
         prev_it = it;
         startCoord = endCoord;
     }
-}
+    }*/
+
+    /*void IntervalIterator<scoreT>::printResults() {
+    Interval<scoreT> summary = this->next();
+    while (summary.start != summary.end) {
+        cout << summary.chrom << "\t" << summary.start << "\t"
+             << summary.end;
+        for (int i=1; i <= summarize; i++) {
+            if (getNumSample==i) {
+                printf("\t%i", summary.num_score());
+            } else if (getMean==i) {
+                printf("\t%f", summary.mean());
+            } else if (getStdev==i) {
+                printf("\t%f", summary.stdev());
+            } else if (getQuantiles==i) {
+                vector<double> q = summary.quantiles(quantiles);
+                for (unsigned int j=0; j < quantiles.size(); j++) {
+                    printf("\t%f", q[j]);
+                }
+            }
+        }
+        cout << "\n";
+        summary = results->next();
+    }
+    }*/
+
 }

@@ -19,12 +19,12 @@
 #include <iostream>
 #include <cstring>
 #include <string>
+#include <map>
 
 namespace spidir {
 
 using namespace argweaver;
 
-//return true if c is one of (),:#![]
 bool isNewickChar(char c) {
     static vector<int> vals(8);
     static int called=0;
@@ -49,22 +49,28 @@ bool isNewickChar(char c) {
 Tree::Tree(string newick)
 {
     int len = newick.length();
-    Node * node = NULL;
+    Node *node = NULL;
     vector <int> stack;
 
     nnodes=0;
-    root = new Node();
-    nodes.append(root);
-    stack.push_back(nnodes);
-    root->name=nnodes++;
+    for (int i=0; i < len; i++)
+        if (newick[i]=='(') nnodes++;
+    nnodes += (nnodes+1);  //add in leaves
+    nodes.setCapacity(nnodes);
+    for (int i=0; i < nnodes; i++) {
+        nodes[i] = new Node();
+    }
+    root = nodes[0];
+    root->name = 0;
+    stack.push_back(0);
+    nnodes = 1;
 
     for (int i=0; i < len; i++) {
         switch (newick[i]) {
         case ',':
             stack.pop_back();
         case '(':
-            node = new Node();
-            nodes.append(node);
+            node = nodes[nnodes];
             if (stack.size()==0) {
                 printError("bad newick: error parsing tree");
             } else {
@@ -86,7 +92,7 @@ Tree::Tree(string newick)
                 printError("bad newick: error reading distance");
                 printf("&newick[%i+1]=%s\n", i, &newick[i+1]);
                 printf("node->dist=%f\n", node->dist);
-                i=len;
+                exit(1);
             }
             i=j-1;
             break;
@@ -125,13 +131,11 @@ Tree::Tree(string newick)
         }
     }
     if (node != root) {
-        printError("bad newick format: did not end witih root");
+        printError("bad newick format: did not end with root");
     }
     //All done, now fill in children
     for (int i=0; i < nnodes; i++) {
-        //        cout << "node " << i << " parent==NULL=" << (int)(nodes[i]->parent==NULL) << endl;
         if (nodes[i]->parent != NULL) {
-            //            cout << "node " << i << " has parent " << nodes[i]->parent->name << endl;
             nodes[i]->parent->addChild(nodes[i]);
         }
     }

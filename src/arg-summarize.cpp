@@ -21,6 +21,7 @@
 #include "IntervalIterator.h"
 #include <set>
 
+//#include "allele_age.h"
 
 using namespace argweaver;
 using namespace spidir;
@@ -28,6 +29,13 @@ using namespace spidir;
 /* Initial version: just have it output bedgraph with a stat for each
    line of input.
  */
+
+int numstat=0;
+int tmrca=0;
+int rth=0;
+int branchlen=0;
+int popsize=0;
+int tmrca_half=0;
 
 int summarize=0;
 int getNumSample=0;
@@ -57,6 +65,8 @@ int print_help() {
 	   "   per line, which should be retained. All others will be removed before\n"
 	   "   statistics are computed.\n"
            "STATISTICS:\n"
+           "--tree,-E\n"
+           "  output newick tree strings (cannot use summary options with this)\n"
            "--tmrca,-T\n"
            "  time to the most recent common ancestor\n"
            "--branchlen,-B\n"
@@ -67,6 +77,12 @@ int print_help() {
            "  relative TMRCA Halftime\n"
            "--popsize,-P\n"
            "  estimated popsize\n"
+	   //           "--allele-age,-A <snp file>\n"
+	   //           "  Compute allele age for all CG snps in the region. snp_file\n"
+	   //           "  needs to contain phased SNP information in the format\n"
+	   //           " chr,start,end,AAAAACAAAA\n"
+	   //           " a header like the following needs to identify haplotype order:\n"
+	   //           " #NAMES NA06985_1       NA06985_2       NA06994_1       NA06994_2.."
            "SUMMARY OPTIONS:\n"
            "--numsample,-N\n"
            "  number of samples covering each region\n"
@@ -87,46 +103,61 @@ int print_help() {
     return 0;
 }
 
-void checkResults(IntervalIterator *results) {
-    Interval summary=results->next();
+void checkResults(IntervalIterator<vector<double> > *results) {
+    Interval<vector<double> > summary=results->next();
+    vector<vector <double> > scores;
     while (summary.start != summary.end) {
         cout << summary.chrom << "\t" << summary.start << "\t"
              << summary.end;
-
-        for (int i=1; i <= summarize; i++) {
-            if (getNumSample==i) {
-                printf("\t%i", summary.num_score());
-            } else if (getMean==i) {
-                printf("\t%f", summary.mean());
-            } else if (getStdev==i) {
-                printf("\t%f", summary.stdev());
-            } else if (getQuantiles==i) {
-                vector<double> q = summary.quantiles(quantiles);
-                for (unsigned int j=0; j < quantiles.size(); j++) {
-                    printf("\t%f", q[j]);
+        scores = summary.get_scores();
+        if (scores.size() > 0) {
+            vector<double> tmpScore(scores.size());
+            int numscore = scores[0].size();
+            assert(numscore > 0);
+            for (int i=0; i < numscore; i++) {
+                int have_mean = 0;
+                double meanval=-1;
+                for (unsigned int j=0; j < scores.size(); j++)
+                    tmpScore[j] = scores[j][i];
+                if (i==0 && getNumSample > 0) printf("\t%i", (int)scores.size());
+                for (int j=1; j <= summarize; j++) {
+                    if (getMean==j) {
+                        meanval = compute_mean(tmpScore);
+                        have_mean=1;
+                        printf("\t%f", meanval);
+                    } else if (getStdev==j) {
+                        if (!have_mean)
+                            meanval = compute_mean(tmpScore);
+                        printf("\t%f", compute_stdev(tmpScore, meanval));
+                    } else if (getQuantiles==j) {
+                        vector<double> q = compute_quantiles(tmpScore, quantiles);
+                        for (unsigned int k=0; k < quantiles.size(); k++) {
+                            printf("\t%f", q[k]);
+                        }
+                    }
                 }
             }
+            printf("\n");
         }
-        cout << "\n";
         summary = results->next();
     }
 }
 
-int summarizeRegion(char *filename, const char *region,
-                    set<string> inds,   double (Tree::*stat)()) {
+
+int summarizeRegion(char *filename, const char *region, 
+                    set<string> inds, vector<string>statname) {
     TabixStream *infile;
-    char *line;
+    char *line, c;
     char *region_chrom = NULL;
-    const char *chrom;
+    char chrom[1000];
     vector<string> token;
     int region_start=-1, region_end=-1, start, end, sample;
-    Tree *tree;
-    double val;
+    Tree *tree=NULL;
     int counter=0;
-    IntervalIterator results;
+    IntervalIterator<vector<double> > results;
+    map<int,string> indmap;
 
     infile = new TabixStream(filename, region, tabix_dir);
-
     if (infile == NULL) {
         fprintf(stderr, "Error opening %s, region=%s\n",
                 filename, region==NULL ? "NULL" : region);
@@ -145,20 +176,31 @@ int summarizeRegion(char *filename, const char *region,
         region_start = atoi(token[1].c_str())-1;
         region_end = atoi(token[2].c_str());
     }
-    while ((line = fgetline(infile->stream))) {
-        token.clear();
-        split(line, '\t', token);
-        if (token.size() != 5) {
-            fprintf(stderr, "Bad bedfile format; expected 5 columns per row"
-                    "with chrom,start,end,sample,tree\n");
-            return 1;
+    while (EOF != (c=fgetc(infile->stream))) {
+        ungetc(c, infile->stream);
+        if (c!='#') break;
+        while ('\n' != (c=fgetc(infile->stream))) {
+           if (c==EOF) return 0;
         }
-        chrom = token[0].c_str();
-        start = atoi(token[1].c_str());
-        end = atoi(token[2].c_str());
-        sample = atoi(token[3].c_str());
-        tree = new Tree(token[4]);
-
+    }
+    int parse_tree = (inds.size() > 0);
+    if (!parse_tree) {
+      for (unsigned int i=0; i < statname.size(); i++) {
+         if (statname[i]!="tree") {
+           parse_tree=1;
+           break;
+         }
+      }
+    }
+    //    fprintf(stderr, "parse_tree=%i\n", parse_tree); fflush(stderr);
+    while (EOF != fscanf(infile->stream, "%s %i %i %i",
+                         chrom, &start, &end, &sample)) {
+        assert('\t' == fgetc(infile->stream));
+        line = fgetline(infile->stream);
+        chomp(line);
+        if (parse_tree) {
+          tree = new Tree(string(line));
+        }
 	if (inds.size() > 0) {
             tree->prune(inds, true);
 	}
@@ -169,26 +211,51 @@ int summarizeRegion(char *filename, const char *region,
             if (start < region_start) start = region_start;
             assert(start < end);
         }
-        if (stat != NULL) {
-            val = (tree->*stat)();
-
-            if (!summarize) {
-                printf("%s\t%i\t%i\t%i\t%f\n", chrom, start, end, sample, val);
+        vector<double>stats(statname.size());
+        for (unsigned int i=0; i < statname.size(); i++) {
+            if (statname[i] == "tmrca")
+                stats[i] = tree->tmrca();
+            else if (statname[i]=="tmrca_half")
+                stats[i] = tree->tmrca_half();
+	    else if (statname[i]=="branchlen")
+		stats[i] = tree->total_branchlength();
+            else if (statname[i]=="rth")
+                stats[i] = tree->rth();
+            else if (statname[i]=="popsize")
+                stats[i] = tree->popsize();
+            else if (statname[i]=="allele_age") {
+                fprintf(stderr, "Error: allele age not yet implemented\n");
+                exit(1);
             } else {
-                results.append(chrom, start, end, val);
-                counter++;
-                if (counter%100==0) {
-                    checkResults(&results);
+		fprintf(stderr, "Error: unknown stat %s\n", statname[i].c_str());
+		exit(1);
+	    }
+        }
+        if (!summarize) {
+            printf("%s\t%i\t%i\t%i", chrom, start, end, sample);
+            for (unsigned int i=0; i < statname.size(); i++) {
+               if (statname[i]=="tree") {
+                  if (parse_tree) {
+                     printf("\t");
+                           //last arg means only print NHX if nothing pruned
+                     tree->print_newick(stdout, false, true, 1, inds.size()==0);
+                   } else {
+                      printf("\t%s", line);
+                   }
+                } else {
+                   printf("\t%f", stats[i]);
                 }
             }
-            //            cout << "\t" << val;
+            printf("\n");
         } else {
-            printf("%s\t%i\t%i\t%i\t\t%s", chrom, start, end, sample,
-                   token[4].c_str());
-                //            cout << "\t" << token[4];
+            results.append(chrom, start, end, stats);
+            counter++;
+            if (counter%100==0) {
+                checkResults(&results);
+            }
         }
-        delete tree;
-        delete [] line;
+        if (parse_tree) delete tree;
+        delete[] line;
     }
     infile->close();
     delete infile;
@@ -205,23 +272,25 @@ int summarizeRegion(char *filename, const char *region,
 int main(int argc, char *argv[]) {
   string chr, newick;
   int opt_idx;
-  //  Tree *tree;
   vector <string>tokens;
   set <string>inds;
   char c, *region=NULL, *filename = NULL, *bedfile = NULL, *indfile = NULL;
-  int numstat=0;
-  double (Tree::*stat)() = NULL;
-  char statname[100];
+  char *allele_age_file=NULL;
+  int numstat=0, rawtrees=0;
+  vector<string> statname;
+
   struct option long_opts[] = {
       {"region", 1, 0, 'r'},
       {"bed", 1, 0, 'b'},
       {"subset", 1, 0, 's'},
+      {"tree", 0, 0, 'E'},
       {"tmrca", 0, 0, 'T'},
       {"tmrca-half",0,0,'H'},
       {"branchlen", 0, 0, 'B'},
       {"rth", 0, 0, 'R'},
       {"popsize", 0, 0, 'P'},
       {"numsample", 0, 0, 'N'},
+      {"allele-age", 1, 0, 'A'},
       {"mean", 0, 0, 'M'},
       {"stdev", 0, 0, 'S'},
       {"quantile", 1, 0, 'Q'},
@@ -230,7 +299,7 @@ int main(int argc, char *argv[]) {
       {"help", 0, 0, 'h'},
       {0,0,0,0}};
 
-  while (( c = (char)getopt_long(argc, argv, "r:b:THBRPNMSQ:t:nh",
+  while (( c = (char)getopt_long(argc, argv, "r:b:TEHBRPNA:MSQ:t:nh",
                                  long_opts, &opt_idx)) != -1) {
       switch(c) {
       case 'r':
@@ -242,36 +311,34 @@ int main(int argc, char *argv[]) {
       case 's':
 	  indfile = optarg;
 	  break;
+      case 'E':
+          rawtrees=1;
+	  statname.push_back(string("tree"));
+          break;
       case 'T':
-          if (stat == NULL) {
-            stat = &Tree::tmrca;
-            strcpy(statname, "tmrca");
-          }
+          statname.push_back(string("tmrca"));
+          break;
       case 'H':
-          if (stat == NULL) {
-            stat = &Tree::tmrca_half;
-            strcpy(statname, "tmrca_half");
-          }
+          statname.push_back(string("tmrca_half"));
+          break;
       case 'B':
-          if (stat == NULL) {
-            stat = &Tree::total_branchlength;
-            strcpy(statname, "branchlen");
-          }
+          statname.push_back(string("branchlen"));
+          break;
       case 'R':
-          if (stat == NULL) {
-            stat = &Tree::rth;
-            strcpy(statname, "rth");
-          }
+          statname.push_back(string("rth"));
+          break;
       case 'P':
-          if (stat == NULL) {
-            stat = &Tree::popsize;
-            strcpy(statname, "popsize");
-          }
+          statname.push_back(string("popsize"));
+          break;
           numstat++;
           if (numstat > 1) {
               fprintf(stderr, "Error: can only compute one statistic at a time\n");
               exit(-1);
           }
+          break;
+      case 'A':
+          allele_age_file = optarg;
+          statname.push_back(string("allele_age"));
           break;
       case 'N':
           getNumSample=++summarize;
@@ -312,10 +379,17 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Error: --bed and --region cannot be used together.\n");
       return 1;
   }
-
-  if (summarize && stat==NULL) {
+  if (statname.size() == 0) {
+     fprintf(stderr, "Error: need to specify a tree statistic\n");
+     return 1;
+  }
+  if (summarize && (statname.size()==0 && allele_age_file==NULL)) {
       fprintf(stderr, "Error: need to specify a tree statistic\n");
       return 1;
+  }
+  if (summarize && rawtrees) {
+     fprintf(stderr, "Error: --trees not compatible with summary statistics (--mean, --quantile, --stdev, --numsample)\n");
+     return 1;
   }
   //TODO: note that --prune removes NHX tags, cannot be used for recomb rate (or can it?)
 
@@ -332,22 +406,23 @@ int main(int argc, char *argv[]) {
       printf("#chrom\tchromStart\tchromEnd");
       if (summarize==0)
           printf("\tMCMC_sample");
-      if (stat==NULL)
-          printf("\ttree");
-      else {
+      /*      if (allele_age_file != NULL) {
+          printf("\tder\tanc\tnsample_clear\tnsample_switch\tnsample_multmut");
+	  }*/
+      if (getNumSample > 0) printf("\tnumsample");
+      for (unsigned int j=0; j < statname.size(); j++) {
           if (summarize==0) {
-              printf("\t%s", statname);
+              printf("\t%s", statname[j].c_str());
           }
           for (int i=1; i <= summarize; i++) {
-              if (getNumSample==i) {
-                  printf("\t%s_numsample", statname);
-              } else if (getMean==i) {
-                printf("\t%s_mean", statname);
+              if (getMean==i) {
+                  printf("\t%s_mean", statname[j].c_str());
               } else if (getStdev==i) {
-                  printf("\t%s_stdev", statname);
+                  printf("\t%s_stdev", statname[j].c_str());
               } else if (getQuantiles==i) {
-                  for (unsigned int j=0; j < quantiles.size(); j++) {
-                      printf("\t%s_quantile_%.3f", statname, quantiles[j]);
+                  for (unsigned int k=0; k < quantiles.size(); k++) {
+                      printf("\t%s_quantile_%.3f", statname[j].c_str(),
+                             quantiles[k]);
                   }
               }
           }
@@ -372,7 +447,8 @@ int main(int argc, char *argv[]) {
   }
 
   if (bedfile == NULL) {
-      summarizeRegion(filename, region, inds, stat);
+      summarizeRegion(filename, //allele_age_file,
+                      region, inds, statname);
   } else {
       CompressStream bedstream(bedfile);
       char *line;
@@ -392,9 +468,11 @@ int main(int argc, char *argv[]) {
           int start = atoi(token[1].c_str());
           int end = atoi(token[2].c_str());
           sprintf(regionStr, "%s:%i-%i", token[0].c_str(), start+1, end);
-          summarizeRegion(filename, regionStr, inds, stat);
+          summarizeRegion(filename, //allele_age_file,
+                          regionStr, inds, statname);
           delete [] regionStr;
       }
+      bedstream.close();
   }
 
   return 0;

@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string>
 #include <set>
+#include <map>
 
 #include "ExtendArray.h"
 

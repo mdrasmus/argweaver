@@ -33,7 +33,7 @@ FILE *read_tabix(const char *filename, const char *region,
         return NULL;
         }*/
     char *quoted_arg = quote_arg(filename);
-    string cmd = "tabix  " + string(quoted_arg) + " " +  region;
+    string cmd = "tabix -h " + string(quoted_arg) + " " +  region;
     delete[] quoted_arg;
     if (tabix_dir != NULL)
         cmd = string(tabix_dir) + "/" + cmd;
