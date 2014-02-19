@@ -223,6 +223,7 @@ int summarizeRegion(char *filename, const char *region,
                 stats[i] = tree->rth();
             else if (statname[i]=="popsize")
                 stats[i] = tree->popsize();
+	    else if (statname[i]=="tree");
             else if (statname[i]=="allele_age") {
                 fprintf(stderr, "Error: allele age not yet implemented\n");
                 exit(1);
