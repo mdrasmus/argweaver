@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
       {"help", 0, 0, 'h'},
       {0,0,0,0}};
 
-  while (( c = (char)getopt_long(argc, argv, "r:b:TEHBRPNA:MSQ:t:nh",
+  while (( c = (char)getopt_long(argc, argv, "r:b:s:TEHBRPNA:MSQ:t:nh",
                                  long_opts, &opt_idx)) != -1) {
       switch(c) {
       case 'r':
