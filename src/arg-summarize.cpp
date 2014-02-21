@@ -9,6 +9,7 @@
 #include <getopt.h>
 #include <assert.h>
 #include <vector>
+#include <math.h>
 
 // arghmm includes
 #include "ConfigParam.h"
@@ -30,12 +31,6 @@ using namespace spidir;
    line of input.
  */
 
-int numstat=0;
-int tmrca=0;
-int rth=0;
-int branchlen=0;
-int popsize=0;
-int tmrca_half=0;
 
 int summarize=0;
 int getNumSample=0;
@@ -71,9 +66,11 @@ int print_help() {
            "  time to the most recent common ancestor\n"
            "--branchlen,-B\n"
            "  total branch length\n"
+	   "--recomb,-R\n"
+	   "  recombination rate (per generation/bp)\n"
            "--tmrca-half,-H\n"
            "  Time for half of samples to reach a common ancestor\n"
-           "--rth,-R\n"
+           "--rth,-F\n"
            "  relative TMRCA Halftime\n"
            "--popsize,-P\n"
            "  estimated popsize\n"
@@ -124,15 +121,15 @@ void checkResults(IntervalIterator<vector<double> > *results) {
                     if (getMean==j) {
                         meanval = compute_mean(tmpScore);
                         have_mean=1;
-                        printf("\t%f", meanval);
+                        printf("\t%g", meanval);
                     } else if (getStdev==j) {
                         if (!have_mean)
                             meanval = compute_mean(tmpScore);
-                        printf("\t%f", compute_stdev(tmpScore, meanval));
+                        printf("\t%g", compute_stdev(tmpScore, meanval));
                     } else if (getQuantiles==j) {
                         vector<double> q = compute_quantiles(tmpScore, quantiles);
                         for (unsigned int k=0; k < quantiles.size(); k++) {
-                            printf("\t%f", q[k]);
+                            printf("\t%g", q[k]);
                         }
                     }
                 }
@@ -145,7 +142,8 @@ void checkResults(IntervalIterator<vector<double> > *results) {
 
 
 int summarizeRegion(char *filename, const char *region, 
-                    set<string> inds, vector<string>statname) {
+                    set<string> inds, vector<string>statname,
+                    vector<float> times) {
     TabixStream *infile;
     char *line, c;
     char *region_chrom = NULL;
@@ -195,11 +193,15 @@ int summarizeRegion(char *filename, const char *region,
     //    fprintf(stderr, "parse_tree=%i\n", parse_tree); fflush(stderr);
     while (EOF != fscanf(infile->stream, "%s %i %i %i",
                          chrom, &start, &end, &sample)) {
+	double bl=-1.0;
+	int orig_len = end-start;
         assert('\t' == fgetc(infile->stream));
         line = fgetline(infile->stream);
         chomp(line);
         if (parse_tree) {
           tree = new Tree(string(line));
+	  if (times.size() > 0)
+	      tree->correct_times(times);
         }
 	if (inds.size() > 0) {
             tree->prune(inds, true);
@@ -217,12 +219,20 @@ int summarizeRegion(char *filename, const char *region,
                 stats[i] = tree->tmrca();
             else if (statname[i]=="tmrca_half")
                 stats[i] = tree->tmrca_half();
-	    else if (statname[i]=="branchlen")
-		stats[i] = tree->total_branchlength();
+	    else if (statname[i]=="branchlen") {
+		if (bl < 0) {
+		    stats[i] = tree->total_branchlength();
+		    bl=stats[i];
+		}
+	    }
             else if (statname[i]=="rth")
                 stats[i] = tree->rth();
             else if (statname[i]=="popsize")
                 stats[i] = tree->popsize();
+	    else if (statname[i]=="recomb") {
+		if (bl < 0) bl = tree->total_branchlength();
+		stats[i] = 1.0/(bl*(double)orig_len);
+	    }
 	    else if (statname[i]=="tree");
             else if (statname[i]=="allele_age") {
                 fprintf(stderr, "Error: allele age not yet implemented\n");
@@ -244,7 +254,7 @@ int summarizeRegion(char *filename, const char *region,
                       printf("\t%s", line);
                    }
                 } else {
-                   printf("\t%f", stats[i]);
+                   printf("\t%g", stats[i]);
                 }
             }
             printf("\n");
@@ -275,21 +285,27 @@ int main(int argc, char *argv[]) {
   int opt_idx;
   vector <string>tokens;
   set <string>inds;
-  char c, *region=NULL, *filename = NULL, *bedfile = NULL, *indfile = NULL;
+  char c, *region=NULL, *filename = NULL, *bedfile = NULL, *indfile = NULL,
+      *timesfile=NULL;
   char *allele_age_file=NULL;
   int numstat=0, rawtrees=0;
   vector<string> statname;
+ // map<string,float> times;
+  vector<float> times;
 
   struct option long_opts[] = {
       {"region", 1, 0, 'r'},
+      {"times", 1, 0, 'm'},
       {"bed", 1, 0, 'b'},
       {"subset", 1, 0, 's'},
       {"tree", 0, 0, 'E'},
       {"tmrca", 0, 0, 'T'},
+      {"recomb", 0, 0, 'R'},
       {"tmrca-half",0,0,'H'},
       {"branchlen", 0, 0, 'B'},
-      {"rth", 0, 0, 'R'},
+      {"rth", 0, 0, 'F'},
       {"popsize", 0, 0, 'P'},
+      {"recomb", 0, 0, 'R'},
       {"numsample", 0, 0, 'N'},
       {"allele-age", 1, 0, 'A'},
       {"mean", 0, 0, 'M'},
@@ -300,12 +316,15 @@ int main(int argc, char *argv[]) {
       {"help", 0, 0, 'h'},
       {0,0,0,0}};
 
-  while (( c = (char)getopt_long(argc, argv, "r:b:s:TEHBRPNA:MSQ:t:nh",
+  while (( c = (char)getopt_long(argc, argv, "r:m:b:s:TEHBRFPNA:MSQ:t:nh",
                                  long_opts, &opt_idx)) != -1) {
       switch(c) {
       case 'r':
           region = optarg;
           break;
+      case 'm':
+	  timesfile = optarg;
+	  break;
       case 'b':
           bedfile = optarg;
           break;
@@ -325,9 +344,12 @@ int main(int argc, char *argv[]) {
       case 'B':
           statname.push_back(string("branchlen"));
           break;
-      case 'R':
+      case 'F':
           statname.push_back(string("rth"));
           break;
+      case 'R':
+	  statname.push_back(string("recomb"));
+	  break;
       case 'P':
           statname.push_back(string("popsize"));
           break;
@@ -431,6 +453,20 @@ int main(int argc, char *argv[]) {
       printf("\n");
   }
 
+  if (timesfile != NULL) {
+      FILE *infile = fopen(timesfile, "r");
+      float t;
+      if (infile == NULL) {
+	  fprintf(stderr, "Error opening %s.\n", timesfile);
+	  return 1;
+      }
+      while (EOF != fscanf(infile, "%f", &t)) 
+	   times.push_back(t);
+      std::sort(times.begin(), times.end());
+      fclose(infile);
+      //      fprintf(stderr, "read %i times\n", (int)times.size());
+  }
+
   if (indfile != NULL) {
     ifstream in(indfile);
     string line;
@@ -449,7 +485,7 @@ int main(int argc, char *argv[]) {
 
   if (bedfile == NULL) {
       summarizeRegion(filename, //allele_age_file,
-                      region, inds, statname);
+                      region, inds, statname, times);
   } else {
       CompressStream bedstream(bedfile);
       char *line;
@@ -470,7 +506,7 @@ int main(int argc, char *argv[]) {
           int end = atoi(token[2].c_str());
           sprintf(regionStr, "%s:%i-%i", token[0].c_str(), start+1, end);
           summarizeRegion(filename, //allele_age_file,
-                          regionStr, inds, statname);
+                          regionStr, inds, statname, times);
           delete [] regionStr;
       }
       bedstream.close();

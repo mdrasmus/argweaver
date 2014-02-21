@@ -15,6 +15,7 @@
 #include <string>
 #include <set>
 #include <map>
+#include <vector>
 
 #include "ExtendArray.h"
 
@@ -184,6 +185,7 @@ public:
 
     int nchildren;      // number of children
     float dist;         // branch length above node
+    float age;
     string longname;    // node name (used mainly for leaves only)
     string nhx;         // NHX-style comment; includes the "&&NHX"
                         //   but not the  square brackets
@@ -298,6 +300,14 @@ public:
 
     // Roots the tree on branch connecting 'node1' and 'node2'
     void reroot(Node *node1, Node *node2);
+
+    // Removes rounding error by replacing times from newick string
+    // with actual times from times.size() timepoints (by finding
+    // closest time, must be within tol)
+    // NOTE: times must be sorted!
+    // Also note: assumes same distance to ancestral node from all child nodes
+    void correct_times(vector<float> times, double tol=1);
+    //void correct_times(map<string,float> times);
 
     double total_branchlength();
     double tmrca();

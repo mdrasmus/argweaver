@@ -141,6 +141,38 @@ Tree::Tree(string newick)
     }
 }
 
+
+//void Tree::correct_times(map<string,float> times) {
+void Tree::correct_times(vector<float> times, double tol) {
+    ExtendArray<Node*> postnodes;
+    unsigned int lasttime=0, j;
+    getTreePostOrder(this, &postnodes);
+    for (int i=0; i < postnodes.size(); i++) {
+	if (postnodes[i]->nchildren == 0) {
+	    postnodes[i]->age = 0.0;
+	    lasttime = 0;
+	    for (j=0; j < times.size(); j++)
+		if (fabs(times[j]-postnodes[i]->dist) < tol) break;
+	    if (j == times.size()) {
+		printError("No node has time %f (leaf)", postnodes[i]->dist);
+	    }
+	    postnodes[i]->dist = times[j];
+	}
+	else {
+	    postnodes[i]->age = postnodes[i]->children[0]->age + 
+		postnodes[i]->children[0]->dist;
+	    float newage = postnodes[i]->age + postnodes[i]->dist;
+	   for (j=lasttime; j < times.size(); j++) 
+		if (fabs(times[j]-newage) < tol) break;
+	    if (j == times.size())
+		printError("No node has time %f", newage);
+	    postnodes[i]->dist = (float)times[j] - postnodes[i]->age;
+	    lasttime = j;
+	}
+    }
+}
+
+
 void Tree::print_newick_recur(FILE *f, Node *n, bool internal_names,
                               char *branch_format_str,
                               bool show_nhx, bool oneline) {
