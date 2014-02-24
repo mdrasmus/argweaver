@@ -10,6 +10,8 @@
 #include <assert.h>
 #include <vector>
 #include <math.h>
+#include <queue>
+#include <map>
 
 // arghmm includes
 #include "ConfigParam.h"
@@ -140,20 +142,133 @@ void checkResults(IntervalIterator<vector<double> > *results) {
     }
 }
 
+class BedLine {
+public:
+  BedLine(char *chrom, int start, int end, int sample, char *newick, Tree *tree):
+    chrom(chrom), start(start), end(end), newick(newick), tree(tree) {};
+  char *chrom;
+  int start;
+  int end;
+  int sample;
+  char *newick;
+  Tree *tree;
+};
+
+
+void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *results,
+			vector<string> statname, 
+			char *region_chrom, int region_start, int region_end) {
+  Tree *tree = line->tree;
+  double bl=-1.0;
+  vector<double>stats(statname.size());
+  static int counter=0;
+  for (unsigned int i=0; i < statname.size(); i++) {
+    if (statname[i] == "tmrca")
+      stats[i] = tree->tmrca();
+    else if (statname[i]=="tmrca_half")
+      stats[i] = tree->tmrca_half();
+    else if (statname[i]=="branchlen") {
+      if (bl < 0) {
+	stats[i] = tree->total_branchlength();
+	bl=stats[i];
+      }
+    }
+    else if (statname[i]=="rth")
+      stats[i] = tree->rth();
+    else if (statname[i]=="popsize")
+      stats[i] = tree->popsize();
+    else if (statname[i]=="recomb") {
+      if (bl < 0) bl = tree->total_branchlength();
+      stats[i] = 1.0/(bl*(double)(line->end - line->start));
+    }
+    else if (statname[i]=="tree");
+    else if (statname[i]=="allele_age") {
+      fprintf(stderr, "Error: allele age not yet implemented\n");
+      exit(1);
+    } else {
+      fprintf(stderr, "Error: unknown stat %s\n", statname[i].c_str());
+      exit(1);
+    }
+  }
+  if (region_chrom != NULL) {
+    assert(strcmp(region_chrom, line->chrom)==0);
+    if (line->end > region_end) line->end = region_end;
+    if (line->start < region_start) line->start = region_start;
+    assert(line->start < line->end);
+  }
+  if (!summarize) {
+    printf("%s\t%i\t%i\t%i", line->chrom, line->start, line->end, line->sample);
+    for (unsigned int i=0; i < statname.size(); i++) {
+      if (statname[i]=="tree") {
+	if (tree != NULL) {
+	  printf("\t");
+	  tree->print_newick(stdout, false, true, 1, 1);
+	} else {
+	  printf("\t%s", line->newick);
+	}
+      } else {
+	printf("\t%g", stats[i]);
+      }
+    }
+    printf("\n");
+  } else {
+    results->append(line->chrom, line->start, line->end, stats);
+    counter++;
+    if (counter%100==0) {
+      checkResults(results);
+    }
+  }
+}
 
 int summarizeRegion(char *filename, const char *region, 
                     set<string> inds, vector<string>statname,
                     vector<float> times) {
     TabixStream *infile;
-    char *line, c;
+    char c;
     char *region_chrom = NULL;
     char chrom[1000];
     vector<string> token;
     int region_start=-1, region_end=-1, start, end, sample;
-    Tree *tree=NULL;
-    int counter=0;
     IntervalIterator<vector<double> > results;
-    map<int,string> indmap;
+    queue<BedLine*> bedlineQueue;
+    map<int,BedLine*> bedlineMap;
+
+    /* 
+       Summary of algorithm to be implemented.
+       Create class bedline containing chr,start,end, parsed tree.
+       Parsed tree has recomb_node, recomb_time, coal_node, coal_time set
+         (NULL => no recomb at end of region)
+
+       Queue bedlineQueue contains pointers to this class
+       bedlineMap<int,bedlineQueue> maps samples to pointers of the most recently 
+         read instance of bedline for each sample. It points to the same objects
+         as bedlineQueue (not copies).
+
+       For each line of file:
+       Read chr, start, end, sample, tree string.
+       Look up bedlineMap<sample> = lastSample
+       If (lastSample == NULL) {
+         parse tree. Make new bedline object, add it to bedlineMap and end of bedlineQueue.
+       } else if (lastSample->recomb_node != NULL) {
+         apply SPR to lastSample->tree to create new parsed tree. Use this tree
+         to create new bedline object, add it to bedlineMap and end of bedlineQueue.
+       } else { //lastSample does not end in recomb
+         assert that lastSample->end==start and lastSample->chr==chr
+         update lastSample->end=end
+         determine if tree string ends in recomb, update recomb_node, recomb_time, etc if so. (This is a tricky part esp if there is pruning involved).
+       }
+       while (first element of queue ends in recomb) {
+         compute statistics for first element of queue
+         add to intervaliterator
+         if bedlineMap<sample>==(first element in queue), set bedlineMap<sample>=NULL
+	 pop from queue
+       }
+
+      After reading all lines:
+        go through queue and dump everything to intervalIterator...
+
+     */
+
 
     infile = new TabixStream(filename, region, tabix_dir);
     if (infile == NULL) {
@@ -190,86 +305,67 @@ int summarizeRegion(char *filename, const char *region,
          }
       }
     }
-    //    fprintf(stderr, "parse_tree=%i\n", parse_tree); fflush(stderr);
+
     while (EOF != fscanf(infile->stream, "%s %i %i %i",
                          chrom, &start, &end, &sample)) {
-	double bl=-1.0;
-	int orig_len = end-start;
-        assert('\t' == fgetc(infile->stream));
-        line = fgetline(infile->stream);
-        chomp(line);
-        if (parse_tree) {
-          tree = new Tree(string(line));
-	  if (times.size() > 0)
-	      tree->correct_times(times);
-        }
-	if (inds.size() > 0) {
-            tree->prune(inds, true);
-	}
+      assert('\t'==fgetc(infile->stream));
+      char* newick = fgetline(infile->stream);
+      chomp(newick);
 
-        if (region_chrom != NULL) {
-            assert(strcmp(region_chrom, chrom)==0);
-            if (end > region_end) end = region_end;
-            if (start < region_start) start = region_start;
-            assert(start < end);
-        }
-        vector<double>stats(statname.size());
-        for (unsigned int i=0; i < statname.size(); i++) {
-            if (statname[i] == "tmrca")
-                stats[i] = tree->tmrca();
-            else if (statname[i]=="tmrca_half")
-                stats[i] = tree->tmrca_half();
-	    else if (statname[i]=="branchlen") {
-		if (bl < 0) {
-		    stats[i] = tree->total_branchlength();
-		    bl=stats[i];
-		}
-	    }
-            else if (statname[i]=="rth")
-                stats[i] = tree->rth();
-            else if (statname[i]=="popsize")
-                stats[i] = tree->popsize();
-	    else if (statname[i]=="recomb") {
-		if (bl < 0) bl = tree->total_branchlength();
-		stats[i] = 1.0/(bl*(double)orig_len);
-	    }
-	    else if (statname[i]=="tree");
-            else if (statname[i]=="allele_age") {
-                fprintf(stderr, "Error: allele age not yet implemented\n");
-                exit(1);
-            } else {
-		fprintf(stderr, "Error: unknown stat %s\n", statname[i].c_str());
-		exit(1);
-	    }
-        }
-        if (!summarize) {
-            printf("%s\t%i\t%i\t%i", chrom, start, end, sample);
-            for (unsigned int i=0; i < statname.size(); i++) {
-               if (statname[i]=="tree") {
-                  if (parse_tree) {
-                     printf("\t");
-                           //last arg means only print NHX if nothing pruned
-                     tree->print_newick(stdout, false, true, 1, inds.size()==0);
-                   } else {
-                      printf("\t%s", line);
-                   }
-                } else {
-                   printf("\t%g", stats[i]);
-                }
-            }
-            printf("\n");
-        } else {
-            results.append(chrom, start, end, stats);
-            counter++;
-            if (counter%100==0) {
-                checkResults(&results);
-            }
-        }
-        if (parse_tree) delete tree;
-        delete[] line;
+      map<int,BedLine*>::iterator it = bedlineMap.find(sample);
+      if (it == bedlineMap.end()) {  //have not read from this sample before
+	// TODO: updte new Tree function to take times and automatically call correct_times if not NULL
+	Tree *t;
+	if (parse_tree) {
+	  t = new Tree(string(newick), times);
+	  if (inds.size() > 0) t->prune(inds, true);
+	} else t = NULL;
+	BedLine* newline = new BedLine(chrom, start, end, sample, newick, t);
+	bedlineMap[sample] = newline;
+	bedlineQueue.push(newline);
+      } else {
+	BedLine* lastline = it->second;
+	if (lastline->tree == NULL || lastline->tree->recomb_node != NULL) {
+	  // last ends in recomb (or we're not parsing trees so we must not care),
+	  // create new entry
+	  // TODO: here we can use SPR to get new tree if lastline->tree != NULL
+	  Tree *t;
+	  if (parse_tree) {
+	    t = new Tree(string(newick), times);
+	    if (inds.size() > 0) t->prune(inds, true);
+	  } else t = NULL;
+	  BedLine *newline = new BedLine(chrom, start, end, sample, newick, t);
+	  bedlineMap[sample] = newline;
+	  bedlineQueue.push(newline);
+	} else {
+	  assert(lastline->end == start && !strcmp(lastline->chrom, chrom));
+	  lastline->end = end;
+	  if (lastline->tree != NULL) {
+	    delete lastline->tree;
+	    // TODO: this is only necessary to determine if tree now ends in recomb.
+	    // find way to parse tree string more quickly to determine this...
+	    lastline->tree = new Tree(string(newick), times);
+	    if (inds.size() > 0) lastline->tree->prune(inds, true);
+	  }
+	}
+      }
+      while (bedlineQueue.size() > 0) {
+	BedLine *firstline = bedlineQueue.front();
+	if (firstline->tree != NULL && firstline->tree->recomb_node == NULL) break;
+	processNextBedLine(firstline, &results, statname, 
+			   region_chrom, region_start, region_end);
+	bedlineQueue.pop();
+      }
     }
     infile->close();
     delete infile;
+    
+    while (bedlineQueue.size() > 0) {
+      BedLine *firstline = bedlineQueue.front();
+      processNextBedLine(firstline, &results, statname, 
+			 region_chrom, region_start, region_end);
+      bedlineQueue.pop();
+    }
 
     if (summarize) {
         results.finish();
@@ -288,7 +384,7 @@ int main(int argc, char *argv[]) {
   char c, *region=NULL, *filename = NULL, *bedfile = NULL, *indfile = NULL,
       *timesfile=NULL;
   char *allele_age_file=NULL;
-  int numstat=0, rawtrees=0;
+  int numstat=0, rawtrees=0, recomb=0;
   vector<string> statname;
  // map<string,float> times;
   vector<float> times;
@@ -305,7 +401,6 @@ int main(int argc, char *argv[]) {
       {"branchlen", 0, 0, 'B'},
       {"rth", 0, 0, 'F'},
       {"popsize", 0, 0, 'P'},
-      {"recomb", 0, 0, 'R'},
       {"numsample", 0, 0, 'N'},
       {"allele-age", 1, 0, 'A'},
       {"mean", 0, 0, 'M'},
@@ -349,6 +444,7 @@ int main(int argc, char *argv[]) {
           break;
       case 'R':
 	  statname.push_back(string("recomb"));
+	  recomb=1;
 	  break;
       case 'P':
           statname.push_back(string("popsize"));
@@ -414,7 +510,10 @@ int main(int argc, char *argv[]) {
      fprintf(stderr, "Error: --trees not compatible with summary statistics (--mean, --quantile, --stdev, --numsample)\n");
      return 1;
   }
-  //TODO: note that --prune removes NHX tags, cannot be used for recomb rate (or can it?)
+  if (recomb && allele_age_file != NULL) {
+    fprintf(stderr, "Error: cannot use --recomb and --allele-age together\n");
+    return 1;
+  }
 
   if (optind != argc-1) {
       fprintf(stderr, "Incorrect number of arguments. Try ./arg-summarize --help\n");

@@ -150,19 +150,15 @@ int main(int argc, char *argv[]) {
             int recomb_found=0;
             for (int i=0; i < tree->nnodes; i++) {
                 int nodenum = atoi(tree->nodes[i]->longname.c_str());
-                char nhx[1000];
                 if (nodenum == recomb_node) {
                     recomb_found++;
-                    if (nodenum == coal_node) { //not sure this is possible
-                        sprintf(nhx, "&&NHX:recomb_time=%.1f:coal_time=%.1f",
-                                recomb_time, coal_time);
-                        coal_found++;
-                    } else sprintf(nhx, "&&NHX:recomb_time=%.1f", recomb_time);
+		    tree->recomb_node = tree->nodes[i];
+		    tree->recomb_time = recomb_time;
                 } else if (nodenum == coal_node) {
                     coal_found++;
-                    sprintf(nhx, "&&NHX:coal_time=%1.f", coal_time);
-                } else nhx[0]='\0';
-                tree->nodes[i]->nhx = nhx;
+		    tree->coal_node = tree->nodes[i];
+		    tree->coal_time = coal_time;
+                }
                 if (tree->nodes[i]->nchildren == 0) {
                     assert(nodenum >= 0 && (unsigned int)nodenum < names.size());
                     tree->nodes[i]->longname = names[nodenum];

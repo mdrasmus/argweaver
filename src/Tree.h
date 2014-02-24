@@ -187,8 +187,8 @@ public:
     float dist;         // branch length above node
     float age;
     string longname;    // node name (used mainly for leaves only)
-    string nhx;         // NHX-style comment; includes the "&&NHX"
-                        //   but not the  square brackets
+    //    string nhx;         // NHX-style comment; includes the "&&NHX"
+    //                        //   but not the  square brackets
 };
 
 
@@ -199,13 +199,17 @@ public:
     Tree(int nnodes=0) :
         nnodes(nnodes),
         root(NULL),
-        nodes(nnodes, 100)
+	nodes(nnodes, 100),
+	recomb_node(NULL),
+	recomb_time(-1),
+        coal_node(NULL),
+	coal_time(-1)
     {
         for (int i=0; i<nnodes; i++)
             nodes[i] = new Node();
     }
 
-    Tree(string newick);
+    Tree(string newick, const vector<float>& times = vector<float>());
 
     virtual ~Tree()
     {
@@ -347,6 +351,10 @@ public:
     int nnodes;                 // number of nodes in tree
     Node *root;                 // root of the tree (NULL if no nodes)
     ExtendArray<Node*> nodes;   // array of nodes (size = nnodes)
+    Node *recomb_node;
+    float recomb_time;
+    Node *coal_node;
+    float coal_time;
 };
 
 
