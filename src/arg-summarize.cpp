@@ -144,8 +144,18 @@ void checkResults(IntervalIterator<vector<double> > *results) {
 
 class BedLine {
 public:
-  BedLine(char *chrom, int start, int end, int sample, char *newick, Tree *tree):
-    chrom(chrom), start(start), end(end), newick(newick), tree(tree) {};
+    BedLine(char *chr, int start, int end, int sample, char *nwk, Tree *tree):
+	start(start), end(end), sample(sample), tree(tree) {
+	chrom = new char[strlen(chr)+1];
+	strcpy(chrom, chr);
+	newick = new char[strlen(nwk)+1];
+	strcpy(newick, nwk);
+    };
+  ~BedLine() {
+      if (tree != NULL) delete tree;
+      delete [] chrom;
+      delete [] newick;
+  }
   char *chrom;
   int start;
   int end;
@@ -234,12 +244,15 @@ int summarizeRegion(char *filename, const char *region,
     map<int,BedLine*> bedlineMap;
 
     /* 
-       Summary of algorithm to be implemented.
-       Create class bedline containing chr,start,end, parsed tree.
+       Class BedLine contains chr,start,end, newick tree, parsed tree.
+         parsed tree may be NULL if not parsing trees but otherwise will
+         be populated, either by parsing the newick or an SPR operation 
+         on previous tree.
        Parsed tree has recomb_node, recomb_time, coal_node, coal_time set
-         (NULL => no recomb at end of region)
+         (recomb_node==NULL => no recomb at end of region)
 
-       Queue bedlineQueue contains pointers to this class
+       Queue bedlineQueue contains pointers to this class, will be output to
+         results in order (first in, first out).
        bedlineMap<int,bedlineQueue> maps samples to pointers of the most recently 
          read instance of bedline for each sample. It points to the same objects
          as bedlineQueue (not copies).
@@ -352,10 +365,14 @@ int summarizeRegion(char *filename, const char *region,
       while (bedlineQueue.size() > 0) {
 	BedLine *firstline = bedlineQueue.front();
 	if (firstline->tree != NULL && firstline->tree->recomb_node == NULL) break;
+	if (bedlineMap[firstline->sample] == firstline)
+	    bedlineMap.erase(firstline->sample);
 	processNextBedLine(firstline, &results, statname, 
 			   region_chrom, region_start, region_end);
+	delete &*firstline;
 	bedlineQueue.pop();
       }
+      delete [] newick;
     }
     infile->close();
     delete infile;
@@ -364,6 +381,7 @@ int summarizeRegion(char *filename, const char *region,
       BedLine *firstline = bedlineQueue.front();
       processNextBedLine(firstline, &results, statname, 
 			 region_chrom, region_start, region_end);
+      delete &*firstline;
       bedlineQueue.pop();
     }
 
@@ -388,7 +406,6 @@ int main(int argc, char *argv[]) {
   vector<string> statname;
  // map<string,float> times;
   vector<float> times;
-
   struct option long_opts[] = {
       {"region", 1, 0, 'r'},
       {"times", 1, 0, 'm'},
