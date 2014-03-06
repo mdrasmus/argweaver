@@ -19,6 +19,8 @@ CFLAGS := $(CFLAGS) \
     -Wall -fPIC \
     -Isrc
 
+GTEST_URL = 'http://googletest.googlecode.com/files/gtest-1.7.0.zip'
+GTEST_DIR = gtest-1.7.0
 
 #=============================================================================
 # optional CFLAGS
@@ -29,7 +31,7 @@ ifdef PROFILE
 endif
 
 # debugging
-ifdef DEBUG	
+ifdef DEBUG
 	CFLAGS := $(CFLAGS) -g
 else
 	CFLAGS := $(CFLAGS) -O3 -funroll-loops
@@ -90,14 +92,13 @@ ALL_SRC = \
 
 
 ARGWEAVER_OBJS = $(ARGWEAVER_SRC:.cpp=.o)
-ALL_OBJS = $(ALL_SRC:.cpp=.o) 
+ALL_OBJS = $(ALL_SRC:.cpp=.o)
 
 LIBS =
 # `gsl-config --libs`
 #-lgsl -lgslcblas -lm
 
 
-#=======================
 # ARGweaver C-library files
 LIBARGWEAVER = lib/libargweaver.a
 LIBARGWEAVER_SHARED_NAME = libargweaver.so
@@ -106,10 +107,18 @@ LIBARGWEAVER_SHARED_INSTALL = $(prefix)/lib/$(LIBARGWEAVER_SHARED_NAME)
 LIBARGWEAVER_OBJS = $(ARGWEAVER_OBJS)
 
 
+# ARGweaver C++ tests
+CFLAGS_TEST = -I $(GTEST_DIR)/include
+LIBS_TEST = -Llib -lgtest -lgtest_main
+TEST_SRC = \
+	src/tests/test.cpp
+TEST_OBJS = $(TEST_SRC:.cpp=.o)
+
+
 #=============================================================================
 # targets
 
-.PHONY: all pkg test cq install clean cleanobj lib pylib
+.PHONY: all pkg test ctest cq install clean cleanobj lib pylib gtest
 
 # default targets
 all: $(PROGS) $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED)
@@ -126,7 +135,7 @@ $(LIBARGWEAVER): $(LIBARGWEAVER_OBJS)
 	mkdir -p lib
 	$(AR) -r $(LIBARGWEAVER) $(LIBARGWEAVER_OBJS)
 
-$(LIBARGWEAVER_SHARED): $(LIBARGWEAVER_OBJS) 
+$(LIBARGWEAVER_SHARED): $(LIBARGWEAVER_OBJS)
 	mkdir -p lib
 	$(CXX) -o $(LIBARGWEAVER_SHARED) -shared $(LIBARGWEAVER_OBJS) $(LIBS)
 
@@ -150,6 +159,24 @@ test:
 cq:
 	nosetests -v test/test_codequality.py
 
+ctest: src/tests/test
+	src/tests/test
+
+src/tests/test: $(TEST_OBJS)
+	$(CXX) -o src/tests/test src/tests/test.o $(LIBS_TEST)
+
+$(TEST_OBJS): %.o: %.cpp
+	$(CXX) -c $(CFLAGS) $(CFLAGS_TEST) -o $@ $<
+
+# Download and install gtest unit-testing framework.
+gtest:
+	wget $(GTEST_URL) -O gtest.zip
+	unzip gtest
+	cd gtest-1.7.0
+	./configure
+	make
+	cp gtest-1.7.0/lib/.libs/libgtest_main.a lib/
+
 #-----------------------------
 # install
 
@@ -172,9 +199,11 @@ $(LIBARGWEAVER_SHARED_INSTALL): $(LIBARGWEAVER_SHARED)
 $(ALL_OBJS): %.o: %.cpp
 	$(CXX) -c $(CFLAGS) -o $@ $<
 
-
 clean:
-	rm -f $(ALL_OBJS) $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED)
+	rm -f $(ALL_OBJS) $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED) $(TEST_OBJS)
+
+clean-test:
+	rm -f $(TEST_OBJS)
 
 clean-obj:
-	rm -f $(ALL_OBJS)
+	rm -f $(ALL_OBJS) $(TEST_OBJS)
