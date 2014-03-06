@@ -144,15 +144,18 @@ void checkResults(IntervalIterator<vector<double> > *results) {
 
 class BedLine {
 public:
-    BedLine(char *chr, int start, int end, int sample, char *nwk, Tree *tree):
-	start(start), end(end), sample(sample), tree(tree) {
+  BedLine(char *chr, int start, int end, int sample, char *nwk, 
+	  Tree *orig_tree = NULL, Tree *pruned_tree = NULL):
+    start(start), end(end), sample(sample), 
+    orig_tree(orig_tree), pruned_tree(pruned_tree) {
 	chrom = new char[strlen(chr)+1];
 	strcpy(chrom, chr);
 	newick = new char[strlen(nwk)+1];
 	strcpy(newick, nwk);
     };
   ~BedLine() {
-      if (tree != NULL) delete tree;
+    //      if (orig_tree != NULL) delete orig_tree;
+    //      if (pruned_tree != NULL) delete pruned_tree;
       delete [] chrom;
       delete [] newick;
   }
@@ -161,35 +164,34 @@ public:
   int end;
   int sample;
   char *newick;
-  Tree *tree;
+  Tree *orig_tree;
+  Tree *pruned_tree;
+  vector<double> stats;
 };
 
 
-void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *results,
-			vector<string> statname, 
-			char *region_chrom, int region_start, int region_end) {
-  Tree *tree = line->tree;
+void scoreBedLine(BedLine *line, vector<string> statname) {
+  Tree *tree = line->pruned_tree != NULL ? line->pruned_tree : line->orig_tree;
   double bl=-1.0;
-  vector<double>stats(statname.size());
-  static int counter=0;
+  line->stats.resize(statname.size());
   for (unsigned int i=0; i < statname.size(); i++) {
     if (statname[i] == "tmrca")
-      stats[i] = tree->tmrca();
+      line->stats[i] = tree->tmrca();
     else if (statname[i]=="tmrca_half")
-      stats[i] = tree->tmrca_half();
+      line->stats[i] = tree->tmrca_half();
     else if (statname[i]=="branchlen") {
       if (bl < 0) {
-	stats[i] = tree->total_branchlength();
-	bl=stats[i];
+	line->stats[i] = tree->total_branchlength();
+	bl=line->stats[i];
       }
     }
     else if (statname[i]=="rth")
-      stats[i] = tree->rth();
+      line->stats[i] = tree->rth();
     else if (statname[i]=="popsize")
-      stats[i] = tree->popsize();
+      line->stats[i] = tree->popsize();
     else if (statname[i]=="recomb") {
       if (bl < 0) bl = tree->total_branchlength();
-      stats[i] = 1.0/(bl*(double)(line->end - line->start));
+      line->stats[i] = 1.0/(bl*(double)(line->end - line->start));
     }
     else if (statname[i]=="tree");
     else if (statname[i]=="allele_age") {
@@ -200,6 +202,17 @@ void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *result
       exit(1);
     }
   }
+}
+
+
+
+void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *results,
+			vector<string> statname, 
+			char *region_chrom, int region_start, int region_end) {
+  static int counter=0;
+
+  if (line->stats.size() == 0) 
+    scoreBedLine(line, statname);
   if (region_chrom != NULL) {
     assert(strcmp(region_chrom, line->chrom)==0);
     if (line->end > region_end) line->end = region_end;
@@ -210,19 +223,18 @@ void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *result
     printf("%s\t%i\t%i\t%i", line->chrom, line->start, line->end, line->sample);
     for (unsigned int i=0; i < statname.size(); i++) {
       if (statname[i]=="tree") {
-	if (tree != NULL) {
-	  printf("\t");
-	  tree->print_newick(stdout, false, true, 1, 1);
-	} else {
-	  printf("\t%s", line->newick);
-	}
+	printf("\t");
+	if (line->pruned_tree != NULL)
+	  line->pruned_tree->print_newick(stdout, false, true, 1, 1);
+        else 
+	  printf("%s", line->newick);
       } else {
-	printf("\t%g", stats[i]);
+	printf("\t%g", line->stats[i]);
       }
     }
     printf("\n");
   } else {
-    results->append(line->chrom, line->start, line->end, stats);
+    results->append(line->chrom, line->start, line->end, line->stats);
     counter++;
     if (counter%100==0) {
       checkResults(results);
@@ -242,7 +254,9 @@ int summarizeRegion(char *filename, const char *region,
     IntervalIterator<vector<double> > results;
     queue<BedLine*> bedlineQueue;
     map<int,BedLine*> bedlineMap;
-
+    map<int,Tree*>orig_trees;
+    map<int,Tree*>pruned_trees;
+    map<int,Tree*>::iterator it;
     /* 
        Class BedLine contains chr,start,end, newick tree, parsed tree.
          parsed tree may be NULL if not parsing trees but otherwise will
@@ -321,52 +335,141 @@ int summarizeRegion(char *filename, const char *region,
 
     while (EOF != fscanf(infile->stream, "%s %i %i %i",
                          chrom, &start, &end, &sample)) {
+      //      printf("got line %s %i %i %i\n", chrom, start, end, sample); fflush(stdout);
       assert('\t'==fgetc(infile->stream));
       char* newick = fgetline(infile->stream);
       chomp(newick);
-
-      map<int,BedLine*>::iterator it = bedlineMap.find(sample);
-      if (it == bedlineMap.end()) {  //have not read from this sample before
-	// TODO: updte new Tree function to take times and automatically call correct_times if not NULL
-	Tree *t;
-	if (parse_tree) {
-	  t = new Tree(string(newick), times);
-	  if (inds.size() > 0) t->prune(inds, true);
-	} else t = NULL;
-	BedLine* newline = new BedLine(chrom, start, end, sample, newick, t);
-	bedlineMap[sample] = newline;
-	bedlineQueue.push(newline);
+      Tree *orig_tree=NULL, *pruned_tree=NULL;
+      //      printf("newick: %s\n", newick);
+      it = orig_trees.find(sample);
+      if (it == orig_trees.end()) {  //first tree from this sample
+	orig_tree = new Tree(string(newick), times);
+	orig_trees[sample] = orig_tree;
+	//	printf("ORIG: ");
+	//	orig_tree->print_newick(stdout);
+	//	printf("\n");
+	if (inds.size() > 0) {
+	  pruned_tree = orig_tree->copy();
+	  orig_tree->node_map = *pruned_tree->prune(inds, true);
+	  pruned_trees[sample] = pruned_tree;
+	  /*	  printf("PRUN: ");
+	  pruned_tree->print_newick(stdout);
+	  printf("\n");
+	  fflush(stdout);
+	  for (int i=0; i < orig_tree->nnodes; i++)
+	    printf("node_map[%i]=%i\n", i, orig_tree->node_map.nm[i]);
+	    fflush(stdout);*/
+	}
       } else {
-	BedLine* lastline = it->second;
-	if (lastline->tree == NULL || lastline->tree->recomb_node != NULL) {
-	  // last ends in recomb (or we're not parsing trees so we must not care),
-	  // create new entry
-	  // TODO: here we can use SPR to get new tree if lastline->tree != NULL
-	  Tree *t;
+	int parse_tree = 0;
+	orig_tree = it->second;
+	if (orig_tree->recomb_node == NULL) {
+	  //	  printf("recomb_node is NULL; reading new tree\n"); fflush(stdout);
+	  parse_tree = 1;
+	  delete orig_tree;
+	  orig_tree = new Tree(string(newick), times);
+	  orig_trees[sample] = orig_tree;
+	} else orig_tree->apply_spr();
+
+	// set recomb_node and coal_node to next spr events indicated in newick string
+        orig_tree->update_spr(newick);
+	/*	printf("SPR1: ");
+	orig_tree->print_newick(stdout);
+	printf("\n");
+	printf("done apply_update_spr\n");
+	printf("update spr recomb_node=%i coal_node=%i\n",
+	       orig_tree->recomb_node==NULL ? -1 : orig_tree->recomb_node->name,
+	       orig_tree->coal_node==NULL ? -1 : orig_tree->coal_node->name);*/
+	if (inds.size() > 0) {
+	  it = pruned_trees.find(sample);
+	  assert(it != pruned_trees.end());
+	  pruned_tree = it->second;
 	  if (parse_tree) {
-	    t = new Tree(string(newick), times);
-	    if (inds.size() > 0) t->prune(inds, true);
-	  } else t = NULL;
-	  BedLine *newline = new BedLine(chrom, start, end, sample, newick, t);
-	  bedlineMap[sample] = newline;
-	  bedlineQueue.push(newline);
-	} else {
-	  assert(lastline->end == start && !strcmp(lastline->chrom, chrom));
-	  lastline->end = end;
-	  if (lastline->tree != NULL) {
-	    delete lastline->tree;
-	    // TODO: this is only necessary to determine if tree now ends in recomb.
-	    // find way to parse tree string more quickly to determine this...
-	    lastline->tree = new Tree(string(newick), times);
-	    if (inds.size() > 0) lastline->tree->prune(inds, true);
+	    delete pruned_tree;
+	    pruned_tree = orig_tree->copy();
+	    orig_tree->node_map = *pruned_tree->prune(inds, true);
+	    pruned_trees[sample] = pruned_tree;
+	  } else if (pruned_tree->recomb_node != NULL) {
+	    pruned_tree->apply_spr();
 	  }
+	  /*	  printf("SPR2: ");
+	  pruned_tree->print_newick(stdout); printf("\n");
+	  fflush(stdout);*/
+
+	  if (orig_tree->node_map.nm[orig_tree->root->name] < 0) {
+	    orig_tree->node_map.print();
+	    assert(0);
+	  }
+	  /*	  for (int f=0; f < orig_tree->nnodes; f++) {
+            printf("map[%i]=%i\n", f, orig_tree->node_map.nm[f]);
+          } 
+	  fflush(stdout);*/
+
+	  //map recomb_node and coal_node onto pruned tree
+	  if (orig_tree->recomb_node == NULL) {
+	    pruned_tree->recomb_node = pruned_tree->coal_node = NULL;
+	  } else {
+	    int num=orig_tree->node_map.nm[orig_tree->recomb_node->name];
+	    //	    printf("num=%i\n", num);
+	    if (num == -1) {
+	      pruned_tree->recomb_node = pruned_tree->coal_node = NULL;
+	    } else {
+	      pruned_tree->recomb_node = pruned_tree->nodes[num];
+	      pruned_tree->recomb_time = orig_tree->recomb_time;
+	      num = orig_tree->node_map.nm[orig_tree->coal_node->name];
+	      //	      printf("num2=%i\n", num);
+	      if (num == -1) {
+		Node *n = orig_tree->coal_node;
+		while (orig_tree->node_map.nm[n->name] == -1) {
+		  if (n == orig_tree->root) break;
+		  assert(n->parent != NULL);
+		  n = n->parent;
+		}
+		assert(orig_tree->node_map.nm[n->name] != -1);
+		assert(orig_tree->coal_time-1 <= n->age);
+		pruned_tree->coal_time = n->age;
+		pruned_tree->coal_node = pruned_tree->nodes[orig_tree->node_map.nm[n->name]];
+	      } else {
+		pruned_tree->coal_node = pruned_tree->nodes[num];
+		pruned_tree->coal_time = orig_tree->coal_time;
+	      }
+	    }
+	  }
+	  /*	  printf("update spr2 recomb_node=%i coal_node=%i\n",
+		 pruned_tree->recomb_node==NULL ? -1 : pruned_tree->recomb_node->name,
+		 pruned_tree->coal_node==NULL ? -1 : pruned_tree->coal_node->name);*/
 	}
       }
+
+      map<int,BedLine*>::iterator it3 = bedlineMap.find(sample);
+      BedLine *currline;
+      if (it3 == bedlineMap.end()) {
+	currline = new BedLine(chrom, start, end, sample, newick, orig_tree,
+			       pruned_tree);
+	bedlineMap[sample] = currline;
+	
+      } else {
+	currline = it3->second;
+	assert(strcmp(currline->chrom, chrom)==0);
+	assert(currline->end == start);
+	currline->end = end;
+      }
+      // assume orig_tree->recomb_node==NULL is a rare occurrence that happens
+      // at the edge of inferred args and treat as if it ends in recomb
+      if (inds.size()==0 || orig_tree->recomb_node == NULL ||
+	  (inds.size() > 0 && pruned_tree->recomb_node != NULL)) {
+	scoreBedLine(currline, statname);
+	bedlineQueue.push(currline);
+
+	// if there are memory issues, return to this!
+	bedlineMap.erase(sample);
+      }
+
       while (bedlineQueue.size() > 0) {
 	BedLine *firstline = bedlineQueue.front();
-	if (firstline->tree != NULL && firstline->tree->recomb_node == NULL) break;
-	if (bedlineMap[firstline->sample] == firstline)
-	    bedlineMap.erase(firstline->sample);
+	if (firstline->orig_tree->recomb_node != NULL &&
+	    firstline->pruned_tree != NULL && 
+	    firstline->pruned_tree->recomb_node == NULL) break;
 	processNextBedLine(firstline, &results, statname, 
 			   region_chrom, region_start, region_end);
 	delete &*firstline;
@@ -376,7 +479,11 @@ int summarizeRegion(char *filename, const char *region,
     }
     infile->close();
     delete infile;
-    
+
+    for (std::map<int,BedLine*>::iterator it3=bedlineMap.begin(); it3 != bedlineMap.end(); ++it3) {
+      BedLine *currline = it3->second;
+      bedlineQueue.push(currline);
+    }
     while (bedlineQueue.size() > 0) {
       BedLine *firstline = bedlineQueue.front();
       processNextBedLine(firstline, &results, statname, 
@@ -389,6 +496,18 @@ int summarizeRegion(char *filename, const char *region,
         results.finish();
         checkResults(&results);
     }
+
+    it = orig_trees.begin();
+    while (it != orig_trees.end()) {
+      delete it->second;
+      advance(it, 1);
+    }
+    it = pruned_trees.begin();
+    while (it != pruned_trees.end()) {
+      delete it->second;
+      advance(it, 1);
+    }
+
     if (region_chrom != NULL) delete[] region_chrom;
     return 0;
 }

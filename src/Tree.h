@@ -192,6 +192,46 @@ public:
 };
 
 
+class NodeMap {
+ public:
+  NodeMap() {nm.clear(); inv_nm.clear();}
+  NodeMap(map<int,int> nm) : nm(nm) {
+    inv_nm.clear();
+    for (map<int,int>::iterator it=nm.begin(); it != nm.end(); ++it)
+      inv_nm[it->second].insert(it->first);
+  }
+ NodeMap(const NodeMap &other) :
+  nm(other.nm),
+    inv_nm(other.inv_nm) {}
+  
+  NodeMap &operator=(NodeMap &other) {
+    nm = other.nm;
+    inv_nm = other.inv_nm;
+    return other;
+  }
+  map<int,int> nm;  //maps nodes in full tree to nodes in pruned tree
+  map<int, set<int> > inv_nm;  //reverse
+  
+  unsigned int size() {
+    return nm.size();
+  }
+
+  void print() {
+    printf("MAP map.size=%i inv_map.size=%i\n", (int)nm.size(), (int)inv_nm.size());
+    for (unsigned int i=0; i < nm.size(); i++)
+      printf("map[%i]=%i\n", i, nm[i]);
+    printf("inverse map\n");
+    for (map<int,set<int> >::iterator it=inv_nm.begin(); it != inv_nm.end(); ++it) {
+      printf("%i:", it->first);
+      for (set<int>::iterator it2=it->second.begin(); it2 != it->second.end(); ++it2)
+	printf(" %i", *it2);
+      printf("\n");
+    }
+    fflush(stdout);
+    return;
+  }
+};
+
 // A phylogenetic tree
 class Tree
 {
@@ -252,7 +292,10 @@ public:
     }
 
     void reorderLeaves(string *names);
-    void prune(set<string> leafs, bool allBut=false);
+
+    void apply_spr();
+    void update_spr(char *newick);
+    NodeMap *prune(set<string> leafs, bool allBut=false);
 
     // Gets leaf names of the nodes of a tree
     // Internal nodes are often named "" (empty string)
@@ -320,9 +363,17 @@ public:
     double popsize();
 
  private:
+    int get_node_from_newick(char *newick, char *nhx);
     void print_newick_recur(FILE *f, Node *n, bool internal_names=true,
                             char *branch_format_str=NULL,
                             bool show_nhx=true, bool oneline=true);
+    void setPostNodesRec(Node *n);
+    // next two are private functions used by apply_spr
+    void propogate_map(Node *n, int *deleted_branch, int count=0, 
+		       int count_since_change=0, 
+		       int maxcount=-1, int maxcount_since_change=3);
+    void remap_node(Node *n, int id, int *deleted_branch);
+
  public:
     void print_newick(FILE *f, bool internal_names=true,
                       bool branchlen=true, int num_decimal=5,
@@ -341,6 +392,8 @@ public:
         }
     }
 
+    void setPostNodes();
+
     // Returns a new copy of the tree
     Tree *copy();
 
@@ -355,6 +408,9 @@ public:
     float recomb_time;
     Node *coal_node;
     float coal_time;
+    map<string,int> nodename_map;
+    ExtendArray<Node*> postnodes;
+    NodeMap node_map;
 };
 
 
@@ -381,7 +437,9 @@ struct HashTopology {
 
 void getTreeSortedPostOrder(Tree *tree, ExtendArray<Node*> *nodes,
                             int *ordering, Node *node=NULL);
-void getTreePostOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node=NULL);
+// this one has been moved to class
+//void getTreePostOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node=NULL);
+
 void getTreePreOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node=NULL);
 
 
