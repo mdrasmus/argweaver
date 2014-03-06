@@ -3,7 +3,7 @@
 #
 
 
-PY_SRC_PATH=../compbio/python
+PY_SRC_PATH=../compbio
 
 RASMUS_SRC_FILES = \
 	__init__.py \
@@ -33,9 +33,9 @@ COMPBIO_SRC_FILES = \
 	vis/__init__.py \
 	vis/argvis.py
 
-# copy subset of python modules for packaging with arghmm
+# copy subset of python modules for packaging with argweaver
 includedep:
-	mkdir -p arghmm/deps
-	touch arghmm/deps/__init__.py
-	./setup/cp-deps.py $(PY_SRC_PATH)/rasmus arghmm/deps/rasmus $(RASMUS_SRC_FILES)
-	./setup/cp-deps.py $(PY_SRC_PATH)/compbio arghmm/deps/compbio $(COMPBIO_SRC_FILES)
+	mkdir -p argweaver/deps
+	touch argweaver/deps/__init__.py
+	./setup/cp-deps.py $(PY_SRC_PATH)/rasmus argweaver/deps/rasmus $(RASMUS_SRC_FILES)
+	./setup/cp-deps.py $(PY_SRC_PATH)/compbio argweaver/deps/compbio $(COMPBIO_SRC_FILES)

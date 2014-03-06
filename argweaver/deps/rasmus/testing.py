@@ -1,7 +1,11 @@
 
-import sys, os, shutil, unittest
 import optparse
+import os
+import shutil
+import sys
+import unittest
 from itertools import izip
+
 from . import util
 from . import stats
 
@@ -13,6 +17,7 @@ def clean_dir(path):
     if os.path.exists(path):
         shutil.rmtree(path)
 
+
 def makedirs(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -22,8 +27,6 @@ def make_clean_dir(path):
     if os.path.exists(path):
         shutil.rmtree(path)
     os.makedirs(path)
-
-
 
 
 def fequal(f1, f2, rel=.0001, eabs=1e-12):
@@ -58,7 +61,7 @@ def integrate(func, a, b, step):
 def eq_sample_pdf(samples, pdf,
                   ndivs=20, start=-util.INF, end=util.INF, pval=.05,
                   step=None):
-    """Returns true if a sample matches a distribution"""
+    """Asserts a sample matches a probability density distribution"""
 
     if step is None:
         step = (max(samples) - min(samples)) / float(ndivs)
@@ -71,12 +74,33 @@ def eq_sample_pdf(samples, pdf,
     assert p >= pval, p
 
 
+def eq_sample_pmf(samples, pmf, pval=.05):
+    """Asserts a sample matches a probability mass distribution"""
+    import scipy.stats
+
+    hist = util.hist_dict(samples)
+    total = sum(hist.itervalues())
+    observed = []
+    expected = []
+    for sample, count in hist.iteritems():
+        if count >= 5:
+            observed.append(count)
+            expected.append(pmf(sample) * total)
+
+    chi2, p = scipy.stats.chisquare(
+        scipy.array(observed), scipy.array(expected))
+    assert p >= pval, p
+
+
 _do_pause = True
+
+
 def pause(text="press enter to continue: "):
     """Pause until the user presses enter"""
     if _do_pause:
         sys.stderr.write(text)
         raw_input()
+
 
 def set_pausing(enabled=True):
     global _do_pause
@@ -115,7 +139,6 @@ def test_main():
 
     conf, args = o.parse_args()
 
-
     if conf.list_tests:
         list_tests(1)
         return
@@ -124,7 +147,6 @@ def test_main():
         set_pausing(True)
     else:
         set_pausing(False)
-
 
     # process unittest arguments
     argv = [sys.argv[0]]
