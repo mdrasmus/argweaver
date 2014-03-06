@@ -294,7 +294,8 @@ public:
     void reorderLeaves(string *names);
 
     void apply_spr();
-    void update_spr(char *newick);
+    void correct_recomb_times(const vector<float> &times);
+    void update_spr(char *newick, const vector<float>& times = vector<float>());
     NodeMap *prune(set<string> leafs, bool allBut=false);
 
     // Gets leaf names of the nodes of a tree
@@ -363,6 +364,8 @@ public:
     double popsize();
 
  private:
+    //returns age1-age2 and asserts it is positive, rounds up to zero if slightly neg
+    float age_diff(float age1, float age2); 
     int get_node_from_newick(char *newick, char *nhx);
     void print_newick_recur(FILE *f, Node *n, bool internal_names=true,
                             char *branch_format_str=NULL,

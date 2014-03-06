@@ -372,7 +372,7 @@ int summarizeRegion(char *filename, const char *region,
 	} else orig_tree->apply_spr();
 
 	// set recomb_node and coal_node to next spr events indicated in newick string
-        orig_tree->update_spr(newick);
+        orig_tree->update_spr(newick, times);
 	/*	printf("SPR1: ");
 	orig_tree->print_newick(stdout);
 	printf("\n");

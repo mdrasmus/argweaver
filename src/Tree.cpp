@@ -192,7 +192,7 @@ void Tree::correct_times(vector<float> times, double tol) {
 		if (fabs(times[j]-newage) < tol) break;
 	    if (j == times.size())
 		printError("No node has time %f", newage);
-	    postnodes[i]->dist = (float)times[j] - postnodes[i]->age;
+	    postnodes[i]->dist = age_diff((float)times[j],postnodes[i]->age);
 	    lasttime = j;
 	}
     }
@@ -326,7 +326,23 @@ int Tree::get_node_from_newick(char *newick, char *nhx) {
   }
 }
 
-void Tree::update_spr(char *newick) {
+void Tree::correct_recomb_times(const vector<float>& times) {
+    unsigned int i;
+    for (i=0; i < times.size(); i++)
+	if (fabs(recomb_time - times[i]) < 0.1) {
+	    recomb_time = times[i];
+	    break;
+	}
+    assert(i != times.size());
+    for (; i < times.size(); i++) {
+	if (fabs(coal_time - times[i]) < 0.1) {
+	    coal_time = times[i];
+	    break;
+	}
+    }
+}
+
+void Tree::update_spr(char *newick, const vector<float>& times) {
   char search1[100]="[&&NHX:recomb_time=";
   char search2[100]="[&&NHX:coal_time=";
   char *x = strstr(newick, search1);
@@ -345,6 +361,8 @@ void Tree::update_spr(char *newick) {
   assert(x != NULL);
   assert(1 == sscanf(x, "[&&NHX:coal_time=%g", &coal_time));
   coal_node = nodes[this->get_node_from_newick(newick, x)];
+
+  if (times.size() > 0) this->correct_recomb_times(times);
   //printf("done update_spr recomb_node=%i coal_node=%i\n", recomb_node->name, coal_node->name);
 }
 
@@ -381,29 +399,6 @@ void Tree::propogate_map(Node *n, int *deleted_branch, int count,
   c0 = n->children[0];
   c1 = n->children[1];
   //  printf("propogate_map %i (%i) %i (%i) %i (%i) count=%i\n", n->name, node_map.nm[n->name], c0->name, node_map.nm[c0->name], c1->name, node_map.nm[c1->name], count); fflush(stdout);
-  if (n == root) {
-    if (node_map.nm[c0->name] == -1 && node_map.nm[c1->name] == -1) {
-      remap_node(n, -1, deleted_branch);
-      return;
-    } else if (node_map.nm[c0->name] == -1 || node_map.nm[c1->name] == -1) {
-      Node *c = node_map.nm[c0->name] == -1 ? c1 : c0;
-      if (node_map.nm[n->name] != node_map.nm[c->name])
-	remap_node(n, node_map.nm[c->name], deleted_branch);
-      return;
-    } else {  //neither are -1
-      if (node_map.nm[c0->name] == node_map.nm[c1->name]) 
-	assert(0);
-      if (node_map.nm[n->name] == -1 || node_map.nm[n->name]==-3 || 
-	  node_map.nm[n->name] == node_map.nm[c0->name] ||
-          node_map.nm[n->name] == node_map.nm[c1->name]) {
-	//        printf("here %i %i %i %i %i %i %i\n", node_map.nm[n->name], node_map.nm[c0->name], node_map.nm[c1->name], *deleted_branch, n->name, c0->name, c1->name); fflush(stdout);
-	remap_node(n, -2, deleted_branch);
-      }
-      return;
-    }
-  }
-
-  assert(n != root);
   int change=0;
   if (node_map.nm[c0->name] == -1 && node_map.nm[c1->name] == -1) {
     if (node_map.nm[n->name] != -1) {
@@ -430,7 +425,17 @@ void Tree::propogate_map(Node *n, int *deleted_branch, int count,
       remap_node(n, -2, deleted_branch);
     }
   }
+  if (n == root) return;
   return propogate_map(n->parent, deleted_branch, count+1, change==0 ? count+1 : 0, maxcount, maxcount_since_change);
+}
+
+float Tree::age_diff(float age1, float age2) {
+    float diff = age1 - age2;
+    if (diff < 0) {
+	assert(diff > -0.001);
+	return 0.0;
+    }
+    return diff;
 }
 
 
@@ -470,18 +475,20 @@ void Tree::apply_spr() {
   //   but may be for a subtree)
   if (coal_parent == recomb_parent) {
     coal_parent->age = coal_time;
-    coal_node->dist = coal_time - coal_node->age;
-    recomb_node->dist = coal_time - recomb_node->age;
-    if (recomb_grandparent != NULL) recomb_parent->dist = recomb_grandparent->age - coal_time;
+    coal_node->dist = age_diff(coal_time, coal_node->age);
+    recomb_node->dist = age_diff(coal_time, recomb_node->age);
+    if (recomb_grandparent != NULL)
+	recomb_parent->dist = age_diff(recomb_grandparent->age, coal_time);
     //fprintf(stderr, "done trivial update SPR\n");
     return;
   }
   // similar other special case
   if (coal_node == recomb_parent) {
     coal_node->age = coal_time;
-    recomb_node->dist = coal_time - recomb_node->age;
-    recomb_sibling->dist = coal_time - recomb_sibling->age;
-    if (coal_parent != NULL) coal_node->dist = coal_parent->age - coal_time;
+    recomb_node->dist = age_diff(coal_time, recomb_node->age);
+    recomb_sibling->dist = age_diff(coal_time, recomb_sibling->age);
+    if (coal_parent != NULL) 
+	coal_node->dist = age_diff(coal_parent->age, coal_time);
     //fprintf(stderr, "done trivial update SPR2\n");
     return;
   }
@@ -500,13 +507,13 @@ void Tree::apply_spr() {
 
   //recomb_parent is extracted; re-use as new_node. one child is still recomb_node
   recomb_parent->children[!x] = coal_node;
-  coal_node->dist = coal_time - coal_node->age;
-  recomb_node->dist = coal_time - recomb_node->age;
+  coal_node->dist = age_diff(coal_time, coal_node->age);
+  recomb_node->dist = age_diff(coal_time, recomb_node->age);
   coal_node->parent = recomb_parent;
   recomb_parent->age = coal_time;
   if (coal_parent != NULL) {
     recomb_parent->parent = coal_parent;
-    recomb_parent->dist = coal_parent->age - coal_time;
+    recomb_parent->dist = age_diff(coal_parent->age, coal_time);
     coal_parent->children[coal_parent->children[0]==coal_node ? 0 : 1] = recomb_parent;
   } else {
     root = recomb_parent;
