@@ -27,7 +27,10 @@ void print_usage() {
            "   Process only these coordinates (1-based)\n"
            " --sample <sample>\n"
            "   Give the sample number for this file; this is important\n"
-           "   when combining multiple smc files.\n");
+           "   when combining multiple smc files.\n"
+	   " --times <times.txt>\n"
+	   "   File giving the discrete times used; will help avoid rounding error\n"
+	   "   in branch lengths/ages\n");
 }
 
 
@@ -42,13 +45,16 @@ int main(int argc, char *argv[]) {
     char chrom[1000];
     char *newick=NULL;
     Tree *tree=NULL;
+    char *timesfile=NULL;
     int recomb_node, coal_node, sample=0, opt_idx;
+    vector<float> times;
     struct option long_opts[] = {
         {"region", 1, 0, 'r'},
         {"sample", 1, 0, 's'},
+	{"times", 1, 0, 't'},
         {"help", 0, 0, 'h'},
         {0,0,0,0}};
-    while ((c = (char)getopt_long(argc, argv, "r:s:h", long_opts, &opt_idx))
+    while ((c = (char)getopt_long(argc, argv, "r:s:t:h", long_opts, &opt_idx))
            != -1) {
         switch (c) {
         case 'r':
@@ -61,6 +67,9 @@ int main(int argc, char *argv[]) {
         case 's':
             sample = atoi(optarg);
             break;
+	case 't':
+	    timesfile = optarg;
+	    break;
         case 'h':
             print_usage();
             return 0;
@@ -72,6 +81,20 @@ int main(int argc, char *argv[]) {
     if (optind != argc - 1) {
         fprintf(stderr, "Bad arguments. Try --help\n");
         return 1;
+    }
+
+    if (timesfile != NULL) {
+	FILE *infile = fopen(timesfile, "r");
+	float t;
+	if (infile == NULL) {
+	    fprintf(stderr, "Error opening %s.\n", timesfile);
+	    return 1;
+	}
+	while (EOF != fscanf(infile, "%f", &t)) 
+	    times.push_back(t);
+	std::sort(times.begin(), times.end());
+	fclose(infile);
+	//      fprintf(stderr, "read %i times\n", (int)times.size());
     }
     CompressStream instream(argv[optind], "r");
     fprintf(stderr, "opening %s\n", argv[optind]);
@@ -118,7 +141,7 @@ int main(int argc, char *argv[]) {
             newick = find(newick, newick_end, '\t')+1;
 	    if (tree == NULL || tree->recomb_node == NULL) {
 	      if (tree != NULL) delete tree;
-	      tree = new Tree(string(newick));
+	      tree = new Tree(string(newick), times);
 	      
 	      //have to rename all leaf nodes and remove NHX comments
 	      for (int i=0; i < tree->nnodes; i++) {
@@ -180,6 +203,7 @@ int main(int argc, char *argv[]) {
 		    assert(0);
 		  }
 	       }
+	      if (times.size() > 0) tree->correct_recomb_times(times);
 	    }
 	      
 	    /*            int coal_found=0;

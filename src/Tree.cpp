@@ -192,7 +192,7 @@ void Tree::correct_times(vector<float> times, double tol) {
 		if (fabs(times[j]-newage) < tol) break;
 	    if (j == times.size())
 		printError("No node has time %f", newage);
-	    postnodes[i]->dist = age_diff((float)times[j],postnodes[i]->age);
+	    postnodes[i]->dist = age_diff((float)times[j], postnodes[i]->age);
 	    lasttime = j;
 	}
     }
@@ -203,12 +203,19 @@ void Tree::print_newick_recur(FILE *f, Node *n, bool internal_names,
                               char *branch_format_str,
                               bool show_nhx, bool oneline) {
     if (n->nchildren > 0) {
+	int first=0, second=1;
+	if (n->children[0]->longname.size() > 0 &&
+	    n->children[1]->longname.size() > 0 &&
+	    n->children[0]->longname.compare(n->children[1]->longname) > 0) {
+	    first=1;
+	    second=0;
+	}
         fprintf(f, "(");
-        print_newick_recur(f, n->children[0], internal_names,
+        print_newick_recur(f, n->children[first], internal_names,
                            branch_format_str, show_nhx, oneline);
         for (int i=1; i < n->nchildren; i++) {
             fprintf(f, ",");
-            print_newick_recur(f, n->children[i], internal_names,
+            print_newick_recur(f, n->children[second], internal_names,
                                branch_format_str, show_nhx, oneline);
         }
         fprintf(f, ")");
@@ -432,7 +439,11 @@ void Tree::propogate_map(Node *n, int *deleted_branch, int count,
 float Tree::age_diff(float age1, float age2) {
     float diff = age1 - age2;
     if (diff < 0) {
-	assert(diff > -0.001);
+	if (diff < -0.001) {
+	    fprintf(stderr, "got age diff=%.8f (age1=%.8f, age2=%.8f)\n", diff, age1, age2);
+	    fflush(stderr);
+	    assert(0);
+	}
 	return 0.0;
     }
     return diff;
