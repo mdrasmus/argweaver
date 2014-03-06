@@ -184,8 +184,8 @@ public:
     Node **children;    // array of child pointers (size = nchildren)
 
     int nchildren;      // number of children
-    float dist;         // branch length above node
-    float age;
+    double dist;         // branch length above node
+    double age;
     string longname;    // node name (used mainly for leaves only)
     //    string nhx;         // NHX-style comment; includes the "&&NHX"
     //                        //   but not the  square brackets
@@ -249,7 +249,7 @@ public:
             nodes[i] = new Node();
     }
 
-    Tree(string newick, const vector<float>& times = vector<float>());
+    Tree(string newick, const vector<double>& times = vector<double>());
 
     virtual ~Tree()
     {
@@ -260,7 +260,7 @@ public:
     // Sets the branch lengths of the tree
     //  Arguments:
     //      dists: array of lengths (size = nnodes)
-    void setDists(float *dists)
+    void setDists(double *dists)
     {
         for (int i=0; i<nnodes; i++)
             nodes[i]->dist = dists[i];
@@ -271,7 +271,7 @@ public:
     // Gets the branch lengths of the tree
     //  Arguments:
     //      dists: output array (size = nnodes) for storing branch lengths
-    void getDists(float *dists)
+    void getDists(double *dists)
     {
         for (int i=0; i<nnodes; i++)
             dists[i] = nodes[i]->dist;
@@ -294,8 +294,8 @@ public:
     void reorderLeaves(string *names);
 
     void apply_spr();
-    void correct_recomb_times(const vector<float> &times);
-    void update_spr(char *newick, const vector<float>& times = vector<float>());
+    void correct_recomb_times(const vector<double> &times);
+    void update_spr(char *newick, const vector<double>& times = vector<double>());
     NodeMap *prune(set<string> leafs, bool allBut=false);
 
     // Gets leaf names of the nodes of a tree
@@ -354,8 +354,8 @@ public:
     // closest time, must be within tol)
     // NOTE: times must be sorted!
     // Also note: assumes same distance to ancestral node from all child nodes
-    void correct_times(vector<float> times, double tol=1);
-    //void correct_times(map<string,float> times);
+    void correct_times(vector<double> times, double tol=1);
+    //void correct_times(map<string,double> times);
 
     double total_branchlength();
     double tmrca();
@@ -365,7 +365,7 @@ public:
 
  private:
     //returns age1-age2 and asserts it is positive, rounds up to zero if slightly neg
-    float age_diff(float age1, float age2); 
+    double age_diff(double age1, double age2); 
     int get_node_from_newick(char *newick, char *nhx);
     void print_newick_recur(FILE *f, Node *n, bool internal_names=true,
                             char *branch_format_str=NULL,
@@ -408,9 +408,9 @@ public:
     Node *root;                 // root of the tree (NULL if no nodes)
     ExtendArray<Node*> nodes;   // array of nodes (size = nnodes)
     Node *recomb_node;
-    float recomb_time;
+    double recomb_time;
     Node *coal_node;
-    float coal_time;
+    double coal_time;
     map<string,int> nodename_map;
     ExtendArray<Node*> postnodes;
     NodeMap node_map;
@@ -473,7 +473,7 @@ void tree2ptree(Tree *tree, int *ptree);
 
 Tree *makeTree(int nnodes, int *ptree);
 void deleteTree(Tree *tree);
-void setTreeDists(Tree *tree, float *dists);
+void setTreeDists(Tree *tree, double *dists);
 
 }
 

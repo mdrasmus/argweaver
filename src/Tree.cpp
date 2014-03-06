@@ -183,15 +183,16 @@ void Tree::correct_times(vector<float> times, double tol) {
 		printError("No node has time %f (leaf)", postnodes[i]->dist);
 	    }
 	    postnodes[i]->dist = times[j];
+	    postnodes[i]->parent->age = times[j];
 	}
 	else {
-	    postnodes[i]->age = postnodes[i]->children[0]->age + 
-		postnodes[i]->children[0]->dist;
 	    float newage = postnodes[i]->age + postnodes[i]->dist;
 	   for (j=lasttime; j < times.size(); j++) 
 		if (fabs(times[j]-newage) < tol) break;
 	    if (j == times.size())
 		printError("No node has time %f", newage);
+	    if (postnodes[i]->parent != NULL)
+		postnodes[i]->parent->age = times[j];
 	    postnodes[i]->dist = age_diff((float)times[j], postnodes[i]->age);
 	    lasttime = j;
 	}
