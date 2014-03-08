@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     Tree *tree=NULL;
     char *timesfile=NULL;
     int recomb_node, coal_node, sample=0, opt_idx;
-    vector<float> times;
+    vector<double> times;
     struct option long_opts[] = {
         {"region", 1, 0, 'r'},
         {"sample", 1, 0, 's'},
@@ -85,12 +85,12 @@ int main(int argc, char *argv[]) {
 
     if (timesfile != NULL) {
 	FILE *infile = fopen(timesfile, "r");
-	float t;
+	double t;
 	if (infile == NULL) {
 	    fprintf(stderr, "Error opening %s.\n", timesfile);
 	    return 1;
 	}
-	while (EOF != fscanf(infile, "%f", &t)) 
+	while (EOF != fscanf(infile, "%lf", &t)) 
 	    times.push_back(t);
 	std::sort(times.begin(), times.end());
 	fclose(infile);
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 	      tree->coal_node = NULL;
             } else if (strncmp(line, "SPR", 3)==0) {
 	      int tempend;
-	      if (5 != sscanf(&line[4], "%d\t%d\t%f\t%d\t%f",
+	      if (5 != sscanf(&line[4], "%d\t%d\t%lf\t%d\t%lf",
 			      &tempend, &recomb_node, &(tree->recomb_time),
 			      &coal_node, &(tree->coal_time))) {
 		fprintf(stderr, "error parsing SPR line\n");

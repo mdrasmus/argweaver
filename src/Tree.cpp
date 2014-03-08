@@ -46,7 +46,7 @@ bool isNewickChar(char c) {
 }
 
 //create a tree from a newick string
-Tree::Tree(string newick, const vector<float>& times)
+Tree::Tree(string newick, const vector<double>& times)
 {
     int len = newick.length();
     Node *node = NULL;
@@ -89,10 +89,10 @@ Tree::Tree(string newick, const vector<float>& times)
             int j=i+1;
             while (j < len && !isNewickChar(newick[j]))
                 j++;
-            if (sscanf(&newick[i+1], "%f", &node->dist) != 1) {
+            if (sscanf(&newick[i+1], "%lf", &node->dist) != 1) {
                 printError("bad newick: error reading distance");
                 printf("&newick[%i+1]=%s\n", i, &newick[i+1]);
-                printf("node->dist=%f\n", node->dist);
+                printf("node->dist=%lf\n", node->dist);
                 exit(1);
             }
             i=j-1;
@@ -101,7 +101,7 @@ Tree::Tree(string newick, const vector<float>& times)
         case '[': { // comment next; parse recomb_node or coal_node
             int count=1;
             int j=i+1;
-	    float t;
+	    double t;
 	    string tmpstr;
             while (count != 0) {
                 if (j==len) {
@@ -113,10 +113,10 @@ Tree::Tree(string newick, const vector<float>& times)
                 j++;
             }
 	    tmpstr = newick.substr(i+1, j-1-2);
-	    if (sscanf(tmpstr.c_str(), "&&NHX:recomb_time=%f]", &t)==1) {
+	    if (sscanf(tmpstr.c_str(), "&&NHX:recomb_time=%lf]", &t)==1) {
 	      this->recomb_time = t;
 	      this->recomb_node = node;
-	    } else if (sscanf(tmpstr.c_str(), "&&NHX:coal_time=%f]", &t)==1) {
+	    } else if (sscanf(tmpstr.c_str(), "&&NHX:coal_time=%lf]", &t)==1) {
 	      this->coal_time = t;
 	      this->coal_node = node;
 	    }
@@ -156,11 +156,14 @@ Tree::Tree(string newick, const vector<float>& times)
 	    postnodes[i]->age = 0.0;
 	else postnodes[i]->age = postnodes[i]->children[0]->age + 
 	       postnodes[i]->children[0]->dist;
-       // printf("node %i age %f %s\n", postnodes[i]->name, postnodes[i]->age, postnodes[i]==root ? "ROOT" : "");
+       // printf("node %i age %lf %s\n", postnodes[i]->name, postnodes[i]->age, postnodes[i]==root ? "ROOT" : "");
     }
     //printf("done assigning ages\n");
-    if (times.size() > 0)
+    if (times.size() > 0) {
       this->correct_times(times, 1);
+      if (recomb_node != NULL )
+	this->correct_recomb_times(times);
+    }
 
     for (int i=0; i < nnodes; i++) {
       if (nodes[i]->longname.length() > 0)
@@ -169,8 +172,8 @@ Tree::Tree(string newick, const vector<float>& times)
 }
 
 
-//void Tree::correct_times(map<string,float> times) {
-void Tree::correct_times(vector<float> times, double tol) {
+//void Tree::correct_times(map<string,double> times) {
+void Tree::correct_times(vector<double> times, double tol) {
     unsigned int lasttime=0, j;
     this->setPostNodes();
     for (int i=0; i < postnodes.size(); i++) {
@@ -180,64 +183,75 @@ void Tree::correct_times(vector<float> times, double tol) {
 	    for (j=0; j < times.size(); j++)
 		if (fabs(times[j]-postnodes[i]->dist) < tol) break;
 	    if (j == times.size()) {
-		printError("No node has time %f (leaf)", postnodes[i]->dist);
+		printError("No node has time %lf (leaf)", postnodes[i]->dist);
 	    }
 	    postnodes[i]->dist = times[j];
+	    postnodes[i]->parent->age = times[j];
 	}
 	else {
-	    postnodes[i]->age = postnodes[i]->children[0]->age + 
-		postnodes[i]->children[0]->dist;
-	    float newage = postnodes[i]->age + postnodes[i]->dist;
-	   for (j=lasttime; j < times.size(); j++) 
-		if (fabs(times[j]-newage) < tol) break;
+	  /*	    postnodes[i]->age = postnodes[i]->children[0]->age + 
+		    postnodes[i]->children[0]->dist;*/
+	    double newage = postnodes[i]->age + postnodes[i]->dist;
+	    for (j=lasttime; j < times.size(); j++) 
+	      if (fabs(times[j]-newage) < tol) break;
 	    if (j == times.size())
-		printError("No node has time %f", newage);
-	    postnodes[i]->dist = age_diff((float)times[j], postnodes[i]->age);
+	      printError("No node has time %lf", newage);
+	    postnodes[i]->dist = age_diff((double)times[j], postnodes[i]->age);
+	    if (postnodes[i]->parent != NULL)
+	      postnodes[i]->parent->age = times[j];
 	    lasttime = j;
 	}
     }
 }
 
 
-void Tree::print_newick_recur(FILE *f, Node *n, bool internal_names,
-                              char *branch_format_str,
-                              bool show_nhx, bool oneline) {
-    if (n->nchildren > 0) {
-	int first=0, second=1;
-	if (n->children[0]->longname.size() > 0 &&
-	    n->children[1]->longname.size() > 0 &&
-	    n->children[0]->longname.compare(n->children[1]->longname) > 0) {
-	    first=1;
-	    second=0;
-	}
-        fprintf(f, "(");
-        print_newick_recur(f, n->children[first], internal_names,
-                           branch_format_str, show_nhx, oneline);
-        for (int i=1; i < n->nchildren; i++) {
-            fprintf(f, ",");
-            print_newick_recur(f, n->children[second], internal_names,
-                               branch_format_str, show_nhx, oneline);
-        }
-        fprintf(f, ")");
-        if (internal_names) fprintf(f, "%s", n->longname.c_str());
-    } else {
-        fprintf(f, "%s", n->longname.c_str());
+string Tree::print_newick_to_string_recur(Node *n, bool internal_names,
+					  char *branch_format_str,
+					  bool show_nhx, bool oneline) {
+  string rv;
+  char tmp[1000];
+  if (n->nchildren > 0) {
+    int first=0, second=1;
+    if (n->children[0]->longname.size() > 0 &&
+	n->children[1]->longname.size() > 0 &&
+	n->children[0]->longname.compare(n->children[1]->longname) > 0) {
+      first=1;
+      second=0;
     }
-    //    fprintf(f, "(%i)", n->name);
-    if (branch_format_str != NULL && n->parent != NULL) {
-        fprintf(f, ":");
-        fprintf(f, branch_format_str, n->dist);
+    rv.append("(");
+    rv.append(print_newick_to_string_recur(n->children[first], 
+					   internal_names,
+					   branch_format_str, 
+					   show_nhx, oneline));
+    for (int i=1; i < n->nchildren; i++) {
+      rv.append(",");
+      rv.append(print_newick_to_string_recur(n->children[second], 
+					     internal_names,
+					     branch_format_str, 
+					     show_nhx, oneline));
     }
-    if (show_nhx) {
-      if (n == this->recomb_node) {
-	fprintf(f,"[&&NHX:recomb_time=%.1f]", this->recomb_time);
-      } else if (n == this->coal_node) {
-	fprintf(f, "[&&NHX:coal_time=%.1f]", this->coal_time);
-      }
+    rv.append(")");
+    if (internal_names) rv.append(n->longname);
+  } else {
+    rv.append(n->longname);
+  }
+  //    fprintf(f, "(%i)", n->name);
+  if (branch_format_str != NULL && n->parent != NULL) {
+    rv.append(":");
+    sprintf(tmp, branch_format_str, n->dist);
+    rv.append(tmp);
+  }
+  if (show_nhx) {
+    if (n == this->recomb_node) {
+      sprintf(tmp,"[&&NHX:recomb_time=%.1f]", this->recomb_time);
+      rv.append(tmp);
+    } if (n == this->coal_node) {
+      sprintf(tmp, "[&&NHX:coal_time=%.1f]", this->coal_time);
+      rv.append(tmp);
     }
-    //    if (show_nhx && n->nhx.length() != 0)
-    //        fprintf(f, "[%s]", n->nhx.c_str());
-    if (!oneline && n->nchildren > 0) fprintf(f, "\n");
+  }
+  if (!oneline && n->nchildren > 0) rv.append("\n");
+  return rv;
 }
 
 
@@ -333,23 +347,24 @@ int Tree::get_node_from_newick(char *newick, char *nhx) {
   }
 }
 
-void Tree::correct_recomb_times(const vector<float>& times) {
+void Tree::correct_recomb_times(const vector<double>& times) {
     unsigned int i;
     for (i=0; i < times.size(); i++)
-	if (fabs(recomb_time - times[i]) < 0.1) {
+	if (fabs(recomb_time - times[i]) < 1) {
 	    recomb_time = times[i];
 	    break;
 	}
     assert(i != times.size());
     for (; i < times.size(); i++) {
-	if (fabs(coal_time - times[i]) < 0.1) {
+	if (fabs(coal_time - times[i]) < 1) {
 	    coal_time = times[i];
-	    break;
+	    return;
 	}
     }
+    assert(0);
 }
 
-void Tree::update_spr(char *newick, const vector<float>& times) {
+void Tree::update_spr(char *newick, const vector<double>& times) {
   char search1[100]="[&&NHX:recomb_time=";
   char search2[100]="[&&NHX:coal_time=";
   char *x = strstr(newick, search1);
@@ -361,12 +376,12 @@ void Tree::update_spr(char *newick, const vector<float>& times) {
     //    printf("no recomb node\n");
     return;
   }
-  assert(1==sscanf(x, "[&&NHX:recomb_time=%g", &recomb_time));
+  assert(1==sscanf(x, "[&&NHX:recomb_time=%lg", &recomb_time));
   recomb_node = nodes[this->get_node_from_newick(newick, x)];
 
   x = strstr(newick, search2);
   assert(x != NULL);
-  assert(1 == sscanf(x, "[&&NHX:coal_time=%g", &coal_time));
+  assert(1 == sscanf(x, "[&&NHX:coal_time=%lg", &coal_time));
   coal_node = nodes[this->get_node_from_newick(newick, x)];
 
   if (times.size() > 0) this->correct_recomb_times(times);
@@ -436,10 +451,10 @@ void Tree::propogate_map(Node *n, int *deleted_branch, int count,
   return propogate_map(n->parent, deleted_branch, count+1, change==0 ? count+1 : 0, maxcount, maxcount_since_change);
 }
 
-float Tree::age_diff(float age1, float age2) {
-    float diff = age1 - age2;
+double Tree::age_diff(double age1, double age2) {
+    double diff = age1 - age2;
     if (diff < 0) {
-	if (diff < -0.001) {
+	if (diff < -2) {
 	    fprintf(stderr, "got age diff=%.8f (age1=%.8f, age2=%.8f)\n", diff, age1, age2);
 	    fflush(stderr);
 	    assert(0);
@@ -468,6 +483,7 @@ void Tree::apply_spr() {
     }
     return;
   }
+  if (recomb_node == coal_node) return;
 
   recomb_parent = recomb_node->parent;
   assert(recomb_parent != NULL);  //ie, recomb_node should not be root
@@ -562,9 +578,9 @@ void Tree::apply_spr() {
 }
 
 
-NodeMap *Tree::prune(set<string> leafs, bool allBut) {
+NodeMap Tree::prune(set<string> leafs, bool allBut) {
     ExtendArray<Node*> newnodes;
-    map<int,int> nodeMap;  //maps original nodes to new nodes
+    map<int,int> node_map;  //maps original nodes to new nodes
     this->setPostNodes();
     vector<bool> is_leaf(postnodes.size());
 
@@ -584,7 +600,7 @@ NodeMap *Tree::prune(set<string> leafs, bool allBut) {
             }
             if (prune) {
                 Node *parent = postnodes[i]->parent;
-		nodeMap[postnodes[i]->name] = -1;
+		node_map[postnodes[i]->name] = -1;
 		if (recomb_node == postnodes[i]) {
 		  recomb_node = NULL;
 		  recomb_time = -1;
@@ -616,12 +632,12 @@ NodeMap *Tree::prune(set<string> leafs, bool allBut) {
 		  root=NULL;
                 }
             } else {
-	      nodeMap[postnodes[i]->name] = newnodes.size();
+	      node_map[postnodes[i]->name] = newnodes.size();
 	      newnodes.append(postnodes[i]);
             }
         } else if (postnodes[i]->nchildren == 1) {
 	  if (postnodes[i] == root) {
-	    nodeMap[postnodes[i]->name] = nodeMap[postnodes[i]->children[0]->name];
+	    node_map[postnodes[i]->name] = node_map[postnodes[i]->children[0]->name];
 	    root = postnodes[i]->children[0];
 	    root->parent = NULL;
 	    if (recomb_node == postnodes[i]) {
@@ -646,7 +662,7 @@ NodeMap *Tree::prune(set<string> leafs, bool allBut) {
 		  recomb_node = postnodes[i]->children[0];
 		if (postnodes[i] == coal_node)
 		  coal_node = postnodes[i]->children[0];
-		nodeMap[postnodes[i]->name] = nodeMap[postnodes[i]->children[0]->name];
+		node_map[postnodes[i]->name] = node_map[postnodes[i]->children[0]->name];
 		delete postnodes[i];
 		break;
 	      }
@@ -657,7 +673,7 @@ NodeMap *Tree::prune(set<string> leafs, bool allBut) {
 	    }
 	  }
         } else {
-	  nodeMap[postnodes[i]->name] = newnodes.size();
+	  node_map[postnodes[i]->name] = newnodes.size();
 	  newnodes.append(postnodes[i]);
         }
     }
@@ -683,9 +699,9 @@ NodeMap *Tree::prune(set<string> leafs, bool allBut) {
 	}
 	if (newnodes[i] == coal_node) {
 	  if (coal_time+2 < nodes[i]->age) {
-	    fprintf(stderr, "bad coal age (too small) coal_time=%f age=%f\n", coal_time, nodes[i]->age); error=1;
+	    fprintf(stderr, "bad coal age (too small) coal_time=%lf age=%lf\n", coal_time, nodes[i]->age); error=1;
 	  } else if (coal_node != root && coal_time-2 > nodes[i]->age + nodes[i]->dist) {
-	    fprintf(stderr, "bad coal age (too big) coal_time=%f age=%f dist=%f\n", coal_time, nodes[i]->age, nodes[i]->dist); error=1;
+	    fprintf(stderr, "bad coal age (too big) coal_time=%lf age=%lf dist=%lf\n", coal_time, nodes[i]->age, nodes[i]->dist); error=1;
 	  }
 	}
 	if (error) {
@@ -694,7 +710,8 @@ NodeMap *Tree::prune(set<string> leafs, bool allBut) {
 	}
     }
     nnodes = nodes.size();
-    return new NodeMap(nodeMap);
+    //    return new NodeMap(nodeMap);
+    return NodeMap(node_map);
 }
 
 
@@ -756,8 +773,8 @@ void Tree::reroot(Node *newroot, bool onBranch)
 
     // start the reversal
     Node *ptr1 = NULL, *ptr2 = NULL;
-    float nextDist = 0;
-    float rootdist;
+    double nextDist = 0;
+    double rootdist;
 
     if (onBranch) {
         if (isRooted()) {
@@ -809,7 +826,7 @@ void Tree::reroot(Node *newroot, bool onBranch)
         ptr1->parent = ptr2;
 
         // swap distances
-        float tmpdist = ptr1->dist;
+        double tmpdist = ptr1->dist;
         ptr1->dist = nextDist;
         nextDist = tmpdist;
 
@@ -1112,7 +1129,7 @@ void printTree(Tree *tree, Node *node, int depth)
     } else {
         if (node->nchildren == 0) {
             for (int i=0; i<depth; i++) printf("  ");
-            printf("%d=%s:%f", node->name, node->longname.c_str(), node->dist);
+            printf("%d=%s:%lf", node->name, node->longname.c_str(), node->dist);
         } else {
             // indent
             for (int i=0; i<depth; i++) printf("  ");
@@ -1130,7 +1147,7 @@ void printTree(Tree *tree, Node *node, int depth)
             printf(")");
 
             if (depth > 0)
-                printf(":%f", node->dist);
+                printf(":%lf", node->dist);
         }
     }
 }
@@ -1315,7 +1332,7 @@ void deleteTree(Tree *tree)
     delete tree;
 }
 
-void setTreeDists(Tree *tree, float *dists)
+void setTreeDists(Tree *tree, double *dists)
 {
     tree->setDists(dists);
 }

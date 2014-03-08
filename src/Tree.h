@@ -184,8 +184,8 @@ public:
     Node **children;    // array of child pointers (size = nchildren)
 
     int nchildren;      // number of children
-    float dist;         // branch length above node
-    float age;
+    double dist;         // branch length above node
+    double age;
     string longname;    // node name (used mainly for leaves only)
     //    string nhx;         // NHX-style comment; includes the "&&NHX"
     //                        //   but not the  square brackets
@@ -203,8 +203,10 @@ class NodeMap {
  NodeMap(const NodeMap &other) :
   nm(other.nm),
     inv_nm(other.inv_nm) {}
+
+  //  ~NodeMap() { }
   
-  NodeMap &operator=(NodeMap &other) {
+  NodeMap operator=(NodeMap other) {
     nm = other.nm;
     inv_nm = other.inv_nm;
     return other;
@@ -249,18 +251,19 @@ public:
             nodes[i] = new Node();
     }
 
-    Tree(string newick, const vector<float>& times = vector<float>());
+    Tree(string newick, const vector<double>& times = vector<double>());
 
     virtual ~Tree()
     {
         for (int i=0; i<nnodes; i++)
             delete nodes[i];
+
     }
 
     // Sets the branch lengths of the tree
     //  Arguments:
     //      dists: array of lengths (size = nnodes)
-    void setDists(float *dists)
+    void setDists(double *dists)
     {
         for (int i=0; i<nnodes; i++)
             nodes[i]->dist = dists[i];
@@ -271,7 +274,7 @@ public:
     // Gets the branch lengths of the tree
     //  Arguments:
     //      dists: output array (size = nnodes) for storing branch lengths
-    void getDists(float *dists)
+    void getDists(double *dists)
     {
         for (int i=0; i<nnodes; i++)
             dists[i] = nodes[i]->dist;
@@ -294,9 +297,9 @@ public:
     void reorderLeaves(string *names);
 
     void apply_spr();
-    void correct_recomb_times(const vector<float> &times);
-    void update_spr(char *newick, const vector<float>& times = vector<float>());
-    NodeMap *prune(set<string> leafs, bool allBut=false);
+    void correct_recomb_times(const vector<double> &times);
+    void update_spr(char *newick, const vector<double>& times = vector<double>());
+    NodeMap prune(set<string> leafs, bool allBut=false);
 
     // Gets leaf names of the nodes of a tree
     // Internal nodes are often named "" (empty string)
@@ -354,8 +357,8 @@ public:
     // closest time, must be within tol)
     // NOTE: times must be sorted!
     // Also note: assumes same distance to ancestral node from all child nodes
-    void correct_times(vector<float> times, double tol=1);
-    //void correct_times(map<string,float> times);
+    void correct_times(vector<double> times, double tol=1);
+    //void correct_times(map<string,double> times);
 
     double total_branchlength();
     double tmrca();
@@ -365,11 +368,11 @@ public:
 
  private:
     //returns age1-age2 and asserts it is positive, rounds up to zero if slightly neg
-    float age_diff(float age1, float age2); 
+    double age_diff(double age1, double age2); 
     int get_node_from_newick(char *newick, char *nhx);
-    void print_newick_recur(FILE *f, Node *n, bool internal_names=true,
-                            char *branch_format_str=NULL,
-                            bool show_nhx=true, bool oneline=true);
+    string print_newick_to_string_recur(Node *n, bool internal_names=true,
+					char *branch_format_str=NULL,
+					bool show_nhx=true, bool oneline=true);
     void setPostNodesRec(Node *n);
     // next two are private functions used by apply_spr
     void propogate_map(Node *n, int *deleted_branch, int count=0, 
@@ -378,21 +381,31 @@ public:
     void remap_node(Node *n, int id, int *deleted_branch);
 
  public:
-    void print_newick(FILE *f, bool internal_names=true,
-                      bool branchlen=true, int num_decimal=5,
-                      bool show_nhx=true, bool oneline=true) {
-        char *format_str=NULL;
-        if (branchlen) {
-            format_str = new char[100];
-            sprintf(format_str, "%%.%if", num_decimal);
-        }
-        print_newick_recur(f, root, internal_names,
-                           format_str, show_nhx, oneline);
-        fprintf(f, ";");
-        if (!oneline) fprintf(f, "\n");
-        if (format_str != NULL) {
-            delete [] format_str;
-        }
+    string print_newick_to_string(bool internal_names=true,
+				  bool branchlen=true, int num_decimal=5,
+				  bool show_nhx=true, bool oneline=true) {
+      char *format_str=NULL;
+      if (branchlen) {
+	format_str = new char[100];
+	sprintf(format_str, "%%.%if", num_decimal);
+      }
+      string rv = print_newick_to_string_recur(root, internal_names,
+					       format_str, show_nhx, oneline);
+      rv.append(":");
+      if (!oneline) rv.append("\n");
+      if (format_str != NULL) {
+	delete [] format_str;
+      }
+      return rv;
+    }
+
+    void print_newick(FILE *f, bool internal_name=true, bool branchlen=true,
+		      int num_decimal=5, bool show_nhx=true, 
+		      bool oneline=true) {
+      string str = print_newick_to_string(internal_name, branchlen,
+					  num_decimal, show_nhx,
+					  oneline);
+      fprintf(f, "%s", str.c_str());
     }
 
     void setPostNodes();
@@ -408,9 +421,9 @@ public:
     Node *root;                 // root of the tree (NULL if no nodes)
     ExtendArray<Node*> nodes;   // array of nodes (size = nnodes)
     Node *recomb_node;
-    float recomb_time;
+    double recomb_time;
     Node *coal_node;
-    float coal_time;
+    double coal_time;
     map<string,int> nodename_map;
     ExtendArray<Node*> postnodes;
     NodeMap node_map;
@@ -473,7 +486,7 @@ void tree2ptree(Tree *tree, int *ptree);
 
 Tree *makeTree(int nnodes, int *ptree);
 void deleteTree(Tree *tree);
-void setTreeDists(Tree *tree, float *dists);
+void setTreeDists(Tree *tree, double *dists);
 
 }
 
