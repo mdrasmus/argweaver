@@ -42,7 +42,7 @@ int getQuantiles=0;
 vector <double> quantiles;
 char *tabix_dir=NULL;
 int header=true;
-char version[10]="0.1";
+char version[10]="0.2";
 
 int print_help() {
     printf("usage: ./arg-summarize [OPTIONS] <file.bed.gz>\n"
