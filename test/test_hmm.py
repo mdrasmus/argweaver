@@ -143,7 +143,7 @@ def test_trans_switch():
     """
     create_data = False
     if create_data:
-        make_clean_dir('test/data/test_trans')
+        make_clean_dir('test/data/test_trans_switch')
 
     # model parameters
     k = 12
@@ -163,11 +163,11 @@ def test_trans_switch():
                     k, 2*n, rho, start=0, end=length, times=times)
                 if any(x.event == "recomb" for x in arg):
                     break
-            arg.write('test/data/test_trans/%d.arg' % i)
+            arg.write('test/data/test_trans_switch/%d.arg' % i)
 
     for i in range(ntests):
         print 'arg', i
-        arg = arglib.read_arg('test/data/test_trans/%d.arg' % i)
+        arg = arglib.read_arg('test/data/test_trans_switch/%d.arg' % i)
         argweaver.discretize_arg(arg, times)
         recombs = [x.pos for x in arg if x.event == "recomb"]
         pos = recombs[0]
