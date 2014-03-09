@@ -13,8 +13,10 @@ import argweaver.popsize
 from argweaver import argweaverc
 
 from compbio import arglib
+from rasmus import treelib
 from rasmus import util
 from rasmus.testing import fequal
+from rasmus.testing import make_clean_dir
 
 
 def test_trans_two():
@@ -139,28 +141,46 @@ def test_trans_switch():
 
     Only calculate a single matrix
     """
+    create_data = False
+    if create_data:
+        make_clean_dir('test/data/test_trans')
 
+    # model parameters
     k = 12
     n = 1e4
     rho = 1.5e-8 * 20
     length = 1000
     times = argweaver.get_time_points(ntimes=20, maxtime=200000)
     popsizes = [n] * len(times)
+    ntests = 100
 
-    recombs = []
+    # generate test data
+    if create_data:
+        for i in range(ntests):
+            # Sample ARG with at least one recombination.
+            while True:
+                arg = argweaver.sample_arg_dsmc(
+                    k, 2*n, rho, start=0, end=length, times=times)
+                if any(x.event == "recomb" for x in arg):
+                    break
+            arg.write('test/data/test_trans/%d.arg' % i)
 
-    while len(recombs) == 0:
-        arg = argweaver.sample_arg_dsmc(k, 2*n, rho, start=0, end=length,
-                                        times=times)
+    for i in range(ntests):
+        print 'arg', i
+        arg = arglib.read_arg('test/data/test_trans/%d.arg' % i)
+        argweaver.discretize_arg(arg, times)
         recombs = [x.pos for x in arg if x.event == "recomb"]
+        pos = recombs[0]
+        tree = arg.get_marginal_tree(pos-.5)
+        rpos, r, c = arglib.iter_arg_sprs(arg, start=pos-.5).next()
+        spr = (r, c)
 
-    pos = recombs[0]
-    tree = arg.get_marginal_tree(pos-.5)
-    rpos, r, c = arglib.iter_arg_sprs(arg, start=pos-.5).next()
-    spr = (r, c)
-
-    assert argweaverc.assert_transition_switch_probs(
-        tree, spr, times, popsizes, rho)
+        if not argweaverc.assert_transition_switch_probs(
+                tree, spr, times, popsizes, rho):
+            tree2 = tree.get_tree()
+            treelib.remove_single_children(tree2)
+            treelib.draw_tree_names(tree2, maxlen=5, minlen=5)
+            assert False
 
 
 def test_trans_internal():
