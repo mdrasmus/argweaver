@@ -179,6 +179,7 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
     LocalNode *last_nodes = last_tree->nodes;
 
     // determine node displacement
+    int last_node2 = (last_state.node != newleaf ? last_state.node : displaced);
     int node2 = (state.node != newleaf ? state.node : displaced);
 
 
@@ -201,13 +202,12 @@ void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
     if (spr->coal_node == newleaf)
         spr->coal_node = displaced;
 
-
     // parent of recomb node should be the recoal point
     // however, if it equals newcoal, then either (1) the recomb branch is
     // renamed, (2) there is mediation, or (3) new branch escapes
     int recoal = nodes[mapping[spr->recomb_node]].parent;
     if (recoal == newcoal) {
-        if (mapping[last_state.node] == node2) {
+        if (mapping[last_node2] == node2) {
             // (1) recomb is above coal state, we rename spr recomb node
             spr->recomb_node = newcoal;
         } else {
