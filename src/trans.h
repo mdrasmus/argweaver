@@ -12,7 +12,10 @@
 namespace argweaver {
 
 
-// A compressed representation of the transition matrix
+// A compressed representation of the transition matrix.
+//
+// This transition matrix is used in the chromosome threading HMM within
+// one non-recombining alignment block.
 class TransMatrix
 {
 public:
@@ -58,7 +61,7 @@ public:
         norecombs = new double [ntimes];
     }
 
-    // Returns the probability of transition from state i to j
+    // Probability of transition from state i to state j.
     inline double get(
         const LocalTree *tree, const States &states, int i, int j) const
     {
@@ -109,7 +112,7 @@ public:
         }
     }
 
-    // Returns the log probability of transition from state i to j
+    // Log probability of transition from state i to state j.
     inline double get_log(
         const LocalTree *tree, const States &states, int i, int j) const
     {
@@ -117,11 +120,12 @@ public:
     }
 
 
-    int ntimes;
-    int nstates;
-    bool own_data;
-    double *D;
-    double *E;
+    int ntimes;     // Number of time steps in model.
+    int nstates;    // Number of states in HMM.
+    bool own_data;  // If true, delete matrix data when object is deleted
+
+    double *D;      // Intermediate terms in calculating entries in the full
+    double *E;      // transition matrix.
     double *B;
     double *B_alloc;
     double *E2;
@@ -130,12 +134,17 @@ public:
     double *G3;
     double *G4;
     double *norecombs;
-    bool internal;
-    int minage;
+
+    bool internal;  // If true, this matrix is for threading an internal branch.
+    int minage;     // Minimum age of a state we can consider (due to threading
+                    // an internal branch).
 };
 
 
-// A compressed representation of the switch transition matrix
+// A compressed representation of the switch transition matrix.
+//
+// This transition matrix is used in the chromosome threading HMM to go between
+// one non-recombining alignment block to the next (i.e. switching blocks).
 class TransMatrixSwitch
 {
 public:
@@ -158,6 +167,7 @@ public:
         }
     }
 
+    // Allocate matrix with dimensions (nstates1, nstates2).
     void allocate(int nstates1, int nstates2)
     {
         nstates1 = nstates1;
@@ -173,11 +183,13 @@ public:
         recombrow = new double [max(nstates2, 1)];
     }
 
+    // Log probability of transition from state i to state j.
     inline double get_log(int i, int j) const
     {
         return log(get(i, j));
     }
 
+    // Probability of transition from state i to state j.
     inline double get(int i, int j) const
     {
         if (i == recoalsrc) {
@@ -193,15 +205,19 @@ public:
     }
 
 
-    int nstates1;
-    int nstates2;
-    int recoalsrc;
-    int recombsrc;
-    bool own_data;
-    int *determ;
-    double *determprob;
-    double *recoalrow;
-    double *recombrow;
+    int nstates1;   // Number of states in beginning block
+    int nstates2;   // Number of states in the ending block
+    int recoalsrc;  // Row for the state of the re-coalescence point
+    int recombsrc;  // Row for the state of the recombination point
+    bool own_data;  // If true, delete matrix data when object is deleted
+    int *determ;    // Compressed representation of deterministic transitions
+                    // determ[i] = j indicates (i --> j) is a deterministic
+                    // transition.  determ[i] = -1, means row i has many
+                    // transitions.
+    double *determprob;  // Unnormalized probability determprob[i] of
+                         // transition (i -> determ[i])
+    double *recoalrow;   // Transition probabilities for row recoalsrc
+    double *recombrow;   // Transition probabilities for row recombsrc
 };
 
 
