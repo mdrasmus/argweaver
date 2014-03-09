@@ -118,21 +118,33 @@ def test_trans():
     """
     Calculate transition probabilities
     """
+    create_data = False
+    if create_data:
+        make_clean_dir('test/data/test_trans')
 
-    k = 4
+    k = 8
     n = 1e4
     rho = 1.5e-8 * 20
     length = 1000
-    times = argweaver.get_time_points(ntimes=4, maxtime=200000)
+    times = argweaver.get_time_points(ntimes=10, maxtime=200000)
     popsizes = [n] * len(times)
+    ntests = 40
 
-    arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
-    argweaver.discretize_arg(arg, times)
+    # generate test data
+    if create_data:
+        for i in range(ntests):
+            arg = arglib.sample_arg(k, 2*n, rho, start=0, end=length)
+            argweaver.discretize_arg(arg, times)
+            arg.write('test/data/test_trans/%d.arg' % i)
 
-    pos = 10
-    tree = arg.get_marginal_tree(pos)
+    for i in range(ntests):
+        print 'arg', i
+        arg = arglib.read_arg('test/data/test_trans/%d.arg' % i)
+        argweaver.discretize_arg(arg, times)
+        pos = 10
+        tree = arg.get_marginal_tree(pos)
 
-    assert argweaverc.assert_transition_probs(tree, times, popsizes, rho)
+        assert argweaverc.assert_transition_probs(tree, times, popsizes, rho)
 
 
 def test_trans_switch():
