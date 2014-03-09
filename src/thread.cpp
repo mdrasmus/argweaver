@@ -165,6 +165,10 @@ void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace)
 
 // update an SPR and mapping after adding a new branch to two
 // neighboring local trees
+//
+// newleaf -- new leaf node added to the tree
+// displaced  -- node that used to be named 'newleaf'
+// newcoal -- new node that has 'newleaf' as a child.
 void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
                     State state, State last_state,
                     Spr *spr, int *mapping,
@@ -1111,7 +1115,6 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
         const Spr &spr = it->spr;
         get_prev_removal_nodes(last_tree, tree, spr, mapping,
                                branch2, prev_nodes);
-        //printf("branch2 %d\n", branch2);
         LocalNode *nodes = last_it->tree->nodes;
         int parent = nodes[prev_nodes[0]].parent;
         if (parent != -1 && nodes[parent].age < *cuttime && prev_nodes[1] != -1)
@@ -1133,8 +1136,6 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
     }
 
 
-    //printf("ntrees %d\n", trees->get_num_trees());
-
     // get removal path
     int blocki = 0;
     int starti = 0;
@@ -1144,14 +1145,12 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
         *region_start += it->blocklen;
     }
     starti = blocki;
-    //printf("blocki %d\n", blocki);
     *region_end = *region_start;
     for (unsigned int i=0; i<left_branches.size(); i++, ++it) {
         path[blocki++] = left_branches[left_branches.size()-1-i];
         *region_end += it->blocklen;
     }
     assert(it == center_it);
-    //printf("blocki %d\n", blocki);
     for (unsigned int i=0; i<right_branches.size(); i++, ++it) {
         path[blocki++] = right_branches[i];
         *region_end += it->blocklen;
@@ -1159,16 +1158,12 @@ void sample_arg_removal_path_cut(const LocalTrees *trees, int ntimes,
     int endi = blocki;
     --it;
     assert(it == right_it);
-    //printf("blocki %d\n", blocki);
     it = right_it; ++it;
     int len = 0;
     for (; it!=trees->end(); ++it) {
         path[blocki++] = -1;
         len += it->blocklen;
     }
-    //printf("blocki %d\n", blocki);
-    //printf("region_end %d, len %d, end_coord %d\n",
-    //       *region_end, len, trees->end_coord);
     assert(*region_end + len == trees->end_coord);
 
 

@@ -532,6 +532,7 @@ double calc_recomb_recoal(
 }
 
 
+// Calculate the switch transition matrix.
 void calc_transition_probs_switch(
     const LocalTree *tree, const LocalTree *last_tree,
     const Spr &spr, const int *mapping,
@@ -547,6 +548,7 @@ void calc_transition_probs_switch(
         get_treelen_internal(last_tree, model->times, model->ntimes) :
         get_treelen(last_tree, model->times, model->ntimes, false));
 
+    // handel the case of threading an internal branch
     if (internal) {
         // remove from the top case
         if (nstates1 == 0) {
@@ -974,7 +976,6 @@ bool assert_transmat_switch(const LocalTree *tree, const Spr &_spr,
     LineageCounts lineages(ntimes);
 
     // add/remove branch data
-    int displace[nnodes + 2];
     int newleaf = nleaves;
     int displaced = nnodes;
     int newcoal = nnodes + 1;
@@ -1009,8 +1010,8 @@ bool assert_transmat_switch(const LocalTree *tree, const Spr &_spr,
             p = log(recomb_prob);
             p += calc_spr_prob(model, &tree1, spr, lineages);
 
-            remove_tree_branch(&tree1, newleaf, displace);
-            remove_tree_branch(&tree2, newleaf, displace);
+            remove_tree_branch(&tree1, newleaf);
+            remove_tree_branch(&tree2, newleaf);
 
 
             // compare probabilities
@@ -1018,8 +1019,10 @@ bool assert_transmat_switch(const LocalTree *tree, const Spr &_spr,
                      i, j,
                      state1.node, state1.time,
                      state2.node, state2.time, p, p2, p - p2);
-            if (!fequal(p, p2, 1e-4, 1e-9))
+            if (!fequal(p, p2, 1e-4, 1e-9)) {
+                draw_local_tree(&tree1, stdout);
                 return false;
+            }
         }
     }
 

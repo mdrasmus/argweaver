@@ -12,7 +12,8 @@ bool assert_trees_thread(LocalTrees *trees, int *thread_path, int ntimes);
 
 // adding/removing branches from a local tree
 void add_tree_branch(LocalTree *tree, int node, int time);
-void remove_tree_branch(LocalTree *tree, int remove_leaf, int *displace);
+void remove_tree_branch(LocalTree *tree, int remove_leaf,
+                        int *displace=NULL);
 
 // update an SPR and mapping after adding a new branch
 void add_spr_branch(LocalTree *tree, LocalTree *last_tree,
