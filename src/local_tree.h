@@ -775,7 +775,8 @@ inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
     mapping[broken] = -1;
 }
 
-void print_local_tree(const LocalTree *tree, FILE *out=stdout);
+void draw_local_tree(const LocalTree *tree, FILE *out, int depth=0);
+void print_local_tree(const LocalTree *tree, FILE *out);
 void print_local_trees(const LocalTrees *trees, FILE *out=stdout);
 
 //=============================================================================
