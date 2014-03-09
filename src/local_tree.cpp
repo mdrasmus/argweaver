@@ -994,6 +994,7 @@ int find_time(double time, const double *times, int ntimes)
 
 // Iterates through the key-value pairs of a NHX comment
 // NOTE: end is exclusive
+// Example: "key1=value2:key2=value2"
 bool iter_nhx_key_values(char *text, char *end,
                          char **key, char **key_end,
                          char **value, char **value_end)
@@ -1020,6 +1021,7 @@ bool iter_nhx_key_values(char *text, char *end,
 
 // Parse the node age from a string 'text'
 // NOTE: end is exclusive
+// Example: "&&NHX:age=20"
 bool parse_node_age(char* text, char *end, double *age)
 {
     // ensure comment begins with "&&NHX:"
@@ -1093,10 +1095,11 @@ bool parse_local_tree(const char* newick, LocalTree *tree,
             while (j<len && newick[j] != ']') j++;
 
             double age;
-            if (newick[j] == ']' &&
-                parse_node_age((char*) &newick[i+1], (char*) &newick[j], &age))
-            {
-                ages[node] = find_time(age, times, ntimes);
+            if (newick[j] == ']') {
+                // parse age field
+                if (parse_node_age((char*) &newick[i+1],
+                                   (char*) &newick[j], &age))
+                    ages[node] = find_time(age, times, ntimes);
                 i = j;
             } else {
                 // error, quit early
@@ -1174,6 +1177,11 @@ bool parse_local_tree(const char* newick, LocalTree *tree,
             }
         }
     }
+
+    // leaves default to age 0
+    for (int i=0; i<nnodes; i++)
+        if (tree->nodes[i].is_leaf() && tree->nodes[i].age == -1)
+            tree->nodes[i].age = 0;
 
     // check for valid tree structure
     if (!assert_tree(tree))

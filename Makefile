@@ -111,7 +111,9 @@ LIBARGWEAVER_OBJS = $(ARGWEAVER_OBJS)
 CFLAGS_TEST = -I $(GTEST_DIR)/include
 LIBS_TEST = -Llib -lgtest -lgtest_main
 TEST_SRC = \
-	src/tests/test.cpp
+	src/tests/test.cpp \
+	src/tests/test_local_tree.cpp
+
 TEST_OBJS = $(TEST_SRC:.cpp=.o)
 
 
@@ -162,8 +164,8 @@ cq:
 ctest: src/tests/test
 	src/tests/test
 
-src/tests/test: $(TEST_OBJS)
-	$(CXX) -o src/tests/test src/tests/test.o $(LIBS_TEST)
+src/tests/test: $(TEST_OBJS) $(LIBARGWEAVER)
+	$(CXX) -o src/tests/test $(TEST_OBJS) $(LIBS_TEST) $(LIBARGWEAVER)
 
 $(TEST_OBJS): %.o: %.cpp
 	$(CXX) -c $(CFLAGS) $(CFLAGS_TEST) -o $@ $<
