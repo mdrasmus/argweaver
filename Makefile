@@ -112,7 +112,8 @@ CFLAGS_TEST = -I $(GTEST_DIR)/include
 LIBS_TEST = -Llib -lgtest -lgtest_main
 TEST_SRC = \
 	src/tests/test.cpp \
-	src/tests/test_local_tree.cpp
+	src/tests/test_local_tree.cpp \
+	src/tests/test_prob.cpp
 
 TEST_OBJS = $(TEST_SRC:.cpp=.o)
 
