@@ -155,7 +155,7 @@ $(PKG):
 #-----------------------------
 # testing
 
-test:
+test: $(LIBARGWEAVER_SHARED)
 	nosetests -v test
 
 cq:
