@@ -391,7 +391,7 @@ public:
       }
       string rv = print_newick_to_string_recur(root, internal_names,
 					       format_str, show_nhx, oneline);
-      rv.append(":");
+      rv.append(";");
       if (!oneline) rv.append("\n");
       if (format_str != NULL) {
 	delete [] format_str;

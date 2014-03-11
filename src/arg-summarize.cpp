@@ -417,7 +417,7 @@ int summarizeRegion(char *filename, const char *region,
 	  } else {
 	    int num=orig_tree->node_map.nm[orig_tree->recomb_node->name];
 	    //	    printf("num=%i\n", num);
-	    if (num == -1) {
+	    if (num == -1 || pruned_tree->nodes[num] == pruned_tree->root) {
 	      pruned_tree->recomb_node = pruned_tree->coal_node = NULL;
 	    } else {
 	      assert(num>=0);
