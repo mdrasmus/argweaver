@@ -150,22 +150,22 @@ public:
     orig_tree(orig_tree), pruned_tree(pruned_tree) {
 	chrom = new char[strlen(chr)+1];
 	strcpy(chrom, chr);
-	newick = new char[strlen(nwk)+1];
+	newick = (char*)malloc((strlen(nwk)+1)*sizeof(char));
 	strcpy(newick, nwk);
     };
   ~BedLine() {
     //      if (orig_tree != NULL) delete orig_tree;
     //      if (pruned_tree != NULL) delete pruned_tree;
       delete [] chrom;
-      delete [] newick;
+      free(newick);
   }
   char *chrom;
   int start;
   int end;
   int sample;
-  char *newick;
   Tree *orig_tree;
   Tree *pruned_tree;
+  char *newick;
   vector<double> stats;
 };
 
@@ -198,7 +198,8 @@ void scoreBedLine(BedLine *line, vector<string> statname) {
     else if (statname[i]=="tree") {
       if (line->pruned_tree != NULL) {
 	string tmp = line->pruned_tree->print_newick_to_string(false, true, 1, 1);
-	line->newick = (char*)malloc((tmp.length()+1)*sizeof(char));
+	//	line->newick = (char*)malloc((tmp.length()+1)*sizeof(char));
+	//pruned tree will be fewer characters than whole tree
 	sprintf(line->newick, "%s", tmp.c_str());
       }
     }
