@@ -441,6 +441,9 @@ int summarizeRegion(char *filename, const char *region,
 		pruned_tree->coal_node = pruned_tree->nodes[num];
 		pruned_tree->coal_time = orig_tree->coal_time;
 	      }
+	      if (pruned_tree->recomb_node == pruned_tree->coal_node) {
+		pruned_tree->recomb_node = pruned_tree->coal_node = NULL;
+	      }
 	    }
 	  }
 	  /*	  printf("update spr2 recomb_node=%i coal_node=%i\n",
