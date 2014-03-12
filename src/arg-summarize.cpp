@@ -214,36 +214,63 @@ void scoreBedLine(BedLine *line, vector<string> statname) {
 }
 
 
+struct CompareBedLineEnd
+{
+    bool operator()(const BedLine *l1, const BedLine *l2) const
+    { 
+      //could generalize and sort by start, but for this purpose we are only comparing entries with same start
+      assert(l1->start == l2->start);
+      if (l1->end == l2->end)
+	return (l1->sample < l2->sample);
+      return l1->end < l2->end;
+    }
+};
 
 void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *results,
 			vector<string> statname, 
 			char *region_chrom, int region_start, int region_end) {
   static int counter=0;
+  static list<BedLine*> bedlist;
 
-  if (line->stats.size() == 0) 
-    scoreBedLine(line, statname);
-  if (region_chrom != NULL) {
-    assert(strcmp(region_chrom, line->chrom)==0);
-    if (line->end > region_end) line->end = region_end;
-    if (line->start < region_start) line->start = region_start;
-    assert(line->start < line->end);
+  if (line != NULL) {
+    if (line->stats.size() == 0) 
+      scoreBedLine(line, statname);
+    if (region_chrom != NULL) {
+      assert(strcmp(region_chrom, line->chrom)==0);
+      if (line->end > region_end) line->end = region_end;
+      if (line->start < region_start) line->start = region_start;
+      assert(line->start < line->end);
+    }
   }
   if (!summarize) {
-    printf("%s\t%i\t%i\t%i", line->chrom, line->start, line->end, line->sample);
-    for (unsigned int i=0; i < statname.size(); i++) {
-      if (statname[i]=="tree") {
-	printf("\t");
-	printf("%s", line->newick);
-      } else {
-	printf("\t%g", line->stats[i]);
+    if (bedlist.size() > 0 && 
+	(line==NULL || bedlist.front()->start < line->start)) {
+      bedlist.sort(CompareBedLineEnd());
+      //      std::list<BedLine*>::sort(bedlist.begin(), bedlist.end(), compBedLineEnd);
+      for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
+	BedLine *l = *it;
+	printf("%s\t%i\t%i\t%i", l->chrom, l->start, l->end, l->sample);
+	for (unsigned int i=0; i < statname.size(); i++) {
+	  if (statname[i]=="tree") {
+	    printf("\t");
+	    printf("%s", l->newick);
+	  } else {
+	    printf("\t%g", l->stats[i]);
+	  }
+	}
+	printf("\n");
+	delete &*l;
       }
+      bedlist.clear();
     }
-    printf("\n");
+    if (line != NULL) bedlist.push_back(line);
   } else {
-    results->append(line->chrom, line->start, line->end, line->stats);
-    counter++;
-    if (counter%100==0) {
-      checkResults(results);
+    if (line != NULL) {
+      results->append(line->chrom, line->start, line->end, line->stats);
+      counter++;
+      if (counter%100==0) {
+	checkResults(results);
+      }
     }
   }
 }
@@ -269,7 +296,8 @@ int summarizeRegion(char *filename, const char *region,
          be populated, either by parsing the newick or an SPR operation 
          on previous tree.
        Parsed tree has recomb_node, recomb_time, coal_node, coal_time set
-         (recomb_node==NULL => no recomb at end of region)
+         (recomb_node==NULL => no recomb. Only happens in full tree at end
+	 of regions analyzed by arg-sample)
 
        Queue bedlineQueue contains pointers to this class, will be output to
          results in order (first in, first out).
@@ -351,28 +379,15 @@ int summarizeRegion(char *filename, const char *region,
       if (it == orig_trees.end()) {  //first tree from this sample
 	orig_tree = new Tree(string(newick), times);
 	orig_trees[sample] = orig_tree;
-	//	printf("ORIG: ");
-	//	orig_tree->print_newick(stdout);
-	//	printf("\n");
 	if (inds.size() > 0) {
 	  pruned_tree = orig_tree->copy();
-	  //	  orig_tree->node_map = *pruned_tree->prune(inds, true);
 	  orig_tree->node_map = pruned_tree->prune(inds, true);
 	  pruned_trees[sample] = pruned_tree;
-	  /*	  printf("PRUN: ");
-	  pruned_tree->print_newick(stdout);
-	  printf("\n");
-	  fflush(stdout);
-	  for (int i=0; i < orig_tree->nnodes; i++)
-	    printf("node_map[%i]=%i\n", i, orig_tree->node_map.nm[i]);
-	    fflush(stdout);*/
 	}
       } else {
 	int parse_tree = 0;
 	orig_tree = it->second;
 	if (orig_tree->recomb_node == NULL) {
-	  //	  printf("recomb_node is NULL; reading new tree\n"); fflush(stdout);
-	  assert(0);  // TODO: REMOVE THIS! IT IS OK TO BE HERE.
 	  parse_tree = 1;
 	  delete orig_tree;
 	  orig_tree = new Tree(string(newick), times);
@@ -381,42 +396,23 @@ int summarizeRegion(char *filename, const char *region,
 
 	// set recomb_node and coal_node to next spr events indicated in newick string
         orig_tree->update_spr(newick, times);
-	/*	printf("SPR1: ");
-	orig_tree->print_newick(stdout);
-	printf("\n");
-	printf("done apply_update_spr\n");
-	printf("update spr recomb_node=%i coal_node=%i\n",
-	       orig_tree->recomb_node==NULL ? -1 : orig_tree->recomb_node->name,
-	       orig_tree->coal_node==NULL ? -1 : orig_tree->coal_node->name);*/
 	if (inds.size() > 0) {
 	  it = pruned_trees.find(sample);
 	  assert(it != pruned_trees.end());
 	  pruned_tree = it->second;
 	  if (parse_tree) {
-	    assert(0); // TODO: DELETE THIS TOO. IT IS USUALLY OK TO BE HERE.
-	    delete pruned_tree;
 	    pruned_tree = orig_tree->copy();
-	    //	    orig_tree->node_map = *pruned_tree->prune(inds, true);
 	    orig_tree->node_map = pruned_tree->prune(inds, true);
 	    pruned_trees[sample] = pruned_tree;
 	  } else if (pruned_tree->recomb_node != NULL) {
 	    pruned_tree->apply_spr();
 	  }
-	  /*	  printf("SPR2: ");
-	  pruned_tree->print_newick(stdout); printf("\n");
-	  fflush(stdout);*/
-
-	  /*	  for (int f=0; f < orig_tree->nnodes; f++) {
-            printf("map[%i]=%i\n", f, orig_tree->node_map.nm[f]);
-          } 
-	  fflush(stdout);*/
 
 	  //map recomb_node and coal_node onto pruned tree
 	  if (orig_tree->recomb_node == NULL) {
 	    pruned_tree->recomb_node = pruned_tree->coal_node = NULL;
 	  } else {
 	    int num=orig_tree->node_map.nm[orig_tree->recomb_node->name];
-	    //	    printf("num=%i\n", num);
 	    if (num == -1 || pruned_tree->nodes[num] == pruned_tree->root) {
 	      pruned_tree->recomb_node = pruned_tree->coal_node = NULL;
 	    } else {
@@ -424,7 +420,6 @@ int summarizeRegion(char *filename, const char *region,
  	      pruned_tree->recomb_node = pruned_tree->nodes[num];
 	      pruned_tree->recomb_time = orig_tree->recomb_time;
 	      num = orig_tree->node_map.nm[orig_tree->coal_node->name];
-	      //	      printf("num2=%i\n", num);
 	      if (num == -1) {  
 		// coal node does not map; need to trace back until it does
 		Node *n = orig_tree->coal_node;
@@ -446,9 +441,6 @@ int summarizeRegion(char *filename, const char *region,
 	      }
 	    }
 	  }
-	  /*	  printf("update spr2 recomb_node=%i coal_node=%i\n",
-		 pruned_tree->recomb_node==NULL ? -1 : pruned_tree->recomb_node->name,
-		 pruned_tree->coal_node==NULL ? -1 : pruned_tree->coal_node->name);*/
 	  if (pruned_tree->recomb_node != NULL)
 	    assert(pruned_tree->coal_node != NULL);
 	}
@@ -457,15 +449,12 @@ int summarizeRegion(char *filename, const char *region,
       map<int,BedLine*>::iterator it3 = bedlineMap.find(sample);
       BedLine *currline;
       if (it3 == bedlineMap.end()) {
-	//	printf("new bedline map for sample %i (%s\t%i\t%i)\n", sample, chrom, start-offset, end-offset); fflush(stdout);
 	currline = new BedLine(chrom, start, end, sample, newick, orig_tree,
 			       pruned_tree);
 	bedlineMap[sample] = currline;
 	bedlineQueue.push(currline);
       } else {
 	currline = it3->second;
-	//	printf("found entry for sample %i\n", sample); fflush(stdout);
-	//	printf("entry has sample %i start=%i end=%i\n", currline->sample, currline->start-offset, currline->end-offset); fflush(stdout);
 	assert(strcmp(currline->chrom, chrom)==0);
 	assert(currline->end == start);
 	currline->end = end;
@@ -479,7 +468,6 @@ int summarizeRegion(char *filename, const char *region,
 	  pruned_tree->recomb_node != NULL) {
 	scoreBedLine(currline, statname);
 	bedlineMap.erase(sample);
-	//	  printf("replaced bedline map for sample %i (old=(%i,%i) new=(%i,%i)\n", sample, oldstart-offset, oldend-offset, currline->start-offset, currline->end-offset); fflush(stdout);
       }
 
       while (bedlineQueue.size() > 0) {
@@ -487,15 +475,12 @@ int summarizeRegion(char *filename, const char *region,
 	if (firstline->stats.size() == statname.size()) {
 	  processNextBedLine(firstline, &results, statname,
 			     region_chrom, region_start, region_end);
-	  //	  printf("processing sample %i\t(%s\t%i\t%i)\n", firstline->sample,
-	  //		 firstline->chrom, firstline->start-offset, firstline->end-offset);
 	  it3 = bedlineMap.find(firstline->sample);
 	  if (it3 != bedlineMap.end() && it3->second == firstline) {
 	    assert(0);
-	    //	    printf("erasing bedlineMap entry for sample %i (%i,%i)\n", firstline->sample, firstline->start-offset, firstline->end-offset);
 	    bedlineMap.erase(firstline->sample);
 	  }
-	  delete &*firstline;
+	  //	  delete &*firstline;
 	  bedlineQueue.pop();
 	} else break;
       }
@@ -508,13 +493,16 @@ int summarizeRegion(char *filename, const char *region,
       BedLine *firstline = bedlineQueue.front();
       processNextBedLine(firstline, &results, statname, 
 			 region_chrom, region_start, region_end);
-      delete &*firstline;
+      //      delete &*firstline;
       bedlineQueue.pop();
     }
 
     if (summarize) {
         results.finish();
         checkResults(&results);
+    } else {
+      processNextBedLine(NULL, &results, statname, region_chrom, 
+			 region_start, region_end);
     }
 
     it = orig_trees.begin();
