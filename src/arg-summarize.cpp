@@ -293,7 +293,7 @@ public:
     done=0;
     while ('\n' != (c=fgetc(snp_in->stream)) && c!=EOF) {
       assert(c=='\t');
-      fscanf(snp_in->stream, "%s", tmp);
+      assert(1==fscanf(snp_in->stream, "%s", tmp));
       str = string(tmp);
       inds.push_back(str);
     }
@@ -442,8 +442,8 @@ int summarizeRegionAlleleAge(char *snpFilename, char *filename,
 			     vector<double> times) {
   TabixStream *snp_infile;
   TabixStream *infile;
-  char *region_chrom=NULL;
-  int region_start=-1, region_end=-1;
+  //  char *region_chrom=NULL;
+  //  int region_start=-1, region_end=-1;
   vector<string> token;
   map<int,BedLine*> last_entry;
   map<int,BedLine*>::iterator it;
@@ -464,7 +464,7 @@ int summarizeRegionAlleleAge(char *snpFilename, char *filename,
     }
   }
 
-  if (region != NULL) {
+  /*  if (region != NULL) {
     split(region, "[:-]", token);
     if (token.size() != 3) {
       fprintf(stderr, "Error: bad region format; should be chr:start-end\n");
@@ -474,7 +474,7 @@ int summarizeRegionAlleleAge(char *snpFilename, char *filename,
     strcpy(region_chrom, token[0].c_str());
     region_start = atoi(token[1].c_str())-1;
     region_end = atoi(token[2].c_str());
-  }
+    }*/
   SnpStream snpStream = SnpStream(snp_infile);
   assert(4==fscanf(infile->stream, "%s %i %i %i", 
 		   chrom, &start, &end, &sample));
