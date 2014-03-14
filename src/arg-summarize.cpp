@@ -61,6 +61,21 @@ int print_help() {
 	   "   subset by individual. The argument should contain haplotype names, one\n"
 	   "   per line, which should be retained. All others will be removed before\n"
 	   "   statistics are computed.\n"
+	   "--snpfile,-s snp-file\n"
+	   "   If used, compute statitics for specific SNPs. If used, extra information\n"
+	   "   about each SNP will be printed on each row (derived/ancestral alleles and\n"
+	   "   frequencies). If statistics are summarized across samples, there will be\n"
+	   "   three estimates for each summary statistic- one taken across all samples,\n"
+	   "   one taken across samples which agree with the consensus derived allele,\n"
+           "   and one taken across only samples which agree with infiite sites (only one\n"
+	   "   mutation required to show given site pattern.)\n"
+	   "   The SNP file should have\n"
+	   "   a header like this:\n"
+	   "   #NAMES NA06985_1       NA06985_2       NA06994_1       NA06994_2\n"
+	   "   and then each line should be tab-delimited with the following format:\n"
+	   "   chr,start,end,AAAACAAAAA\n"
+	   "   where the last column gives the alleles for each haplotype in the order\n"
+	   "   listed in the header. The file should be sorted and index with tabix\n"
            "STATISTICS:\n"
            "--tree,-E\n"
            "  output newick tree strings (cannot use summary options with this)\n"
@@ -76,13 +91,12 @@ int print_help() {
            "  relative TMRCA Halftime\n"
            "--popsize,-P\n"
            "  estimated popsize\n"
-	   "--allele-age,-A <snp file>\n"
-	   "  Compute allele age for all CG snps in the region. snp_file\n"
-	   "  needs to contain phased SNP information in the format\n"
-	   " chr,start,end,AAAAACAAAA\n"
-	   " a header like the following needs to identify haplotype order:\n"
-	   " #NAMES NA06985_1       NA06985_2       NA06994_1       NA06994_2.."
-           "SUMMARY OPTIONS:\n"
+	   "--allele-age,-A\n"
+	   "  (requires --snp-file). Compute allele age for all CG snps in\n"
+	   "  the region. Also returns the number of mutations required\n"
+	   "  to show the given site pattern across infinite sites (this\n"
+	   "  is not done using parsimony and may over-estimate when multiple\n"
+	   "  mutations are required)\n"
            "--numsample,-N\n"
            "  number of samples covering each region\n"
            "--mean,-M\n"
@@ -280,7 +294,6 @@ void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *result
 	  }
 	}
 	printf("\n");
-	delete &*l;
       }
       bedlist.clear();
     }
@@ -487,14 +500,12 @@ void print_summaries(vector<double> stat) {
 }
 
 
-int summarizeRegionAlleleAge(char *snpFilename, char *filename,
-			     const char *region,
-			     set<string> inds, vector<string> statname,
-			     vector<double> times) {
+int summarizeRegionBySnp(char *snpFilename, char *filename,
+			 const char *region,
+			 set<string> inds, vector<string> statname,
+			 vector<double> times) {
   TabixStream *snp_infile;
   TabixStream *infile;
-  //  char *region_chrom=NULL;
-  //  int region_start=-1, region_end=-1;
   vector<string> token;
   map<int,BedLine*> last_entry;
   map<int,BedLine*>::iterator it;
@@ -514,18 +525,6 @@ int summarizeRegionAlleleAge(char *snpFilename, char *filename,
       if (c==EOF) return 0;
     }
   }
-
-  /*  if (region != NULL) {
-    split(region, "[:-]", token);
-    if (token.size() != 3) {
-      fprintf(stderr, "Error: bad region format; should be chr:start-end\n");
-      return 1;
-    }
-    region_chrom = new char[token[0].size()+1];
-    strcpy(region_chrom, token[0].c_str());
-    region_start = atoi(token[1].c_str())-1;
-    region_end = atoi(token[2].c_str());
-    }*/
   SnpStream snpStream = SnpStream(snp_infile);
   assert(4==fscanf(infile->stream, "%s %i %i %i", 
 		   chrom, &start, &end, &sample));
@@ -562,12 +561,15 @@ int summarizeRegionAlleleAge(char *snpFilename, char *filename,
 	  pruned_tree = orig_tree->copy();
 	  orig_tree->node_map = pruned_tree->prune(inds, true);
 	}
-	l = new BedLine(chrom, start, end, sample, NULL, orig_tree, pruned_tree);
+	l = new BedLine(chrom, start, end, sample, newick, orig_tree, pruned_tree);
 	last_entry[sample] = l;
       } else {
 	l = it->second;
 	l->orig_tree->apply_spr();
 	l->orig_tree->update_spr(newick, times);
+	free(l->newick);
+	l->newick = (char*)malloc((strlen(newick)+1)*sizeof(char));
+	strcpy(l->newick, newick);
 	if (inds.size() > 0) {
 	  l->pruned_tree->apply_spr();
 	  l->pruned_tree->update_spr_pruned(l->orig_tree);
@@ -665,12 +667,22 @@ int summarizeRegionAlleleAge(char *snpFilename, char *filename,
       }
     }
   }
+  delete snp_infile;
+  delete infile;
+  delete [] newick;
+
+  for (map<int,BedLine*>::iterator it=last_entry.begin(); it != last_entry.end(); ++it) {
+    BedLine *l = it->second;
+    if (l->pruned_tree != NULL) delete l->pruned_tree;
+    if (l->orig_tree != NULL) delete l->orig_tree;
+    delete &*l;
+  }
   return 0;
 }
 
-int summarizeRegionNoAlleleAge(char *filename, const char *region, 
-			       set<string> inds, vector<string>statname,
-			       vector<double> times) {
+int summarizeRegionNoSnp(char *filename, const char *region, 
+			 set<string> inds, vector<string>statname,
+			 vector<double> times) {
     TabixStream *infile;
     char c;
     char *region_chrom = NULL;
@@ -683,6 +695,7 @@ int summarizeRegionNoAlleleAge(char *filename, const char *region,
     map<int,Tree*>orig_trees;
     map<int,Tree*>pruned_trees;
     map<int,Tree*>::iterator it;
+    list<BedLine*>all_bedlines;
     /* 
        Class BedLine contains chr,start,end, newick tree, parsed tree.
          parsed tree may be NULL if not parsing trees but otherwise will
@@ -795,9 +808,7 @@ int summarizeRegionNoAlleleAge(char *filename, const char *region,
 	    pruned_tree = orig_tree->copy();
 	    orig_tree->node_map = pruned_tree->prune(inds, true);
 	    pruned_trees[sample] = pruned_tree;
-	  } else if (pruned_tree->recomb_node != NULL) {
-	    pruned_tree->apply_spr();
-	  }
+	  } else pruned_tree->apply_spr();
 	  pruned_tree->update_spr_pruned(orig_tree);
 	}
       }
@@ -807,6 +818,7 @@ int summarizeRegionNoAlleleAge(char *filename, const char *region,
       if (it3 == bedlineMap.end()) {
 	currline = new BedLine(chrom, start, end, sample, newick, orig_tree,
 			       pruned_tree);
+	all_bedlines.push_back(currline);
 	bedlineMap[sample] = currline;
 	bedlineQueue.push(currline);
       } else {
@@ -836,7 +848,6 @@ int summarizeRegionNoAlleleAge(char *filename, const char *region,
 	    assert(0);
 	    bedlineMap.erase(firstline->sample);
 	  }
-	  //	  delete &*firstline;
 	  bedlineQueue.pop();
 	} else break;
       }
@@ -849,7 +860,6 @@ int summarizeRegionNoAlleleAge(char *filename, const char *region,
       BedLine *firstline = bedlineQueue.front();
       processNextBedLine(firstline, &results, statname, 
 			 region_chrom, region_start, region_end);
-      //      delete &*firstline;
       bedlineQueue.pop();
     }
 
@@ -871,19 +881,23 @@ int summarizeRegionNoAlleleAge(char *filename, const char *region,
       delete it->second;
       advance(it, 1);
     }
+    for (list<BedLine*>::iterator it=all_bedlines.begin(); it != all_bedlines.end(); ++it) {
+      BedLine *l = *it;
+      delete &*l;
+    }
 
     if (region_chrom != NULL) delete[] region_chrom;
     return 0;
 }
 
-int summarizeRegion(char *allele_age_file, char *filename, const char *region, 
+int summarizeRegion(char *snp_file, char *filename, const char *region, 
 		    set<string> inds, vector<string>statname,
 		    vector<double> times) {
-  if (allele_age_file != NULL)
-    return summarizeRegionAlleleAge(allele_age_file, filename, region,
-				    inds, statname, times);
-  else return summarizeRegionNoAlleleAge(filename, region,
-					 inds, statname, times);
+  if (snp_file != NULL)
+    return summarizeRegionBySnp(snp_file, filename, region,
+				inds, statname, times);
+  else return summarizeRegionNoSnp(filename, region,
+				   inds, statname, times);
 }
 
 
@@ -894,7 +908,7 @@ int main(int argc, char *argv[]) {
   set <string>inds;
   char c, *region=NULL, *filename = NULL, *bedfile = NULL, *indfile = NULL,
       *timesfile=NULL;
-  char *allele_age_file=NULL;
+  char *snp_file=NULL;
   int rawtrees=0, recomb=0;
   vector<string> statname;
  // map<string,double> times;
@@ -912,7 +926,8 @@ int main(int argc, char *argv[]) {
       {"rth", 0, 0, 'F'},
       {"popsize", 0, 0, 'P'},
       {"numsample", 0, 0, 'N'},
-      {"allele-age", 1, 0, 'A'},
+      {"allele-age", 0, 0, 'A'},
+      {"snp-file", 1, 0, 'f'},
       {"mean", 0, 0, 'M'},
       {"stdev", 0, 0, 'S'},
       {"quantile", 1, 0, 'Q'},
@@ -921,7 +936,7 @@ int main(int argc, char *argv[]) {
       {"help", 0, 0, 'h'},
       {0,0,0,0}};
 
-  while (( c = (char)getopt_long(argc, argv, "r:m:b:s:TEHBRFPNA:MSQ:t:nh",
+  while (( c = (char)getopt_long(argc, argv, "r:m:b:s:TEHBRFPNAf:MSQ:t:nh",
                                  long_opts, &opt_idx)) != -1) {
       switch(c) {
       case 'r':
@@ -936,6 +951,9 @@ int main(int argc, char *argv[]) {
       case 's':
 	  indfile = optarg;
 	  break;
+      case 'f':
+	snp_file = optarg;
+	break;
       case 'E':
           rawtrees=1;
 	  statname.push_back(string("tree"));
@@ -960,7 +978,6 @@ int main(int argc, char *argv[]) {
           statname.push_back(string("popsize"));
           break;
       case 'A':
-          allele_age_file = optarg;
           statname.push_back(string("allele_age"));
 	  statname.push_back(string("num_mut"));
           break;
@@ -1016,7 +1033,7 @@ int main(int argc, char *argv[]) {
      fprintf(stderr, "Error: --trees not compatible with summary statistics (--mean, --quantile, --stdev, --numsample)\n");
      return 1;
   }
-  if (recomb && allele_age_file != NULL) {
+  if (recomb && snp_file != NULL) {
     fprintf(stderr, "Error: cannot use --recomb and --allele-age together\n");
     return 1;
   }
@@ -1034,16 +1051,16 @@ int main(int argc, char *argv[]) {
       printf("#chrom\tchromStart\tchromEnd");
       if (summarize==0)
           printf("\tMCMC_sample");
-      if (allele_age_file != NULL) {
+      if (snp_file != NULL) {
 	printf("\tderAllele\tancAllele\tderFreq\tancFreq");
       }
-      if (allele_age_file == NULL && getNumSample > 0) 
+      if (snp_file == NULL && getNumSample > 0) 
 	printf("\tnumsample");
-      if (summarize && allele_age_file) {
+      if (summarize && snp_file) {
 	printf("\tnumsample-all\tnumsample-derConsensus\tnumsample-infsites");
       }
       vector<string> stattype;
-      if (allele_age_file == NULL) {
+      if (snp_file == NULL) {
 	stattype.push_back("");
       } else {
 	stattype.push_back("-all");
@@ -1053,9 +1070,7 @@ int main(int argc, char *argv[]) {
 
       for (unsigned int j=0; j < statname.size(); j++) {
           if (summarize==0) {
-	    if (allele_age_file != NULL)
-	      printf("\talleleAge\tnumMut");
-	    else printf("\t%s", statname[j].c_str());
+	    printf("\t%s", statname[j].c_str());
           }
 	  for (unsigned int k=0; k < stattype.size(); k++) {
 	    for (int i=1; i <= summarize; i++) {
@@ -1107,7 +1122,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (bedfile == NULL) {
-    summarizeRegion(allele_age_file, filename,
+    summarizeRegion(snp_file, filename,
 		    region, inds, statname, times);
   } else {
       CompressStream bedstream(bedfile);
@@ -1128,7 +1143,7 @@ int main(int argc, char *argv[]) {
           int start = atoi(token[1].c_str());
           int end = atoi(token[2].c_str());
           sprintf(regionStr, "%s:%i-%i", token[0].c_str(), start+1, end);
-          summarizeRegion(allele_age_file, filename,
+          summarizeRegion(snp_file, filename,
                           regionStr, inds, statname, times);
           delete [] regionStr;
       }
