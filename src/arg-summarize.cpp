@@ -76,12 +76,12 @@ int print_help() {
            "  relative TMRCA Halftime\n"
            "--popsize,-P\n"
            "  estimated popsize\n"
-	   //           "--allele-age,-A <snp file>\n"
-	   //           "  Compute allele age for all CG snps in the region. snp_file\n"
-	   //           "  needs to contain phased SNP information in the format\n"
-	   //           " chr,start,end,AAAAACAAAA\n"
-	   //           " a header like the following needs to identify haplotype order:\n"
-	   //           " #NAMES NA06985_1       NA06985_2       NA06994_1       NA06994_2.."
+	   "--allele-age,-A <snp file>\n"
+	   "  Compute allele age for all CG snps in the region. snp_file\n"
+	   "  needs to contain phased SNP information in the format\n"
+	   " chr,start,end,AAAAACAAAA\n"
+	   " a header like the following needs to identify haplotype order:\n"
+	   " #NAMES NA06985_1       NA06985_2       NA06994_1       NA06994_2.."
            "SUMMARY OPTIONS:\n"
            "--numsample,-N\n"
            "  number of samples covering each region\n"
@@ -169,10 +169,13 @@ public:
   Tree *pruned_tree;
   char *newick;
   vector<double> stats;
+  char derAllele, otherAllele;
+  int derFreq, otherFreq;
+  int numMut;
 };
 
 
-void scoreBedLine(BedLine *line, vector<string> statname) {
+void scoreBedLine(BedLine *line, vector<string> statname, double allele_age=-1, int nummut=-1) {
   Tree *tree = line->pruned_tree != NULL ? line->pruned_tree : line->orig_tree;
   double bl=-1.0;
   if (line->stats.size() == statname.size()) return;
@@ -205,15 +208,25 @@ void scoreBedLine(BedLine *line, vector<string> statname) {
 	sprintf(line->newick, "%s", tmp.c_str());
       }
     }
-    else if (statname[i]=="allele_age") {
-      fprintf(stderr, "Error: allele age not yet implemented\n");
-      exit(1);
-    } else {
+    else if (statname[i]=="allele_age")
+      line->stats[i] = allele_age;
+    else if (statname[i]=="num_mut") 
+      line->stats[i] = (double)nummut;
+    else {
       fprintf(stderr, "Error: unknown stat %s\n", statname[i].c_str());
       exit(1);
     }
   }
 }
+
+
+struct CompareBedLineSample
+{
+  bool operator()(const BedLine *l1, const BedLine *l2) const
+  {
+    return l1->sample < l2->sample;
+  }
+};
 
 
 struct CompareBedLineEnd
@@ -346,7 +359,8 @@ public:
     return 0;
   }
 
-  void scoreAlleleAge(BedLine *l) {
+
+  void scoreAlleleAge(BedLine *l, vector<string> statname) {
     int num_derived, total;
     assert(l->start < coord);
     assert(l->end >= coord);
@@ -411,18 +425,22 @@ public:
       double tempage = n->age + (n->parent->age - n->age)/2;  //midpoint of branch
       if (tempage > age) age = tempage;
     }
-    printf("%s\t%i\t%i\t%i\t%c\t%c\t%i\t%i\t%f\t%i\n",
-	   chr, coord-1, coord, l->sample,
-	   major_is_derived ? allele2 : allele1,  //derived allele
-	   major_is_derived ? allele1 : allele2,  // allele at root
-	   major_is_derived ? total-num_derived : num_derived,
-	   major_is_derived ? num_derived : total - num_derived,
-	   age, (int)lca.size());  // lca.size() indicates number of mutations, anything other than one is against infinite sites
+    scoreBedLine(l, statname, age, lca.size());
+    l->derAllele = (major_is_derived ? allele2 : allele1);
+    l->otherAllele = (major_is_derived ? allele1 : allele2);
+    l->derFreq = (major_is_derived ? total-num_derived : num_derived);
+    l->otherFreq = (major_is_derived ? num_derived : total - num_derived);
+    l->numMut = lca.size();
 
+    /*    if (summarize==0) {
+      printf("%s\t%i\t%i\t%i", 
+	     chr, coord-1, coord, l->sample);
+      rv.print();
+      printf("\n");
+      }*/
     if (prune.size() > 0) {
       delete t;
     }
-    
   }
 
   TabixStream *snp_in;
@@ -434,6 +452,39 @@ public:
   int coord;  //1-based
   int done;
 };
+
+
+
+void print_summaries(vector<double> stat) {
+  double meanval=0;
+  int have_mean=0;
+  for (int j=1; j <= summarize; j++) {
+    if (getMean==j) {
+      if (stat.size() > 0) {
+	meanval = compute_mean(stat);
+	have_mean=1;
+	printf("\t%g", meanval);
+      } else printf("\tNA");
+    } else if (getStdev==j) {
+      if (stat.size() > 1) {
+	if (!have_mean)
+	  meanval = compute_mean(stat);
+	printf("\t%g", compute_stdev(stat, meanval));
+      } else printf("\tNA");
+    } else if (getQuantiles==j) {
+      if (stat.size() > 0) {
+	vector<double> q = compute_quantiles(stat, quantiles);
+	for (unsigned int k=0; k < quantiles.size(); k++) {
+	  printf("\t%g", q[k]);
+	}
+      } else {
+	for (unsigned int k=0; k < quantiles.size(); k++) {
+	  printf("\tNA");
+	}
+      }
+    }
+  }
+}
 
 
 int summarizeRegionAlleleAge(char *snpFilename, char *filename,
@@ -483,13 +534,16 @@ int summarizeRegionAlleleAge(char *snpFilename, char *filename,
   chomp(newick);
   
   while (1) {
+    list<BedLine*> bedlist;
+    bedlist.clear();
     snpStream.readNext();
     if (snpStream.done) break;
     // first check already-parsed BedLines and score any that overlap SNP
     for (it=last_entry.begin(); it != last_entry.end(); it++) {
       l = it->second;
       if (l->start < snpStream.coord && l->end >= snpStream.coord) {
-	snpStream.scoreAlleleAge(l);
+	snpStream.scoreAlleleAge(l, statname);
+	bedlist.push_back(l);
       }
     }
     //now look through bed file until we get to one that starts after SNP
@@ -522,7 +576,8 @@ int summarizeRegionAlleleAge(char *snpFilename, char *filename,
 	l->end = end;
       }
       if (snpStream.coord <= end) {
-	snpStream.scoreAlleleAge(l);
+	snpStream.scoreAlleleAge(l, statname);
+	bedlist.push_back(l);
       }
       if (4 != fscanf(infile->stream, "%s %i %i %i", chrom, &start, &end, &sample))
 	start = -1;
@@ -531,6 +586,82 @@ int summarizeRegionAlleleAge(char *snpFilename, char *filename,
 	delete [] newick;
 	newick = fgetline(infile->stream);
 	chomp(newick);
+      }
+    }
+    if (bedlist.size() > 0) {
+      if (summarize == 0) {
+	bedlist.sort(CompareBedLineSample());
+	for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
+	  BedLine *l = *it;
+	  printf("%s\t%i\t%i\t%i\t%c\t%c\t%i\t%i", l->chrom, l->start, l->end, l->sample, l->derAllele, l->otherAllele, l->derFreq, l->otherFreq);
+	  for (unsigned int i=0; i < statname.size(); i++) {
+	    if (statname[i]=="tree") {
+	      printf("\t%s", l->newick);
+	    } else if (statname[i]=="num_mut") {
+	      printf("\t%i", (int)l->stats[i]);
+	    } else {
+	      printf("\t%g", l->stats[i]);
+	    }
+	  }
+	  printf("\n");
+	  l->stats.clear();
+	}
+      } else {
+	printf("%s\t%i\t%i", l->chrom, l->start, l->end);
+	//now output three versions- one for all samples, one for same derived allele, one for infinite sites
+	BedLine* first = *(bedlist.begin());
+	int same=0, diff=0, infsites=0, derConstCount, derFreq, otherFreq;
+	char derAllele, otherAllele;
+	for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
+	  BedLine *l = *it;
+	  if (l->derAllele == first->derAllele) same++; else diff++;
+	  if (l->numMut == 1) infsites++;
+	}
+	if (same >= diff) {
+	  derAllele = first->derAllele;
+	  otherAllele = first->otherAllele;
+	  derConstCount = same;
+	  derFreq = first->derFreq;
+	  otherFreq = first->otherFreq;
+	} else {
+	  derAllele=first->otherAllele;
+	  otherAllele = first->derAllele;
+	  derConstCount = diff;
+	  derFreq = first->otherFreq;
+	  otherFreq = first->derFreq;
+	}
+	printf("\t%c\t%c\t%i\t%i\t%i\t%i\t%i",
+	       derAllele, otherAllele, derFreq, otherFreq,
+	       (int)bedlist.size(), derConstCount, infsites);
+	for (unsigned int i=0; i < statname.size(); i++) {
+	  // first compute stats across all
+	  vector<double> stat;
+	  for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
+	    BedLine *l = *it;
+	    stat.push_back(l->stats[i]);
+	  }
+	  print_summaries(stat);
+
+	  stat.clear();
+	  // now stats across derived const set
+	  for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
+	    BedLine *l = *it;
+	    if (l->derAllele == derAllele)
+	      stat.push_back(l->stats[i]);
+	  }
+	  print_summaries(stat);
+
+	  stat.clear();
+	  //now stats for infinite sites set
+	  for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
+	    BedLine *l = *it;
+	    if (l->numMut == 1)
+	      stat.push_back(l->stats[i]);
+	    l->stats.clear();
+	  }
+	  print_summaries(stat);
+	}
+	printf("\n");
       }
     }
   }
@@ -764,7 +895,7 @@ int main(int argc, char *argv[]) {
   char c, *region=NULL, *filename = NULL, *bedfile = NULL, *indfile = NULL,
       *timesfile=NULL;
   char *allele_age_file=NULL;
-  int numstat=0, rawtrees=0, recomb=0;
+  int rawtrees=0, recomb=0;
   vector<string> statname;
  // map<string,double> times;
   vector<double> times;
@@ -828,15 +959,10 @@ int main(int argc, char *argv[]) {
       case 'P':
           statname.push_back(string("popsize"));
           break;
-          numstat++;
-          if (numstat > 1) {
-              fprintf(stderr, "Error: can only compute one statistic at a time\n");
-              exit(-1);
-          }
-          break;
       case 'A':
           allele_age_file = optarg;
           statname.push_back(string("allele_age"));
+	  statname.push_back(string("num_mut"));
           break;
       case 'N':
           getNumSample=++summarize;
@@ -881,12 +1007,9 @@ int main(int argc, char *argv[]) {
      fprintf(stderr, "Error: need to specify a tree statistic\n");
      return 1;
   }
-  if (summarize && allele_age_file != NULL) {
-    fprintf(stderr, "Error: currently cannot get summary statistics for allele age\n");
-    return 1;
-  }
-  if (summarize && (statname.size()==0 && allele_age_file==NULL)) {
-      fprintf(stderr, "Error: need to specify a tree statistic\n");
+
+  if (summarize && statname.size()==0) {
+      fprintf(stderr, "Error: need to specify a tree statistic (e.g., --tmrca, --popsize, --recomb, --allele-age, etc)\n");
       return 1;
   }
   if (summarize && rawtrees) {
@@ -912,25 +1035,43 @@ int main(int argc, char *argv[]) {
       if (summarize==0)
           printf("\tMCMC_sample");
       if (allele_age_file != NULL) {
-	printf("\tsample\tallele1-der\tallele2\tallele1Freq\tallele2Freq\talleleAge\tnumMut");
+	printf("\tderAllele\tancAllele\tderFreq\tancFreq");
       }
-      if (getNumSample > 0) printf("\tnumsample");
+      if (allele_age_file == NULL && getNumSample > 0) 
+	printf("\tnumsample");
+      if (summarize && allele_age_file) {
+	printf("\tnumsample-all\tnumsample-derConsensus\tnumsample-infsites");
+      }
+      vector<string> stattype;
+      if (allele_age_file == NULL) {
+	stattype.push_back("");
+      } else {
+	stattype.push_back("-all");
+	stattype.push_back("-derConsensus");
+	stattype.push_back("-infsites");
+      }
+
       for (unsigned int j=0; j < statname.size(); j++) {
           if (summarize==0) {
-              printf("\t%s", statname[j].c_str());
+	    if (allele_age_file != NULL)
+	      printf("\talleleAge\tnumMut");
+	    else printf("\t%s", statname[j].c_str());
           }
-          for (int i=1; i <= summarize; i++) {
-              if (getMean==i) {
-                  printf("\t%s_mean", statname[j].c_str());
-              } else if (getStdev==i) {
-                  printf("\t%s_stdev", statname[j].c_str());
-              } else if (getQuantiles==i) {
-                  for (unsigned int k=0; k < quantiles.size(); k++) {
-                      printf("\t%s_quantile_%.3f", statname[j].c_str(),
-                             quantiles[k]);
-                  }
-              }
-          }
+	  for (unsigned int k=0; k < stattype.size(); k++) {
+	    for (int i=1; i <= summarize; i++) {
+	      if (getMean==i) {
+		printf("\t%s%s_mean", statname[j].c_str(), stattype[k].c_str());
+	      } else if (getStdev==i) {
+		printf("\t%s%s_stdev", statname[j].c_str(), stattype[k].c_str());
+	      } else if (getQuantiles==i) {
+		for (unsigned int l=0; l < quantiles.size(); l++) {
+		  printf("\t%s%s_quantile_%.3f", statname[j].c_str(),
+			 stattype[k].c_str(),
+			 quantiles[l]);
+		}
+	      } 
+	    }
+	  }
       }
       printf("\n");
   }
@@ -957,8 +1098,8 @@ int main(int argc, char *argv[]) {
 	inds.insert(line);
       }
       in.close();
-      cerr << "subsetting to " << inds.size() << " samples from " <<
-	indfile << "\n";
+      //      cerr << "subsetting to " << inds.size() << " samples from " <<
+      //	indfile << "\n";
     } else {
       fprintf(stderr, "Error opening %s.\n", indfile);
       return 1;
