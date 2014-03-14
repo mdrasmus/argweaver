@@ -61,7 +61,7 @@ int print_help() {
 	   "   subset by individual. The argument should contain haplotype names, one\n"
 	   "   per line, which should be retained. All others will be removed before\n"
 	   "   statistics are computed.\n"
-	   "--snpfile,-s snp-file\n"
+	   "--snp,-s snpfile\n"
 	   "   If used, compute statitics for specific SNPs. If used, extra information\n"
 	   "   about each SNP will be printed on each row (derived/ancestral alleles and\n"
 	   "   frequencies). If statistics are summarized across samples, there will be\n"
@@ -92,7 +92,7 @@ int print_help() {
            "--popsize,-P\n"
            "  estimated popsize\n"
 	   "--allele-age,-A\n"
-	   "  (requires --snp-file). Compute allele age for all CG snps in\n"
+	   "  (requires --snp). Compute allele age for all CG snps in\n"
 	   "  the region. Also returns the number of mutations required\n"
 	   "  to show the given site pattern across infinite sites (this\n"
 	   "  is not done using parsimony and may over-estimate when multiple\n"
@@ -511,7 +511,7 @@ int summarizeRegionBySnp(char *snpFilename, char *filename,
   map<int,BedLine*>::iterator it;
   char chrom[1000], c;
   int start, end, sample;
-  BedLine *l;
+  BedLine *l=NULL;
 
   snp_infile = new TabixStream(snpFilename, region, tabix_dir);
   if (snp_infile->stream == NULL) return 1;
@@ -909,7 +909,7 @@ int main(int argc, char *argv[]) {
   char c, *region=NULL, *filename = NULL, *bedfile = NULL, *indfile = NULL,
       *timesfile=NULL;
   char *snp_file=NULL;
-  int rawtrees=0, recomb=0;
+  int rawtrees=0, recomb=0, allele_age=0;
   vector<string> statname;
  // map<string,double> times;
   vector<double> times;
@@ -978,6 +978,7 @@ int main(int argc, char *argv[]) {
           statname.push_back(string("popsize"));
           break;
       case 'A':
+	  allele_age=1;
           statname.push_back(string("allele_age"));
 	  statname.push_back(string("num_mut"));
           break;
@@ -1036,6 +1037,10 @@ int main(int argc, char *argv[]) {
   if (recomb && snp_file != NULL) {
     fprintf(stderr, "Error: cannot use --recomb and --allele-age together\n");
     return 1;
+  }
+  if (allele_age && snp_file == NULL) {
+      fprintf(stderr, "Error: need to specify snp file with --snp to use --allele-age\n");
+      return 1;
   }
 
   if (optind != argc-1) {
