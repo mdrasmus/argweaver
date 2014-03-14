@@ -17,6 +17,11 @@ public:
                 const char *tabix_dir=NULL)
     {
         stream = read_tabix(filename, region, tabix_dir);
+	if (stream == NULL) {
+	  fprintf(stderr, "Error opening %s, region=%s\n",
+		  filename, region == NULL ? "NULL" : region);
+	  exit(1);
+	}
     }
 
     ~TabixStream()

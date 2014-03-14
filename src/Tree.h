@@ -299,6 +299,7 @@ public:
     void apply_spr();
     void correct_recomb_times(const vector<double> &times);
     void update_spr(char *newick, const vector<double>& times = vector<double>());
+    void update_spr_pruned(Tree *orig_tree);
     NodeMap prune(set<string> leafs, bool allBut=false);
 
     // Gets leaf names of the nodes of a tree
@@ -365,6 +366,7 @@ public:
     double tmrca_half();
     double rth();
     double popsize();
+    set<Node*> lca(set<Node*> derived);
 
  private:
     //returns age1-age2 and asserts it is positive, rounds up to zero if slightly neg

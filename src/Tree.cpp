@@ -388,10 +388,43 @@ void Tree::update_spr(char *newick, const vector<double>& times) {
   //printf("done update_spr recomb_node=%i coal_node=%i\n", recomb_node->name, coal_node->name);
 }
 
-/*void Tree::set_deleted_branch(int *db, int i) {
-  assert((*db)==-1 || (*db)==i);
-  (*db)=i;
-  }*/
+//update the SPR on pruned tree based on node_map in big tree
+void Tree::update_spr_pruned(Tree *orig_tree) {
+  if (orig_tree->recomb_node == NULL) {
+    recomb_node = coal_node = NULL;
+    return;
+  }
+  int num=orig_tree->node_map.nm[orig_tree->recomb_node->name];
+  if (num == -1 || nodes[num] == root) {
+    recomb_node = coal_node = NULL; 
+  } else {
+    assert(num>=0);
+    recomb_node = nodes[num];
+    recomb_time = orig_tree->recomb_time;
+    num = orig_tree->node_map.nm[orig_tree->coal_node->name];
+    if (num == -1) {
+      // coal node does not map; need to trace back until it does 
+      Node *n = orig_tree->coal_node;
+      while (orig_tree->node_map.nm[n->name] == -1) {
+	//should never be root here; root should always map to pruned tree
+	assert(n->parent != NULL);
+	n = n->parent;
+      }
+      assert(orig_tree->coal_time-1 <= n->age);
+      coal_time = n->age;
+      coal_node = nodes[orig_tree->node_map.nm[n->name]];
+    } else {
+      assert(num >= 0);
+      coal_node = nodes[num];
+      coal_time = orig_tree->coal_time;
+    }
+    if (recomb_node == coal_node) {
+      recomb_node = coal_node = NULL;
+    }
+  } 
+  if (recomb_node != NULL) assert(coal_node != NULL);
+}         
+
 
 void Tree::remap_node(Node *n, int id, int *deleted_branch) {
   int old_id = node_map.nm[n->name];
@@ -475,8 +508,7 @@ void Tree::apply_spr() {
   /*fprintf(stderr, "apply_spr recomb_node=%i (%i) coal_node=%i (%i) root=%i\n", recomb_node->name, recomb_node->nchildren, coal_node->name, coal_node->nchildren, root->name);
   this->print_newick(stderr);
   fprintf(stderr, "\n"); fflush(stderr);*/
-  assert(recomb_node != NULL);
-  assert(coal_node != NULL);
+  if (recomb_node == NULL) return;
   if (recomb_node == root) {
     if (coal_node != root) {
       assert(0);
@@ -710,7 +742,11 @@ NodeMap Tree::prune(set<string> leafs, bool allBut) {
 	}
     }
     nnodes = nodes.size();
-    //    return new NodeMap(nodeMap);
+    nodename_map.clear();
+    for (int i=0; i < nnodes; i++) {
+      if (nodes[i]->longname.length() > 0)
+	nodename_map[nodes[i]->longname] = i;
+    }
     return NodeMap(node_map);
 }
 
@@ -1227,6 +1263,48 @@ double Tree::tmrca_half() {
 
 double Tree::rth() {
     return this->tmrca_half()/this->tmrca();
+}
+
+
+// want to return set of nodes above which mutations happened under infinite
+// sites to cause site pattern.
+// assumes tree has been pruned so that only leafs with information remain (no Ns)
+// this is not particularly efficient! may want to think of something faster some time.
+set<Node*> Tree::lca(set<Node*> derived) {
+  set<Node*>::iterator it;
+  set<Node*> rv;
+  
+  if (derived.size() == 1) return derived;
+
+  this->setPostNodes();
+  for (int i=0; i < postnodes.size(); i++) {
+    if (postnodes[i]->nchildren == 0) continue;
+    if (postnodes[i] == root) {
+      assert(derived.size() == 1);
+      rv.insert(*(derived.begin()));
+      return rv;
+    }
+    int count=0;
+    for (int j=0; j < postnodes[i]->nchildren; j++) {
+      if (derived.find(postnodes[i]->children[j]) != derived.end())
+	count++;
+    }
+    if (count == postnodes[i]->nchildren) { // all children are derived
+      for (int j=0; j < postnodes[i]->nchildren; j++)
+	derived.erase(postnodes[i]->children[j]);
+      derived.insert(postnodes[i]);
+    }  else if (count != 0) {
+      for (int j=0; j < postnodes[i]->nchildren; j++) {
+	if (derived.find(postnodes[i]->children[j]) != derived.end()) {
+	  rv.insert(postnodes[i]->children[j]);
+	  derived.erase(postnodes[i]->children[j]);
+	}
+      }
+    }
+    if (derived.size() == 0) return rv;
+  }
+  fprintf(stderr, "got to end of LCA\n"); fflush(stderr);
+  return rv;
 }
 
 
