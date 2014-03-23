@@ -38,16 +38,33 @@ o.add_option("", "--maxtime", type="float", default=200e3,
              help="Maximum discretized time point (default=200e3)")
 o.add_option("", "--model", default="dsmc",
              help="Simulation model: dsmc, smc, coal_recomb (default=dsmc)")
+o.add_option("", "--discretize-sites", action="store_true", default=False,
+             help="Round recombinations and mutations to nearest integer site")
 o.add_option("", "--infsites", action="store_true", default=False,
              help="Use infinite site assumption")
 o.add_option("-R", "--recombmap", metavar="<recombination rate map file>",
              help="Recombination map file")
+o.add_option("--output-mutations",
+             action="store_true",
+             help="Output mutations")
+
 
 if len(sys.argv) == 1:
     o.print_help()
     sys.exit(1)
 
 conf, args = o.parse_args()
+
+
+def write_mutations(stream, muts):
+    for (node, parent, pos, age) in muts:
+        util.print_row(node.name, parent.name, pos, age, out=stream)
+
+
+def discretize_mutations(muts):
+    for (node, parent, pos, age) in muts:
+        yield (node, parent, int(pos), age)
+
 
 #=============================================================================
 
@@ -69,13 +86,21 @@ if conf.model == "coal_recomb":
     print "simulating using the Coalescent with Recombination model..."
     arg = arglib.sample_arg(conf.nseqs, 2*conf.popsize, conf.recombrate,
                             start=0, end=conf.seqlen)
+    if conf.discretize_sites:
+        argweaver.discretize_arg_recomb(arg)
     muts = arglib.sample_arg_mutations(arg, conf.mutrate)
+    if conf.discretize_sites:
+        muts = list(discretize_mutations(muts))
 
 elif conf.model == "smc":
     print "simulating using the SMC model..."
     arg = arglib.sample_arg_smc(conf.nseqs, 2*conf.popsize, conf.recombrate,
                                 start=0, end=conf.seqlen)
+    if conf.discretize_sites:
+        argweaver.discretize_arg_recomb(arg)
     muts = arglib.sample_arg_mutations(arg, conf.mutrate)
+    if conf.discretize_sites:
+        muts = list(discretize_mutations(muts))
 
 elif conf.model == "dsmc":
     print "simulating using the DSMC model..."
@@ -95,11 +120,17 @@ sites = argweaver.seqs2sites(seqs)
 sites.chrom = conf.chrom
 
 # write output
-print "writing output: ", conf.output + ".{sites,arg}"
-
 path = os.path.dirname(conf.output)
 if path:
     util.makedirs(path)
 
+print "writing output: ", conf.output + ".sites"
 sites.write(conf.output + ".sites")
+
+print "writing output: ", conf.output + ".arg"
 arglib.write_arg(conf.output + ".arg", arg)
+
+if conf.output_mutations:
+    print "writing output: ", conf.output + ".mut"
+    with open(conf.output + ".mut", "w") as out:
+        write_mutations(out, muts)
