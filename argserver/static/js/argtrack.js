@@ -301,11 +301,12 @@ function setup() {
             return;
         }
 
-        $.ajax({dataType: 'jsonp',
-                url: argtrackurl + '/sprs/' + formatView(view),
-                success: function (result) {
-                    that.plot(JSON.parse(result)); }
-            });
+        $.ajax({
+            dataType: 'jsonp',
+            url: argtrackurl + '/sprs/' + formatView(view)
+        }).done(function (result) {
+            that.plot(JSON.parse(result));
+        });
     };
     recombs.plot = function (sprs) {
         var c = this.ctx;
@@ -341,11 +342,12 @@ function setup() {
             return;
         }
 
-        $.ajax({dataType: 'jsonp',
-                url: argtrackurl + '/sites/' + formatView(view),
-                success: function (result) {
-                    that.plot(JSON.parse(result)); }
-            });
+        $.ajax({
+            dataType: 'jsonp',
+            url: argtrackurl + '/sites/' + formatView(view)
+        }).done(function (result) {
+            that.plot(JSON.parse(result));
+        });
     };
     muts.plot = function (sites) {
         var c = this.ctx;
@@ -407,22 +409,21 @@ function setup() {
             return;
         }
 
-        $.ajax({dataType: 'jsonp',
-                url: (argtrackurl + '/sites/'+view.chrom+':'+
-                      view.start+'-'+view.end),
-                success: function (result) {
-                    var sites = JSON.parse(result);
-
-                    $.ajax({dataType: 'jsonp',
-                            url: argtrackurl + '/trees/'+ formatView(view),
-                            success: function (result) {
-                                var trees = JSON.parse(result);
-                                that.plot(trees, sites);
-                            }
-                        });
-
-                }
+        var region = formatView(view);
+        var sites;
+        $.ajax({
+            dataType: 'jsonp',
+            url: argtrackurl + '/sites/' + region
+        }).then(function (result) {
+            sites = JSON.parse(result);
+            return $.ajax({
+                dataType: 'jsonp',
+                url: argtrackurl + '/trees/'+ region
             });
+        }).then(function (result) {
+            var trees = JSON.parse(result);
+            that.plot(trees, sites);
+        });
     };
     muts2.plot = function (trees, sites) {
         var c = this.ctx;
@@ -539,12 +540,23 @@ function setup() {
     };
     argtrack.show = function(view) {
         var that = this;
-
-        $.ajax({dataType: 'jsonp',
-                url: argtrackurl + '/arg-layout/' + formatView(view),
-                success: function (result) {
-                    that.draw(JSON.parse(result))
-                }});
+        var layout;
+        var region = formatView(view);
+        $.ajax({
+            dataType: 'jsonp',
+            url: argtrackurl + '/arg-layout/' + region
+        }).then(function (resultLayout) {
+            layout = JSON.parse(resultLayout);
+            that.draw(layout);
+            return $.ajax({
+                dataType: 'jsonp',
+                url: argtrackurl + '/sites/'+ region
+            });
+        }).then(function (resultSites) {
+            var sites = JSON.parse(resultSites);
+            that.drawSites(layout, sites);
+            that.scanvas.draw();
+        });
     }
     argtrack.draw = function(layout) {
         this.scanvas.clear();
@@ -589,7 +601,14 @@ function setup() {
         return g;
     }
     argtrack.drawSites = function(layout, sites) {
-        
+        for (var i in sites) {
+            var site = sites[i];
+            var highFreq = getHighFreq(site.col);
+
+            for (var j in site.col) {
+                var a = site.col[j];
+            }
+        }
     }
     mashome.addTrack(argtrack);
 
@@ -620,11 +639,12 @@ function setup() {
     };
     treetrack.showTree = function(chrom, pos) {
         var that = this;
-        $.ajax({dataType: 'jsonp',
-                url: argtrackurl + '/tree-spr/'+chrom+':'+pos,
-                success: function (result) {
-                    that.displayTreeSpr(JSON.parse(result))
-                }});
+        $.ajax({
+            dataType: 'jsonp',
+            url: argtrackurl + '/tree-spr/'+chrom+':'+pos
+        }).done(function (result) {
+            that.displayTreeSpr(JSON.parse(result))
+        });
     }
     treetrack.displayTree = function(treeInfo) {
         var tree = parseNewick(treeInfo.tree);
@@ -674,20 +694,30 @@ function setup() {
     };
     sitetrack.showSites = function(chrom, pos) {
         var that = this;
+        var tree;
 
-        $.ajax({dataType: 'jsonp',
-                url: argtrackurl + '/tree/' + chrom + ':' + pos,
-                success: function (result) {
-                    var item = JSON.parse(result);
-                    var tree = parseNewick(item.tree);
+        // fetch local tree.
+        $.ajax({
+            dataType: 'jsonp',
+            url: argtrackurl + '/tree/' + chrom + ':' + pos
+        }).then(function(result) {
+            var item = JSON.parse(result);
+            tree = parseNewick(item.tree);
+            var region = chrom + ':' + item.start + '-' + item.end;
 
-                    $.ajax({dataType: 'jsonp',
-                            url: (argtrackurl + '/sites/'+
-                                  chrom+':'+item.start+'-'+item.end),
-                            success: function (result) {
-                                that.plot(tree, JSON.parse(result)); }
-                    });
-                }});
+            // fetch sites in region of local tree.
+            return $.ajax({
+                dataType: 'jsonp',
+                url: argtrackurl + '/sites/' + region
+            });
+        }).then(function (result) {
+            var sites = JSON.parse(result);
+            console.log(tree);
+            console.log(sites);
+
+            // draw tree and sites.
+            that.plot(tree, sites);
+        });
     }
     sitetrack.plot = function (tree, sites) {
         var text = "<pre>";
@@ -707,7 +737,7 @@ function setup() {
                 if (a == highFreq)
                     text += a;
                 else
-                    text += "<b style='color: red'>" + a + "</b>";
+                    text += "<span style='color: red'>" + a + "</span>";
             }
             text += "\n";
         }
