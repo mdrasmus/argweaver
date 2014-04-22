@@ -968,10 +968,9 @@ int main(int argc, char **argv)
 
 
     // setup model parameters
-    if (c.times_file != "") {
-        printError("not implemented yet");
-        return EXIT_ERROR;
-    } else if (c.time_step)
+    if (c.times_file != "")
+	c.model.set_times_from_file(c.times_file);
+    else if (c.time_step)
         c.model.set_linear_times(c.time_step, c.ntimes);
     else
         c.model.set_log_times(c.maxtime, c.ntimes);
