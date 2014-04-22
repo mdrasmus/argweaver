@@ -589,10 +589,39 @@ void get_infinite_sites_states(const States &states, const LocalTree *tree,
 }
 
 
+double calc_emit(lk_row *in, lk_row *out, lk_row *in2, 
+		 int i, int node1, int node2, int maintree_root,
+		 double *nomut, double *mut) {
+    double emit=0.0;
+    for (int a=0; a<4; a++) {
+	double p1 = 0.0, p2 = 0.0, p3 = 0.0;
+	for (int b=0; b<4; b++) {
+	    if (a == b) {
+		p1 += in2[node1][b] * nomut[0];
+		p2 += in[node2][b] * nomut[1];
+		p3 += out[node2][b] * nomut[2];
+	    } else {
+		p1 += in2[node1][b] * mut[0];
+		p2 += in[node2][b] * mut[1];
+		p3 += out[node2][b] * mut[2];
+	    }
+	}
+	
+	if (node2 != maintree_root) {
+	    emit += p1 * p2 * p3 * .25;
+	} else {
+	    emit += p1 * p2 * .25;
+	}
+    }
+    return emit;
+}
+
+
 // calculate emissions for external branch resampling
 void calc_emissions(const States &states, const LocalTree *tree,
                     const char *const *seqs, int nseqs, int seqlen,
-                    const ArgModel *model, bool internal, double **emit)
+                    const ArgModel *model, bool internal, double **emit,
+		    PhaseProbs *phase_pr)
 {
     const int nstates = states.size();
     const double mintime = model->get_mintime();
@@ -624,8 +653,7 @@ void calc_emissions(const States &states, const LocalTree *tree,
     LikelihoodTable outer(seqlen, tree->nnodes);
     calc_inner_outer(tree, model, seqs, seqlen, invariant, internal,
                      inner.data, outer.data);
-
-
+    
     if (!internal) {
         // compute inner table for new leaf
         for (int i=0; i<seqlen; i++) {
@@ -645,6 +673,44 @@ void calc_emissions(const States &states, const LocalTree *tree,
         }
     }
 
+    LikelihoodTable inner2(seqlen, tree->nnodes);
+    LikelihoodTable inner_subtree2(seqlen, 1);
+    LikelihoodTable outer2(seqlen, tree->nnodes);
+    bool *not_het = NULL;
+    if (model->unphased && phase_pr != NULL &&
+	phase_pr->treemap1 >= 0 && phase_pr->treemap1 < nseqs &&
+	phase_pr->treemap2 >= 0 && phase_pr->treemap2 < nseqs) {
+	const char *subseqs[nseqs];
+	for (int i=0; i < nseqs; i++)
+	    subseqs[i] = seqs[i];
+	subseqs[phase_pr->treemap1] = seqs[phase_pr->treemap2];
+	subseqs[phase_pr->treemap2] = seqs[phase_pr->treemap1];
+	not_het = new bool[seqlen];
+	for (int i=0; i < seqlen; i++)
+	    not_het[i] = (seqs[phase_pr->treemap1][i] == seqs[phase_pr->treemap2][i]);
+
+	calc_inner_outer(tree, model, subseqs, seqlen, not_het, internal,
+			 inner2.data, outer2.data);
+	
+	if (!internal) {
+	    // compute inner table for new leaf
+	    for (int i=0; i<seqlen; i++) {
+		const char c = subseqs[newleaf][i];
+		if (c == 'N') {
+		    inner_subtree2.data[i][0][0] = 1.0;
+		    inner_subtree2.data[i][0][1] = 1.0;
+		    inner_subtree2.data[i][0][2] = 1.0;
+		    inner_subtree2.data[i][0][3] = 1.0;
+		} else {
+		    inner_subtree2.data[i][0][0] = 0.0;
+		    inner_subtree2.data[i][0][1] = 0.0;
+		    inner_subtree2.data[i][0][2] = 0.0;
+		    inner_subtree2.data[i][0][3] = 0.0;
+		    inner_subtree2.data[i][0][dna2int[(int) c]] = 1.0;
+		}
+	    }
+	}
+    }
 
     // calc tree lengths
     int queue[tree->nnodes];
@@ -696,17 +762,18 @@ void calc_emissions(const States &states, const LocalTree *tree,
         double coal_time = model->times[state.time];
 
         // get distances
-        double dist1 = max(coal_time - time1, mintime);
-        double dist2 = max(coal_time - time2, mintime);
-        double dist3 = max(parent_time - coal_time, mintime);
+	double dist[3], mut[3], nomut[3];
+        dist[0] = max(coal_time - time1, mintime);
+        dist[1] = max(coal_time - time2, mintime);
+        dist[2] = max(parent_time - coal_time, mintime);
 
         // get mutation probabilities
-        double mut1 = prob_branch(dist1, model->mu, true);
-        double mut2 = prob_branch(dist2, model->mu, true);
-        double mut3 = prob_branch(dist3, model->mu, true);
-        double nomut1 = prob_branch(dist1, model->mu, false);
-        double nomut2 = prob_branch(dist2, model->mu, false);
-        double nomut3 = prob_branch(dist3, model->mu, false);
+        mut[0] = prob_branch(dist[0], model->mu, true);
+        mut[1] = prob_branch(dist[1], model->mu, true);
+        mut[2] = prob_branch(dist[2], model->mu, true);
+        nomut[0] = prob_branch(dist[0], model->mu, false);
+        nomut[1] = prob_branch(dist[1], model->mu, false);
+        nomut[2] = prob_branch(dist[2], model->mu, false);
 
         // get tree length
         double treelen;
@@ -731,38 +798,30 @@ void calc_emissions(const States &states, const LocalTree *tree,
                 // invariant site
                 emit[i][j] = invariant_lk;
             } else {
-                // variant site
-                lk_row *in = inner.data[i];
-                lk_row *out = outer.data[i];
-                lk_row *in2 = internal ? in : inner_subtree.data[i];
-
-                emit[i][j] = 0.0;
-                for (int a=0; a<4; a++) {
-                    double p1 = 0.0, p2 = 0.0, p3 = 0.0;
-                    for (int b=0; b<4; b++) {
-                        if (a == b) {
-                            p1 += in2[node1][b] * nomut1;
-                            p2 += in[node2][b] * nomut2;
-                            p3 += out[node2][b] * nomut3;
-                        } else {
-                            p1 += in2[node1][b] * mut1;
-                            p2 += in[node2][b] * mut2;
-                            p3 += out[node2][b] * mut3;
-                        }
-                    }
-
-                    if (node2 != maintree_root) {
-                        emit[i][j] += p1 * p2 * p3 * .25;
-                    } else {
-                        emit[i][j] += p1 * p2 * .25;
-                    }
-                }
+		emit[i][j] = calc_emit(inner.data[i], outer.data[i], 
+				       internal ? inner.data[i] : inner_subtree.data[i], 
+				       i, node1, node2, maintree_root,
+				       nomut, mut);
+		if (not_het != NULL && not_het[i]==0) {
+		    double emit2 = calc_emit(inner2.data[i], outer2.data[i],
+					    internal ? inner2.data[i] : inner_subtree2.data[i], 
+					    i, node1, node2, maintree_root,
+					    nomut, mut);
+		    phase_pr->add(i, j, emit[i][j]/(emit[i][j] + emit2), nstates);
+		    emit[i][j] += emit2;
+		    emit[i][j] *= 0.5;
+		}
             }
         }
     }
 
     // optionally enforce infinite sites model
     if (model->infsites_penalty < 1.0) {
+	if (model->unphased) {
+	    fprintf(stderr, "ERROR: Have not implemented --infsites with --unphased yet\n");
+	    exit(-1);
+	}
+
         bool **valid_states = new_matrix<bool>(seqlen, nstates);
         get_infinite_sites_states(states, tree, seqs, nseqs, seqlen,
                                   invariant, internal, valid_states);
@@ -780,14 +839,17 @@ void calc_emissions(const States &states, const LocalTree *tree,
     // clean up
     delete [] invariant;
     delete [] masked;
+    if (not_het != NULL) delete [] not_het;
 }
 
 // calculate emissions for external branch resampling
 void calc_emissions_external(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen,
-                             const ArgModel *model, double **emit)
+                             const ArgModel *model, double **emit,
+			     PhaseProbs *phase_pr)
 {
-    calc_emissions(states, tree, seqs, nseqs, seqlen, model, false, emit);
+    calc_emissions(states, tree, seqs, nseqs, seqlen, model, false, emit,
+		   phase_pr);
 }
 
 // calculate emissions for internal branch resampling
@@ -795,7 +857,8 @@ void calc_emissions_internal(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen,
                              const ArgModel *model, double **emit)
 {
-    calc_emissions(states, tree, seqs, nseqs, seqlen, model, true, emit);
+    calc_emissions(states, tree, seqs, nseqs, seqlen, model, true, emit,
+		   NULL);
 }
 
 
@@ -1138,7 +1201,7 @@ bool assert_emissions(const States &states, const LocalTree *tree,
     double **emit = new_matrix<double>(seqlen, nstates);
     double **emit2 = new_matrix<double>(seqlen, nstates);
 
-    calc_emissions_external(states, tree, seqs, nseqs, seqlen, model, emit);
+    calc_emissions_external(states, tree, seqs, nseqs, seqlen, model, emit, NULL);
     calc_emissions_external_slow(states, tree, seqs, nseqs, seqlen, model, emit2);
 
     // compare emission tables
@@ -1207,7 +1270,7 @@ double **new_emissions(intstate *istates, int nstates,
     ArgModel model(ntimes, times, NULL, 0.0, mu);
 
     double **emit = new_matrix<double>(seqlen, nstates);
-    calc_emissions_external(states, &tree, seqs, nseqs, seqlen, &model, emit);
+    calc_emissions_external(states, &tree, seqs, nseqs, seqlen, &model, emit, NULL);
 
     return emit;
 }
