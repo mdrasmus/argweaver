@@ -15,17 +15,17 @@ you must multiply N by 2 before passing it to any of these functions.
 from __future__ import division
 
 # python imports
-import itertools
 from itertools import chain, izip
-from math import *
+from math import exp, log, sqrt
 import random
-from collections import defaultdict
 
 # rasmus imports
 from rasmus import treelib, stats, util, linked_list
 
 try:
-    from rasmus.symbolic import *
+    from rasmus.symbolic import assign_vars
+    from rasmus.symbolic import derivate
+    from rasmus.symbolic import simplify
 except ImportError:
     # only experimental functions need symbolic
     pass
@@ -36,11 +36,10 @@ from . import birthdeath
 # import root finder
 try:
     from scipy.optimize import brentq
+    brentq
 except ImportError:
     def brentq(f, a, b, disp=False):
         return stats.bisect_root(f, a, b)
-
-
 
 
 #=============================================================================
@@ -52,7 +51,6 @@ def prob_coal(t, k, n):
     Returns the probability density of observing the first coalesce of 'k'
     individuals in a population size of 'n' at generation 't'
     """
-
     # k choose 2
     k2 = k * (k-1) / 2
     k2n = k2 / n
@@ -63,7 +61,6 @@ def sample_coal(k, n):
     """
     Returns a sample coalescent time for 'k' individuals in a population 'n'
     """
-
     # k choose 2
     k2 = k * (k-1) / 2
     k2n = k2 / n
@@ -86,6 +83,8 @@ def prob_coal_counts(a, b, t, n):
     The probabiluty of going from 'a' lineages to 'b' lineages in time 't'
     with population size 'n'
     """
+    if b <= 0:
+        return 0.0
 
     C = stats.prod((b+y)*(a-y)/(a+y) for y in xrange(b))
     s = exp(-b*(b-1)*t/2.0/n) * C
@@ -104,7 +103,6 @@ def prob_coal_counts_slow(a, b, t, n):
 
     Implemented more directly, but slower.  Good for testing against.
     """
-
     s = 0.0
     for k in xrange(b, a+1):
         i = exp(-k*(k-1)*t/2.0/n) * \
@@ -121,7 +119,6 @@ def prob_coal_cond_counts(x, a, b, t, n):
     between 'a' lineages conditioned on there being 'b' lineages at time
     't'.  The population size is 'n'.
     """
-
     lama = -a*(a-1)/2.0/n
     C = stats.prod((b+y)*(a-1-y)/(a-1+y) for y in xrange(b))
     s = exp(-b*(b-1)/2.0/n*(t-x) + lama*x) * C
@@ -140,7 +137,6 @@ def prob_coal_cond_counts_simple(x, a, b, t, n):
     between 'a' lineages conditioned on there being 'b' lineages at time
     't'.  The population size is 'n'.
     """
-
     return (prob_coal_counts(a-1, b, t-x, n) * prob_coal(x, a, n) /
             prob_coal_counts(a, b, t, n))
 
@@ -151,7 +147,6 @@ def cdf_coal_cond_counts(x, a, b, t, n):
     between 'a' lineages conditioned on there being 'b' lineages at time
     't'.  The population size is 'n'.
     """
-
     lama = -a*(a-1)/2.0/n
     C = stats.prod((b+y)*(a-1-y)/(a-1+y) for y in xrange(b))
     c = -b*(b-1)/2.0/n
@@ -160,8 +155,8 @@ def cdf_coal_cond_counts(x, a, b, t, n):
         k1 = k - 1
         lam = -k*k1/2.0/n
         C = (b+k1)*(a-1-k1)/(a-1+k1)/(b-k) * C
-        s += exp(lam*t) * (exp((lama-lam)*x) - 1.0) / (lama - lam) \
-             * (2*k-1) / (k1+b) * C
+        s += (exp(lam*t) * (exp((lama-lam)*x) - 1.0) / (lama - lam)
+              * (2*k-1) / (k1+b) * C)
 
     return s / stats.factorial(b) * (-lama) / prob_coal_counts(a, b, t, n)
 
@@ -184,7 +179,6 @@ def sample_coal_cond_counts(a, b, t, n):
     c = -b*(b-1)/2.0/n
     d = 1.0/stats.factorial(b) * (-lama) / prob_coal_counts(a, b, t, n)
 
-
     # CDF(t) - p
     def f(x):
         if x <= 0:
@@ -198,13 +192,12 @@ def sample_coal_cond_counts(a, b, t, n):
             k1 = k - 1
             lam = -k*k1/2.0/n
             C = (b+k1)*(a-1-k1)/(a-1+k1)/(b-k) * C
-            s += exp(lam*t) * (exp((lama-lam)*x) - 1.0) / (lama - lam) \
-                 * (2*k-1) / (k1+b) * C
+            s += (exp(lam*t) * (exp((lama-lam)*x) - 1.0) / (lama - lam)
+                  * (2*k-1) / (k1+b) * C)
 
         return s * d - p
 
     return brentq(f, 0.0, t, disp=False)
-
 
 
 def prob_mrca(t, k, n):
@@ -255,7 +248,6 @@ def mrca_const(i, a, b):
     return prod
 
 
-
 def prob_bounded_coal(t, k, n, T):
     """
     Probability density function of seeing a coalescence at 't' from
@@ -267,8 +259,8 @@ def prob_bounded_coal(t, k, n, T):
 
     if k == 2:
         prob_coal(t, k, n)
-    return prob_coal(t, k, n) * cdf_mrca(T-t, k-1, n) / \
-           cdf_mrca(T, k, n)
+    return (prob_coal(t, k, n) * cdf_mrca(T-t, k-1, n) /
+            cdf_mrca(T, k, n))
 
 
 def cdf_bounded_coal(t, k, n, T):
@@ -280,7 +272,7 @@ def cdf_bounded_coal(t, k, n, T):
 
     lam_i = (i+1)*i/2.0 / n
     C = [mrca_const(j, 1, i-1) for j in xrange(1, i)]
-    A = lam_i / n / cdf_mrca(T, k, n)
+    #A = lam_i / n / cdf_mrca(T, k, n)
     B = sum(C) / lam_i
     F = [C[j-1] * exp(-(j+1)*j/2.0/n * T) / ((j+1)*j/2.0/n - lam_i)
          for j in xrange(1, i)]
@@ -323,9 +315,9 @@ def sample_bounded_coal(k, n, T):
         if t >= T:
             return 1.0 - p + (t - T)
 
-        return (A * (B * (1-exp(-lam_i * t))
-             - sum(F[j-1] * (exp(((j+1)*j/2.0/n - lam_i)*t)-1)
-                   for j in xrange(1, i)))) - p
+        return ((A * (B * (1-exp(-lam_i * t))
+                      - sum(F[j-1] * (exp(((j+1)*j/2.0/n - lam_i)*t)-1)
+                            for j in xrange(1, i)))) - p)
 
     return brentq(f, 0.0, T, disp=False)
 
@@ -388,9 +380,9 @@ def count_lineages_per_branch(tree, recon, stree):
     for node in tree.postorder():
         snode = recon[node]
         if node.is_leaf():
-            lineages[snode][0] += 1 # leaf lineage
+            lineages[snode][0] += 1  # leaf lineage
         else:
-            lineages[snode][1] -= 1 # coal
+            lineages[snode][1] -= 1  # coal
 
     for snode in stree.postorder():
         if not snode.is_leaf():
@@ -423,7 +415,6 @@ def get_topology_stats(tree, recon, stree):
     return nodes_per_species, descend_nodes
 
 
-
 def prob_multicoal_recon_topology(tree, recon, stree, n,
                                   lineages=None, top_stats=None):
     """
@@ -431,7 +422,6 @@ def prob_multicoal_recon_topology(tree, recon, stree, n,
     from the coalescent model given a species tree 'stree' and
     population sizes 'n'
     """
-
     popsizes = init_popsizes(stree, n)
     if lineages is None:
         lineages = count_lineages_per_branch(tree, recon, stree)
@@ -439,7 +429,7 @@ def prob_multicoal_recon_topology(tree, recon, stree, n,
         top_stats = get_topology_stats(tree, recon, stree)
 
     # iterate through species tree branches
-    lnp = 0.0 # log probability
+    lnp = 0.0  # log probability
     for snode in stree.postorder():
         if snode.parent:
             # non root branch
@@ -451,7 +441,7 @@ def prob_multicoal_recon_topology(tree, recon, stree, n,
                      + stats.logfactorial(top_stats[0].get(snode, 0))
                      - log(num_labeled_histories(a, b)))
             except:
-                print (a, b, snode.dist, popsizes[snode.name],
+                print (a, b, snode.name, snode.dist, popsizes[snode.name],
                        prob_coal_counts(a, b, snode.dist,
                                         popsizes[snode.name]),
                        )
@@ -472,7 +462,6 @@ def prob_multicoal_recon_topology(tree, recon, stree, n,
         lnp -= log(cnt)
 
     return lnp
-
 
 
 def cdf_mrca_bounded_multicoal(gene_counts, T, stree, n,
@@ -518,11 +507,12 @@ def cdf_mrca_bounded_multicoal(gene_counts, T, stree, n,
 
 
 def calc_prob_counts_table(gene_counts, T, stree, popsizes,
-                            sroot, sleaves, stimes):
+                           sroot, sleaves, stimes):
 
     # use dynamic programming to calc prob of lineage counts
     # format: prob_counts[node] = [a, b]
     prob_counts = {}
+
     def walk(node):
         if node in sleaves:
             # leaf case
@@ -539,7 +529,7 @@ def calc_prob_counts_table(gene_counts, T, stree, popsizes,
             c2 = node.children[1]
             M1 = walk(c1)
             M2 = walk(c2)
-            M = M1 + M2 # max lineage counts in this snode
+            M = M1 + M2  # max lineage counts in this snode
             end1 = prob_counts[c1][1]
             end2 = prob_counts[c2][1]
 
@@ -555,7 +545,7 @@ def calc_prob_counts_table(gene_counts, T, stree, popsizes,
 
             c1 = node.children[0]
             M1 = walk(c1)
-            M = M1 # max lineage counts in this snode
+            M = M1  # max lineage counts in this snode
             end1 = prob_counts[c1][1]
 
             # populate starting lineage counts with child's ending counts
@@ -566,8 +556,6 @@ def calc_prob_counts_table(gene_counts, T, stree, popsizes,
         else:
             # unhandled case
             raise Exception("not implemented")
-
-
 
         # populate ending lineage counts
         n = popsizes[node.name]
@@ -590,7 +578,7 @@ def calc_prob_counts_table(gene_counts, T, stree, popsizes,
         assert abs(sum(start) - 1.0) < .001, (start, node.children)
 
         return M
-    M = walk(sroot)
+    walk(sroot)
 
     return prob_counts
 
@@ -611,6 +599,7 @@ def prob_coal_bmc(t, u, utime, ucount, gene_counts, T, stree, n,
     # find relevent leaves of stree (u should be treated as a leaf)
     if sleaves is None:
         sleaves = set()
+
         def walk(node):
             if node.is_leaf() or node == u:
                 sleaves.add(node)
@@ -619,11 +608,10 @@ def prob_coal_bmc(t, u, utime, ucount, gene_counts, T, stree, n,
                     walk(child)
         walk(sroot)
 
-
     # find timestamps of stree nodes
     if stimes is None:
         # modify timestamp of u to be that of the previous coal (utime)
-        stimes = {u : utime}
+        stimes = {u: utime}
         stimes = treelib.get_tree_timestamps(stree, sroot, sleaves, stimes)
 
     # init gene counts
@@ -639,7 +627,6 @@ def prob_coal_bmc(t, u, utime, ucount, gene_counts, T, stree, n,
         gene_counts[u.name] = ucount
 
     popsizes = init_popsizes(stree, n)
-
 
     p = cdf_mrca_bounded_multicoal(gene_counts, T, stree, popsizes,
                                    sroot=sroot, sleaves=sleaves,
@@ -681,6 +668,7 @@ def prob_no_coal_bmc(u, utime, ucount, gene_counts, T, stree, n,
     # find relevent leaves of stree (u should be treated as a leaf)
     if sleaves is None:
         sleaves = set()
+
         def walk(node):
             if node.is_leaf() or node == u:
                 sleaves.add(node)
@@ -689,11 +677,10 @@ def prob_no_coal_bmc(u, utime, ucount, gene_counts, T, stree, n,
                     walk(child)
         walk(sroot)
 
-
     # find timestamps of stree nodes
     if stimes is None:
         # modify timestamp of u to be that of the previous coal (utime)
-        stimes = {u : utime}
+        stimes = {u: utime}
         stimes = treelib.get_tree_timestamps(stree, sroot, sleaves, stimes)
 
     # init gene counts
@@ -709,7 +696,6 @@ def prob_no_coal_bmc(u, utime, ucount, gene_counts, T, stree, n,
         gene_counts[u.name] = ucount
 
     popsizes = init_popsizes(stree, n)
-
 
     p = cdf_mrca_bounded_multicoal(gene_counts, T, stree, popsizes,
                                    sroot=sroot, sleaves=sleaves, stimes=stimes,
@@ -728,12 +714,12 @@ def prob_no_coal_bmc(u, utime, ucount, gene_counts, T, stree, n,
     return p2 - p + p3
 
 
-
 def num_labeled_histories(nleaves, nroots):
     n = 1.0
     for i in xrange(nroots + 1, nleaves + 1):
         n *= i * (i - 1) / 2.0
     return n
+
 
 def log_num_labeled_histories(nleaves, nroots):
     n = 0.0
@@ -761,15 +747,14 @@ def prob_bounded_multicoal_recon_topology(tree, recon, stree, n, T,
     if stimes is None:
         stimes = treelib.get_tree_timestamps(stree)
 
-
     p = prob_multicoal_recon_topology(tree, recon, stree, popsizes,
                                       lineages=lineages, top_stats=top_stats)
     k_root = lineages[stree.root][0]
     T_root = T - stimes[stree.root]
-    return log(cdf_mrca(T_root, k_root, popsizes[recon[tree.root].name])) + p \
-           - cdf_mrca_bounded_multicoal(None, T, stree, popsizes,
-                                      tree=tree, recon=recon, stimes=stimes)
-
+    return (log(cdf_mrca(T_root, k_root, popsizes[recon[tree.root].name])) + p
+            - cdf_mrca_bounded_multicoal(
+                None, T, stree, popsizes,
+                tree=tree, recon=recon, stimes=stimes))
 
 
 #=============================================================================
@@ -821,7 +806,7 @@ def sample_bounded_coal_tree_reject(k, n, T, capped=False):
         times = [0]
         for j in xrange(k, 1, -1):
             times.append(times[-1] + sample_coal(j, n))
-        if times[-1] < t:
+        if times[-1] < T:
             break
 
     return make_tree_from_times(times, t=T, capped=capped)[0]
@@ -868,7 +853,6 @@ def sample_coal_cond_counts_tree(a, b, t, n, capped=False):
     return make_tree_from_times(times, a, t, capped=capped)
 
 
-
 def init_popsizes(stree, n):
     """
     Uses 'n' to initialize a population size dict for species tree 'stree'
@@ -912,6 +896,7 @@ def sample_multicoal_tree(stree, n, leaf_counts=None,
     # initialize function for generating new gene names
     if namefunc is None:
         spcounts = dict((l, 1) for l in stree.leaf_names())
+
         def namefunc(sp):
             name = sp + "_" + str(spcounts[sp])
             spcounts[sp] += 1
@@ -933,7 +918,7 @@ def sample_multicoal_tree(stree, n, leaf_counts=None,
     queue = MultiPushQueue(sleaves)
 
     # loop through species tree
-    for snode in queue: #stree.postorder():
+    for snode in queue:
         # simulate population for one branch
         k = counts[snode.name]
 
@@ -952,7 +937,6 @@ def sample_multicoal_tree(stree, n, leaf_counts=None,
         for node in subtree:
             recon[node] = snode
 
-
     # stitch subtrees together
     tree = treelib.Tree()
 
@@ -963,7 +947,7 @@ def sample_multicoal_tree(stree, n, leaf_counts=None,
         del recon[subtree.root]
 
     for snode in subtrees:
-        if snode not in sleaves: # not snode.is_leaf():
+        if snode not in sleaves:
             subtree, lineages = subtrees[snode]
 
             # get lineages from child subtrees
@@ -978,7 +962,6 @@ def sample_multicoal_tree(stree, n, leaf_counts=None,
             for leaf, lineage in izip(leaves, lineages2):
                 tree.add_child(leaf, lineage)
 
-
     # set root
     tree.root = subtrees[sroot][0].root
     tree.add(tree.root)
@@ -988,11 +971,6 @@ def sample_multicoal_tree(stree, n, leaf_counts=None,
     for node in tree:
         if recon[node].is_leaf():
             tree.rename(node.name, namefunc(recon[node].name))
-
-    #print "HERE"
-    #treelib.draw_tree_names(tree, maxlen=8)
-    #print "recon", [(x[0].name, x[1].name) for x in recon.items()]
-
 
     return tree, recon
 
@@ -1029,6 +1007,7 @@ def sample_bounded_multicoal_tree(stree, n, T, leaf_counts=None, namefunc=None,
     # initialize function for generating new gene names
     if namefunc is None:
         spcounts = dict((l.name, 1) for l in sleaves)
+
         def namefunc(sp):
             name = sp + "_" + str(spcounts[sp])
             spcounts[sp] += 1
@@ -1045,7 +1024,6 @@ def sample_bounded_multicoal_tree(stree, n, T, leaf_counts=None, namefunc=None,
     if stimes is None:
         stimes = treelib.get_tree_timestamps(stree)
 
-
     # calc table
     prob_counts = calc_prob_counts_table(gene_counts, T, stree, popsizes,
                                          sroot, sleaves, stimes)
@@ -1054,7 +1032,6 @@ def sample_bounded_multicoal_tree(stree, n, T, leaf_counts=None, namefunc=None,
     lineages = {sroot: [None, 1]}
     for node in sleaves:
         lineages[node] = [gene_counts[node.name], None]
-
 
     # sample lineage counts
     sample_lineage_counts(sroot, sleaves,
@@ -1159,7 +1136,7 @@ def sample_lineage_counts(node, leaves,
 
         else:
             # unhandled case
-            raise Excepiton("not implemented")
+            raise NotImplementedError
 
 
 def coal_cond_lineage_counts(lineages, sroot, sleaves, popsizes, stimes, T,
@@ -1242,15 +1219,12 @@ def join_subtrees(subtrees, recon, caps, sroot):
         for leaf, lineage in izip(leaves, lineages2):
             tree.add_child(leaf, lineage)
 
-
     # set root
     tree.root = subtrees[sroot][0].root
     if tree.root in caps and len(tree.root.children) == 1:
         tree.root = tree.root.children[0]
 
     return tree
-
-
 
 
 def sample_bounded_multicoal_tree_reject(stree, n, T, leaf_counts=None,
@@ -1285,6 +1259,7 @@ def sample_bounded_multicoal_tree_reject(stree, n, T, leaf_counts=None,
     # initialize function for generating new gene names
     if namefunc is None:
         spcounts = dict((l.name, 1) for l in sleaves)
+
         def namefunc(sp):
             name = sp + "_" + str(spcounts[sp])
             spcounts[sp] += 1
@@ -1352,12 +1327,10 @@ def sample_bounded_multicoal_tree_reject(stree, n, T, leaf_counts=None,
                 for leaf, lineage in izip(leaves, lineages2):
                     tree.add_child(leaf, lineage)
 
-
         # set root
         tree.root = subtrees[sroot][0].root
         tree.add(tree.root)
         recon[tree.root] = sroot
-
 
         # reject tree if basal branch goes past deadline
         times = treelib.get_tree_timestamps(tree)
@@ -1365,16 +1338,12 @@ def sample_bounded_multicoal_tree_reject(stree, n, T, leaf_counts=None,
             break
         else:
             reject += 1
-            #print "reject", reject, times[tree.root], T
-
 
     # name leaves
     for leaf in tree.leaves():
         tree.rename(leaf.name, namefunc(recon[leaf].name))
 
     return tree, recon
-
-
 
 
 def make_tree_from_times(times, k=None, t=None, leaves=None, capped=False):
@@ -1417,7 +1386,6 @@ def make_tree_from_times(times, k=None, t=None, leaves=None, capped=False):
         children.remove(b)
         children.add(parent)
 
-
     # set branch lengths
     for node in tree:
         if not node.parent:
@@ -1442,7 +1410,6 @@ def make_tree_from_times(times, k=None, t=None, leaves=None, capped=False):
     return tree, children
 
 
-
 #=============================================================================
 # popsize inference
 
@@ -1454,7 +1421,7 @@ def mle_popsize_coal_times(k, times):
         s += i*(i-1) * (t - last)
         i -= 1
         last = t
-    return s / float(2* k - 2)
+    return s / float(2 * k - 2)
 
 
 def mle_popsize_many_coal_times(k, times):
@@ -1511,9 +1478,6 @@ class MultiPushQueue (object):
             return self._lst.pop_front()
 
 
-
-
-
 #=============================================================================
 # allele frequency
 
@@ -1553,11 +1517,11 @@ def freq_CDF(p, N, t, T, k=50):
     T is the upper limit of the CDF (int from 0 to T)
     k is approximation for the upper limit in the (supposed to be) infinite sum
     """
-    return freq_CDF-_legs_ends(legendre(1.0-2*p), legendre(1.0-2*T),
-      N, t, k=k)
+    return freq_CDF_legs_ends(legendre(1.0-2*p), legendre(1.0-2*T),
+                              N, t, k=k)
 
 
-def freq_CDF_legs_noends(leg_r,leg_T,N,t,k=50):
+def freq_CDF_legs_noends(leg_r, leg_T, N, t, k=50):
     """
     Evaluates the CDF derived from Kimura using two Legendre polynomials.
     This does not include the probabilities at 0 and 1 (partial CDF).
@@ -1569,7 +1533,7 @@ def freq_CDF_legs_noends(leg_r,leg_T,N,t,k=50):
     """
     s = 0.0
     expconst = float(t) / 4.0 / N
-    for i in xrange(1,k+1):
+    for i in xrange(1, k+1):
         newterm = .5 * (leg_r(i-1) - leg_r(i+1))
         newterm *= exp(- i * (i+1) * expconst)
         newterm *= 1 - leg_T(i)
@@ -1577,7 +1541,7 @@ def freq_CDF_legs_noends(leg_r,leg_T,N,t,k=50):
     return s
 
 
-def freq_CDF_legs_ends(leg_r,leg_T,N,t,k=50):
+def freq_CDF_legs_ends(leg_r, leg_T, N, t, k=50):
     """
     Evaluates the CDF derived from Kimura using two Legendre polynomials.
     This includes the probabilities at 0 and 1 (full CDF).
@@ -1587,23 +1551,26 @@ def freq_CDF_legs_ends(leg_r,leg_T,N,t,k=50):
     t is the time elapsed
     k is the upper limit to approximate the infinite sum
     """
-    s = prob_fix(1.0-leg_r(True),N,t) # leg_r(True) currently returns p, so this is probability of extinction
+    # leg_r(True) currently returns p, so this is probability of extinction
+    s = prob_fix(1.0-leg_r(True), N, t)
     expconst = float(t) / 4.0 / N
-    for i in xrange(1,k+1):
+    for i in xrange(1, k+1):
         newterm = .5 * (leg_r(i-1) - leg_r(i+1))
         newterm *= exp(- i * (i+1) * expconst)
         newterm *= 1 - leg_T(i)
         s += newterm
-    return s if leg_T(True) < 1.0 else s + prob_fix(leg_r(True),N,t) # add fixation probability if T==1
+    # add fixation probability if T==1
+    return s if leg_T(True) < 1.0 else s + prob_fix(leg_r(True), N, t)
 
 
 def freq_prob_range(p, N, t, T1, T2, k=50):
     leg_r = legendre(1.0-2*p)
     leg_T1 = legendre(1.0-2*T1)
     leg_T2 = legendre(1.0-2*T2)
-    return (freq_CDF_legs_noends(leg_r, leg_T2, N, t, k=k) - \
-      freq_CDF_legs_noends(leg_r, leg_T1, N, t, k=k))
-    # uses noends because probabilities at 0 and 1 may be determined using other methods
+    return (freq_CDF_legs_noends(leg_r, leg_T2, N, t, k=k) -
+            freq_CDF_legs_noends(leg_r, leg_T1, N, t, k=k))
+    # uses noends because probabilities at 0 and 1 may be
+    # determined using other methods
 
 
 def sample_freq_CDF(p, N, t):
@@ -1624,23 +1591,23 @@ def sample_freq_CDF(p, N, t):
 
     y = random.random()
     leg_r = legendre(1.0-2*p)
-    extinction = prob_fix(1.0-p, N, t) # probability of allele extinction
+    extinction = prob_fix(1.0-p, N, t)  # probability of allele extinction
 
     if y < extinction:
-        return 0.0 # sample an extinction event
-    elif y > 1.0 - prob_fix_leg(leg_r, N, t): #prob_fix(p, N, t):
-        return 1.0 # sample a fixation event
+        return 0.0  # sample an extinction event
+    elif y > 1.0 - prob_fix_leg(leg_r, N, t):
+        return 1.0  # sample a fixation event
     else:
         def f(T):
-            return freq_CDF_legs_noends(leg_r, legendre(1.0-2*T), N, t) \
-              - y + extinction  # trims extinction probability, assures brentq works
+            # trims extinction probability, assures brentq works
+            return (freq_CDF_legs_noends(leg_r, legendre(1.0-2*T), N, t)
+                    - y + extinction)
 
         try:
             return brentq(f, 0.0, 1.0, disp=False)
         except:
             print p, N, t
             raise
-
 
 
 # new function for determining Legendre polynomial evaluations
@@ -1655,31 +1622,34 @@ def legendre(r):
     This function can run with n as high as one million in a fraction of a
      second (using isolated calls, so no caching to build higher values of n).
     """
-    def cacheleg(i,d):
+    def cacheleg(i, d):
         if type(i) == bool:
-            return (1.0-d[1])/2.0 if i else d[1] # utility function; may need to be removed
-        assert (type(i) == int and i >= 0) # if i is not type bool
+            # utility function; may need to be removed
+            return (1.0-d[1])/2.0 if i else d[1]
+        assert (type(i) == int and i >= 0)  # if i is not type bool
         m = d['max']
         if i <= m:
             return d[i]
         x = d[1]
-        for n in xrange(m+1,i+1):
-            d[n] = 1.0 * ( (2*n-1)*x*d[n-1] - (n-1)*d[n-2] ) / n
+        for n in xrange(m+1, i+1):
+            d[n] = 1.0 * ((2 * n - 1) * x * d[n-1] - (n-1) * d[n-2]) / n
         d['max'] = i
         return d[i]
-    d = {0:1.0, 1:r, 'max':1}
-    assert -1.0 <= r and r <= 1.0 # ensure r in reasonable range
-    return lambda n: cacheleg(n,d)
+    d = {0: 1.0, 1: r, 'max': 1}
+    assert -1.0 <= r and r <= 1.0  # ensure r in reasonable range
+    return lambda n: cacheleg(n, d)
 
 
 def gegenbauer(i, r):
     return ((i * (i+1)) / 2.0 * hypergeo(i+2, 1 - i, 2, (1 - r) / 2.0))
+
 
 # this should be the fastest gegenbauer method now (21 July 2010)
 def gegenbauer2(i, r):
     leg = legendre(r)
     return ((i * (i+1)) / float((2*i+1)*(1-r*r)) *
             (leg(i-1) - leg(i+1)))
+
 
 def gegenbauer3(n, a, z):
 
@@ -1699,7 +1669,7 @@ def prob_fix(p, n, t, k=50, esp=0.000001):
     prob = p
     for i in xrange(1, k+1):
         term = (.5 * (-1)**i * (leg(i-1) - leg(i+1)) *
-                 exp(-t * i * (i+1) / (4 * n)))
+                exp(-t * i * (i+1) / (4 * n)))
         if term != 0.0 and abs(term) < esp:
             return prob + term
         prob += term
@@ -1712,10 +1682,10 @@ def prob_fix(p, n, t, k=50, esp=0.000001):
 def prob_fix_leg(leg_r, n, t, k=50, esp=0.000001):
     """Probability of fixation"""
     leg = leg_r
-    prob = leg(True) # gets p
+    prob = leg(True)  # gets p
     for i in xrange(1, k+1):
         term = (.5 * (-1)**i * (leg(i-1) - leg(i+1)) *
-                 exp(-t * i * (i+1) / (4 * n)))
+                exp(-t * i * (i+1) / (4 * n)))
         if term != 0.0 and abs(term) < esp:
             return prob + term
         prob += term
@@ -1761,9 +1731,9 @@ def loghypergeo(a, b, c, z, k=100):
 
 def hypergeo_mult(i, z1, z2, k=100):
 
-     h1 = hypergeo(1-i, i+2, 2, z1, k)
-     h2 = hypergeo(1-i, i+2, 2, z2, k)
-     return h1 * h2
+    h1 = hypergeo(1-i, i+2, 2, z1, k)
+    h2 = hypergeo(1-i, i+2, 2, z2, k)
+    return h1 * h2
 
 
 def freq_pdf(x, p, n, t, k=8):
@@ -1782,8 +1752,8 @@ def freq_pdf(x, p, n, t, k=8):
         #        exp(-t * i * (i+1) / (4*n)))
 
         lcoff = log(p * q * i * (i+1) * (2*i+1))
-        s1, h1 = loghypergeo(1-i,i+2,2,p, i+2)
-        s2, h2 = loghypergeo(1-i,i+2,2,x, i+2)
+        s1, h1 = loghypergeo(1-i, i+2, 2, p, i+2)
+        s2, h2 = loghypergeo(1-i, i+2, 2, x, i+2)
         sgn2 = s1 * s2
         term = (lcoff + h1 + h2 - (i * (i+1) * t4n))
 
@@ -1792,29 +1762,15 @@ def freq_pdf(x, p, n, t, k=8):
     return sgn * exp(prob)
 
 
-
-
 #=============================================================================
 
 if __name__ == "__main__":
     from rasmus.common import plotfunc
 
-    if 0:
-        for i in range(5):
-            print "P_%d(x) = " % i, legendre_poly(i)
-            print
-
-
     #========================
     # hypergeo speed
 
     a, b, c, z, k = 30, 20, 12, .3, 40
-
-    util.tic("hypergeo_fast")
-    for i in range(100):
-        hypergeo_fast(a, b, c, z, k)
-    util.toc()
-
 
     util.tic("hypergeo")
     for i in range(100):
@@ -1826,10 +1782,9 @@ if __name__ == "__main__":
         loghypergeo(a, b, c, z, k)
     util.toc()
 
-
     if 0:
         p0 = .5
-        k=30
+        k = 30
 
         p = plotfunc(lambda x: freq_pdf(x, p0, 1000, 100, k=k),
                      .01, .99, .01, style="lines")
@@ -1848,8 +1803,6 @@ if __name__ == "__main__":
 
         #p.plotfunc(lambda x: normalPdf(x, (.5, .1135)),
         #           .01, .99, .01, style="lines")
-
-
 
     if 0:
         p0 = .1
@@ -1872,17 +1825,14 @@ if __name__ == "__main__":
         #p.plotfunc(lambda x: freq_pdf3(x, .5, 1000, 1000/10, k=40),
         #             .01, .99, .01, style="lines")
 
-
     if 0:
         p0 = .5
-        k=30
+        k = 30
 
         p = plotfunc(lambda x: freq_pdf(x, p0, 1000, 30, k=k),
                      .01, .99, .01, style="lines")
         p.enableOutput(True)
         p.replot()
-
-
 
 
 #=============================================================================
@@ -1933,13 +1883,12 @@ def freq_CDF_leg_old(leg, N, t, T, k=50):
 #    if p == 1.0: # all have the allele
 #        return 1.0 if T == 1.0 else 0.0
     s = 0.0
-    for i in xrange(1,k+1):
+    for i in xrange(1, k+1):
         newterm = leg(i-1) - leg(i+1)
         newterm *= exp(- i * (i+1) / 4.0 * t / N)
-        newterm *= .5 - .5 * innersum(i,T)
+        newterm *= .5 - .5 * innersum(i, T)
         s += newterm
     return s
-
 
 
 def hypergeo_old(a, b, c, z, k=100):
@@ -1972,8 +1921,8 @@ def freq_pdf_old(x, p, n, t, k=8):
         #        exp(-t * i * (i+1) / (4*n)))
 
         lcoff = log(p * q * i * (i+1) * (2*i+1))
-        h1 = hypergeo(1-i,i+2,2,p, i+2)
-        h2 = hypergeo(1-i,i+2,2,x, i+2)
+        h1 = hypergeo(1-i, i+2, 2, p, i+2)
+        h2 = hypergeo(1-i, i+2, 2, x, i+2)
         sgn2 = util.sign(h1) * util.sign(h2)
 
         if sgn2 != 0:
@@ -1982,7 +1931,6 @@ def freq_pdf_old(x, p, n, t, k=8):
             sgn, prob = stats.logadd_sign(sgn, prob, sgn2, term)
 
     return sgn * exp(prob)
-
 
 
 def freq_pdf2(x, p, n, t, k=8):
@@ -2005,7 +1953,7 @@ def freq_pdf3(x, p, n, t, k=8):
     prob = 0.0
     for i in xrange(1, k+1):
         term = (p * q * i * (i+1) * (2*i+1) *
-                hypergeo(1-i,i+2,2,p,40) * hypergeo(1-i,i+2,2,x,40) *
+                hypergeo(1-i, i+2, 2, p, 40) * hypergeo(1-i, i+2, 2, x, 40) *
                 exp(-t * i * (i+1) / (4*n)))
         prob += term
 
@@ -2040,10 +1988,9 @@ def cdf_mrca2(t, k, n):
     return s
 
 
-
 def prob_multicoal_recon_topology_old(tree, recon, stree, n,
-                                  root=None, leaves=None,
-                                  lineages=None, top_stats=None):
+                                      root=None, leaves=None,
+                                      lineages=None, top_stats=None):
     """
     Returns the log probability of a reconciled gene tree ('tree', 'recon')
     from the coalescent model given a species tree 'stree' and
@@ -2059,7 +2006,7 @@ def prob_multicoal_recon_topology_old(tree, recon, stree, n,
         top_stats = get_topology_stats(tree, recon, stree)
 
     # iterate through species tree branches
-    lnp = 0.0 # log probability
+    lnp = 0.0  # log probability
     for snode in stree.postorder():
         if snode.parent:
             # non root branch
@@ -2071,7 +2018,6 @@ def prob_multicoal_recon_topology_old(tree, recon, stree, n,
         else:
             a = lineages[snode][0]
             lnp -= log(num_labeled_histories(a, 1))
-
 
     # correct for topologies H(T)
     # find connected subtrees that are in the same species branch
@@ -2109,10 +2055,9 @@ def prob_multicoal_recon_topology_old(tree, recon, stree, n,
 def calc_prob_counts_table_old(gene_counts, T, stree, popsizes,
                                sroot, sleaves, stimes):
 
-    root_time = T - stimes[sroot]
-
     # use dynamic programming to calc prob of lineage counts
     prob_counts = {}
+
     def walk(node):
         if node in sleaves:
             # leaf case
@@ -2127,11 +2072,11 @@ def calc_prob_counts_table_old(gene_counts, T, stree, popsizes,
             c1 = node.children[0]
             c2 = node.children[1]
             ptime = stimes[node]
-            t1 = ptime - stimes[c1]   # c1.dist
-            t2 = ptime - stimes[c2]   # c2.dist
+            t1 = ptime - stimes[c1]  # c1.dist
+            t2 = ptime - stimes[c2]  # c2.dist
             M1 = walk(c1)
             M2 = walk(c2)
-            M = M1 + M2 # max lineage counts in this snode
+            M = M1 + M2  # max lineage counts in this snode
             n1 = popsizes[c1.name]
             n2 = popsizes[c2.name]
 
@@ -2148,10 +2093,9 @@ def calc_prob_counts_table_old(gene_counts, T, stree, popsizes,
 
             assert abs(sum(prob_counts[node]) - 1.0) < .001
             return M
-    M = walk(sroot)
+    walk(sroot)
 
     return prob_counts
-
 
 
 def count_lineages_per_branch_old(tree, recon, stree, rev_recon=None):
@@ -2214,8 +2158,8 @@ def get_topology_stats_old(tree, recon, stree, rev_recon=None):
     The function computes terms necessary for many topology calculations
     """
 
-    nodes_per_species = {} # How many gene nodes per species
-    descend_nodes = {} # How many descendent nodes recon to the same species
+    nodes_per_species = {}  # How many gene nodes per species
+    descend_nodes = {}  # How many descendent nodes recon to the same species
 
     nodes_per_species = dict.fromkeys(stree, 0)
 
@@ -2246,7 +2190,7 @@ def prob_fix_old(p, n, t, k=8, esp=0.001):
     prob = p
     for i in xrange(1, k+1):
         term = (.5 * (-1)**i * (legendre_old(i-1, r) - legendre_old(i+1, r)) *
-                 exp(-t * i * (i+1) / (4 * n)))
+                exp(-t * i * (i+1) / (4 * n)))
         if term != 0.0 and abs(term) < esp:
             return prob + term
         prob += term

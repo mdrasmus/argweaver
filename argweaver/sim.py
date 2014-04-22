@@ -307,7 +307,7 @@ def sample_arg_mutations(arg, mu, times=None):
     mutations = []
     minlen = times[1] * .1 if times else 0.0
 
-    for (start, end), tree in arglib.iter_tree_tracks(arg):
+    for (start, end), tree in arglib.iter_local_trees(arg):
         arglib.remove_single_lineages(tree)
         for node in tree:
             if not node.parents:

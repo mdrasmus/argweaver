@@ -35,20 +35,20 @@ def test_prog_small():
     Test arg-sample on a small simulated dataset
     """
 
-    make_clean_dir("test/data/test_prog_small")
+    make_clean_dir("test/tmp/test_prog_small")
     run_cmd("""bin/arg-sim \
         -k 4 -L 100000 \
         -N 1e4 -r 1.5e-8 -m 2.5e-8 \
         --ntimes 10 --maxtime 400e3  \
-        -o test/data/test_prog_small/0 > /dev/null""")
+        -o test/tmp/test_prog_small/0 > /dev/null""")
 
-    make_clean_dir("test/data/test_prog_small/0.sample")
+    make_clean_dir("test/tmp/test_prog_small/0.sample")
     run_cmd("""bin/arg-sample -q \
-        -s test/data/test_prog_small/0.sites \
+        -s test/tmp/test_prog_small/0.sites \
         -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
         --ntimes 10 --maxtime 400e3 -c 20 \
         -n 10 --sample-step 1 \
-        -o test/data/test_prog_small/0.sample/out""")
+        -o test/tmp/test_prog_small/0.sample/out""")
 
 
 def test_prog_resume():
@@ -59,124 +59,124 @@ def test_prog_resume():
     test_prog_small()
 
     run_cmd("""bin/arg-sample -q \
-        -s test/data/test_prog_small/0.sites \
+        -s test/tmp/test_prog_small/0.sites \
         -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
         --ntimes 20 --maxtime 400e3 -c 20 \
         -n 20 --sample-step 1 --resume \
-        -o test/data/test_prog_small/0.sample/out""")
+        -o test/tmp/test_prog_small/0.sample/out""")
 
 
 def test_tmrca():
 
-    if not os.path.exists("test/data/test_prog_small/0.sample"):
+    if not os.path.exists("test/tmp/test_prog_small/0.sample"):
         test_prog_small()
 
     run_cmd("""bin/arg-extract-tmrca \
-        test/data/test_prog_small/0.sample/out.%d.smc.gz \
-        > test/data/test_prog_small/0.tmrca.txt""")
+        test/tmp/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/tmp/test_prog_small/0.tmrca.txt""")
 
 
 def test_popsize():
 
-    if not os.path.exists("test/data/test_prog_small/0.sample"):
+    if not os.path.exists("test/tmp/test_prog_small/0.sample"):
         test_prog_small()
 
     run_cmd("""bin/arg-extract-popsize \
-        test/data/test_prog_small/0.sample/out.%d.smc.gz \
-        > test/data/test_prog_small/0.popsize.txt""")
+        test/tmp/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/tmp/test_prog_small/0.popsize.txt""")
 
 
 def test_breaks():
 
-    if not os.path.exists("test/data/test_prog_small/0.sample"):
+    if not os.path.exists("test/tmp/test_prog_small/0.sample"):
         test_prog_small()
 
     run_cmd("""bin/arg-extract-breaks \
-        test/data/test_prog_small/0.sample/out.%d.smc.gz \
-        > test/data/test_prog_small/0.breaks.txt""")
+        test/tmp/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/tmp/test_prog_small/0.breaks.txt""")
 
 
 def test_recomb():
 
-    if not os.path.exists("test/data/test_prog_small/0.sample"):
+    if not os.path.exists("test/tmp/test_prog_small/0.sample"):
         test_prog_small()
 
     run_cmd("""bin/arg-extract-recomb \
-        test/data/test_prog_small/0.sample/out.%d.smc.gz \
-        > test/data/test_prog_small/0.recomb.txt""")
+        test/tmp/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/tmp/test_prog_small/0.recomb.txt""")
 
 
 def test_treelen():
 
-    if not os.path.exists("test/data/test_prog_small/0.sample"):
+    if not os.path.exists("test/tmp/test_prog_small/0.sample"):
         test_prog_small()
 
     run_cmd("""bin/arg-extract-treelen \
-        test/data/test_prog_small/0.sample/out.%d.smc.gz \
-        > test/data/test_prog_small/0.treelen.txt""")
+        test/tmp/test_prog_small/0.sample/out.%d.smc.gz \
+        > test/tmp/test_prog_small/0.treelen.txt""")
 
 
 def test_ages():
 
-    if not os.path.exists("test/data/test_prog_small/0.sample"):
+    if not os.path.exists("test/tmp/test_prog_small/0.sample"):
         test_prog_small()
 
     run_cmd("""bin/arg-extract-ages \
-        test/data/test_prog_small/0.sample/out.%d.smc.gz \
-        test/data/test_prog_small/0.sites \
-        > test/data/test_prog_small/0.ages.txt""")
+        test/tmp/test_prog_small/0.sample/out.%d.smc.gz \
+        test/tmp/test_prog_small/0.sites \
+        > test/tmp/test_prog_small/0.ages.txt""")
 
 
 def test_arg_smc():
 
-    if not os.path.exists("test/data/test_prog_small/0.sample"):
+    if not os.path.exists("test/tmp/test_prog_small/0.sample"):
         test_prog_small()
 
     run_cmd("""bin/arg2smc \
-        test/data/test_prog_small/0.arg \
-        test/data/test_prog_small/0.smc""")
+        test/tmp/test_prog_small/0.arg \
+        test/tmp/test_prog_small/0.smc""")
     run_cmd("""bin/smc2arg \
-        test/data/test_prog_small/0.smc \
-        test/data/test_prog_small/0.smc.arg""")
+        test/tmp/test_prog_small/0.smc \
+        test/tmp/test_prog_small/0.smc.arg""")
 
 
 def test_db():
 
-    if not os.path.exists("test/data/test_prog_small/0.sample"):
+    if not os.path.exists("test/tmp/test_prog_small/0.sample"):
         test_prog_small()
 
     run_cmd("""bin/arg-db \
-        --db test/data/test_prog_small/arg.db \
-        --add-smc test/data/test_prog_small/0.sample/out.0.smc.gz
+        --db test/tmp/test_prog_small/arg.db \
+        --add-smc test/tmp/test_prog_small/0.sample/out.0.smc.gz
         """)
     run_cmd("""bin/sites-db \
-        --db test/data/test_prog_small/sites.db \
-        --add-sites test/data/test_prog_small/0.sites
+        --db test/tmp/test_prog_small/sites.db \
+        --add-sites test/tmp/test_prog_small/0.sites
         """)
 
 
 def _test_prog_infsites():
 
-    make_clean_dir("test/data/test_prog_infsites")
+    make_clean_dir("test/tmp/test_prog_infsites")
 
     run_cmd("""bin/arg-sim \
         -k 40 -L 200000 \
         -N 1e4 -r 1.5e-8 -m 2.5e-8 --infsites \
         --ntimes 20 --maxtime 400e3 \
-        -o test/data/test_prog_infsites/0""")
+        -o test/tmp/test_prog_infsites/0""")
 
-    make_clean_dir("test/data/test_prog_infsites/0.sample")
+    make_clean_dir("test/tmp/test_prog_infsites/0.sample")
     run_cmd("""bin/arg-sample \
-        -s test/data/test_prog_infsites/0.sites \
+        -s test/tmp/test_prog_infsites/0.sites \
         -N 1e4 -r 1.5e-8 -m 2.5e-8 \
         --ntimes 5 --maxtime 100e3 -c 1 \
         --climb 0 -n 20 --infsites \
         -x 1 \
-        -o test/data/test_prog_infsites/0.sample/out""")
+        -o test/tmp/test_prog_infsites/0.sample/out""")
 
     arg = argweaver.read_arg(
-        "test/data/test_prog_infsites/0.sample/out.0.smc.gz")
-    sites = argweaver.read_sites("test/data/test_prog_infsites/0.sites")
+        "test/tmp/test_prog_infsites/0.sample/out.0.smc.gz")
+    sites = argweaver.read_sites("test/tmp/test_prog_infsites/0.sites")
     print "names", sites.names
     print
 

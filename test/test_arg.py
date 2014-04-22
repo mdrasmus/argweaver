@@ -19,7 +19,7 @@ def arg_equal(arg, arg2):
     nose.tools.assert_equal(recombs, recombs2)
 
     # check local tree topologies
-    for (start, end), tree in arglib.iter_tree_tracks(arg):
+    for (start, end), tree in arglib.iter_local_trees(arg):
         pos = (start + end) / 2.0
 
         arglib.remove_single_lineages(tree)

@@ -775,7 +775,8 @@ inline void make_node_mapping(const int *ptree, int nnodes, int recomb_node,
     mapping[broken] = -1;
 }
 
-void print_local_tree(const LocalTree *tree, FILE *out=stdout);
+void draw_local_tree(const LocalTree *tree, FILE *out, int depth=0);
+void print_local_tree(const LocalTree *tree, FILE *out);
 void print_local_trees(const LocalTrees *trees, FILE *out=stdout);
 
 //=============================================================================
@@ -797,7 +798,8 @@ void write_local_trees(FILE *out, const LocalTrees *trees,
 bool write_local_trees(const char *filename, const LocalTrees *trees,
                        const Sequences &seqs, const double *times);
 
-
+bool parse_local_tree(const char* newick, LocalTree *tree,
+                      const double *times, int ntimes);
 bool read_local_trees(FILE *infile, const double *times, int ntimes,
                       LocalTrees *trees, vector<string> &seqnames);
 bool read_local_trees(const char *filename, const double *times, int ntimes,
