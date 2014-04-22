@@ -7,6 +7,9 @@
 
 // c/c++ includes
 #include <math.h>
+#include <set>
+#include <map>
+#include <list>
 
 // arghmm includes
 #include "track.h"
@@ -47,7 +50,10 @@ public:
         popsizes(NULL),
         rho(rho),
         mu(mu),
-        infsites_penalty(1.0)
+	infsites_penalty(1.0),
+        unphased(0),
+        sample_phase(0),
+        unphased_file("")
     {}
 
     // Model with constant population sizes and log-spaced time points
@@ -61,7 +67,9 @@ public:
         popsizes(NULL),
         rho(rho),
         mu(mu),
-        infsites_penalty(1.0)
+        infsites_penalty(1.0),
+        unphased(0),
+        sample_phase(0)
     {
         set_log_times(maxtime, ntimes);
         set_popsizes(popsize, ntimes);
@@ -78,7 +86,9 @@ public:
         popsizes(NULL),
         rho(rho),
         mu(mu),
-        infsites_penalty(1.0)
+        infsites_penalty(1.0),
+	unphased(0),
+	sample_phase(0)
     {
         set_log_times(maxtime, ntimes);
         if (_popsizes)
@@ -97,7 +107,9 @@ public:
         popsizes(NULL),
         rho(rho),
         mu(mu),
-        infsites_penalty(1.0)
+        infsites_penalty(1.0),
+        unphased(0),
+	sample_phase(0)
     {
         set_times(_times, ntimes);
         if (_popsizes)
@@ -115,7 +127,10 @@ public:
         popsizes(other.popsizes),
         rho(rho),
         mu(mu),
-        infsites_penalty(other.infsites_penalty)
+	infsites_penalty(other.infsites_penalty),
+        unphased(other.unphased),
+	sample_phase(other.sample_phase),
+        unphased_file(other.unphased_file)
     {}
 
 
@@ -128,7 +143,10 @@ public:
         popsizes(NULL),
         rho(other.rho),
         mu(other.mu),
-        infsites_penalty(other.infsites_penalty)
+        infsites_penalty(other.infsites_penalty),
+	unphased(other.unphased),
+        sample_phase(other.sample_phase),
+        unphased_file(other.unphased_file)
     {
         copy(other);
     }
@@ -167,6 +185,9 @@ public:
         rho = other.rho;
         mu = other.mu;
         infsites_penalty = other.infsites_penalty;
+        unphased = other.unphased;
+	sample_phase = other.sample_phase;
+	unphased_file = other.unphased_file;
 
         // copy popsizes and times
         set_times(other.times, ntimes);
@@ -280,6 +301,9 @@ public:
             model.rho = recombmap[index].value;
         }
         model.infsites_penalty = infsites_penalty;
+        model.unphased = unphased;
+	model.sample_phase = sample_phase;
+	model.unphased_file = unphased_file;
 
         model.owned = false;
         model.times = times;
@@ -288,8 +312,6 @@ public:
         model.coal_time_steps = coal_time_steps;
         model.popsizes = popsizes;
     }
-
-
 
 protected:
 
@@ -321,6 +343,9 @@ public:
     double rho;              // recombination rate (recombs/generation/site)
     double mu;               // mutation rate (mutations/generation/site)
     double infsites_penalty; // penalty for violating infinite sites
+    bool unphased;
+    int sample_phase;
+    string unphased_file;
     Track<double> mutmap;    // mutation map
     Track<double> recombmap; // recombination map
 };

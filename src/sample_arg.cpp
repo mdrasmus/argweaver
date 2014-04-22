@@ -23,7 +23,7 @@ using namespace std;
 
 // sequentially sample an ARG from scratch
 // sequences are sampled in the order given unless random is true
-void sample_arg_seq(const ArgModel *model, const Sequences *sequences,
+void sample_arg_seq(const ArgModel *model, Sequences *sequences,
                     LocalTrees *trees, bool random)
 {
     const int nseqs = sequences->get_num_seqs();
@@ -68,7 +68,7 @@ void sample_arg_seq(const ArgModel *model, const Sequences *sequences,
 
 
 // resample the threading of all the chromosomes
-void resample_arg(const ArgModel *model, const Sequences *sequences,
+void resample_arg(const ArgModel *model, Sequences *sequences,
                   LocalTrees *trees, int nremove)
 {
     const int nleaves = trees->get_num_leaves();
@@ -108,7 +108,7 @@ void resample_arg(const ArgModel *model, const Sequences *sequences,
 
 
 // resample the threading of an internal branch
-void resample_arg_all(const ArgModel *model, const Sequences *sequences,
+void resample_arg_all(const ArgModel *model, Sequences *sequences,
                       LocalTrees *trees, double prob_path_switch=.1)
 {
     const int maxtime = model->get_removed_root_time();
@@ -127,7 +127,7 @@ void resample_arg_all(const ArgModel *model, const Sequences *sequences,
 
 
 // resample the threading of a leaf of an ARG
-void resample_arg_leaf(const ArgModel *model, const Sequences *sequences,
+void resample_arg_leaf(const ArgModel *model, Sequences *sequences,
                        LocalTrees *trees)
 {
     const int maxtime = model->get_removed_root_time();
@@ -146,7 +146,7 @@ void resample_arg_leaf(const ArgModel *model, const Sequences *sequences,
 
 
 // resample the threading of an internal branch using MCMC
-bool resample_arg_mcmc(const ArgModel *model, const Sequences *sequences,
+bool resample_arg_mcmc(const ArgModel *model, Sequences *sequences,
                        LocalTrees *trees)
 {
     const int maxtime = model->get_removed_root_time();
@@ -181,7 +181,7 @@ bool resample_arg_mcmc(const ArgModel *model, const Sequences *sequences,
 
 // resample the threading of an internal branch using MCMC
 // Also sometimes resample leaves specifically
-void resample_arg_mcmc_all(const ArgModel *model, const Sequences *sequences,
+void resample_arg_mcmc_all(const ArgModel *model, Sequences *sequences,
                            LocalTrees *trees, double frac_leaf,
                            int window, int step, int niters)
 {
@@ -198,7 +198,7 @@ void resample_arg_mcmc_all(const ArgModel *model, const Sequences *sequences,
 
 
 // resample the threading of an internal branch with preference for recombs
-void resample_arg_recomb(const ArgModel *model, const Sequences *sequences,
+void resample_arg_recomb(const ArgModel *model, Sequences *sequences,
                          LocalTrees *trees, double recomb_preference)
 {
     const int maxtime = model->get_removed_root_time();
@@ -215,7 +215,7 @@ void resample_arg_recomb(const ArgModel *model, const Sequences *sequences,
 
 
 // resample an ARG heuristically and aggressively to high joint probability
-void resample_arg_climb(const ArgModel *model, const Sequences *sequences,
+void resample_arg_climb(const ArgModel *model, Sequences *sequences,
                         LocalTrees *trees, double recomb_preference)
 {
     resample_arg_recomb(model, sequences, trees, recomb_preference);
@@ -301,7 +301,7 @@ State find_state_sub_tree(
 
 // sequentially sample an ARG from scratch
 // sequences are sampled in the order given
-void cond_sample_arg_seq(const ArgModel *model, const Sequences *sequences,
+void cond_sample_arg_seq(const ArgModel *model, Sequences *sequences,
                          LocalTrees *trees,
                          LocalTree *start_tree, LocalTree *end_tree,
                          const vector<int> &full_seqids)
@@ -335,7 +335,7 @@ void cond_sample_arg_seq(const ArgModel *model, const Sequences *sequences,
 
 // sequentially sample an ARG only for a given region
 // sequences are sampled in the order given
-void sample_arg_seq_region(const ArgModel *model, const Sequences *sequences,
+void sample_arg_seq_region(const ArgModel *model, Sequences *sequences,
                            LocalTrees *trees, int region_start, int region_end)
 {
     // ensure region is within ARG
@@ -421,7 +421,7 @@ State find_state_sub_tree_internal(
 // open_ended -- If true and region touches start or end of local trees do not
 //               conditioned on state.
 double resample_arg_region(
-    const ArgModel *model, const Sequences *sequences,
+    const ArgModel *model, Sequences *sequences,
     LocalTrees *trees, int region_start, int region_end, int niters,
     bool open_ended)
 {
@@ -526,7 +526,7 @@ double resample_arg_region(
 
 // resample an ARG a region at a time in a sliding window
 double resample_arg_regions(
-    const ArgModel *model, const Sequences *sequences,
+    const ArgModel *model, Sequences *sequences,
     LocalTrees *trees, int window, int step, int niters)
 {
     decLogLevel();
