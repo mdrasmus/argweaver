@@ -1226,6 +1226,43 @@ double Tree::popsize() {
     return popsize/(4.0*numleaf-4);
 }
 
+//assume that times is sorted!
+vector<double> Tree::coalCounts(vector<double> times) {
+  vector<double> counts(times.size(), 0.0);
+  vector<double> ages;
+  unsigned int total=0;
+  for (int i=0; i < nnodes; i++) {
+    if (nodes[i]->nchildren > 0)
+      ages.push_back(nodes[i]->age);
+  }
+  std::sort(ages.begin(), ages.end());
+  unsigned int idx=0;
+  for (unsigned int i=0; i < ages.size(); i++) {
+    while (1) {
+      if (fabs(ages[i]-times[idx]) < 0.00001) {
+	counts[idx]++;
+	total++;
+	break;
+      }
+      idx++;
+      assert(idx < times.size());
+    }
+  }
+  assert(total == ages.size());
+  return counts;
+}
+    
+
+double Tree::num_zero_branches() {
+    int count=0;
+    for (int i=0; i < nnodes; i++) {
+	if (nodes[i] != root && fabs(nodes[i]->dist) < 0.0001)
+	    count++;
+    }
+    return count;
+}
+	
+
 
 double tmrca_half_rec(Node *node, int numnode, vector<int> numnodes) {
     if (node->nchildren != 2) {
@@ -1263,6 +1300,28 @@ double Tree::tmrca_half() {
 
 double Tree::rth() {
     return this->tmrca_half()/this->tmrca();
+}
+
+double Tree::distBetweenLeaves(Node *n1, Node *n2) {
+    if (n1 == n2) return 0.0;
+    this->setPostNodes();
+    vector<int> count(postnodes.size());
+    int s=0;
+    double rv=0.0;
+    for (int i=0; i < postnodes.size(); i++) {
+	if (postnodes[i] == n1 || postnodes[i] == n2) {
+	    count[postnodes[i]->name] = 1;
+	    s++;
+	}
+	if (postnodes[i]->nchildren == 2) {
+	    count[postnodes[i]->name] = count[postnodes[i]->children[0]->name] + 
+		count[postnodes[i]->children[1]->name];
+	    if (count[postnodes[i]->name] == 2) break;
+	}
+	if (count[postnodes[i]->name]) rv += postnodes[i]->dist;
+    }
+    assert(s == 2);
+    return rv;
 }
 
 
