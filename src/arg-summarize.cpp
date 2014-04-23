@@ -189,7 +189,7 @@ public:
 };
 
 
-void scoreBedLine(BedLine *line, vector<string> statname, double allele_age=-1, int infsites=-1) {
+void scoreBedLine(BedLine *line, vector<string> &statname, double allele_age=-1, int infsites=-1) {
   Tree *tree = line->pruned_tree != NULL ? line->pruned_tree : line->orig_tree;
   double bl=-1.0;
   if (line->stats.size() == statname.size()) return;
@@ -256,7 +256,7 @@ struct CompareBedLineEnd
 };
 
 void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *results,
-			vector<string> statname, 
+			vector<string> &statname, 
 			char *region_chrom, int region_start, int region_end) {
   static int counter=0;
   static list<BedLine*> bedlist;
@@ -294,6 +294,7 @@ void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *result
 	  }
 	}
 	printf("\n"); fflush(stdout);
+	delete l;
       }
       bedlist.clear();
     }
@@ -305,6 +306,7 @@ void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *result
       if (counter%100==0) {
 	checkResults(results);
       }
+      delete line;
     }
   }
 }
@@ -697,7 +699,6 @@ int summarizeRegionNoSnp(char *filename, const char *region,
     map<int,Tree*>orig_trees;
     map<int,Tree*>pruned_trees;
     map<int,Tree*>::iterator it;
-    list<BedLine*>all_bedlines;
     /* 
        Class BedLine contains chr,start,end, newick tree, parsed tree.
          parsed tree may be NULL if not parsing trees but otherwise will
@@ -820,7 +821,6 @@ int summarizeRegionNoSnp(char *filename, const char *region,
       if (it3 == bedlineMap.end()) {
 	currline = new BedLine(chrom, start, end, sample, newick, orig_tree,
 			       pruned_tree);
-	all_bedlines.push_back(currline);
 	bedlineMap[sample] = currline;
 	bedlineQueue.push(currline);
       } else {
@@ -862,6 +862,7 @@ int summarizeRegionNoSnp(char *filename, const char *region,
       BedLine *firstline = bedlineQueue.front();
       processNextBedLine(firstline, &results, statname, 
 			 region_chrom, region_start, region_end);
+      delete firstline;
       bedlineQueue.pop();
     }
 
@@ -883,11 +884,6 @@ int summarizeRegionNoSnp(char *filename, const char *region,
       delete it->second;
       advance(it, 1);
     }
-    for (list<BedLine*>::iterator it=all_bedlines.begin(); it != all_bedlines.end(); ++it) {
-      BedLine *l = *it;
-      delete &*l;
-    }
-
     if (region_chrom != NULL) delete[] region_chrom;
     return 0;
 }
