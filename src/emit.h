@@ -4,6 +4,7 @@
 #include "local_tree.h"
 #include "model.h"
 #include "states.h"
+#include "sequences.h"
 
 namespace argweaver {
 
@@ -20,7 +21,8 @@ int parsimony_cost_seq(const LocalTree *tree, const char * const *seqs,
                        int nseqs, int pos, int *postorder);
 void calc_emissions_external(const States &states, const LocalTree *tree,
                              const char * const*seqs, int nseqs, int seqlen,
-                             const ArgModel *model, double **emit);
+                             const ArgModel *model, double **emit,
+                             PhaseProbs *phase_pr);
 void calc_emissions_internal(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen,
                              const ArgModel *model, double **emit);

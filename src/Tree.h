@@ -366,6 +366,13 @@ public:
     double tmrca_half();
     double rth();
     double popsize();
+    vector<double> coalCounts(vector<double> times);
+    double num_zero_branches();
+    double distBetweenLeaves(Node *n1, Node *n2);
+    double distBetweenLeaves(string n1, string n2) {
+	return distBetweenLeaves(nodes[nodename_map.find(n1)->second],
+				 nodes[nodename_map.find(n2)->second]);
+    }
     set<Node*> lca(set<Node*> derived);
 
  private:
