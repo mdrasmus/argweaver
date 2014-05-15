@@ -63,7 +63,7 @@ int print_help() {
 	   "   subset by individual. The argument should contain haplotype names, one\n"
 	   "   per line, which should be retained. All others will be removed before\n"
 	   "   statistics are computed.\n"
-	   "--snp,-s snpfile\n"
+	   "--snp-file,-f snpfile\n"
 	   "   If used, compute statitics for specific SNPs. If used, extra information\n"
 	   "   about each SNP will be printed on each row (derived/ancestral alleles and\n"
 	   "   frequencies). If statistics are summarized across samples, there will be\n"
@@ -198,7 +198,7 @@ public:
 };
 
 
-void scoreBedLine(BedLine *line, vector<string> statname, vector<double> times, 
+void scoreBedLine(BedLine *line, vector<string> &statname, vector<double> times, 
 		  double allele_age=-1, int infsites=-1) {
   Tree *tree = line->pruned_tree != NULL ? line->pruned_tree : line->orig_tree;
   double bl=-1.0;
@@ -286,7 +286,7 @@ struct CompareBedLineEnd
 };
 
 void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *results,
-			vector<string> statname, 
+			vector<string> &statname, 
 			char *region_chrom, int region_start, int region_end,
 			vector<double> times) {
   static int counter=0;
@@ -325,6 +325,7 @@ void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *result
 	  }
 	}
 	printf("\n"); fflush(stdout);
+	delete l;
       }
       bedlist.clear();
     }
@@ -336,6 +337,7 @@ void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *result
       if (counter%100==0) {
 	checkResults(results);
       }
+      delete line;
     }
   }
 }
@@ -423,15 +425,18 @@ public:
       else if (allele2_inds.find(it->first) == allele2_inds.end())
 	prune.insert(it->first);
     }
-    if (derived_in_tree.size() == 0 ||
-	derived_in_tree.size() + prune.size() == (unsigned int)(t->nnodes+1)/2)
-      return;
+    /*    if (derived_in_tree.size() == 0 ||
+	derived_in_tree.size() == (unsigned int)(t->nnodes+1)/2) {
+	l->derFreq = 0;
+	l->otherFreq = (t->nnodes+1)/2;
+	return;
+    }*/
 
-    if (prune.size() > 0) {
+    /*    if (prune.size() > 0) {
       Tree *t2 = t->copy();
       t2->prune(prune, false);
       t = t2;
-    }
+      }*/
 
     set<Node*> derived;
     for (set<string>::iterator it=derived_in_tree.begin(); it != derived_in_tree.end(); ++it) {
@@ -454,14 +459,12 @@ public:
 	  derived2.insert(t->nodes[it->second]);
 	}
       }
-      assert(derived2.size() > 0);
       set <Node*>lca2 = t->lca(derived2);
       if (lca2.size() < lca.size()) {
 	major_is_derived=1;
 	lca = lca2;
       }
     }
-    assert(lca.size() >= 1);
     double age=0.0;
     for (set<Node*>::iterator it4=lca.begin(); it4 != lca.end(); ++it4) {
       Node *n = *it4;
@@ -469,6 +472,7 @@ public:
       double tempage = n->age + (n->parent->age - n->age)/2;  //midpoint of branch
       if (tempage > age) age = tempage;
     }
+    if (num_derived == 0 || total-num_derived == 0) age = -1;
     scoreBedLine(l, statname, times, age, lca.size()==1);
     l->derAllele = (major_is_derived ? allele2 : allele1);
     l->otherAllele = (major_is_derived ? allele1 : allele2);
@@ -482,9 +486,9 @@ public:
       rv.print();
       printf("\n");
       }*/
-    if (prune.size() > 0) {
+    /*    if (prune.size() > 0) {
       delete t;
-    }
+      }*/
   }
 
   TabixStream *snp_in;
@@ -557,8 +561,8 @@ int summarizeRegionBySnp(char *snpFilename, char *filename,
     }
   }
   SnpStream snpStream = SnpStream(snp_infile);
-  assert(4==fscanf(infile->stream, "%s %i %i %i", 
-		   chrom, &start, &end, &sample));
+  if (EOF==fscanf(infile->stream, "%s %i %i %i", 
+		  chrom, &start, &end, &sample)) return 0;
   assert('\t' == fgetc(infile->stream));
   char *newick = fgetline(infile->stream);
   chomp(newick);
@@ -640,7 +644,6 @@ int summarizeRegionBySnp(char *snpFilename, char *filename,
 	  l->stats.clear();
 	}
       } else {
-	printf("%s\t%i\t%i", l->chrom, snpStream.coord-1, snpStream.coord); fflush(stdout);
 	//now output three versions- one for all samples, one for same derived allele, one for infinite sites
 	BedLine* first = *(bedlist.begin());
 	int same=0, diff=0, infsites=0, derConstCount, derFreq, otherFreq;
@@ -663,38 +666,39 @@ int summarizeRegionBySnp(char *snpFilename, char *filename,
 	  derFreq = first->otherFreq;
 	  otherFreq = first->derFreq;
 	}
-	printf("\t%c\t%c\t%i\t%i\t%i\t%i",
+	printf("%s\t%i\t%i\t%c\t%c\t%i\t%i\t%i\t%i",
+	       l->chrom, snpStream.coord-1, snpStream.coord,
 	       derAllele, otherAllele, derFreq, otherFreq,
 	       (int)bedlist.size(), infsites);
 	for (unsigned int i=0; i < statname.size(); i++) {
 	    if (statname[i] != "inf_sites") {
-	  // first compute stats across all
-	  vector<double> stat;
-	  for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
-	    BedLine *l = *it;
-	    stat.push_back(l->stats[i]);
-	  }
-	  print_summaries(stat);
-
-	  /*	  stat.clear();
-	  // now stats across derived const set
-	  for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
-	    BedLine *l = *it;
-	    if (l->derAllele == derAllele)
-	      stat.push_back(l->stats[i]);
-	  }
-	  print_summaries(stat);*/
-
-	  stat.clear();
-	  //now stats for infinite sites set
-	  for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
-	    BedLine *l = *it;
-	    if (l->infSites)
-	      stat.push_back(l->stats[i]);
-	    l->stats.clear();
-	  }
-	  print_summaries(stat);
-	}
+		// first compute stats across all
+		vector<double> stat;
+		for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
+		    BedLine *l = *it;
+		    stat.push_back(l->stats[i]);
+		}
+		print_summaries(stat);
+		
+		/*	  stat.clear();
+		// now stats across derived const set
+		for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
+		BedLine *l = *it;
+		if (l->derAllele == derAllele)
+		stat.push_back(l->stats[i]);
+		}
+		print_summaries(stat);*/
+		
+		stat.clear();
+		//now stats for infinite sites set
+		for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
+		    BedLine *l = *it;
+		    if (l->infSites)
+			stat.push_back(l->stats[i]);
+		    l->stats.clear();
+		}
+		print_summaries(stat);
+	    }
 	}
 	printf("\n"); fflush(stdout);
       }
@@ -728,7 +732,6 @@ int summarizeRegionNoSnp(char *filename, const char *region,
     map<int,Tree*>orig_trees;
     map<int,Tree*>pruned_trees;
     map<int,Tree*>::iterator it;
-    list<BedLine*>all_bedlines;
     /* 
        Class BedLine contains chr,start,end, newick tree, parsed tree.
          parsed tree may be NULL if not parsing trees but otherwise will
@@ -851,7 +854,6 @@ int summarizeRegionNoSnp(char *filename, const char *region,
       if (it3 == bedlineMap.end()) {
 	currline = new BedLine(chrom, start, end, sample, newick, orig_tree,
 			       pruned_tree);
-	all_bedlines.push_back(currline);
 	bedlineMap[sample] = currline;
 	bedlineQueue.push(currline);
       } else {
@@ -893,6 +895,7 @@ int summarizeRegionNoSnp(char *filename, const char *region,
       BedLine *firstline = bedlineQueue.front();
       processNextBedLine(firstline, &results, statname, 
 			 region_chrom, region_start, region_end, times);
+      delete firstline;
       bedlineQueue.pop();
     }
 
@@ -914,11 +917,6 @@ int summarizeRegionNoSnp(char *filename, const char *region,
       delete it->second;
       advance(it, 1);
     }
-    for (list<BedLine*>::iterator it=all_bedlines.begin(); it != all_bedlines.end(); ++it) {
-      BedLine *l = *it;
-      delete &*l;
-    }
-
     if (region_chrom != NULL) delete[] region_chrom;
     return 0;
 }
