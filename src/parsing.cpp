@@ -93,6 +93,20 @@ char *fgetline(FILE *stream)
 }
 
 
+void split(const char *str, const char delim, vector<string> &tokens)
+{
+    tokens.clear();
+    int i=0;
+    bool end = false;
+    while (!end) {
+        int j=i;
+        for (; str[j] && str[j] != delim; j++);
+        end = !str[j];
+        tokens.push_back(string(&str[i], j-i));
+        i = j+1;
+    }
+}
+
 void split(const char *str, const char *delim, vector<string> &tokens)
 {
     tokens.clear();
@@ -138,6 +152,29 @@ char *concat_strs(char **strs, int nstrs)
     return str;
 }
 
+char *quote_arg(const char *text)
+{
+    int j = 0;
+    unsigned int len=strlen(text);
+    char *text2 = new char[len*4+3];
+    text2[j++] = '\'';
+
+    for (unsigned int i=0; i<len; i++) {
+        if (text[i] == '\'') {
+            text2[j++] = '\'';
+            text2[j++] = '\\';
+            text2[j++] = '\'';
+            text2[j++] = '\'';
+        } else
+            text2[j++] = text[i];
+    }
+
+    // terminate string
+    text2[j++] = '\'';
+    text2[j++] = '\0';
+
+    return text2;
+}
 
 
 } // namespace argweaver

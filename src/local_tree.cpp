@@ -970,6 +970,55 @@ bool write_newick_tree(const char *filename, const LocalTree *tree,
 }
 
 
+bool write_newick_tree_for_bedfile_recur(FILE *out, const LocalTree *tree,
+                                         const char *const *names,
+                                         const double *times,
+                                         int recomb_node, int recomb_time,
+                                         int coal_node, int coal_time,
+                                         int node) {
+
+    if (tree->nodes[node].is_leaf()) {
+        fprintf(out, "%s", names[node]);
+    } else {
+        fprintf(out, "(");
+        write_newick_tree_for_bedfile_recur(out, tree, names,
+                                            times, recomb_node, recomb_time,
+                                            coal_node, coal_time,
+                                            tree->nodes[node].child[0]);
+        fprintf(out, ",");
+        write_newick_tree_for_bedfile_recur(out, tree, names, times,
+                                            recomb_node, recomb_time,
+                                            coal_node, coal_time,
+                                            tree->nodes[node].child[1]);
+        fprintf(out, ")");
+    }
+    if (node != tree->root)
+        fprintf(out, "%.1f", times[tree->nodes[node].age]);
+    if (node == recomb_node) {
+        fprintf(out, "[&&NHX:recomb_node=%.1f]", times[recomb_time]);
+    }
+    if (node == coal_node) {
+        fprintf(out, "[&&NHX:coal_time=%.1f]", times[coal_time]);
+    }
+    return true;
+}
+
+
+bool write_newick_tree_for_bedfile(FILE *out,
+                                   const LocalTree *tree,
+                                   const char *const *names,
+                                   const double *times,
+                                   int recomb_node, int recomb_time,
+                                   int coal_node, int coal_time) {
+    write_newick_tree_for_bedfile_recur(out, tree, names, times,
+                                        recomb_node, recomb_time,
+                                        coal_node, coal_time,
+                                        tree->root);
+    fprintf(out, ";");
+    return true;
+}
+
+
 //=============================================================================
 // read local tree
 
@@ -1193,6 +1242,53 @@ bool parse_local_tree(const char* newick, LocalTree *tree,
 
 //=============================================================================
 // output ARG as local trees
+
+void write_local_trees_as_bed(FILE *out, const LocalTrees *trees,
+                              const char *const *names,
+                              const double *times, int sample) {
+    const int nnodes = trees->nnodes;
+    char **nodeids = new char* [nnodes];
+    int i=0, recomb_node, recomb_time=-1, coal_node, coal_time=-1;
+    for (i=0; i < trees->get_num_leaves(); i++) {
+        nodeids[i] = new char [strlen(names[trees->seqids[i]])+1];
+        strcpy(nodeids[i], nodeids[trees->seqids[i]]);
+    }
+    for (; i < nnodes; i++) {
+        nodeids[i] = new char[1];
+        nodeids[i][0]='\0';
+    }
+
+    int end = trees->start_coord;
+    for (LocalTrees::const_iterator it=trees->begin();
+         it != trees->end(); ++it)
+    {
+        int start = end;
+        end += it->blocklen;
+        LocalTree *tree = it->tree;
+
+        fprintf(out, "%s\t%i\t%i\t%i\t",
+                trees->chrom.c_str(), start, end, sample);
+
+        LocalTrees::const_iterator it2 = it;
+        ++it2;
+        if (it2 != trees->end()) {
+            const Spr &spr = it2->spr;
+            recomb_node = spr.recomb_node;
+            recomb_time = spr.recomb_time;
+            coal_node = spr.coal_node;
+            coal_time = spr.coal_time;
+        } else {
+            recomb_node = -1;
+            coal_node = -1;
+        }
+
+        write_newick_tree_for_bedfile(out, tree, nodeids, times,
+                                      recomb_node, recomb_time,
+                                      coal_node, coal_time);
+        fprintf(out, "\n");
+    }
+}
+
 
 void write_local_trees(FILE *out, const LocalTrees *trees,
                        const char *const *names, const double *times)
