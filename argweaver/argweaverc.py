@@ -329,11 +329,11 @@ if argweaverclib:
         [POINTER(C.c_int * 2), "path"])
     argweaver_get_nstates = export(
         argweaverclib, "arghmm_get_nstates", int,
-        [C.c_void_p, "trees",  C.c_int, "ntimes", C.c_bool, "internal",
+        [C.c_void_p, "trees", C.c_int, "ntimes", C.c_bool, "internal",
          C.c_out(C.c_int_list), "nstates"])
     get_state_spaces = export(
         argweaverclib, "get_state_spaces", POINTER(POINTER(C.c_int * 2)),
-        [C.c_void_p, "trees",  C.c_int, "ntimes", C.c_bool, "internal"])
+        [C.c_void_p, "trees", C.c_int, "ntimes", C.c_bool, "internal"])
     delete_state_spaces = export(
         argweaverclib, "delete_state_spaces", C.c_int,
         [POINTER(POINTER(C.c_int * 2)), "all_states", C.c_int, "ntrees"])
@@ -1411,7 +1411,7 @@ def iter_local_ptrees(arg, times, start=None, end=None):
 
         # setup last tree
         last_tree2 = tree2
-        last_ptree, last_nodes, last_nodelookup = ptree, nodes, nodelookup
+        last_nodes, last_nodelookup = nodes, nodelookup
 
 
 def get_treeset(arg, times, start=None, end=None):
