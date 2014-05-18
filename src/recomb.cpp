@@ -26,57 +26,22 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
         + int(k <= last_state.time)
         + int(k == last_state.time);
 
+    /*
     int root_time;
     if (internal) {
         int subtree = tree->nodes[tree->root].child[0];
 	root_time = max(tree->nodes[subtree].age, state.time);
-    } else
-        root_time = max(tree->nodes[tree->root].age, state.time);
-    assert(state.time <= root_time);
-    if (state.time == root_time) {
-	nrecombs_k = 2;
+        if (state.time == root_time) {
+	    nrecombs_k = 2;
+        }
     }
-    double sum = 0.0;
+    */
+
     int recomb_parent_age = (recomb.node == -1 ||
                              tree->nodes[recomb.node].parent == -1 ||
-                             (recomb.node == last_state.node &&
-                              recomb.time < last_state.time)) ?
+                             recomb.node == last_state.node) ?
         last_state.time :
         tree->nodes[tree->nodes[recomb.node].parent].age;
-
-    // probability of not coalescing before time j-1
-    for (int m=k; m<j-1; m++) {
-        int nbranches_m = lineages.nbranches[m]
-            + int(m < last_state.time)
-            - int(m < recomb_parent_age);
-	sum += (model->time_steps[m] * nbranches_m
-		/ (2.0 * model->popsizes[m]));
-    }
-
-    // probability of coalescing at time j
-    double pcoal;
-    if (k == j) {
-        // in this case coalesce event must happen between time
-        // j,j+1/2 (coal_time_step[2j])
-	pcoal = 1.0 / nrecombs_k * (
-            1.0 - exp(-model->coal_time_steps[2*j] *
-                      nbranches_k / (2.0 * model->popsizes[j])));
-    } else {
-        // otherwise it could happen anytime between j-1/2 and j+1/2
-	int m = j - 1;
-	int nbranches_m = lineages.nbranches[m]
-            + int(m < last_state.time)
-            - int(m < recomb_parent_age);
-	// have to not coalesce in the first half interval before k
-	sum += (model->coal_time_steps[2*m] *
-                nbranches_m / (2.0 * model->popsizes[m]));
-
-	pcoal = 1.0 / nrecombs_k * (1.0 - exp(
-            -model->coal_time_steps[2*j-1] * nbranches_m
-            / (2.0*model->popsizes[j-1])
-            - model->coal_time_steps[2*j] * nbranches_k
-            / (2.0*model->popsizes[j])));
-    }
 
     // The commented-out section would be correct if we were rounding
     // recombs to nearest time point in the same way as coals (keep because
@@ -92,10 +57,53 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
             + int(m == last_state.time);
 	precomb += nbranches_m*model->coal_time_steps[2*k-1]/nrecombs_m;
     }*/
-    double precomb = nbranches_k*model->time_steps[k]/nrecombs_k;
+    double precomb = nbranches_k * model->time_steps[k] / nrecombs_k;
 
+    // probability of not coalescing before time j-1
+    double sum = 0.0;
+    for (int m=k; m<j-1; m++) {
+        int nbranches_m = lineages.nbranches[m]
+            + int(m < last_state.time)
+            - int(m < recomb_parent_age);
+	sum += (model->time_steps[m] * nbranches_m
+		/ (2.0 * model->popsizes[m]));
+    }
 
-    // return (nbranches_k * model->time_steps[k] / nrecombs_k) * exp(- sum) * pcoal;
+    // probability of coalescing at time j
+    double pcoal;
+    int nbranches_j = lineages.nbranches[j]
+        + int(j < last_state.time)
+        - int(j < recomb_parent_age);
+    if (k == j) {
+        // in this case coalesce event must happen between time
+        // j,j+1/2 (coal_time_step[2j])
+	pcoal = 1.0 - exp(-model->coal_time_steps[2*j] * nbranches_j
+                          / (2.0 * model->popsizes[j]));
+    } else {
+        // otherwise it could happen anytime between j-1/2 and j+1/2
+	int m = j - 1;
+	int nbranches_m = lineages.nbranches[m]
+            + int(m < last_state.time)
+            - int(m < recomb_parent_age);
+	// have to not coalesce in the first half interval before j
+	sum += (model->coal_time_steps[2*m] * nbranches_m
+                / (2.0 * model->popsizes[m]));
+
+        // NOTE: if k == ntimes - 2, coalescence is probability 1.0
+        if (k < model->ntimes - 2) {
+            pcoal = 1.0 - exp(
+                -model->coal_time_steps[2*j-1] * nbranches_m
+                / (2.0 * model->popsizes[m])
+                - model->coal_time_steps[2*j] * nbranches_j
+                / (2.0 * model->popsizes[j]));
+        }
+    }
+
+    // probability of recoalescing on a choosen branch
+    int ncoals_j = lineages.ncoals[j]
+        - int(j <= recomb_parent_age) - int(j == recomb_parent_age);
+    pcoal /= ncoals_j;
+
     return precomb * exp(- sum) * pcoal;
 }
 
