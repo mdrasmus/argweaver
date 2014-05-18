@@ -20,22 +20,20 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
     const int k = recomb.time;
     const int j = state.time;
 
+    int root_time;
+    if (internal) {
+        int maintree_root = tree->nodes[tree->root].child[1];
+        root_time = max(tree->nodes[maintree_root].age, last_state.time);
+    } else {
+        root_time = max(tree->nodes[tree->root].age, last_state.time);
+    }
+
     int nbranches_k = lineages.nbranches[k]
         + int(k < last_state.time);
     int nrecombs_k = lineages.nrecombs[k]
         + int(k <= last_state.time)
-        + int(k == last_state.time);
-
-    /*
-    int root_time;
-    if (internal) {
-        int subtree = tree->nodes[tree->root].child[0];
-	root_time = max(tree->nodes[subtree].age, state.time);
-        if (state.time == root_time) {
-	    nrecombs_k = 2;
-        }
-    }
-    */
+        + int(k == last_state.time)
+        - int(k == root_time);
 
     int recomb_parent_age = (recomb.node == -1 ||
                              tree->nodes[recomb.node].parent == -1 ||
@@ -70,15 +68,18 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
     }
 
     // probability of coalescing at time j
-    double pcoal;
+    double pcoal = 1.0;
     int nbranches_j = lineages.nbranches[j]
         + int(j < last_state.time)
         - int(j < recomb_parent_age);
     if (k == j) {
         // in this case coalesce event must happen between time
         // j,j+1/2 (coal_time_step[2j])
-	pcoal = 1.0 - exp(-model->coal_time_steps[2*j] * nbranches_j
-                          / (2.0 * model->popsizes[j]));
+        // NOTE: if k == ntimes - 2, coalescence is probability 1.0
+        if (j < model->ntimes - 2) {
+            pcoal = 1.0 - exp(-model->coal_time_steps[2*j] * nbranches_j
+                              / (2.0 * model->popsizes[j]));
+        }
     } else {
         // otherwise it could happen anytime between j-1/2 and j+1/2
 	int m = j - 1;
@@ -90,7 +91,7 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
                 / (2.0 * model->popsizes[m]));
 
         // NOTE: if k == ntimes - 2, coalescence is probability 1.0
-        if (k < model->ntimes - 2) {
+        if (j < model->ntimes - 2) {
             pcoal = 1.0 - exp(
                 -model->coal_time_steps[2*j-1] * nbranches_m
                 / (2.0 * model->popsizes[m])

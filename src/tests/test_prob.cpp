@@ -65,7 +65,7 @@ TEST(ProbTest, test_calc_spr_prob)
 
 // The probability of all recombinations between two given trees should be
 // proportional to the SPR probabilities.
-TEST(ProbTest, test_sample_recomb)
+TEST(ProbTest, test_sample_recomb_external)
 {
     // Setup model.
     int ntimes = 5;
@@ -92,7 +92,7 @@ TEST(ProbTest, test_sample_recomb)
     LineageCounts lineages2(ntimes);
     lineages.count(&tree, internal);
     States states;
-    get_coal_states_external(&tree, ntimes, states);
+    get_coal_states(&tree, ntimes, states, internal);
     int nstates = states.size();
 
     // add/remove branch data
@@ -102,7 +102,7 @@ TEST(ProbTest, test_sample_recomb)
 
     // Loop over all possible thread transitions (state1 -> state2).
     for (int i=0; i<nstates; i++) {
-        for (int j=0; j<2; j++) {
+        for (int j=0; j<nstates; j++) {
             State state1 = states[i];
             State state2 = states[j];
 
