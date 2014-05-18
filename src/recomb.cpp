@@ -21,11 +21,23 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
     const int j = state.time;
 
     int root_time;
+    int recomb_parent_age;
     if (internal) {
+        int subtree_root = tree->nodes[tree->root].child[0];
         int maintree_root = tree->nodes[tree->root].child[1];
         root_time = max(tree->nodes[maintree_root].age, last_state.time);
+        recomb_parent_age = (recomb.node == subtree_root ||
+                             tree->nodes[recomb.node].parent == -1 ||
+                             recomb.node == last_state.node) ?
+            last_state.time :
+            tree->nodes[tree->nodes[recomb.node].parent].age;
     } else {
         root_time = max(tree->nodes[tree->root].age, last_state.time);
+        recomb_parent_age = (recomb.node == -1 ||
+                             tree->nodes[recomb.node].parent == -1 ||
+                             recomb.node == last_state.node) ?
+            last_state.time :
+            tree->nodes[tree->nodes[recomb.node].parent].age;
     }
 
     int nbranches_k = lineages.nbranches[k]
@@ -35,11 +47,7 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
         + int(k == last_state.time)
         - int(k == root_time);
 
-    int recomb_parent_age = (recomb.node == -1 ||
-                             tree->nodes[recomb.node].parent == -1 ||
-                             recomb.node == last_state.node) ?
-        last_state.time :
-        tree->nodes[tree->nodes[recomb.node].parent].age;
+
 
     // The commented-out section would be correct if we were rounding
     // recombs to nearest time point in the same way as coals (keep because
@@ -72,6 +80,7 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
     int nbranches_j = lineages.nbranches[j]
         + int(j < last_state.time)
         - int(j < recomb_parent_age);
+    assert(nbranches_j > 0);
     if (k == j) {
         // in this case coalesce event must happen between time
         // j,j+1/2 (coal_time_step[2j])
