@@ -100,6 +100,35 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
 }
 
 
+// Returns the possible recombination events that are compatiable with
+// the transition (last_state -> state).
+void get_possible_recomb(const LocalTree *tree,
+                         const State last_state, const State state,
+                         bool internal, vector<NodePoint> &candidates)
+{
+    // represents the branch above the new node in the tree.
+    const int new_node = -1;
+
+    int end_time = min(state.time, last_state.time);
+    if (state.node == last_state.node) {
+        // y = v, k in [0, min(timei, last_timei)]
+        // y = node, k in Sr(node)
+        for (int k=tree->nodes[state.node].age; k<=end_time; k++)
+            candidates.push_back(NodePoint(state.node, k));
+    }
+
+    if (internal) {
+        const int subtree_root = tree->nodes[tree->root].child[0];
+        const int subtree_root_age = tree->nodes[subtree_root].age;
+        for (int k=subtree_root_age; k<=end_time; k++)
+            candidates.push_back(NodePoint(subtree_root, k));
+    } else {
+        for (int k=0; k<=end_time; k++)
+            candidates.push_back(NodePoint(new_node, k));
+    }
+}
+
+
 void sample_recombinations(
     const LocalTrees *trees, const ArgModel *model,
     ArgHmmMatrixIter *matrix_iter,
@@ -108,7 +137,6 @@ void sample_recombinations(
 {
     States states;
     LineageCounts lineages(model->ntimes);
-    const int new_node = -1;
     vector <NodePoint> candidates;
     vector <double> probs;
 
@@ -132,9 +160,6 @@ void sample_recombinations(
             // don't allow new recomb at start if we are switching blocks
             start++;
         }
-
-        //int start = end + 1;  // don't allow new recomb at start
-        //end = start - 1 + matrices.blocklen;
 
         // loop through positions in block
         for (int i=start; i<end; i++) {
@@ -170,23 +195,7 @@ void sample_recombinations(
             // either because state changed or we choose to recombine
             // find candidates
             candidates.clear();
-            int end_time = min(state.time, last_state.time);
-            if (state.node == last_state.node) {
-                // y = v, k in [0, min(timei, last_timei)]
-                // y = node, k in Sr(node)
-                for (int k=tree->nodes[state.node].age; k<=end_time; k++)
-                    candidates.push_back(NodePoint(state.node, k));
-            }
-
-            if (internal) {
-                const int subtree_root = tree->nodes[tree->root].child[0];
-                const int subtree_root_age = tree->nodes[subtree_root].age;
-                for (int k=subtree_root_age; k<=end_time; k++)
-                    candidates.push_back(NodePoint(subtree_root, k));
-            } else {
-                for (int k=0; k<=end_time; k++)
-                    candidates.push_back(NodePoint(new_node, k));
-            }
+            get_possible_recomb(tree, last_state, state, internal, candidates);
 
             // compute probability of each candidate
             probs.clear();
