@@ -15,9 +15,8 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
                                 const LineageCounts &lineages,
                                 const State &last_state,
                                 const State &state,
-                                NodePoint &recomb, int internal)
+                                const NodePoint &recomb, bool internal)
 {
-
     const int k = recomb.time;
     const int j = state.time;
 
@@ -26,11 +25,13 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
     int nrecombs_k = lineages.nrecombs[k]
         + int(k <= last_state.time)
         + int(k == last_state.time);
-    
+
     int root_time;
     if (internal) {
-	root_time = max(tree->nodes[tree->nodes[tree->root].child[0]].age, state.time);
-    } else root_time = max(tree->nodes[tree->root].age, state.time);
+        int subtree = tree->nodes[tree->root].child[0];
+	root_time = max(tree->nodes[subtree].age, state.time);
+    } else
+        root_time = max(tree->nodes[tree->root].age, state.time);
     assert(state.time <= root_time);
     if (state.time == root_time) {
 	nrecombs_k = 2;
@@ -43,9 +44,8 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
         last_state.time :
         tree->nodes[tree->nodes[recomb.node].parent].age;
 
-    //probability of not coalescing before time j-1
-    int m=k;
-    for (; m<j-1; m++) {
+    // probability of not coalescing before time j-1
+    for (int m=k; m<j-1; m++) {
         int nbranches_m = lineages.nbranches[m]
             + int(m < last_state.time)
             - int(m < recomb_parent_age);
@@ -53,23 +53,29 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
 		/ (2.0 * model->popsizes[m]));
     }
 
-    //probability of coalescing at time j
+    // probability of coalescing at time j
     double pcoal;
-    if (k==j) {
-        //in this case coalesce event must happen between time j,j+1/2 (coal_time_step[2j])
-	pcoal = 1.0/nrecombs_k * (1.0-exp(-model->coal_time_steps[2*j]*nbranches_k/(2.0*model->popsizes[j])));
+    if (k == j) {
+        // in this case coalesce event must happen between time
+        // j,j+1/2 (coal_time_step[2j])
+	pcoal = 1.0 / nrecombs_k * (
+            1.0 - exp(-model->coal_time_steps[2*j] *
+                      nbranches_k / (2.0 * model->popsizes[j])));
     } else {
         // otherwise it could happen anytime between j-1/2 and j+1/2
-	m = j-1;
+	int m = j - 1;
 	int nbranches_m = lineages.nbranches[m]
             + int(m < last_state.time)
             - int(m < recomb_parent_age);
-	//have to not coalesce in the first half interval before k
-	sum += (model->coal_time_steps[2*m]*nbranches_m/(2.0*model->popsizes[m]));
+	// have to not coalesce in the first half interval before k
+	sum += (model->coal_time_steps[2*m] *
+                nbranches_m / (2.0 * model->popsizes[m]));
 
-	pcoal =1.0/nrecombs_k * (1.0-exp(-model->coal_time_steps[2*j-1]/(2.0*model->popsizes[j-1])*nbranches_m
-					 -model->coal_time_steps[2*j]/(2.0*model->popsizes[j])*nbranches_k));
-
+	pcoal = 1.0 / nrecombs_k * (1.0 - exp(
+            -model->coal_time_steps[2*j-1] * nbranches_m
+            / (2.0*model->popsizes[j-1])
+            - model->coal_time_steps[2*j] * nbranches_k
+            / (2.0*model->popsizes[j])));
     }
 
     // The commented-out section would be correct if we were rounding
@@ -78,14 +84,18 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
     /*double precomb = nbranches_k*model->coal_time_steps[2*k]/nrecombs_k;
     if (k > 0) {
 	int m=k-1;
-	int nbranches_m = lineages.nbranches[m] + int(m < last_state.time) - int(m < recomb_parent_age);
-	int nrecombs_m = lineages.nrecombs[m] + int(m <= last_state.time) + int(m == last_state.time);
+	int nbranches_m = lineages.nbranches[m]
+            + int(m < last_state.time)
+            - int(m < recomb_parent_age);
+	int nrecombs_m = lineages.nrecombs[m]
+            + int(m <= last_state.time)
+            + int(m == last_state.time);
 	precomb += nbranches_m*model->coal_time_steps[2*k-1]/nrecombs_m;
     }*/
     double precomb = nbranches_k*model->time_steps[k]/nrecombs_k;
 
-    
-    //    return (nbranches_k * model->time_steps[k] / nrecombs_k) * exp(- sum) * pcoal;
+
+    // return (nbranches_k * model->time_steps[k] / nrecombs_k) * exp(- sum) * pcoal;
     return precomb * exp(- sum) * pcoal;
 }
 
@@ -183,7 +193,7 @@ void sample_recombinations(
             for (vector<NodePoint>::iterator it=candidates.begin();
                  it != candidates.end(); ++it) {
                 probs.push_back(recomb_prob_unnormalized(
- 		 model, tree, lineages, last_state, state, *it, internal));
+                    model, tree, lineages, last_state, state, *it, internal));
             }
 
             // sample recombination
