@@ -113,7 +113,8 @@ LIBARGWEAVER_OBJS = $(ARGWEAVER_OBJS)
 
 # ARGweaver C++ tests
 CFLAGS_TEST = -I $(GTEST_DIR)/include
-LIBS_TEST = -Llib -lgtest -lgtest_main
+LIBS_TEST = -Llib -lgtest -lgtest_main -lpthread
+GTEST_SRC = gtest-1.7.0
 TEST_SRC = \
 	src/tests/test.cpp \
 	src/tests/test_local_tree.cpp \
@@ -185,11 +186,11 @@ $(TEST_OBJS): %.o: %.cpp
 # Download and install gtest unit-testing framework.
 gtest:
 	wget $(GTEST_URL) -O gtest.zip
+	rm -rf $(GTEST_SRC)
 	unzip gtest
-	cd gtest-1.7.0
-	./configure
-	make
-	cp gtest-1.7.0/lib/.libs/libgtest_main.a lib/
+	cd $(GTEST_SRC) && ./configure && make
+	cp $(GTEST_SRC)/lib/.libs/libgtest_main.a lib/
+	cp $(GTEST_SRC)/lib/.libs/libgtest.a lib/
 
 #-----------------------------
 # install

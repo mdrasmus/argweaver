@@ -11,11 +11,25 @@
 #include <string.h>
 #include <stdio.h>
 
+// argweaver includes
+#include "local_tree.h"
+#include "matrices.h"
+#include "states.h"
 
 namespace argweaver {
 
 using namespace std;
 
+
+double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
+                                const LineageCounts &lineages,
+                                const State &last_state,
+                                const State &state,
+                                const NodePoint &recomb, bool internal);
+
+void get_possible_recomb(const LocalTree *tree,
+                         const State last_state, const State state,
+                         bool internal, vector<NodePoint> &candidates);
 
 void sample_recombinations(
     const LocalTrees *trees, const ArgModel *model,

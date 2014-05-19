@@ -150,8 +150,31 @@ pyflakes
 pep8
 ```
 
-These can be installed using
+These dependencies can be installed using
 
-```
+```sh
 pip install -r requirements-dev.txt
+```
+
+The python tests can be run either with nose or make:
+```sh
+# Run tests with nose
+nosetests test
+
+# Run tests with make
+make test
+```
+
+There are also C++ tests written using
+[googletest](http://code.google.com/p/googletest/), Google's
+unit-testing framework.  Googletest can either be installed system-wide or
+within the ARGweaver source tree.  For convenience, googletest can be installed
+in the source tree using
+```sh
+make gtest
+```
+
+Once installed, c++ unit tests can be run using
+```sh
+make ctest
 ```

@@ -46,6 +46,10 @@ void rename_node(LocalTree *tree, int src_node, int dest_node)
 //
 void add_tree_branch(LocalTree *tree, int node, int time)
 {
+    // Ensure tree has capacity to add nodes.
+    // This is the responsibility of the caller.
+    assert(tree->capacity >= tree->nnodes + 2);
+
     // get tree info
     LocalNode *nodes = tree->nodes;
     int nleaves = tree->get_num_leaves();
