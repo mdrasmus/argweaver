@@ -152,6 +152,7 @@ char *concat_strs(char **strs, int nstrs)
     return str;
 }
 
+
 // Quote an argument for use in a command shell
 // Argument is wrapped in single quotes and every single quote is escaped.
 string quote_arg(string text)
