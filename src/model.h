@@ -241,27 +241,6 @@ public:
         setup_time_steps();
     }
 
-    void set_times_from_file(string file) {
-        FILE *infile = fopen(file.c_str(), "r");
-        if (infile == NULL) {
-            printError("Error reading times file %s\n", file.c_str());
-            exit(1);
-        }
-        vector<double> tmp;
-        double t;
-        while (EOF != fscanf(infile, "%lf", &t))
-            tmp.push_back(t);
-        fclose(infile);
-        std::sort(tmp.begin(), tmp.end());
-        ntimes = tmp.size();
-        times = new double [ntimes];
-        for (int i=0; i < ntimes; i++)
-            times[i] = tmp[i];
-        setup_time_steps();
-    }
-
-
-
     // Sets the model population sizes from an array
     void set_popsizes(double *_popsizes, int _ntimes) {
         ntimes = _ntimes;
