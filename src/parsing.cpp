@@ -93,6 +93,20 @@ char *fgetline(FILE *stream)
 }
 
 
+void split(const char *str, const char delim, vector<string> &tokens)
+{
+    tokens.clear();
+    int i=0;
+    bool end = false;
+    while (!end) {
+        int j=i;
+        for (; str[j] && str[j] != delim; j++);
+        end = !str[j];
+        tokens.push_back(string(&str[i], j-i));
+        i = j+1;
+    }
+}
+
 void split(const char *str, const char *delim, vector<string> &tokens)
 {
     tokens.clear();
