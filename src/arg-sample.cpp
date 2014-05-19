@@ -517,6 +517,24 @@ bool log_local_trees(
 
 //=============================================================================
 
+
+// Read a list of doubles from a file.
+bool read_doubles(const char *filename, vector<double> &values) {
+    FILE *infile = fopen(filename, "r");
+    if (infile == NULL) {
+        return false;
+    }
+
+    // Read all doubles and sort them.
+    double value;
+    while (fscanf(infile, "%lf", &value) == 1)
+        values.push_back(value);
+    fclose(infile);
+
+    return true;
+}
+
+
 bool read_init_arg(const char *arg_file, const ArgModel *model,
                    LocalTrees *trees, vector<string> &seqnames)
 {
@@ -969,8 +987,12 @@ int main(int argc, char **argv)
 
     // setup model parameters
     if (c.times_file != "") {
-        printError("not implemented yet");
-        return EXIT_ERROR;
+        vector<double> times;
+        if (!read_doubles(c.times_file.c_str(), times)) {
+            printError("cannot times files '%s'", c.times_file.c_str());
+            return EXIT_ERROR;
+        }
+        c.model.set_times(&times[0], times.size());
     } else if (c.time_step)
         c.model.set_linear_times(c.time_step, c.ntimes);
     else
