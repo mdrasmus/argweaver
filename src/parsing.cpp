@@ -152,14 +152,15 @@ char *concat_strs(char **strs, int nstrs)
     return str;
 }
 
-char *quote_arg(const char *text)
+// Quote an argument for use in a command shell
+// Argument is wrapped in single quotes and every single quote is escaped.
+string quote_arg(string text)
 {
     int j = 0;
-    unsigned int len=strlen(text);
-    char *text2 = new char[len*4+3];
+    char text2[text.size() * 4 + 3];
     text2[j++] = '\'';
 
-    for (unsigned int i=0; i<len; i++) {
+    for (unsigned int i=0; i<text.size(); i++) {
         if (text[i] == '\'') {
             text2[j++] = '\'';
             text2[j++] = '\\';
@@ -173,7 +174,7 @@ char *quote_arg(const char *text)
     text2[j++] = '\'';
     text2[j++] = '\0';
 
-    return text2;
+    return string(text2);
 }
 
 

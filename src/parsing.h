@@ -97,7 +97,7 @@ void split(const char *str, const char *delim, vector<string> &tokens);
 
 char *concat_strs(char **strs, int nstrs);
 
-char *quote_arg(const char *text);
+string quote_arg(string text);
 
 
 } // namespace argweaver
