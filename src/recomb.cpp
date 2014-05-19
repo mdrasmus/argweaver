@@ -54,14 +54,14 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
     // hope to make this change eventually)
     /*double precomb = nbranches_k*model->coal_time_steps[2*k]/nrecombs_k;
     if (k > 0) {
-	int m=k-1;
-	int nbranches_m = lineages.nbranches[m]
+        int m=k-1;
+        int nbranches_m = lineages.nbranches[m]
             + int(m < last_state.time)
             - int(m < recomb_parent_age);
-	int nrecombs_m = lineages.nrecombs[m]
+        int nrecombs_m = lineages.nrecombs[m]
             + int(m <= last_state.time)
             + int(m == last_state.time);
-	precomb += nbranches_m*model->coal_time_steps[2*k-1]/nrecombs_m;
+        precomb += nbranches_m*model->coal_time_steps[2*k-1]/nrecombs_m;
     }*/
     double precomb = nbranches_k * model->time_steps[k] / nrecombs_k;
 
@@ -71,8 +71,8 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
         int nbranches_m = lineages.nbranches[m]
             + int(m < last_state.time)
             - int(m < recomb_parent_age);
-	sum += (model->time_steps[m] * nbranches_m
-		/ (2.0 * model->popsizes[m]));
+        sum += (model->time_steps[m] * nbranches_m
+                / (2.0 * model->popsizes[m]));
     }
 
     // probability of coalescing at time j
@@ -91,12 +91,12 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
         }
     } else {
         // otherwise it could happen anytime between j-1/2 and j+1/2
-	int m = j - 1;
-	int nbranches_m = lineages.nbranches[m]
+        int m = j - 1;
+        int nbranches_m = lineages.nbranches[m]
             + int(m < last_state.time)
             - int(m < recomb_parent_age);
-	// have to not coalesce in the first half interval before j
-	sum += (model->coal_time_steps[2*m] * nbranches_m
+        // have to not coalesce in the first half interval before j
+        sum += (model->coal_time_steps[2*m] * nbranches_m
                 / (2.0 * model->popsizes[m]));
 
         // NOTE: if k == ntimes - 2, coalescence is probability 1.0
