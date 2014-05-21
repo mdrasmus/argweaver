@@ -144,6 +144,37 @@ class Prog (unittest.TestCase):
                    ntimes=20, maxtime=200e3)
 
 
+
+    def test_prog_large(self):
+
+        if 1:
+            make_clean_dir("test/data/test_prog_large")
+            os.system("""bin/arg-sim \
+                -k 20 -L 400000 --model dsmc \
+                -N 1e4 -r 0.5e-8 -m 2.20e-8 \
+                --ntimes 20 --maxtime 200e3 \
+                -o test/data/test_prog_large/0""")
+
+        if 1:
+            make_clean_dir("test/data/test_prog_large/0.sample")
+            os.system("""bin/arg-sample -q \
+                -s test/data/test_prog_large/0.sites \
+                -N 1e4 -r 0.5e-8 -m 2.20e-8 \
+                --ntimes 20 --maxtime 200e3 -c 20 \
+                -n 1000 \
+                -o test/data/test_prog_large/0.sample/out""")
+
+        popsize = 1e4
+        mu = 2.20e-8
+        rho = 0.5e-8
+        show_plots(arg_file="test/data/test_prog_large/0.arg",
+                   sites_file="test/data/test_prog_large/0.sites",
+                   stats_file="test/data/test_prog_large/0.sample/out.stats",
+                   output_prefix="test/data/test_prog_large/0",
+                   rho=rho, mu=mu, popsize=popsize,
+                   ntimes=20, maxtime=200e3)
+
+
     def test_prog_infsites(self):
 
         if 1:
