@@ -20,6 +20,7 @@
 #include "track.h"
 
 
+
 using namespace argweaver;
 
 
@@ -33,7 +34,6 @@ Sampler for large ancestral recombination graphs\n\
 
 // file extensions
 const char *SMC_SUFFIX = ".smc";
-const char *SITES_SUFFIX = ".sites";
 const char *STATS_SUFFIX = ".stats";
 const char *LOG_SUFFIX = ".log";
 
@@ -164,19 +164,6 @@ public:
                    ("", "--infsites", &infsites,
                     "assume infinite sites model (at most one mutation per site)",
                     DEBUG_OPT));
-	config.add(new ConfigSwitch
-		   ("", "--unphased", &unphased,
-		    "data is unphased (will integrate over phasings). Note: Experimental!", DEBUG_OPT));
-	config.add(new ConfigParam<string>
-		   ("", "--unphased-file", "<filename>", &unphased_file, "",
-		    "use this file to identify haplotype pairs (file should have two sequence names per line)", DEBUG_OPT));
-	config.add(new ConfigParam<double>
-		   ("", "--randomize-phase", "<frac_random>", &randomize_phase, 0.0,
-		    "randomize phasings at start (requires --unphased)", DEBUG_OPT));
-	config.add(new ConfigParam<int>
-		   ("", "--sample-phase", "<niters>", &sample_phase, 0,
-		    "output phasings every <niters> samples", DEBUG_OPT));
-
         config.add(new ConfigParam<int>
                    ("", "--resample-window", "<window size>",
                     &resample_window, 100000,
@@ -277,10 +264,6 @@ public:
     int randseed;
     double prob_path_switch;
     bool infsites;
-    bool unphased;
-    string unphased_file;
-    double randomize_phase;
-    int sample_phase;
 
     // help/information
     bool quiet;
@@ -507,32 +490,6 @@ string get_out_arg_file(const Config &config, int iter)
     return config.out_prefix + iterstr + SMC_SUFFIX;
 }
 
-string get_out_sites_file(const Config &config, int iter)
-{
-  char iterstr[10];
-  snprintf(iterstr, 10, ".%d", iter);
-  return config.out_prefix + iterstr + SITES_SUFFIX;
-}
-
-
-
-bool log_sequences(const Sequences *sequences, const Config *config,
-		   const SitesMapping *sites_mapping, int iter) {
-  Sites sites;
-  string out_sites_file = get_out_sites_file(*config, iter);
-  make_sites_from_sequences(sequences, &sites);
-  if (!config->no_compress_output)
-    out_sites_file += ".gz";
-  if (sites_mapping)
-    uncompress_sites(&sites, sites_mapping);
-  CompressStream stream(out_sites_file.c_str(), "w");
-  if (!stream.stream) {
-    printError("cannot write '%s'", out_sites_file.c_str());
-    return false;
-  }
-  write_sites(stream.stream, &sites);
-  return true;
-}
 
 bool log_local_trees(
     const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
@@ -680,9 +637,6 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         // sample saving
         if (i % config->sample_step == 0)
             log_local_trees(model, sequences, trees, sites_mapping, config, i);
-
-	if (config->sample_phase > 0 && i%config->sample_phase == 0)
-	  log_sequences(sequences, config, sites_mapping, i);
     }
     printLog(LOG_LOW, "\n");
 }
@@ -1005,6 +959,7 @@ int main(int argc, char **argv)
     seq_region_compress.set(seq_region.chrom, 0, sequences.length());
 
 
+
     // mask sequences
     TrackNullValue maskmap;
     if (c.maskmap != "") {
@@ -1053,15 +1008,6 @@ int main(int argc, char **argv)
     if (c.infsites)
         c.model.infsites_penalty = infsites_penalty;
     c.model.set_popsizes(c.popsize, c.model.ntimes);
-    if (c.unphased_file != "")
-        c.model.unphased_file = c.unphased_file;
-    sequences.set_pairs(&c.model);
-    if (c.randomize_phase > 0.0) {
-        sequences.randomize_phase(c.randomize_phase);
-    }
-    if (c.unphased)
-	c.model.unphased = true;
-    c.model.sample_phase = c.sample_phase;
 
     // read model parameter maps if given
     if (c.mutmap != "") {

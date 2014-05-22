@@ -14,18 +14,14 @@
 // c++ includes
 #include <string>
 #include <vector>
-#include <map>
 
 // arghmm includes
 #include "track.h"
-#include "common.h"
-//#include "local_tree.h"
 
 namespace argweaver {
 
 using namespace std;
- class LocalTrees;
- class ArgModel;
+
 
 // The alignment of sequences
 class Sequences
@@ -54,12 +50,6 @@ public:
 
         for (int i=0; i<nseqs; i++)
             append(sequences->names[i], &sequences->seqs[i][offset]);
-
-	if (sequences->pairs.size() > 0) {
-	  pairs = vector<int>(nseqs);
-	  for (int i = 0; i < nseqs; i++)
-	    pairs[i] = sequences->pairs[i];
-	}
     }
 
     ~Sequences()
@@ -127,7 +117,6 @@ public:
 
         seqs.push_back(seq);
         names.push_back(name);
-	if (pairs.size() > 0) pairs.push_back(-1);
         return true;
     }
 
@@ -140,69 +129,15 @@ public:
         }
         seqs.clear();
         names.clear();
-	pairs.clear();
     }
 
-    //set pairs vector assuming that diploids are named XXXX_1 and XXXX_2
-    void set_pairs_by_name();
-    void set_pairs_from_file(string fn);
-    void set_pairs(const ArgModel *mod);
-
-    int get_pair(int i) {
-	if ((int)pairs.size() < i) return -1;
-	return pairs[i];
-    }
-
-    void switch_alleles(int coord, int seq1, int seq2) {
-      char tmp = seqs[seq1][coord];
-      seqs[seq1][coord] = seqs[seq2][coord];
-      seqs[seq2][coord] = tmp;
-    }
-
-    void randomize_phase(double frac);
 
     vector <char*> seqs;
     vector <string> names;
-    vector <int> pairs;  // index of diploid pair partner
 
 protected:
     int seqlen;
     bool owned;
-};
-
-
-class PhaseProbs
-{
- public:
- PhaseProbs(int hap1, int _treemap1, Sequences *_seqs, 
-	    const LocalTrees *trees, const ArgModel *model);
-  ~PhaseProbs() {}
-
-  void add(int coord, int state, double pr, int nstate) {
-      coord += offset;
-      map<int, vector<double> >::iterator it = probs.find(coord);
-      if (it == probs.end()) {
-	  vector<double> tmp(nstate);
-	  tmp[state] = pr;
-	  probs[coord] = tmp;
-      } else {
-	  it->second[state] = pr;
-      }
-   }
-     
-   unsigned int size() {
-     return probs.size();
-   }
-
-   void updateTreeMap2(const LocalTrees *tree);
-
-   void sample_phase(int *thread_path);
-
-  map<int,vector<double> > probs;
-  int hap1, hap2;
-  int treemap1, treemap2;
-  int offset;
-  Sequences *seqs;
 };
 
 
@@ -372,7 +307,6 @@ bool check_seq_name(const char *name);
 void resample_align(Sequences *aln, Sequences *aln2);
 
 // sites functions
-void write_sites(FILE *stream, Sites *sites);
 bool read_sites(FILE *infile, Sites *sites,
                  int subregion_start=-1, int subregion_end=-1);
 bool read_sites(const char *filename, Sites *sites,
