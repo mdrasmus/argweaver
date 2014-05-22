@@ -167,7 +167,7 @@ public:
         owned = true;
         rho = other.rho;
         mu = other.mu;
-        infsites_penalty = infsites_penalty;
+        infsites_penalty = other.infsites_penalty;
 
         // copy popsizes and times
         set_times(other.times, ntimes);

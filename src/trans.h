@@ -45,9 +45,9 @@ public:
     }
 
     // allocate space for transition matrix
-    void allocate(int ntimes)
+    void allocate(int _ntimes)
     {
-        ntimes = ntimes;
+        ntimes = _ntimes;
         own_data = true;
         D = new double [ntimes];
         E = new double [ntimes];
@@ -168,10 +168,10 @@ public:
     }
 
     // Allocate matrix with dimensions (nstates1, nstates2).
-    void allocate(int nstates1, int nstates2)
+    void allocate(int _nstates1, int _nstates2)
     {
-        nstates1 = nstates1;
-        nstates2 = nstates2;
+        nstates1 = _nstates1;
+        nstates2 = _nstates2;
 
         // NOTE: nstates1 and nstates2 might be zero
         // we still calculate transitions for a state space of size zero
