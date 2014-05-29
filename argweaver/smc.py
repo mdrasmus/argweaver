@@ -267,7 +267,7 @@ def write_smc(filename, smc):
     out.close()
 
 
-def parse_tree_data(node, data):
+def parse_tree_data(node, data, *args, **kwargs):
     """Default data reader: reads optional bootstrap and branch length"""
 
     # detect comments

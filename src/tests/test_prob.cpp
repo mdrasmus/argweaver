@@ -178,8 +178,8 @@ TEST(ProbTest, test_sample_recomb_external)
 TEST(ProbTest, test_sample_recomb_internal)
 {
     // Setup model.
-    int ntimes = 5;
-    double times[] = {0, 10, 20, 30, 40};
+    int ntimes = 6;
+    double times[] = {0, 10, 20, 30, 40, 50};
     double rho = 1e-9;
     double mu = 2.5e-9;
     double popsize = 1e4;

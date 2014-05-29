@@ -111,7 +111,8 @@ double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
 
     // probability of recoalescing on a choosen branch
     int ncoals_j = lineages.ncoals[j]
-        - int(j <= recomb_parent_age) - int(j == recomb_parent_age);
+        - int(j <= recomb_parent_age) - int(j == recomb_parent_age)
+        + int(j <= last_state.time) + int(j == last_state.time);
     pcoal /= ncoals_j;
 
     return precomb * exp(- sum) * pcoal;
