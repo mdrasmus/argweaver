@@ -15,9 +15,7 @@ FILE *read_compress(const char *filename, const char *command)
     if (!exists)
         return NULL;
     const char *command2 = (command ? command : UNZIP_COMMAND);
-    char *quoted = quote_arg(filename);
-    string cmd = string(command2) + " < " + string(quoted);
-    delete [] quoted;
+    string cmd = string(command2) + " < " + quote_arg(filename);
     return popen(cmd.c_str(), "r");
 }
 

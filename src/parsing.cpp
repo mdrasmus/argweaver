@@ -176,5 +176,30 @@ char *quote_arg(const char *text)
     return text2;
 }
 
+// Quote an argument for use in a command shell
+// Argument is wrapped in single quotes and every single quote is escaped.
+string quote_arg(string text)
+{
+    int j = 0;
+    char text2[text.size() * 4 + 3];
+    text2[j++] = '\'';
+
+    for (unsigned int i=0; i<text.size(); i++) {
+        if (text[i] == '\'') {
+            text2[j++] = '\'';
+            text2[j++] = '\\';
+            text2[j++] = '\'';
+            text2[j++] = '\'';
+        } else
+            text2[j++] = text[i];
+    }
+
+    // terminate string
+    text2[j++] = '\'';
+    text2[j++] = '\0';
+
+    return string(text2);
+}
+
 
 } // namespace argweaver

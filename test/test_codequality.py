@@ -32,7 +32,19 @@ def run_pep8(filenames, key=lambda line: True):
     """
     Run pep8 and return all errors.
     """
-    cmd = " ".join(["pep8"] + filenames)
+
+    options = []
+    ignore = []
+
+    # E265 block comment should start with '# '
+    ignore.append('E265')
+
+    # E226 missing whitespace around arithmetic operator
+    ignore.append('E226')
+
+    options.extend(['--ignore', ','.join(ignore)])
+
+    cmd = " ".join(["pep8"] + options + filenames)
     print cmd
     pipe = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     lines = [line for line in pipe.stdout if key(line)]

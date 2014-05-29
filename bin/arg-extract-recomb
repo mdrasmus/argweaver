@@ -77,8 +77,8 @@ for filename in filenames:
 avg_treelens = [[s, e, stats.mean(util.cget(group, 2))]
                 for s, e, group in intervals.iter_intersections(
                     sorted(util.concat(*treelens)))]
-recombs = util.hist_dict(util.concat(*[[t[0] for t in treelen]
-                                       for treelen in treelens]))
+recombs = util.hist_dict(util.concat(*[[t[0] for t in _treelen]
+                                       for _treelen in treelens]))
 
 # Calcuate recombination rate.
 recomb_rate = []

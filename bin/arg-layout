@@ -42,4 +42,5 @@ smc_files = args[1:]
 with argweaver.open_stream(layout_file, 'w', compress='bgzip') as out:
     for smc_file in smc_files:
         layout_arg(smc_file, out)
-argweaver.vis.index_arg_layout(layout_file)
+if layout_file.endswith('.gz'):
+    argweaver.vis.index_arg_layout(layout_file)
