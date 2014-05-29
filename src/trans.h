@@ -34,12 +34,12 @@ public:
         if (own_data) {
             delete [] D;
             delete [] E;
-            delete [] B_alloc;
-            delete [] E2;
-            delete [] G1;
+            delete [] lnB;
+            delete [] lnE2;
+            delete [] lnNegG1;
             delete [] G2;
             delete [] G3;
-            delete [] G4;
+            delete [] lnG4;
             delete [] norecombs;
         }
     }
@@ -51,13 +51,12 @@ public:
         own_data = true;
         D = new double [ntimes];
         E = new double [ntimes];
-        B_alloc = new double [ntimes+1];
-        B = &B_alloc[1];
-        E2 = new double [ntimes];
-        G1 = new double [ntimes];
+        lnB = new double [ntimes];
+        lnE2 = new double [ntimes];
+        lnNegG1 = new double [ntimes];
         G2 = new double [ntimes];
         G3 = new double [ntimes];
-        G4 = new double [ntimes];
+        lnG4 = new double [ntimes];
         norecombs = new double [ntimes];
     }
 
@@ -92,23 +91,40 @@ public:
     {
         if (a < minage || b < minage)
             return 0.0;
+        double term1 = D[a] * E[b];
+        double minage_term = 0.0;
+        if (minage > 0) {
+          minage_term = exp(lnG4[b] + lnB[minage-1]);
+        }
 
         if (!same_node) {
-            return D[a] * E[b] *
-                (E2[b] * (B[min(a,b-1)] + int(a<b) * G1[a])
-                 + int(a>b) * G2[b]
-                 + int(a==b) * G3[b]
-                 - (minage>0 ? G4[b]*B[minage-1] : 0));
+          if (a < b) {
+            return term1 * (exp(lnE2[b] + lnB[a]) -
+                            exp(lnE2[b] + lnNegG1[a]) 
+                            - minage_term);
+          } else if (a == b) {
+            return term1 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) +
+                             G3[b] - minage_term);
+          } else { // b < a
+            return term1 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0)
+                             + G2[b] - minage_term);
+          }
         } else {
-            double p = D[a] * E[b] *
-                ((2 * (E2[b] * (B[min(a,b-1)] + int(a<b) * G1[a])
-                       + int(a>b) * G2[b]
-                       + int(a==b) * G3[b]))
-                 - (c>0 ? G4[b]*B[c-1] : 0)
-                 - (minage>0 ? G4[b]*B[minage-1] : 0));
-            if (a == b)
-                p += norecombs[a];
-            return p;
+            double c_term = 0.0;
+            if (c > 0) c_term = exp(lnG4[b] + lnB[c-1]);
+
+            if (a < b) {
+              return term1 * (2 * (exp(lnE2[b] + lnB[a]) -
+                                   exp(lnE2[b] + lnNegG1[a]))
+                              - c_term - minage_term);
+            } else if (a == b) {
+              return term1 * ((2 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) + G3[b]))
+                              - c_term - minage_term)
+                + norecombs[a];
+            } else { // b < a
+              return term1 * ((2 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) + G2[b]))
+                              - c_term - minage_term);
+            }
         }
     }
 
@@ -126,13 +142,12 @@ public:
 
     double *D;      // Intermediate terms in calculating entries in the full
     double *E;      // transition matrix.
-    double *B;
-    double *B_alloc;
-    double *E2;
-    double *G1;
+    double *lnB;
+    double *lnE2;
+    double *lnNegG1;
     double *G2;
     double *G3;
-    double *G4;
+    double *lnG4;
     double *norecombs;
 
     bool internal;  // If true, this matrix is for threading an internal branch.
