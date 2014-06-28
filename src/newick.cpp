@@ -20,9 +20,9 @@
 namespace argweaver {
 
 
-bool readDist(FILE *infile, float *dist)
+bool readDist(FILE *infile, double *dist)
 {
-    return fscanf(infile, "%f", dist) == 1;
+    return fscanf(infile, "%lf", dist) == 1;
 }
 
 

@@ -11,7 +11,6 @@
 // arghmm includes
 #include "track.h"
 
-
 namespace argweaver {
 
 
