@@ -31,8 +31,9 @@ using namespace spidir;
 
 /* Initial version: just have it output bedgraph with a stat for each
    line of input.
- */
+*/
 
+#define VERSION_INFO "arg-summarize 0.3"
 
 int summarize=0;
 int getNumSample=0;
@@ -40,89 +41,178 @@ int getMean=0;
 int getStdev=0;
 int getQuantiles=0;
 vector <double> quantiles;
-char *tabix_dir=NULL;
-int header=true;
-char version[10]="0.2";
 vector<string> node_dist_leaf1;
 vector<string> node_dist_leaf2;
 
-int print_help() {
-    printf("usage: ./arg-summarize [OPTIONS] <file.bed.gz>\n"
-           "   where <file.bed.gz> is bed file created by smc2bed\n"
-           "OPTIONS:\n"
-           "--region,-r CHR:START-END\n"
-           "   retrieve statistics from this region (coordinates are 1-based)\n"
-           "   To use this option, the bed file should be indexed by tabix\n"
-           "   and the tabix command should be available\n"
-           "--bed,-b bedfile\n"
-           "   (alternative to region). Retrieve statistics from regions\n"
-           "   overlapping those in this file. If bedfile contains overlapping\n"
-           "   regions, those regions will be repeated in the output. Only the\n"
-           "   first three columns of this file will be used.\n"
-	   "--subset,-s sample-list-file\n"
-	   "   subset by individual. The argument should contain haplotype names, one\n"
-	   "   per line, which should be retained. All others will be removed before\n"
-	   "   statistics are computed.\n"
-	   "--snp-file,-f snpfile\n"
-	   "   If used, compute statitics for specific SNPs. If used, extra information\n"
-	   "   about each SNP will be printed on each row (derived/ancestral alleles and\n"
-	   "   frequencies). If statistics are summarized across samples, there will be\n"
-	   "   three estimates for each summary statistic- one taken across all samples,\n"
-	   "   one taken across samples which agree with the consensus derived allele,\n"
-           "   and one taken across only samples which agree with infiite sites (only one\n"
-	   "   mutation required to show given site pattern.)\n"
-	   "   The SNP file should have\n"
-	   "   a header like this:\n"
-	   "   #NAMES NA06985_1       NA06985_2       NA06994_1       NA06994_2\n"
-	   "   and then each line should be tab-delimited with the following format:\n"
-	   "   chr,start,end,AAAACAAAAA\n"
-	   "   where the last column gives the alleles for each haplotype in the order\n"
-	   "   listed in the header. The file should be sorted and index with tabix\n"
-           "STATISTICS:\n"
-           "--tree,-E\n"
-           "  output newick tree strings (cannot use summary options with this)\n"
-           "--tmrca,-T\n"
-           "  time to the most recent common ancestor\n"
-           "--branchlen,-B\n"
-           "  total branch length\n"
-	   "--recomb,-R\n"
-	   "  recombination rate (per generation/bp)\n"
-	   "--breaks,-K\n"
-	   "  recombinations per bp (not normalized by tree size\n"
-           "--tmrca-half,-H\n"
-           "  Time for half of samples to reach a common ancestor\n"
-           "--rth,-F\n"
-           "  relative TMRCA Halftime\n"
-           "--popsize,-P\n"
-           "  estimated popsize\n"
-	   "--allele-age,-A\n"
-	   "  (requires --snp). Compute allele age for all CG snps in\n"
-	   "  the region. Also returns a flag indicating whether SNP obeys\n"
-	   "  infinite sites (1=obeys, 0=multiple mutations required to\n"
-	   "  acheive observed site pattern)\n"
-	   "--node-dist,-D <leaf1,leaf2>\n"
-	   "  returns distances between leaf1 and leaf2. Can use multiple times\n"
-	   "  to get distances between different sets of leaves.\n"
-	   "--zero-len,Z\n"
-	   "  number of branches of length zero.\n"
-           "--numsample,-N\n"
-           "  number of samples covering each region\n"
-           "--mean,-M\n"
-           "  return mean across all samples\n"
-           "--stdev,-S\n"
-           "  return standard deviation across all samples\n"
-           "--quantile,-Q <q1,q2,...>\n"
-           "  return the requested quantiles for each samples. q1,q2,...\n"
-           "  should be comma-separated list of desired quantiles\n"
-           "  (ie, 0.025,0.5,0.0975)\n"
-           "OTHER OPTIONS:\n"
-           "--no-header,-n\n"
-           "--tabix-dir,-t <tabix_dir>\n"
-           "  Specify the directory where the tabix executable is installed\n"
-           "--help,-h\n"
-           "   print this help.\n");
-    return 0;
-}
+const int EXIT_ERROR = 1;
+
+class Config
+{
+public:
+    Config()
+    {
+        make_parser();
+    }
+    void make_parser() {
+        config.clear();
+
+        config.add(new ConfigParamComment("Input files"));
+        config.add(new ConfigParam<string>
+                   ("-a", "--arg-file", "<file.bed.gz>", &argfile,
+                    "Bed file containing args sampled by ARGweaver. Should"
+                    " be created with smc2bed and sorted with sort-bed. If"
+                    " using --region or --bedfile, also needs to be gzipped"
+                    " and tabix'd"));
+        config.add(new ConfigParam<string>
+                   ("-r", "--region", "<chr:start-end>", &region,
+                    "region to retrieve statistics from (1-based coords)"));
+        config.add(new ConfigParam<string>
+                   ("-b", "--bed-file", "<file.bed>", &bedfile,
+                    "regions to retrieve statistics from (alternative to "
+                    "region)"));
+        config.add(new ConfigParam<string>
+                   ("-s", "--subset", "<hap_list.txt>", &indfile,
+                    "file with list of leafs to keep (rest will be pruned)"));
+        config.add(new ConfigParam<string>
+                   ("-f", "--snp-file", "<snp_file.bed>", &snpfile,
+                    "Compute statistics for specific SNPs. Each output row will"
+                    " contain information about each SNP (alleles and"
+                    " frequencies), and statistics will be computed in two ways-"
+                    " once across all MCMC samples, and once only for samples"
+                    " where the site pattern for the SNP agrees with an infinite"
+                    " sites model."
+                    " The SNP file should have a header like this:\n"
+                    " #NAMES NA06985_1       NA06985_2       NA06994_1 ...\n"
+                    " and then each line should be tab-delimited with the format"
+                    " chr,start,end,AAAACAAAAA, where the last column gives the"
+                    " alleles for each haplotype in the order indicated in the"
+                    " header. The file needs to be sorted and indexed with"
+                    " tabix."));
+        config.add(new ConfigParam<string>
+                   ("-m", "--time-file", "<times.txt>", &timefile,
+                    "File with list of discretized times used in trees. If"
+                    " given, tree events will be set to nearest time (eliminates"
+                    " some rounding error)."));
+
+        config.add(new ConfigParamComment("Statistics to retrieve"));
+        config.add(new ConfigSwitch
+                   ("-E", "--tree", &rawtrees,
+                    "output newick tree strings (cannot use summary options"
+                    " with this)"));
+        config.add(new ConfigSwitch
+                   ("-T", "--tmrca", &tmrca,
+                    "time to the most recent common ancestor"));
+        config.add(new ConfigSwitch
+                   ("-B", "--branchlen", &branchlen, "total branch length"));
+        config.add(new ConfigSwitch
+                   ("-R", "--recomb", &recomb,
+                    "recombination rate per generation/bp (NOTE this is not"
+                    " particularly well estimated by the SMC)"));
+        config.add(new ConfigSwitch
+                   ("-K", "--breaks", &breaks,
+                    "recombinations per bp (not normalized by tree size"));
+        config.add(new ConfigSwitch
+                   ("-H", "--tmrca-half", &tmrca_half,
+                    "time for half of samples to reach a common ancestor"));
+        config.add(new ConfigSwitch
+                   ("-F", "--rth", &rth,
+                    "relative TMRCA Halftime (tmrca_half/tmrca)"));
+        config.add(new ConfigSwitch
+                   ("-P", "--popsize", &popsize,
+                    "popsize estimated by coal rates in local tree"
+                    " (tends to be very noisy)"));
+        config.add(new ConfigSwitch
+                   ("-A", "--allele-age", &allele_age,
+                    "(requires --snp). Compute allele age for SNPs"));
+        config.add(new ConfigParam<string>
+                   ("-D", "--node-dist", "<leaf1,leaf2;leaf1,leaf3;...>",
+                    &node_dist,
+                    "distance between pairs of leafs. In this example return"
+                    " distance between leaf1->leaf2, and leaf1->leaf3"));
+        config.add(new ConfigSwitch
+                   ("-Z", "--zero-len", &zero,
+                    "number of branches of length zero"));
+        config.add(new ConfigSwitch
+                   ("-C", "--coalcounts", &coalcounts,
+                    "number of coal events at each discretized time point"
+                    " (requires --timefile)"));
+        config.add(new ConfigSwitch
+                   ("-N", "--numsample", &numsample,
+                    "number of MCMC samples covering each region"));
+
+        config.add(new ConfigParamComment("Summary options (if not given,"
+                                          " statistics will be output for each"
+                                          " MCMC sample)"));
+        config.add(new ConfigSwitch
+                   ("-M", "--mean", &mean,
+                    "return mean across all MCMC samples"));
+        config.add(new ConfigSwitch
+                   ("-S", "--stdev", &stdev,
+                    "return standard deviation across all NCMC samples"));
+        config.add(new ConfigParam<string>
+                   ("-Q", "--quantile", "<q1,q2,q3,...>", &quantile,
+                    "return the requested quantiles for each samples"));
+
+        config.add(new ConfigParamComment("Misceallaneous"));
+        config.add(new ConfigSwitch
+                   ("-n", "--no-header", &noheader, "Do not output header"));
+        config.add(new ConfigParam<string>
+                   ("-t", "--tabix-dir", "<tabix dir>", &tabix_dir,
+                    "Specify the directory of the tabix executable"));
+        config.add(new ConfigSwitch
+                   ("-v", "--version", &version, "display version information"));
+        config.add(new ConfigSwitch
+                   ("-h", "--help", &help, "display help information"));
+    }
+
+    int parse_args(int argc, char **argv) {
+        if (!config.parse(argc, (const char**) argv)) {
+            if (argc < 2)
+                config.printHelp();
+            return EXIT_ERROR;
+        }
+        if (help) {
+            config.printHelp();
+            return EXIT_ERROR;
+        }
+        if (version) {
+            printf(VERSION_INFO);
+            return EXIT_ERROR;
+        }
+        return 0;
+    }
+    ConfigParser config;
+
+    string argfile;
+    string region;
+    string bedfile;
+    string indfile;
+    string snpfile;
+    string timefile;
+
+    bool rawtrees;
+    bool tmrca;
+    bool branchlen;
+    bool recomb;
+    bool breaks;
+    bool tmrca_half;
+    bool rth;
+    bool popsize;
+    bool allele_age;
+    string node_dist;
+    bool zero;
+    bool coalcounts;
+    bool numsample;
+
+    bool mean;
+    bool stdev;
+    string quantile;
+
+    bool noheader;
+    string tabix_dir;
+    bool version;
+    bool help;
+};
 
 void checkResults(IntervalIterator<vector<double> > *results) {
     Interval<vector<double> > summary=results->next();
@@ -151,7 +241,8 @@ void checkResults(IntervalIterator<vector<double> > *results) {
                             meanval = compute_mean(tmpScore);
                         printf("\t%g", compute_stdev(tmpScore, meanval));
                     } else if (getQuantiles==j) {
-                        vector<double> q = compute_quantiles(tmpScore, quantiles);
+                        vector<double> q =
+                            compute_quantiles(tmpScore, quantiles);
                         for (unsigned int k=0; k < quantiles.size(); k++) {
                             printf("\t%g", q[k]);
                         }
@@ -159,7 +250,7 @@ void checkResults(IntervalIterator<vector<double> > *results) {
                 }
             }
             printf("\n");
-	    fflush(stdout);
+            fflush(stdout);
         }
         summary = results->next();
     }
@@ -167,559 +258,538 @@ void checkResults(IntervalIterator<vector<double> > *results) {
 
 class BedLine {
 public:
-  BedLine(char *chr, int start, int end, int sample, char *nwk, 
-	  Tree *orig_tree = NULL, Tree *pruned_tree = NULL):
-    start(start), end(end), sample(sample), 
-    orig_tree(orig_tree), pruned_tree(pruned_tree) {
-	chrom = new char[strlen(chr)+1];
-	strcpy(chrom, chr);
-	if (nwk != NULL) {
-	  newick = (char*)malloc((strlen(nwk)+1)*sizeof(char));
-	  strcpy(newick, nwk);
-	} else newick=NULL;
+    BedLine(char *chr, int start, int end, int sample, char *nwk,
+            SprPruned *trees=NULL) :
+        start(start), end(end), sample(sample),
+        trees(trees) {
+        chrom = new char[strlen(chr)+1];
+        strcpy(chrom, chr);
+        if (nwk != NULL) {
+            newick = (char*)malloc((strlen(nwk)+1)*sizeof(char));
+            strcpy(newick, nwk);
+        } else newick=NULL;
     };
-  ~BedLine() {
-    //      if (orig_tree != NULL) delete orig_tree;
-    //      if (pruned_tree != NULL) delete pruned_tree;
-      delete [] chrom;
-      if (newick != NULL) free(newick);
-  }
-  char *chrom;
-  int start;
-  int end;
-  int sample;
-  Tree *orig_tree;
-  Tree *pruned_tree;
-  char *newick;
-  vector<double> stats;
-  char derAllele, otherAllele;
-  int derFreq, otherFreq;
-  int infSites;
+    ~BedLine() {
+        //      if (orig_tree != NULL) delete orig_tree;
+        //      if (pruned_tree != NULL) delete pruned_tree;
+        delete [] chrom;
+        if (newick != NULL)
+            free(newick);
+        //        delete trees;
+    }
+    char *chrom;
+    int start;
+    int end;
+    int sample;
+    SprPruned *trees;
+    char *newick;
+    vector<double> stats;
+    char derAllele, otherAllele;
+    int derFreq, otherFreq;
+    int infSites;
 };
 
 
-void scoreBedLine(BedLine *line, vector<string> &statname, vector<double> times, 
-		  double allele_age=-1, int infsites=-1) {
-  Tree *tree = line->pruned_tree != NULL ? line->pruned_tree : line->orig_tree;
-  double bl=-1.0;
-  int node_dist_idx=0;
-  if (line->stats.size() == statname.size()) return;
-  //  fprintf(stderr, "scoreBedLine %i\t%s\t%i\t%i\n", line->sample,line->chrom, line->start, line->end); fflush(stderr);
-  line->stats.resize(statname.size());
-  for (unsigned int i=0; i < statname.size(); i++) {
-    if (statname[i] == "tmrca")
-      line->stats[i] = tree->tmrca();
-    else if (statname[i]=="tmrca_half")
-      line->stats[i] = tree->tmrca_half();
-    else if (statname[i]=="branchlen") {
-      if (bl < 0) {
-	line->stats[i] = tree->total_branchlength();
-	bl=line->stats[i];
-      }
+void scoreBedLine(BedLine *line, vector<string> &statname, vector<double> times,
+                  double allele_age=-1, int infsites=-1) {
+    Tree * tree = (line->trees->pruned_tree != NULL ?
+                   line->trees->pruned_tree :
+                   line->trees->orig_tree);
+    double bl=-1.0;
+    int node_dist_idx=0;
+    if (line->stats.size() == statname.size()) return;
+    line->stats.resize(statname.size());
+    for (unsigned int i=0; i < statname.size(); i++) {
+        if (statname[i] == "tmrca")
+            line->stats[i] = tree->tmrca();
+        else if (statname[i]=="tmrca_half")
+            line->stats[i] = tree->tmrca_half();
+        else if (statname[i]=="branchlen") {
+            if (bl < 0) {
+                line->stats[i] = tree->total_branchlength();
+                bl=line->stats[i];
+            }
+        }
+        else if (statname[i]=="rth")
+            line->stats[i] = tree->rth();
+        else if (statname[i]=="popsize")
+            line->stats[i] = tree->popsize();
+        else if (statname[i]=="recomb") {
+            if (bl < 0) bl = tree->total_branchlength();
+            line->stats[i] = 1.0/(bl*(double)(line->end - line->start));
+        }
+        else if (statname[i]=="breaks") {
+            line->stats[i] = 1.0/((double)(line->end - line->start));
+        }
+        else if (statname[i]=="zero_len") {
+            line->stats[i] = tree->num_zero_branches();
+        }
+        else if (statname[i]=="tree") {
+            if (line->trees->pruned_tree != NULL) {
+                string tmp =
+                    line->trees->pruned_tree->format_newick(false, true, 1,
+                                                     &line->trees->pruned_spr);
+                //pruned tree will be fewer characters than whole tree
+                sprintf(line->newick, "%s", tmp.c_str());
+            }
+        }
+        else if (statname[i]=="allele_age")
+            line->stats[i] = allele_age;
+        else if (statname[i]=="inf_sites")
+            line->stats[i] = (double)infsites;
+        else if (statname[i].substr(0, 9)=="node_dist") {
+            line->stats[i] =
+                tree->distBetweenLeaves(node_dist_leaf1[node_dist_idx],
+                                        node_dist_leaf2[node_dist_idx]);
+            node_dist_idx++;
+        }
+        else if (statname[i].substr(0, 10)=="coalcount.") {
+            vector<double>coal_counts = tree->coalCounts(times);
+            for (unsigned int j=0; j < coal_counts.size(); j++) {
+                assert(i+j < statname.size() &&
+                       statname[i+j].substr(0,10)=="coalcount.");
+                line->stats[i+j] = coal_counts[j];
+            }
+            i += coal_counts.size()-1;
+        }
+        else {
+            fprintf(stderr, "Error: unknown stat %s\n", statname[i].c_str());
+            exit(1);
+        }
     }
-    else if (statname[i]=="rth")
-      line->stats[i] = tree->rth();
-    else if (statname[i]=="popsize")
-      line->stats[i] = tree->popsize();
-    else if (statname[i]=="recomb") {
-      if (bl < 0) bl = tree->total_branchlength();
-      line->stats[i] = 1.0/(bl*(double)(line->end - line->start));
-    }
-    else if (statname[i]=="breaks") {
-	line->stats[i] = 1.0/((double)(line->end - line->start));
-    }
-    else if (statname[i]=="zero_len") {
-	line->stats[i] = tree->num_zero_branches();
-    }
-    else if (statname[i]=="tree") {
-      if (line->pruned_tree != NULL) {
-	string tmp = line->pruned_tree->print_newick_to_string(false, true, 1, 1);
-	//	line->newick = (char*)malloc((tmp.length()+1)*sizeof(char));
-	//pruned tree will be fewer characters than whole tree
-	sprintf(line->newick, "%s", tmp.c_str());
-      }
-    }
-    else if (statname[i]=="allele_age")
-      line->stats[i] = allele_age;
-    else if (statname[i]=="inf_sites") 
-      line->stats[i] = (double)infsites;
-    else if (statname[i].substr(0, 9)=="node_dist") {
-	line->stats[i] = tree->distBetweenLeaves(node_dist_leaf1[node_dist_idx],
-						 node_dist_leaf2[node_dist_idx]);
-	node_dist_idx++;
-    }
-    else if (statname[i].substr(0, 10)=="coalcount.") {
-      vector<double>coal_counts = tree->coalCounts(times);
-      for (unsigned int j=0; j < coal_counts.size(); j++) {
-	assert(i+j < statname.size() && statname[i+j].substr(0,10)=="coalcount.");
-	line->stats[i+j] = coal_counts[j];
-      }
-      i += coal_counts.size()-1;
-    }
-    else {
-      fprintf(stderr, "Error: unknown stat %s\n", statname[i].c_str());
-      exit(1);
-    }
-  }
 }
 
 
 struct CompareBedLineSample
 {
-  bool operator()(const BedLine *l1, const BedLine *l2) const
-  {
-    return l1->sample < l2->sample;
-  }
+    bool operator()(const BedLine *l1, const BedLine *l2) const
+    {
+        return l1->sample < l2->sample;
+    }
 };
 
 
 struct CompareBedLineEnd
 {
     bool operator()(const BedLine *l1, const BedLine *l2) const
-    { 
-      //could generalize and sort by start, but for this purpose we are only comparing entries with same start
-      assert(l1->start == l2->start);
-      if (l1->end == l2->end)
-	return (l1->sample < l2->sample);
-      return l1->end < l2->end;
+    {
+        //could generalize and sort by start, but for this purpose we are
+        //only comparing entries with same start
+        assert(l1->start == l2->start);
+        if (l1->end == l2->end)
+            return (l1->sample < l2->sample);
+        return l1->end < l2->end;
     }
 };
 
-void processNextBedLine(BedLine *line, IntervalIterator<vector<double> > *results,
-			vector<string> &statname, 
-			char *region_chrom, int region_start, int region_end,
-			vector<double> times) {
-  static int counter=0;
-  static list<BedLine*> bedlist;
+void processNextBedLine(BedLine *line,
+                        IntervalIterator<vector<double> > *results,
+                        vector<string> &statname,
+                        char *region_chrom, int region_start, int region_end,
+                        vector<double> times) {
+    static int counter=0;
+    static list<BedLine*> bedlist;
 
-  if (line != NULL) {
-    if (line->stats.size() == 0) 
-      scoreBedLine(line, statname, times);
-    if (region_chrom != NULL) {
-      assert(strcmp(region_chrom, line->chrom)==0);
-      if (line->end > region_end) line->end = region_end;
-      if (line->start < region_start) line->start = region_start;
-      assert(line->start < line->end);
-    }
-  }
-  if (!summarize) {
-    // this little bit of code ensures that output is sorted. The summarizeRegion
-    // code should ensure that it comes here sorted by start coordinate, but not
-    // necessarily by end coordinate (at least not when subsetting by individuals).
-    // so, this stores BedLine elements just long enough until a new start 
-    // coordinate is encountered, then sorts them all by end coordinate (and 
-    // sample), then outputs them all.  Need to call this function one last 
-    // time with line==NULL to output the final set of rows.
-    if (bedlist.size() > 0 && 
-	(line==NULL || bedlist.front()->start < line->start)) {
-      bedlist.sort(CompareBedLineEnd());
-      for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
-	BedLine *l = *it;
-	printf("%s\t%i\t%i\t%i", l->chrom, l->start, l->end, l->sample);
-	for (unsigned int i=0; i < statname.size(); i++) {
-	  if (statname[i]=="tree") {
-	    printf("\t");
-	    printf("%s", l->newick);
-	  } else {
-	    printf("\t%g", l->stats[i]);
-	  }
-	}
-	printf("\n"); fflush(stdout);
-	delete l;
-      }
-      bedlist.clear();
-    }
-    if (line != NULL) bedlist.push_back(line);
-  } else {
     if (line != NULL) {
-      results->append(line->chrom, line->start, line->end, line->stats);
-      counter++;
-      if (counter%100==0) {
-	checkResults(results);
-      }
-      delete line;
+        if (line->stats.size() == 0)
+            scoreBedLine(line, statname, times);
+        if (region_chrom != NULL) {
+            assert(strcmp(region_chrom, line->chrom)==0);
+            if (line->end > region_end) line->end = region_end;
+            if (line->start < region_start) line->start = region_start;
+            assert(line->start < line->end);
+        }
     }
-  }
+    if (!summarize) {
+        // this little bit of code ensures that output is sorted. The
+        // summarizeRegion code should ensure that it comes here sorted by
+        // start coordinate, but not necessarily by end coordinate (at least
+        // not when subsetting by individuals).
+        // so, this stores BedLine elements just long enough until a new start
+        // coordinate is encountered, then sorts them all by end coordinate (and
+        // sample), then outputs them all.  Need to call this function one last
+        // time with line==NULL to output the final set of rows.
+        if (bedlist.size() > 0 &&
+            (line==NULL || bedlist.front()->start < line->start)) {
+            bedlist.sort(CompareBedLineEnd());
+            for (list<BedLine*>::iterator it=bedlist.begin();
+                 it != bedlist.end(); ++it) {
+                BedLine *l = *it;
+                printf("%s\t%i\t%i\t%i", l->chrom, l->start, l->end, l->sample);
+                for (unsigned int i=0; i < statname.size(); i++) {
+                    if (statname[i]=="tree") {
+                        printf("\t");
+                        printf("%s", l->newick);
+                    } else {
+                        printf("\t%g", l->stats[i]);
+                    }
+                }
+                printf("\n"); fflush(stdout);
+                delete l;
+            }
+            bedlist.clear();
+        }
+        if (line != NULL) bedlist.push_back(line);
+    } else {
+        if (line != NULL) {
+            results->append(line->chrom, line->start, line->end, line->stats);
+            counter++;
+            if (counter%100==0) {
+                checkResults(results);
+            }
+            delete line;
+        }
+    }
 }
 
 class SnpStream {
 public:
-  SnpStream(TabixStream *snp_in) : snp_in(snp_in) {
-    char tmp[1000], c;
-    string str;
-    assert(1==fscanf(snp_in->stream, "%s", tmp));
-    assert(strcmp(tmp, "#NAMES")==0);
-    done=0;
-    while ('\n' != (c=fgetc(snp_in->stream)) && c!=EOF) {
-      assert(c=='\t');
-      assert(1==fscanf(snp_in->stream, "%s", tmp));
-      str = string(tmp);
-      inds.push_back(str);
+    SnpStream(TabixStream *snp_in) : snp_in(snp_in) {
+        char tmp[1000], c;
+        string str;
+        assert(1==fscanf(snp_in->stream, "%s", tmp));
+        assert(strcmp(tmp, "#NAMES")==0);
+        done=0;
+        while ('\n' != (c=fgetc(snp_in->stream)) && c!=EOF) {
+            assert(c=='\t');
+            assert(1==fscanf(snp_in->stream, "%s", tmp));
+            str = string(tmp);
+            inds.push_back(str);
+        }
+        if (c==EOF) done=1;
     }
-    if (c==EOF) done=1;
-  }
 
-  int readNext() {
-    int tmpStart;
-    char a;
-    if (done) return 1;
-    if (EOF==fscanf(snp_in->stream, "%s %i %i", chr, &tmpStart, &coord)) {
-      done=1;
-      return 1;
+    int readNext() {
+        int tmpStart;
+        char a;
+        if (done) return 1;
+        if (EOF==fscanf(snp_in->stream, "%s %i %i", chr, &tmpStart, &coord)) {
+            done=1;
+            return 1;
+        }
+        assert(tmpStart==coord-1);
+        assert('\t' == fgetc(snp_in->stream));
+        allele1=allele2='N';
+        allele1_inds.clear();
+        allele2_inds.clear();
+        for (unsigned int i=0; i < inds.size(); i++) {
+            a=fgetc(snp_in->stream);
+            if (a=='N') continue;
+            a = toupper(a);
+            assert(a=='A' || a=='C' || a=='G' || a=='T');
+            if (allele1=='N') {
+                allele1=a;
+            }
+            if (a==allele1) {
+                allele1_inds.insert(inds[i]);
+            } else {
+                if (allele2=='N')
+                    allele2=a;
+                else assert(a==allele2);
+                allele2_inds.insert(inds[i]);
+            }
+        }
+        //make sure that allele1 is always minor allele
+        if (allele1_inds.size() > allele2_inds.size()) {
+            set<string> tmp;
+            char tmpch;
+            tmp = allele1_inds;
+            allele1_inds = allele2_inds;
+            allele2_inds = tmp;
+            tmpch=allele1;
+            allele1=allele2;
+            allele2=tmpch;
+        }
+        return 0;
     }
-    assert(tmpStart==coord-1);
-    assert('\t' == fgetc(snp_in->stream));
-    allele1=allele2='N';
-    allele1_inds.clear();
-    allele2_inds.clear();
-    for (unsigned int i=0; i < inds.size(); i++) {
-      a=fgetc(snp_in->stream);
-      if (a=='N') continue;
-      a = toupper(a);
-      assert(a=='A' || a=='C' || a=='G' || a=='T');
-      if (allele1=='N') {
-	allele1=a;
-      } 
-      if (a==allele1) {
-	allele1_inds.insert(inds[i]);
-      } else {
-	if (allele2=='N')
-	  allele2=a;
-	else assert(a==allele2);
-	allele2_inds.insert(inds[i]);
-      }
-    }
-    //make sure that allele1 is always minor allele
-    if (allele1_inds.size() > allele2_inds.size()) {
-      set<string> tmp;
-      char tmpch;
-      tmp = allele1_inds;
-      allele1_inds = allele2_inds;
-      allele2_inds = tmp;
-      tmpch=allele1;
-      allele1=allele2;
-      allele2=tmpch;
-    }
-    //    printf("Read snp %i allele1=%c allele2=%c n1=%i n2=%i\n",
-    //	   coord, allele1, allele2, (int)allele1_inds.size(), (int)allele2_inds.size());
-    return 0;
-  }
 
 
-  void scoreAlleleAge(BedLine *l, vector<string> statname, vector<double> times) {
-    int num_derived, total;
-    assert(l->start < coord);
-    assert(l->end >= coord);
-    Tree *t;
-    if (l->pruned_tree != NULL) 
-      t = l->pruned_tree;
-    else t = l->orig_tree;
-    
-    set<string> prune;
-    set<string> derived_in_tree;
-    for (map<string,int>::iterator it=t->nodename_map.begin(); 
-	 it != t->nodename_map.end(); ++it) {
-      if (t->nodes[it->second]->nchildren != 0) continue;
-      if (allele1_inds.find(it->first) != allele1_inds.end())
-	derived_in_tree.insert(it->first);
-      else if (allele2_inds.find(it->first) == allele2_inds.end())
-	prune.insert(it->first);
-    }
-    /*    if (derived_in_tree.size() == 0 ||
-	derived_in_tree.size() == (unsigned int)(t->nnodes+1)/2) {
-	l->derFreq = 0;
-	l->otherFreq = (t->nnodes+1)/2;
-	return;
-    }*/
+    void scoreAlleleAge(BedLine *l, vector<string> statname,
+                        vector<double> times) {
+        int num_derived, total;
+        assert(l->start < coord);
+        assert(l->end >= coord);
+        Tree *t;
+        if (l->trees->pruned_tree != NULL)
+            t = l->trees->pruned_tree;
+        else t = l->trees->orig_tree;
 
-    /*    if (prune.size() > 0) {
-      Tree *t2 = t->copy();
-      t2->prune(prune, false);
-      t = t2;
-      }*/
+        set<string> prune;
+        set<string> derived_in_tree;
+        for (map<string,int>::iterator it=t->nodename_map.begin();
+             it != t->nodename_map.end(); ++it) {
+            if (t->nodes[it->second]->nchildren != 0) continue;
+            if (allele1_inds.find(it->first) != allele1_inds.end())
+                derived_in_tree.insert(it->first);
+            else if (allele2_inds.find(it->first) == allele2_inds.end())
+                prune.insert(it->first);
+        }
+        set<Node*> derived;
+        for (set<string>::iterator it=derived_in_tree.begin();
+             it != derived_in_tree.end(); ++it) {
+            map<string,int>::iterator it2 = t->nodename_map.find(*it);
+            assert(it2 != t->nodename_map.end());
+            derived.insert(t->nodes[it2->second]);
+        }
+        num_derived = (int)derived.size();
+        total = (t->nnodes+1)/2;
 
-    set<Node*> derived;
-    for (set<string>::iterator it=derived_in_tree.begin(); it != derived_in_tree.end(); ++it) {
-      map<string,int>::iterator it2 = t->nodename_map.find(*it);
-      assert(it2 != t->nodename_map.end());
-      derived.insert(t->nodes[it2->second]);
-    }
-    num_derived = (int)derived.size();
-    total = (t->nnodes+1)/2;
-    
-    set<Node*>lca = t->lca(derived);
-    set<Node*>lca2;
-    int major_is_derived=0;
-    if (lca.size() > 1) {
-      set<Node*> derived2;
-      for (map<string,int>::iterator it=t->nodename_map.begin();
-	   it != t->nodename_map.end(); ++it) {
-	if (t->nodes[it->second]->nchildren != 0) continue;
-	if (derived.find(t->nodes[it->second]) == derived.end()) {
-	  derived2.insert(t->nodes[it->second]);
-	}
-      }
-      set <Node*>lca2 = t->lca(derived2);
-      if (lca2.size() < lca.size()) {
-	major_is_derived=1;
-	lca = lca2;
-      }
-    }
-    double age=0.0;
-    for (set<Node*>::iterator it4=lca.begin(); it4 != lca.end(); ++it4) {
-      Node *n = *it4;
-      assert(n != t->root);
-      double tempage = n->age + (n->parent->age - n->age)/2;  //midpoint of branch
-      if (tempage > age) age = tempage;
-    }
-    if (num_derived == 0 || total-num_derived == 0) age = -1;
-    scoreBedLine(l, statname, times, age, lca.size()==1);
-    l->derAllele = (major_is_derived ? allele2 : allele1);
-    l->otherAllele = (major_is_derived ? allele1 : allele2);
-    l->derFreq = (major_is_derived ? total-num_derived : num_derived);
-    l->otherFreq = (major_is_derived ? num_derived : total - num_derived);
-    l->infSites = (lca.size() == 1);
+        set<Node*>lca = t->lca(derived);
+        set<Node*>lca2;
+        int major_is_derived=0;
+        if (lca.size() > 1) {
+            set<Node*> derived2;
+            for (map<string,int>::iterator it=t->nodename_map.begin();
+                 it != t->nodename_map.end(); ++it) {
+                if (t->nodes[it->second]->nchildren != 0) continue;
+                if (derived.find(t->nodes[it->second]) == derived.end()) {
+                    derived2.insert(t->nodes[it->second]);
+                }
+            }
+            set <Node*>lca2 = t->lca(derived2);
+            if (lca2.size() < lca.size()) {
+                major_is_derived=1;
+                lca = lca2;
+            }
+        }
+        double age=0.0;
+        for (set<Node*>::iterator it4=lca.begin(); it4 != lca.end(); ++it4) {
+            Node *n = *it4;
+            assert(n != t->root);
+            double tempage = n->age + (n->parent->age - n->age)/2;  //midpoint
+            if (tempage > age) age = tempage;
+        }
+        if (num_derived == 0 || total-num_derived == 0) age = -1;
+        scoreBedLine(l, statname, times, age, lca.size()==1);
+        l->derAllele = (major_is_derived ? allele2 : allele1);
+        l->otherAllele = (major_is_derived ? allele1 : allele2);
+        l->derFreq = (major_is_derived ? total-num_derived : num_derived);
+        l->otherFreq = (major_is_derived ? num_derived : total - num_derived);
+        l->infSites = (lca.size() == 1);
 
-    /*    if (summarize==0) {
-      printf("%s\t%i\t%i\t%i", 
-	     chr, coord-1, coord, l->sample);
-      rv.print();
-      printf("\n");
-      }*/
-    /*    if (prune.size() > 0) {
-      delete t;
-      }*/
-  }
+    }
 
-  TabixStream *snp_in;
-  vector<string> inds;
-  set<string> allele1_inds;
-  set<string> allele2_inds;
-  char allele1, allele2;  //minor allele, major allele
-  char chr[100];
-  int coord;  //1-based
-  int done;
+    TabixStream *snp_in;
+    vector<string> inds;
+    set<string> allele1_inds;
+    set<string> allele2_inds;
+    char allele1, allele2;  //minor allele, major allele
+    char chr[100];
+    int coord;  //1-based
+    int done;
 };
 
 
 
 void print_summaries(vector<double> stat) {
-  double meanval=0;
-  int have_mean=0;
-  for (int j=1; j <= summarize; j++) {
-    if (getMean==j) {
-      if (stat.size() > 0) {
-	meanval = compute_mean(stat);
-	have_mean=1;
-	printf("\t%g", meanval);
-      } else printf("\tNA");
-    } else if (getStdev==j) {
-      if (stat.size() > 1) {
-	if (!have_mean)
-	  meanval = compute_mean(stat);
-	printf("\t%g", compute_stdev(stat, meanval));
-      } else printf("\tNA");
-    } else if (getQuantiles==j) {
-      if (stat.size() > 0) {
-	vector<double> q = compute_quantiles(stat, quantiles);
-	for (unsigned int k=0; k < quantiles.size(); k++) {
-	  printf("\t%g", q[k]);
-	}
-      } else {
-	for (unsigned int k=0; k < quantiles.size(); k++) {
-	  printf("\tNA");
-	}
-      }
+    double meanval=0;
+    int have_mean=0;
+    for (int j=1; j <= summarize; j++) {
+        if (getMean==j) {
+            if (stat.size() > 0) {
+                meanval = compute_mean(stat);
+                have_mean=1;
+                printf("\t%g", meanval);
+            } else printf("\tNA");
+        } else if (getStdev==j) {
+            if (stat.size() > 1) {
+                if (!have_mean)
+                    meanval = compute_mean(stat);
+                printf("\t%g", compute_stdev(stat, meanval));
+            } else printf("\tNA");
+        } else if (getQuantiles==j) {
+            if (stat.size() > 0) {
+                vector<double> q = compute_quantiles(stat, quantiles);
+                for (unsigned int k=0; k < quantiles.size(); k++) {
+                    printf("\t%g", q[k]);
+                }
+            } else {
+                for (unsigned int k=0; k < quantiles.size(); k++) {
+                    printf("\tNA");
+                }
+            }
+        }
     }
-  }
 }
 
 
-int summarizeRegionBySnp(char *snpFilename, char *filename,
-			 const char *region,
-			 set<string> inds, vector<string> statname,
-			 vector<double> times) {
-  TabixStream *snp_infile;
-  TabixStream *infile;
-  vector<string> token;
-  map<int,BedLine*> last_entry;
-  map<int,BedLine*>::iterator it;
-  char chrom[1000], c;
-  int start, end, sample;
-  BedLine *l=NULL;
+int summarizeRegionBySnp(Config *config, const char *region,
+                         set<string> inds, vector<string> statname,
+                         vector<double> times) {
+    TabixStream *snp_infile;
+    TabixStream *infile;
+    vector<string> token;
+    map<int,BedLine*> last_entry;
+    map<int,BedLine*>::iterator it;
+    char chrom[1000], c;
+    int start, end, sample;
+    BedLine *l=NULL;
 
-  snp_infile = new TabixStream(snpFilename, region, tabix_dir);
-  if (snp_infile->stream == NULL) return 1;
+    snp_infile = new TabixStream(config->snpfile, region, config->tabix_dir);
+    if (snp_infile->stream == NULL) return 1;
 
-  infile = new TabixStream(filename, region, tabix_dir);
-  if (infile->stream == NULL) return 1;
-  while (EOF != (c=fgetc(infile->stream))) {
-    ungetc(c, infile->stream);
-    if (c != '#') break;
-    while ('\n' != (c=fgetc(infile->stream))) {
-      if (c==EOF) return 0;
+    infile = new TabixStream(config->argfile, region, config->tabix_dir);
+    if (infile->stream == NULL) return 1;
+    while (EOF != (c=fgetc(infile->stream))) {
+        ungetc(c, infile->stream);
+        if (c != '#') break;
+        while ('\n' != (c=fgetc(infile->stream))) {
+            if (c==EOF) return 0;
+        }
     }
-  }
-  SnpStream snpStream = SnpStream(snp_infile);
-  if (EOF==fscanf(infile->stream, "%s %i %i %i", 
-		  chrom, &start, &end, &sample)) return 0;
-  assert('\t' == fgetc(infile->stream));
-  char *newick = fgetline(infile->stream);
-  chomp(newick);
-  
-  while (1) {
-    list<BedLine*> bedlist;
-    bedlist.clear();
-    snpStream.readNext();
-    if (snpStream.done) break;
-    // first check already-parsed BedLines and score any that overlap SNP
-    for (it=last_entry.begin(); it != last_entry.end(); it++) {
-      l = it->second;
-      if (l->start < snpStream.coord && l->end >= snpStream.coord) {
-	snpStream.scoreAlleleAge(l, statname, times);
-	bedlist.push_back(l);
-      }
-    }
-    //now look through bed file until we get to one that starts after SNP
-    while (start != -1 && snpStream.coord > start) {
-      it = last_entry.find(sample);
-      if (it == last_entry.end() || it->second->orig_tree->recomb_node == NULL) {
-	Tree *orig_tree, *pruned_tree=NULL;
-	if (it != last_entry.end()) {
-	  l = it->second;
-	  delete l->orig_tree;
-	  if (inds.size() > 0) delete l->pruned_tree;
-	  delete &*l;
-	}
-	orig_tree = new Tree(string(newick), times);
-	if (inds.size() > 0) {
-	  pruned_tree = orig_tree->copy();
-	  orig_tree->node_map = pruned_tree->prune(inds, true);
-	}
-	l = new BedLine(chrom, start, end, sample, newick, orig_tree, pruned_tree);
-	last_entry[sample] = l;
-      } else {
-	l = it->second;
-	l->orig_tree->apply_spr();
-	l->orig_tree->update_spr(newick, times);
-	free(l->newick);
-	l->newick = (char*)malloc((strlen(newick)+1)*sizeof(char));
-	strcpy(l->newick, newick);
-	if (inds.size() > 0) {
-	  l->pruned_tree->apply_spr();
-	  l->pruned_tree->update_spr_pruned(l->orig_tree);
-	}
-	l->start = start;
-	l->end = end;
-      }
-      if (snpStream.coord <= end) {
-	snpStream.scoreAlleleAge(l, statname, times);
-	bedlist.push_back(l);
-      }
-      if (4 != fscanf(infile->stream, "%s %i %i %i", chrom, &start, &end, &sample))
-	start = -1;
-      else {
-	assert('\t' == fgetc(infile->stream));
-	delete [] newick;
-	newick = fgetline(infile->stream);
-	chomp(newick);
-      }
-    }
-    if (bedlist.size() > 0) {
-      if (summarize == 0) {
-	bedlist.sort(CompareBedLineSample());
-	for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
-	  BedLine *l = *it;
-	  printf("%s\t%i\t%i\t%i\t%c\t%c\t%i\t%i", l->chrom, snpStream.coord-1, snpStream.coord, l->sample, l->derAllele, l->otherAllele, l->derFreq, l->otherFreq); fflush(stdout);
-	  for (unsigned int i=0; i < statname.size(); i++) {
-	    if (statname[i]=="tree") {
-	      printf("\t%s", l->newick);
-	    } else if (statname[i]=="infSites") {
-		printf("\t%i", (int)(l->stats[i]==1));
-	    } else {
-		printf("\t%g", l->stats[i]);
-	    }
-	  }
-	  printf("\n"); fflush(stdout);
-	  l->stats.clear();
-	}
-      } else {
-	//now output three versions- one for all samples, one for same derived allele, one for infinite sites
-	BedLine* first = *(bedlist.begin());
-	int same=0, diff=0, infsites=0, derConstCount, derFreq, otherFreq;
-	char derAllele, otherAllele;
-	for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
-	  BedLine *l = *it;
-	  if (l->derAllele == first->derAllele) same++; else diff++;
-	  infsites += l->infSites;
-	}
-	if (same >= diff) {
-	  derAllele = first->derAllele;
-	  otherAllele = first->otherAllele;
-	  derConstCount = same;
-	  derFreq = first->derFreq;
-	  otherFreq = first->otherFreq;
-	} else {
-	  derAllele=first->otherAllele;
-	  otherAllele = first->derAllele;
-	  derConstCount = diff;
-	  derFreq = first->otherFreq;
-	  otherFreq = first->derFreq;
-	}
-	printf("%s\t%i\t%i\t%c\t%c\t%i\t%i\t%i\t%i",
-	       l->chrom, snpStream.coord-1, snpStream.coord,
-	       derAllele, otherAllele, derFreq, otherFreq,
-	       (int)bedlist.size(), infsites);
-	for (unsigned int i=0; i < statname.size(); i++) {
-	    if (statname[i] != "inf_sites") {
-		// first compute stats across all
-		vector<double> stat;
-		for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
-		    BedLine *l = *it;
-		    stat.push_back(l->stats[i]);
-		}
-		print_summaries(stat);
-		
-		/*	  stat.clear();
-		// now stats across derived const set
-		for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
-		BedLine *l = *it;
-		if (l->derAllele == derAllele)
-		stat.push_back(l->stats[i]);
-		}
-		print_summaries(stat);*/
-		
-		stat.clear();
-		//now stats for infinite sites set
-		for (list<BedLine*>::iterator it=bedlist.begin(); it != bedlist.end(); ++it) {
-		    BedLine *l = *it;
-		    if (l->infSites)
-			stat.push_back(l->stats[i]);
-		    l->stats.clear();
-		}
-		print_summaries(stat);
-	    }
-	}
-	printf("\n"); fflush(stdout);
-      }
-    }
-  }
-  delete snp_infile;
-  delete infile;
-  delete [] newick;
+    SnpStream snpStream = SnpStream(snp_infile);
+    if (EOF==fscanf(infile->stream, "%s %i %i %i",
+                    chrom, &start, &end, &sample)) return 0;
+    assert('\t' == fgetc(infile->stream));
+    char *newick = fgetline(infile->stream);
+    chomp(newick);
 
-  for (map<int,BedLine*>::iterator it=last_entry.begin(); it != last_entry.end(); ++it) {
-    BedLine *l = it->second;
-    if (l->pruned_tree != NULL) delete l->pruned_tree;
-    if (l->orig_tree != NULL) delete l->orig_tree;
-    delete &*l;
-  }
-  return 0;
+    while (1) {
+        list<BedLine*> bedlist;
+        bedlist.clear();
+        snpStream.readNext();
+        if (snpStream.done) break;
+        // first check already-parsed BedLines and score any that overlap SNP
+        for (it=last_entry.begin(); it != last_entry.end(); it++) {
+            l = it->second;
+            if (l->start < snpStream.coord && l->end >= snpStream.coord) {
+                snpStream.scoreAlleleAge(l, statname, times);
+                bedlist.push_back(l);
+            }
+        }
+        //now look through bed file until we get to one that starts after SNP
+        while (start != -1 && snpStream.coord > start) {
+            it = last_entry.find(sample);
+            if (it == last_entry.end() ||
+                it->second->trees->orig_spr.recomb_node == NULL) {
+                SprPruned *trees;
+                if (it != last_entry.end()) {
+                    l = it->second;
+                    delete l->trees;
+                    delete &*l;
+                }
+                trees = new SprPruned(newick, inds, times);
+                l = new BedLine(chrom, start, end, sample, newick, trees);
+                last_entry[sample] = l;
+            } else {
+                l = it->second;
+                l->trees->update(newick, inds, times);
+                free(l->newick);
+                l->newick = (char*)malloc((strlen(newick)+1)*sizeof(char));
+                strcpy(l->newick, newick);
+                l->start = start;
+                l->end = end;
+            }
+            if (snpStream.coord <= end) {
+                snpStream.scoreAlleleAge(l, statname, times);
+                bedlist.push_back(l);
+            }
+            if (4 != fscanf(infile->stream, "%s %i %i %i",
+                            chrom, &start, &end, &sample))
+                start = -1;
+            else {
+                assert('\t' == fgetc(infile->stream));
+                delete [] newick;
+                newick = fgetline(infile->stream);
+                chomp(newick);
+            }
+        }
+        if (bedlist.size() > 0) {
+            if (summarize == 0) {
+                bedlist.sort(CompareBedLineSample());
+                for (list<BedLine*>::iterator it=bedlist.begin();
+                     it != bedlist.end(); ++it) {
+                    BedLine *l = *it;
+                    printf("%s\t%i\t%i\t%i\t%c\t%c\t%i\t%i", l->chrom,
+                           snpStream.coord-1, snpStream.coord, l->sample,
+                           l->derAllele, l->otherAllele, l->derFreq,
+                           l->otherFreq); fflush(stdout);
+                    for (unsigned int i=0; i < statname.size(); i++) {
+                        if (statname[i]=="tree") {
+                            printf("\t%s", l->newick);
+                        } else if (statname[i]=="infSites") {
+                            printf("\t%i", (int)(l->stats[i]==1));
+                        } else {
+                            printf("\t%g", l->stats[i]);
+                        }
+                    }
+                    printf("\n"); fflush(stdout);
+                    l->stats.clear();
+                }
+            } else {
+                //now output three versions- one for all samples,
+                //one for same derived allele, one for infinite sites
+                BedLine* first = *(bedlist.begin());
+                int same=0, diff=0, infsites=0, derConstCount,
+                    derFreq, otherFreq;
+                char derAllele, otherAllele;
+                for (list<BedLine*>::iterator it=bedlist.begin();
+                     it != bedlist.end(); ++it) {
+                    BedLine *l = *it;
+                    if (l->derAllele == first->derAllele) same++; else diff++;
+                    infsites += l->infSites;
+                }
+                if (same >= diff) {
+                    derAllele = first->derAllele;
+                    otherAllele = first->otherAllele;
+                    derConstCount = same;
+                    derFreq = first->derFreq;
+                    otherFreq = first->otherFreq;
+                } else {
+                    derAllele=first->otherAllele;
+                    otherAllele = first->derAllele;
+                    derConstCount = diff;
+                    derFreq = first->otherFreq;
+                    otherFreq = first->derFreq;
+                }
+                printf("%s\t%i\t%i\t%c\t%c\t%i\t%i\t%i\t%i",
+                       l->chrom, snpStream.coord-1, snpStream.coord,
+                       derAllele, otherAllele, derFreq, otherFreq,
+                       (int)bedlist.size(), infsites);
+                for (unsigned int i=0; i < statname.size(); i++) {
+                    if (statname[i] != "inf_sites") {
+                        // first compute stats across all
+                        vector<double> stat;
+                        for (list<BedLine*>::iterator it=bedlist.begin();
+                             it != bedlist.end(); ++it) {
+                            BedLine *l = *it;
+                            stat.push_back(l->stats[i]);
+                        }
+                        print_summaries(stat);
+
+                        stat.clear();
+                        //now stats for infinite sites set
+                        for (list<BedLine*>::iterator it=bedlist.begin();
+                             it != bedlist.end(); ++it) {
+                            BedLine *l = *it;
+                            if (l->infSites)
+                                stat.push_back(l->stats[i]);
+                            l->stats.clear();
+                        }
+                        print_summaries(stat);
+                    }
+                }
+                printf("\n"); fflush(stdout);
+            }
+        }
+    }
+    delete snp_infile;
+    delete infile;
+    delete [] newick;
+
+    for (map<int,BedLine*>::iterator it=last_entry.begin();
+         it != last_entry.end(); ++it) {
+        BedLine *l = it->second;
+        delete(l->trees);
+        delete &*l;
+    }
+    return 0;
 }
 
-int summarizeRegionNoSnp(char *filename, const char *region, 
-			 set<string> inds, vector<string>statname,
-			 vector<double> times) {
+
+int summarizeRegionNoSnp(Config *config, const char *region,
+                         set<string> inds, vector<string>statname,
+                         vector<double> times) {
     TabixStream *infile;
     char c;
     char *region_chrom = NULL;
@@ -729,51 +799,55 @@ int summarizeRegionNoSnp(char *filename, const char *region,
     IntervalIterator<vector<double> > results;
     queue<BedLine*> bedlineQueue;
     map<int,BedLine*> bedlineMap;
-    map<int,Tree*>orig_trees;
-    map<int,Tree*>pruned_trees;
-    map<int,Tree*>::iterator it;
-    /* 
-       Class BedLine contains chr,start,end, newick tree, parsed tree.
-         parsed tree may be NULL if not parsing trees but otherwise will
-         be populated, either by parsing the newick or an SPR operation 
-         on previous tree.
-       Parsed tree has recomb_node, recomb_time, coal_node, coal_time set
-         (recomb_node==NULL => no recomb. Only happens in full tree at end
-	 of regions analyzed by arg-sample)
+    map<int,SprPruned*> trees;
+    map<int,SprPruned*>::iterator it;
+    /*
+      Class BedLine contains chr,start,end, newick tree, parsed tree.
+      parsed tree may be NULL if not parsing trees but otherwise will
+      be populated, either by parsing the newick or an SPR operation
+      on previous tree.
+      Parsed tree has recomb_node, recomb_time, coal_node, coal_time set
+      (recomb_node==NULL => no recomb. Only happens in full tree at end
+      of regions analyzed by arg-sample)
 
-       Queue bedlineQueue contains pointers to this class, will be output to
-         results in order (first in, first out).
-       bedlineMap<int,bedlineQueue> maps samples to pointers of the most recently 
-         read instance of bedline for each sample. It points to the same objects
-         as bedlineQueue (not copies).
+      Queue bedlineQueue contains pointers to this class, will be output to
+      results in order (first in, first out).
+      bedlineMap<int,bedlineQueue> maps samples to pointers of the most recently
+      read instance of bedline for each sample. It points to the same objects
+      as bedlineQueue (not copies).
 
-       For each line of file:
-       Read chr, start, end, sample, tree string.
-       Look up bedlineMap<sample> = lastSample
-       If (lastSample == NULL) {
-         parse tree. Make new bedline object, add it to bedlineMap and end of bedlineQueue.
-       } else if (lastSample->recomb_node != NULL) {
-         apply SPR to lastSample->tree to create new parsed tree. Use this tree
-         to create new bedline object, add it to bedlineMap and end of bedlineQueue.
-       } else { //lastSample does not end in recomb
-         assert that lastSample->end==start and lastSample->chr==chr
-         update lastSample->end=end
-         determine if tree string ends in recomb, update recomb_node, recomb_time, etc if so. (This is a tricky part esp if there is pruning involved).
-       }
-       while (first element of queue ends in recomb) {
-         compute statistics for first element of queue
-         add to intervaliterator
-         if bedlineMap<sample>==(first element in queue), set bedlineMap<sample>=NULL
-	 pop from queue
-       }
+      For each line of file:
+      Read chr, start, end, sample, tree string.
+      Look up bedlineMap<sample> = lastSample
+      If (lastSample == NULL) {
+         parse tree. Make new bedline object, add it to bedlineMap and end
+        of bedlineQueue.
+      } else if (lastSample->recomb_node != NULL) {
+        apply SPR to lastSample->tree to create new parsed tree. Use this tree
+        to create new bedline object, add it to bedlineMap and end of
+        bedlineQueue.
+      } else { //lastSample does not end in recomb
+        assert that lastSample->end==start and lastSample->chr==chr
+        update lastSample->end=end
+        determine if tree string ends in recomb, update recomb_node,
+        recomb_time, etc if so.
+        (This is a tricky part esp if there is pruning involved).
+      }
+      while (first element of queue ends in recomb) {
+        compute statistics for first element of queue
+        add to intervaliterator
+        if bedlineMap<sample>==(first element in queue),
+          set bedlineMap<sample>=NULL
+        pop from queue
+      }
 
       After reading all lines:
-        go through queue and dump everything to intervalIterator...
+      go through queue and dump everything to intervalIterator...
 
-     */
+    */
 
 
-    infile = new TabixStream(filename, region, tabix_dir);
+    infile = new TabixStream(config->argfile, region, config->tabix_dir);
     if (infile->stream == NULL) return 1;
 
     //parse region to get region_chrom, region_start, region_end.
@@ -782,10 +856,18 @@ int summarizeRegionNoSnp(char *filename, const char *region,
     if (region != NULL) {
         split(region, "[:-]", token);
         if (token.size() != 3) {
-            fprintf(stderr, "Error: bad region format; should be chr:start-end\n");
+            fprintf(stderr,
+                    "Error: bad region format (%s); should be chr:start-end\n",
+                    region);
             return 1;
         }
         region_chrom = new char[token[0].size()+1];
+        //remove commas from integer coordinates in case they are
+        // copied from browser
+        token[1].erase(std::remove(token[1].begin(), token[1].end(), ','),
+                       token[1].end());
+        token[2].erase(std::remove(token[2].begin(), token[2].end(), ','),
+                       token[2].end());
         strcpy(region_chrom, token[0].c_str());
         region_start = atoi(token[1].c_str())-1;
         region_end = atoi(token[2].c_str());
@@ -794,440 +876,330 @@ int summarizeRegionNoSnp(char *filename, const char *region,
         ungetc(c, infile->stream);
         if (c!='#') break;
         while ('\n' != (c=fgetc(infile->stream))) {
-           if (c==EOF) return 0;
+            if (c==EOF) return 0;
         }
     }
     int parse_tree = (inds.size() > 0);
     if (!parse_tree) {
-      for (unsigned int i=0; i < statname.size(); i++) {
-         if (statname[i]!="tree") {
-           parse_tree=1;
-           break;
-         }
-      }
+        for (unsigned int i=0; i < statname.size(); i++) {
+            if (statname[i]!="tree") {
+                parse_tree=1;
+                break;
+            }
+        }
     }
 
     while (EOF != fscanf(infile->stream, "%s %i %i %i",
                          chrom, &start, &end, &sample)) {
-      //      printf("got line %s %i %i %i\n", chrom, start, end, sample); fflush(stdout);
-      assert('\t'==fgetc(infile->stream));
-      char* newick = fgetline(infile->stream);
-      chomp(newick);
-      Tree *orig_tree=NULL, *pruned_tree=NULL;
-      //      printf("newick: %s\n", newick);
-      it = orig_trees.find(sample);
-      if (it == orig_trees.end()) {  //first tree from this sample
-	orig_tree = new Tree(string(newick), times);
-	orig_trees[sample] = orig_tree;
-	if (inds.size() > 0) {
-	  pruned_tree = orig_tree->copy();
-	  orig_tree->node_map = pruned_tree->prune(inds, true);
-	  pruned_trees[sample] = pruned_tree;
-	}
-      } else {
-	int parse_tree = 0;
-	orig_tree = it->second;
-	if (orig_tree->recomb_node == NULL) {
-	  parse_tree = 1;
-	  delete orig_tree;
-	  orig_tree = new Tree(string(newick), times);
-	  orig_trees[sample] = orig_tree;
-	} else orig_tree->apply_spr();
+        assert('\t'==fgetc(infile->stream));
+        char* newick = fgetline(infile->stream);
+        chomp(newick);
+        it = trees.find(sample);
+        if (it == trees.end())   //first tree from this sample
+            trees[sample] = new SprPruned(newick, inds, times);
+        else trees[sample]->update(newick, inds, times);
 
-	// set recomb_node and coal_node to next spr events indicated in newick string
-        orig_tree->update_spr(newick, times);
-	if (inds.size() > 0) {
-	  it = pruned_trees.find(sample);
-	  assert(it != pruned_trees.end());
-	  pruned_tree = it->second;
-	  if (parse_tree) {
-	    pruned_tree = orig_tree->copy();
-	    orig_tree->node_map = pruned_tree->prune(inds, true);
-	    pruned_trees[sample] = pruned_tree;
-	  } else pruned_tree->apply_spr();
-	  pruned_tree->update_spr_pruned(orig_tree);
-	}
-      }
+        map<int,BedLine*>::iterator it3 = bedlineMap.find(sample);
+        BedLine *currline;
+        if (it3 == bedlineMap.end()) {
+            currline = new BedLine(chrom, start, end, sample, newick,
+                                   trees[sample]);
+            bedlineMap[sample] = currline;
+            bedlineQueue.push(currline);
+        } else {
+            currline = it3->second;
+            assert(strcmp(currline->chrom, chrom)==0);
+            assert(currline->end == start);
+            currline->end = end;
+        }
 
-      map<int,BedLine*>::iterator it3 = bedlineMap.find(sample);
-      BedLine *currline;
-      if (it3 == bedlineMap.end()) {
-	currline = new BedLine(chrom, start, end, sample, newick, orig_tree,
-			       pruned_tree);
-	bedlineMap[sample] = currline;
-	bedlineQueue.push(currline);
-      } else {
-	currline = it3->second;
-	assert(strcmp(currline->chrom, chrom)==0);
-	assert(currline->end == start);
-	currline->end = end;
-      }
+        //assume orig_spr.recomb_node == NULL is a rare occurrence that happens
+        // at the boundaries of regions analyzed by arg-sample; treat these as
+        // recombination events
+        if (trees[sample]->orig_spr.recomb_node == NULL ||
+            trees[sample]->pruned_tree == NULL ||
+            trees[sample]->pruned_spr.recomb_node != NULL) {
+            scoreBedLine(currline, statname, times);
+            bedlineMap.erase(sample);
+        }
 
-	//assume orig_tree->recomb_node == NULL is a rare occurrence that happens
-	// at the boundaries of regions analyzed by arg-sample; treat these as
-	// recombination events
-      if (orig_tree->recomb_node == NULL ||
-	  pruned_tree == NULL ||
-	  pruned_tree->recomb_node != NULL) {
-	scoreBedLine(currline, statname, times);
-	bedlineMap.erase(sample);
-      }
-
-      while (bedlineQueue.size() > 0) {
-	BedLine *firstline = bedlineQueue.front();
-	if (firstline->stats.size() == statname.size()) {
-	  processNextBedLine(firstline, &results, statname,
-			     region_chrom, region_start, region_end, times);
-	  it3 = bedlineMap.find(firstline->sample);
-	  if (it3 != bedlineMap.end() && it3->second == firstline) {
-	    assert(0);
-	    bedlineMap.erase(firstline->sample);
-	  }
-	  bedlineQueue.pop();
-	} else break;
-      }
-      delete [] newick;
+        while (bedlineQueue.size() > 0) {
+            BedLine *firstline = bedlineQueue.front();
+            if (firstline->stats.size() == statname.size()) {
+                processNextBedLine(firstline, &results, statname,
+                                   region_chrom, region_start, region_end,
+                                   times);
+                it3 = bedlineMap.find(firstline->sample);
+                if (it3 != bedlineMap.end() && it3->second == firstline) {
+                    assert(0);
+                    bedlineMap.erase(firstline->sample);
+                }
+                bedlineQueue.pop();
+            } else break;
+        }
+        delete [] newick;
     }
     infile->close();
     delete infile;
 
     while (bedlineQueue.size() > 0) {
-      BedLine *firstline = bedlineQueue.front();
-      processNextBedLine(firstline, &results, statname, 
-			 region_chrom, region_start, region_end, times);
-      delete firstline;
-      bedlineQueue.pop();
+        BedLine *firstline = bedlineQueue.front();
+        processNextBedLine(firstline, &results, statname,
+                           region_chrom, region_start, region_end, times);
+        //        delete firstline;
+        bedlineQueue.pop();
     }
 
     if (summarize) {
         results.finish();
         checkResults(&results);
     } else {
-      processNextBedLine(NULL, &results, statname, region_chrom, 
-			 region_start, region_end, times);
+        processNextBedLine(NULL, &results, statname, region_chrom,
+                           region_start, region_end, times);
     }
 
-    it = orig_trees.begin();
-    while (it != orig_trees.end()) {
-      delete it->second;
-      advance(it, 1);
-    }
-    it = pruned_trees.begin();
-    while (it != pruned_trees.end()) {
-      delete it->second;
-      advance(it, 1);
+    it = trees.begin();
+    while (it != trees.end()) {
+        delete it->second;
+        advance(it, 1);
     }
     if (region_chrom != NULL) delete[] region_chrom;
     return 0;
 }
 
-int summarizeRegion(char *snp_file, char *filename, const char *region, 
-		    set<string> inds, vector<string>statname,
-		    vector<double> times) {
-  if (snp_file != NULL)
-    return summarizeRegionBySnp(snp_file, filename, region,
-				inds, statname, times);
-  else return summarizeRegionNoSnp(filename, region,
-				   inds, statname, times);
+int summarizeRegion(Config *config, const char *region,
+                    set<string> inds, vector<string>statname,
+                    vector<double> times) {
+    if (config->snpfile.empty())
+        return summarizeRegionNoSnp(config, region, inds, statname, times);
+    else
+        return summarizeRegionBySnp(config, region,
+                                    inds, statname, times);
 }
 
 
 int main(int argc, char *argv[]) {
-  string chr, newick;
-  int opt_idx;
-  vector <string>tokens;
-  set <string>inds;
-  char c, *region=NULL, *filename = NULL, *bedfile = NULL, *indfile = NULL,
-      *timesfile=NULL;
-  char *snp_file=NULL;
-  int rawtrees=0, recomb=0, allele_age=0;
-  vector<string> statname;
- // map<string,double> times;
-  vector<double> times;
-  bool coalcounts=false;
-  struct option long_opts[] = {
-      {"region", 1, 0, 'r'},
-      {"times", 1, 0, 'm'},
-      {"bed", 1, 0, 'b'},
-      {"subset", 1, 0, 's'},
-      {"tree", 0, 0, 'E'},
-      {"tmrca", 0, 0, 'T'},
-      {"recomb", 0, 0, 'R'},
-      {"tmrca-half",0,0,'H'},
-      {"branchlen", 0, 0, 'B'},
-      {"rth", 0, 0, 'F'},
-      {"popsize", 0, 0, 'P'},
-      {"coalcounts", 0, 0, 'C'},
-      {"node-dist", 1, 0, 'D'},
-      {"breaks", 0, 0, 'K'},
-      {"numsample", 0, 0, 'N'},
-      {"allele-age", 0, 0, 'A'},
-      {"snp-file", 1, 0, 'f'},
-      {"mean", 0, 0, 'M'},
-      {"stdev", 0, 0, 'S'},
-      {"quantile", 1, 0, 'Q'},
-      {"tabix-dir", 1, 0, 't'},
-      {"no-header",0,0,'n'},
-      {"help", 0, 0, 'h'},
-      {0,0,0,0}};
+    Config c;
+    int ret = c.parse_args(argc, argv);
+    if (ret)
+        return ret;
 
-  while (( c = (char)getopt_long(argc, argv, "r:m:b:s:TEHBRFPNAZCf:MSQ:D:Kt:nh",
-                                 long_opts, &opt_idx)) != -1) {
-      switch(c) {
-      case 'r':
-          region = optarg;
-          break;
-      case 'm':
-	  timesfile = optarg;
-	  break;
-      case 'b':
-          bedfile = optarg;
-          break;
-      case 's':
-	  indfile = optarg;
-	  break;
-      case 'f':
-	snp_file = optarg;
-	break;
-      case 'E':
-          rawtrees=1;
-	  statname.push_back(string("tree"));
-          break;
-      case 'T':
-          statname.push_back(string("tmrca"));
-          break;
-      case 'H':
-          statname.push_back(string("tmrca_half"));
-          break;
-      case 'B':
-          statname.push_back(string("branchlen"));
-          break;
-      case 'F':
-          statname.push_back(string("rth"));
-          break;
-      case 'R':
-	  statname.push_back(string("recomb"));
-	  recomb=1;
-	  break;
-      case 'K':
-	  statname.push_back(string("breaks"));
-	  recomb=1;
-	  break;
-      case 'P':
-          statname.push_back(string("popsize"));
-          break;
-      case 'C':
-	coalcounts=true;
-	break;
-      case 'Z':
-	  statname.push_back(string("zero_len"));
-	  break;
-      case 'D': {
-	  vector<string> tokens;
-	  split(optarg, ',', tokens);
-	  if (tokens.size() != 2) {
-	      fprintf(stderr, "Bad format to --node-dist argument; expect two leaf names separated by comma(,)\n");
-	      exit(1);
-	  }
-	  statname.push_back(string("node_dist-") + string(optarg));
-	  node_dist_leaf1.push_back(tokens[0]);
-	  node_dist_leaf2.push_back(tokens[1]);
-	  break;
-      }
-      case 'A':
-	  allele_age=1;
-          statname.push_back(string("allele_age"));
-	  statname.push_back(string("inf_sites"));
-          break;
-      case 'N':
-          getNumSample=++summarize;
-          break;
-      case 'M':
-          getMean=++summarize;
-          break;
-      case 'S':
-          getStdev=++summarize;;
-          break;
-      case 'Q': {
-          getQuantiles=++summarize;
-          vector<string> tokens;
-          split(optarg, ',', tokens);
-          for (unsigned int i=0; i < tokens.size(); i++) {
-              double q=atof(tokens[i].c_str());
-              //              fprintf(stderr, "getting quantile %lf\n",q);
-              quantiles.push_back(q);
-          }
-          break;
-      }
-      case 't':
-          tabix_dir=optarg;
-          chomp(tabix_dir);
-          break;
-      case 'n':
-          header=false;
-          break;
-      case 'h':
-          print_help();
-          return 0;
-      default:
-          fprintf(stderr, "Unknown option. Try ./arg-summarize --help\n");
-          return 1;
-      }
-  }
-  if (region != NULL && bedfile != NULL) {
-      fprintf(stderr, "Error: --bed and --region cannot be used together.\n");
-      return 1;
-  }
-  if (statname.size() == 0) {
-     fprintf(stderr, "Error: need to specify a tree statistic\n");
-     return 1;
-  }
-
-  if (summarize && statname.size()==0) {
-      fprintf(stderr, "Error: need to specify a tree statistic (e.g., --tmrca, --popsize, --recomb, --allele-age, etc)\n");
-      return 1;
-  }
-  if (summarize && rawtrees) {
-     fprintf(stderr, "Error: --trees not compatible with summary statistics (--mean, --quantile, --stdev, --numsample)\n");
-     return 1;
-  }
-  if (recomb && snp_file != NULL) {
-    fprintf(stderr, "Error: cannot use --recomb or --breaks with --allele-age\n");
-    return 1;
-  }
-  if (allele_age && snp_file == NULL) {
-      fprintf(stderr, "Error: need to specify snp file with --snp to use --allele-age\n");
-      return 1;
-  }
-
-  if (optind != argc-1) {
-      fprintf(stderr, "Incorrect number of arguments. Try ./arg-summarize --help\n");
-      return 1;
-  }
-  filename = argv[optind];
-
-  if (timesfile != NULL) {
-      FILE *infile = fopen(timesfile, "r");
-      double t;
-      if (infile == NULL) {
-	  fprintf(stderr, "Error opening %s.\n", timesfile);
-	  return 1;
-      }
-      while (EOF != fscanf(infile, "%lf", &t)) 
-	   times.push_back(t);
-      std::sort(times.begin(), times.end());
-      fclose(infile);
-      //      fprintf(stderr, "read %i times\n", (int)times.size());
-  }
-
-  if (coalcounts) {
-    if (timesfile == NULL) {
-      fprintf(stderr, "Error: --times required with --coalcounts\n");
-      return 1;
+    if (c.argfile.empty()) {
+        fprintf(stderr, "Error: must specify argfile\n");
+        return 1;
     }
-    for (unsigned int i=0; i < times.size(); i++) {
-      char tmp[1000];
-      sprintf(tmp, "coalcount.%i", i);
-      statname.push_back(string(tmp));
+
+    vector<double> times;
+    if (!c.timefile.empty()) {
+        FILE *infile = fopen(c.timefile.c_str(), "r");
+        double t;
+        if (infile == NULL) {
+            fprintf(stderr, "Error opening %s.\n", c.timefile.c_str());
+            return 1;
+        }
+        while (EOF != fscanf(infile, "%lf", &t))
+            times.push_back(t);
+        std::sort(times.begin(), times.end());
+        fclose(infile);
     }
-  }
 
-  if (header) {
-      printf("## arg-summarize v%s\n", version);
-      printf("##");
-      for (int i=0; i < argc; i++) printf(" %s", argv[i]);
-      printf("\n");
-      printf("#chrom\tchromStart\tchromEnd");
-      if (summarize==0)
-          printf("\tMCMC_sample");
-      if (snp_file != NULL) {
-	printf("\tderAllele\tancAllele\tderFreq\tancFreq");
-      }
-      if (snp_file == NULL && getNumSample > 0) 
-	printf("\tnumsample");
-      if (summarize && snp_file) {
-	printf("\tnumsample-all\tnumsample-infsites");
-      }
-      vector<string> stattype;
-      if (snp_file == NULL) {
-	stattype.push_back("");
-      } else {
-	stattype.push_back("-all");
-	//	stattype.push_back("-derConsensus");
-	stattype.push_back("-infsites");
-      }
+    vector<string> statname;
+    if (c.tmrca)
+        statname.push_back(string("tmrca"));
+    if (c.branchlen)
+        statname.push_back(string("branchlen"));
+    if (c.recomb)
+        statname.push_back(string("recomb"));
+    if (c.breaks)
+        statname.push_back(string("breaks"));
+    if (c.tmrca_half)
+        statname.push_back(string("tmrca_half"));
+    if (c.rth)
+        statname.push_back(string("rth"));
+    if (c.popsize)
+        statname.push_back(string("popsize"));
+    if (c.allele_age) {
+        statname.push_back(string("allele_age"));
+        statname.push_back(string("inf_sites"));
+    }
+    if (c.zero)
+        statname.push_back(string("zero_len"));
+    if (c.coalcounts) {
+        if (c.timefile.empty()) {
+            fprintf(stderr, "Error: --times required with --coalcounts\n");
+            return 1;
+        }
+        for (unsigned int i=0; i < times.size(); i++) {
+            char tmp[1000];
+            sprintf(tmp, "coalcount.%i", i);
+            statname.push_back(string(tmp));
+        }
+    }
+    if (!c.node_dist.empty()) {
+        vector<string> tokens1, tokens2;
+        split(c.node_dist.c_str(), ';', tokens1);
+        for (unsigned int i=0; i < tokens1.size(); i++) {
+            split(tokens1[i].c_str(), ',', tokens2);
+            if (tokens2.size() != 2) {
+                fprintf(stderr, "Bad format to --node-dist argument; expect"
+                        " two leaf names separated by comma");
+                return 1;
+            }
+            statname.push_back(string("node_dist-") + tokens2[0]
+                               + string(",") + tokens2[1]);
+            node_dist_leaf1.push_back(tokens2[0]);
+            node_dist_leaf2.push_back(tokens2[1]);
+        }
+    }
+    if (c.rawtrees)
+        statname.push_back(string("tree"));
 
-      for (unsigned int j=0; j < statname.size(); j++) {
-          if (summarize==0) {
-	    printf("\t%s", statname[j].c_str());
-          }
-	  if (statname[j] != "inf_sites") {
-	  for (unsigned int k=0; k < stattype.size(); k++) {
-	    for (int i=1; i <= summarize; i++) {
-	      if (getMean==i) {
-		printf("\t%s%s_mean", statname[j].c_str(), stattype[k].c_str());
-	      } else if (getStdev==i) {
-		printf("\t%s%s_stdev", statname[j].c_str(), stattype[k].c_str());
-	      } else if (getQuantiles==i) {
-		for (unsigned int l=0; l < quantiles.size(); l++) {
-		  printf("\t%s%s_quantile_%.3f", statname[j].c_str(),
-			 stattype[k].c_str(),
-			 quantiles[l]);
-		}
-	      } 
-	    }
-	  }
-	  }
-      }
-      printf("\n");
-  }
+    if (c.numsample)
+        getNumSample=++summarize;
+    if (c.mean)
+        getMean=++summarize;
+    if (c.stdev)
+        getStdev=++summarize;;
+    if (!c.quantile.empty()) {
+        getQuantiles=++summarize;
+        vector<string> tokens;
+        split(c.quantile.c_str(), ',', tokens);
+        for (unsigned int i=0; i < tokens.size(); i++) {
+            double q=atof(tokens[i].c_str());
+            //              fprintf(stderr, "getting quantile %lf\n",q);
+            quantiles.push_back(q);
+        }
+    }
+
+    if ((!c.region.empty()) && (!c.bedfile.empty())) {
+        fprintf(stderr, "Error: --bed and --region cannot be used together.\n");
+        return 1;
+    }
+    if (statname.size() == 0) {
+        fprintf(stderr, "Error: need to specify a tree statistic\n");
+        return 1;
+    }
+
+    if (summarize && statname.size()==0) {
+        fprintf(stderr,
+                "Error: need to specify a tree statistic (e.g., --tmrca,"
+                " --popsize, --recomb, --allele-age, etc)\n");
+        return 1;
+    }
+    if (summarize && c.rawtrees) {
+        fprintf(stderr, "Error: --trees not compatible with summary statistics"
+                " (--mean, --quantile, --stdev, --numsample)\n");
+        return 1;
+    }
+    if ((c.recomb || c.breaks) && !c.snpfile.empty()) {
+        fprintf(stderr, "Error: cannot use --recomb or --breaks with"
+                " --allele-age\n");
+        return 1;
+    }
+    if (c.allele_age && c.snpfile.empty()) {
+        fprintf(stderr, "Error: need to specify snp file with --snp to use"
+                " --allele-age\n");
+        return 1;
+    }
+
+    if (!c.noheader) {
+        printf("## %s\n", VERSION_INFO);
+        printf("##");
+        for (int i=0; i < argc; i++) printf(" %s", argv[i]);
+        printf("\n");
+        printf("#chrom\tchromStart\tchromEnd");
+        if (summarize==0)
+            printf("\tMCMC_sample");
+        if (!c.snpfile.empty()) {
+            printf("\tderAllele\tancAllele\tderFreq\tancFreq");
+        }
+        if (c.snpfile.empty() && getNumSample > 0)
+            printf("\tnumsample");
+        if (summarize && !c.snpfile.empty()) {
+            printf("\tnumsample-all\tnumsample-infsites");
+        }
+        vector<string> stattype;
+        if (c.snpfile.empty()) {
+            stattype.push_back("");
+        } else {
+            stattype.push_back("-all");
+            //    stattype.push_back("-derConsensus");
+            stattype.push_back("-infsites");
+        }
+
+        for (unsigned int j=0; j < statname.size(); j++) {
+            if (summarize==0) {
+                printf("\t%s", statname[j].c_str());
+            }
+            if (statname[j] != "inf_sites") {
+                for (unsigned int k=0; k < stattype.size(); k++) {
+                    for (int i=1; i <= summarize; i++) {
+                        if (getMean==i) {
+                            printf("\t%s%s_mean",
+                                   statname[j].c_str(), stattype[k].c_str());
+                        } else if (getStdev==i) {
+                            printf("\t%s%s_stdev",
+                                   statname[j].c_str(), stattype[k].c_str());
+                        } else if (getQuantiles==i) {
+                            for (unsigned int l=0; l < quantiles.size(); l++) {
+                                printf("\t%s%s_quantile_%.3f",
+                                       statname[j].c_str(),
+                                       stattype[k].c_str(),
+                                       quantiles[l]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        printf("\n");
+    }
 
 
+    set <string>inds;
+    if (!c.indfile.empty()) {
+        ifstream in(c.indfile.c_str());
+        string line;
+        if (in.is_open()) {
+            while ( getline(in, line) ) {
+                inds.insert(line);
+            }
+            in.close();
+        } else {
+            fprintf(stderr, "Error opening %s.\n", c.indfile.c_str());
+            return 1;
+        }
+    }
 
-  if (indfile != NULL) {
-    ifstream in(indfile);
-    string line;
-    if (in.is_open()) {
-      while ( getline(in, line) ) {
-	inds.insert(line);
-      }
-      in.close();
-      //      cerr << "subsetting to " << inds.size() << " samples from " <<
-      //	indfile << "\n";
+    if (c.bedfile.empty()) {
+        summarizeRegion(&c, c.region.empty() ? NULL : c.region.c_str(),
+                        inds, statname, times);
     } else {
-      fprintf(stderr, "Error opening %s.\n", indfile);
-      return 1;
+        CompressStream bedstream(c.bedfile.c_str());
+        char *line;
+        vector<string> token;
+        char *regionStr;
+        if (!bedstream.stream) {
+            fprintf(stderr, "error reading %s\n", c.bedfile.c_str());
+            return 1;
+        }
+        while ((line = fgetline(bedstream.stream))) {
+            split(line, '\t', token);
+            if (token.size() < 3) {
+                fprintf(stderr, "expected at least 3 files in %s\n",
+                        c.bedfile.c_str());
+                return 1;
+            }
+            regionStr = new char[token[0].size()+token[1].size()+
+                                 token[2].size()+3];
+            int start = atoi(token[1].c_str());
+            int end = atoi(token[2].c_str());
+            sprintf(regionStr, "%s:%i-%i", token[0].c_str(), start+1, end);
+            summarizeRegion(&c, regionStr, inds, statname, times);
+            delete [] regionStr;
+        }
+        bedstream.close();
     }
-  }
 
-  if (bedfile == NULL) {
-    summarizeRegion(snp_file, filename,
-		    region, inds, statname, times);
-  } else {
-      CompressStream bedstream(bedfile);
-      char *line;
-      vector<string> token;
-      char *regionStr;
-      if (!bedstream.stream) {
-          fprintf(stderr, "error reading %s\n", bedfile);
-          return 1;
-      }
-      while ((line = fgetline(bedstream.stream))) {
-          split(line, '\t', token);
-          if (token.size() < 3) {
-              fprintf(stderr, "expected at least 3 files in %s\n", bedfile);
-              return 1;
-          }
-          regionStr = new char[token[0].size()+token[1].size()+token[2].size()+3];
-          int start = atoi(token[1].c_str());
-          int end = atoi(token[2].c_str());
-          sprintf(regionStr, "%s:%i-%i", token[0].c_str(), start+1, end);
-          summarizeRegion(snp_file, filename,
-                          regionStr, inds, statname, times);
-          delete [] regionStr;
-      }
-      bedstream.close();
-  }
-
-  return 0;
+    return 0;
 }

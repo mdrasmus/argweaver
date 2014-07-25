@@ -1,9 +1,10 @@
 #ifndef ARGWEAVER_TABIX_H
 #define ARGWEAVER_TABIX_H
 
-#include <string.h>
 #include <stdio.h>
+#include <string>
 
+using namespace std;
 namespace argweaver {
 
 FILE *read_tabix(const char *filename, const char *region,
@@ -22,6 +23,16 @@ public:
 		  filename, region == NULL ? "NULL" : region);
 	  exit(1);
 	}
+    }
+
+    TabixStream(string filename, const char *region, string tabix_dir) {
+        stream = read_tabix(filename.c_str(), region,
+                            tabix_dir.empty() ? NULL : tabix_dir.c_str());
+        if (stream == NULL) {
+            fprintf(stderr, "Error opening %s, region=%s\n",
+                    filename.c_str(), region == NULL ? "NULL" : region);
+            exit(1);
+        }
     }
 
     ~TabixStream()

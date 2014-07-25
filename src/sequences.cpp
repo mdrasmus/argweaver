@@ -3,8 +3,7 @@
 #include "parsing.h"
 #include "seq.h"
 #include "sequences.h"
-#include "local_tree.h"
-#include "model.h"
+
 
 // TODO: add sites validation
 //       - positions should be sorted and unique
@@ -132,31 +131,6 @@ void write_fasta(FILE *stream, Sequences *seqs)
 //=============================================================================
 // input/output: sites file format
 
-
-void write_sites(FILE *stream, Sites *sites) {
-  fprintf(stream, "NAMES");
-  for (unsigned int i=0; i < sites->names.size(); i++)
-    fprintf(stream, "\t%s", sites->names[i].c_str());
-  fprintf(stream, "\n");
-  fprintf(stream, "REGION\t%s\t%i\t%i\n", 
-	  sites->chrom.c_str(), sites->start_coord, sites->end_coord);
-  if (sites->positions.size() != sites->cols.size()) {
-    fprintf(stderr, "Error in write_sites: positions.size()=%i cols.size=%i\n",
-	    (int)sites->positions.size(), (int)sites->cols.size());
-    exit(-1);
-  }
-  for (unsigned int i=0; i < sites->positions.size(); i++) {
-    unsigned int j=0;
-    for (j=1; j < sites->names.size(); j++) 
-      if (sites->cols[i][j] != sites->cols[i][0]) break;
-    if (j != sites->names.size()) {
-      fprintf(stream, "%i\t", sites->positions[i]+1);
-      for (unsigned int k=0; k < sites->names.size(); k++)
-	fprintf(stream, "%c", sites->cols[i][k]);
-      fprintf(stream, "%c", '\n');
-    }
-  }
-}
 
 bool validate_site_column(char *col, int nseqs)
 {
@@ -368,119 +342,6 @@ void make_sites_from_sequences(const Sequences *sequences, Sites *sites)
         }
     }
 }
-
-void Sequences::set_pairs_by_name() {
-  pairs.resize(names.size());
-  for (unsigned int i=0; i < names.size(); i++) pairs[i] = -1;
-  for (unsigned int i=0; i < names.size(); i++) {
-    if (pairs[i] != -1) continue;
-    int len = names[i].length();
-    string basename = names[i].substr(0, len-2);
-    string ext = names[i].substr(len-2, 2);
-    string target_ext;
-    if (ext == "_1") {
-      target_ext = "_2";
-    } else if (ext == "_2") {
-      target_ext = "_1";
-    } else {
-      fprintf(stderr, "Error in set_pairs_by_name: names are not named with XXX_1/XXX_2 convention\n");
-      exit(-1);
-    }
-    for (unsigned int j=i+1; j < names.size(); j++) {
-      if (names[i].substr(0, len-2) == basename &&
-	  names[j].substr(len-2, 2) == target_ext) {
-	pairs[i] = j;
-	pairs[j] = i;
-	break;
-      }
-    }
-    //	if (pairs[i] == -1); // do nothing, maybe this is ok sometimes
-    // (ie, if we haven't added all sequences yet)
-  }
-}
-
-
-void Sequences::set_pairs_from_file(string fn) {
-  FILE *infile = fopen(fn.c_str(), "r");
-  char p1[1000], p2[1000];
-  if (infile == NULL) {
-    fprintf(stderr, "Error opening %s\n", fn.c_str());
-    exit(-1);
-  }
-  pairs = vector<int>(names.size());
-  for (unsigned int i=0; i < names.size(); i++)
-    pairs[i] = -1;
-  int x;
-  while (EOF != (x=fscanf(infile, "%s %s", p1, p2))) {
-    if (x != 2) {
-      fprintf(stderr, "Error: bad format for file %s\n", fn.c_str());
-      exit(-1);
-    }
-    int x1=-1, x2=-1;
-    for (unsigned int i=0; i < names.size(); i++) {
-      if (names[i] == p1) {
-	x1=i;
-	if (x2 >= 0) break;
-      } else if (names[i] == p2) {
-	x2=i;
-	if (x1 >= 0) break;
-      }
-    }
-    if (x1 >=0 && x2 >= 0) {
-      pairs[x1] = x2;
-      pairs[x2] = x1;
-    }
-  }
-  fclose(infile);
-}
-
-
-void Sequences::set_pairs(const ArgModel *mod) {
-  if (mod->unphased_file != "")
-    set_pairs_from_file(mod->unphased_file);
- // else set_pairs_by_name();
-  else {
-     pairs = vector<int>(names.size());
-     for (unsigned int i=0; i < names.size(); i++) {
-        if (i%2==0) pairs[i] = i+1;
-        else pairs[i] = i-1;
-     }
-  }
-}
-
-void PhaseProbs::sample_phase(int *thread_path) {
-  int count=0;
-  if (probs.size() == 0) 
-    return;
-  for (map<int,vector<double> >::iterator it=probs.begin(); it != probs.end();
-       it++) {
-    int coord = it->first;
-    vector<double> prob = it->second;
-    if (frand() > prob[thread_path[coord]]) {
-      seqs->switch_alleles(coord, hap1, hap2);
-      count++;
-    }
-  }
-  printLog(LOG_LOW, "sample_phase %i %i size=%i frac_switch=%f\n", hap1, hap2, (int)probs.size(), (double)count/probs.size());
-}
-
-void Sequences::randomize_phase(double frac) {
-      printLog(LOG_LOW, "randomizing phase (frac=%f)\n", frac);
-      int count=0, total=0;
-      for (int i=0; i < seqlen; i++) {
-        for (int j=0; j < (int)seqs.size(); j++) {
-          if (pairs[j] < j) continue;
-          total++;
-          if (frand() < frac) {
-            if (frand() < 0.5) {
-              switch_alleles(i, j, pairs[j]);
-              count++;
-            }
-          }
-        }
-      }
-      printLog(LOG_LOW, "switched %i of %i (%f)\n", count, total, (double)count/(double)total);
-    }
 
 
 // Compress the sites by a factor of 'compress'.
@@ -717,34 +578,6 @@ void resample_align(Sequences *aln, Sequences *aln2)
             seqs2[i][j] = seqs[i][col];
         }
     }
-}
-
-PhaseProbs::PhaseProbs(int _hap1, int _treemap1, Sequences *_seqs, 
-			    const LocalTrees *trees, const ArgModel *model) {
-  if (!model->unphased) return;
-  hap1 = _hap1;
-  treemap1 = _treemap1;
-  seqs = _seqs;
-  if ((int)seqs->pairs.size() != seqs->get_num_seqs()) {
-    seqs->set_pairs(model);
-  }
-  hap2 = seqs->pairs[hap1];
-  if (hap2 != -1) {
-    updateTreeMap2(trees);
-  } else treemap2 = -1;
-}
-  
-
-
-void PhaseProbs::updateTreeMap2(const LocalTrees *tree) {
-    for (unsigned int i=0; i < tree->seqids.size(); i++) {
-	if (tree->seqids[i] == hap2) {
-	    treemap2 = i;
-	    return;
-	}
-    }
-    treemap2 = -1;
-    return;
 }
 
 

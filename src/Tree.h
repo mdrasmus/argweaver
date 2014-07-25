@@ -57,9 +57,9 @@ namespace spidir {
 // A node in the phylogenetic tree
 class Node
 {
-public:
-    Node(int nchildren=0) :
-        name(-1),
+ public:
+ Node(int nchildren=0) :
+    name(-1),
         parent(NULL),
         //child(NULL),
         //next(NULL),
@@ -67,16 +67,16 @@ public:
         children(NULL),
         nchildren(nchildren),
         dist(0.0)
-    {
-        if (nchildren != 0)
-            allocChildren(nchildren);
-    }
+            {
+                if (nchildren != 0)
+                    allocChildren(nchildren);
+            }
 
     ~Node()
-    {
-        if (children)
-            delete [] children;
-    }
+        {
+            if (children)
+                delete [] children;
+        }
 
     // Sets and allocates the number of children '_nchildren'
     void setChildren(int _nchildren)
@@ -187,78 +187,76 @@ public:
     double dist;         // branch length above node
     double age;
     string longname;    // node name (used mainly for leaves only)
-    //    string nhx;         // NHX-style comment; includes the "&&NHX"
-    //                        //   but not the  square brackets
 };
 
 
 class NodeMap {
  public:
-  NodeMap() {nm.clear(); inv_nm.clear();}
-  NodeMap(map<int,int> nm) : nm(nm) {
-    inv_nm.clear();
-    for (map<int,int>::iterator it=nm.begin(); it != nm.end(); ++it)
-      inv_nm[it->second].insert(it->first);
-  }
- NodeMap(const NodeMap &other) :
-  nm(other.nm),
-    inv_nm(other.inv_nm) {}
-
-  //  ~NodeMap() { }
-  
-  NodeMap operator=(NodeMap other) {
-    nm = other.nm;
-    inv_nm = other.inv_nm;
-    return other;
-  }
-  map<int,int> nm;  //maps nodes in full tree to nodes in pruned tree
-  map<int, set<int> > inv_nm;  //reverse
-  
-  unsigned int size() {
-    return nm.size();
-  }
-
-  void print() {
-    printf("MAP map.size=%i inv_map.size=%i\n", (int)nm.size(), (int)inv_nm.size());
-    for (unsigned int i=0; i < nm.size(); i++)
-      printf("map[%i]=%i\n", i, nm[i]);
-    printf("inverse map\n");
-    for (map<int,set<int> >::iterator it=inv_nm.begin(); it != inv_nm.end(); ++it) {
-      printf("%i:", it->first);
-      for (set<int>::iterator it2=it->second.begin(); it2 != it->second.end(); ++it2)
-	printf(" %i", *it2);
-      printf("\n");
+    NodeMap() {}
+    NodeMap(map<int,int> nm) : nm(nm) {
+        for (map<int,int>::iterator it=nm.begin(); it != nm.end(); ++it)
+            inv_nm[it->second].insert(it->first);
     }
-    fflush(stdout);
-    return;
-  }
+    NodeMap(const NodeMap &other) :
+        nm(other.nm),
+        inv_nm(other.inv_nm) {}
+    NodeMap operator=(NodeMap other) {
+        nm = other.nm;
+        inv_nm = other.inv_nm;
+        return other;
+    }
+    unsigned int size() {
+        return nm.size();
+    }
+    void print() {
+        printf("MAP map.size=%i inv_map.size=%i\n",
+               (int)nm.size(), (int)inv_nm.size());
+        for (unsigned int i=0; i < nm.size(); i++)
+            printf("map[%i]=%i\n", i, nm[i]);
+        printf("inverse map\n");
+        for (map<int,set<int> >::iterator it=inv_nm.begin();
+             it != inv_nm.end(); ++it) {
+            printf("%i:", it->first);
+            for (set<int>::iterator it2=it->second.begin();
+                 it2 != it->second.end(); ++it2)
+                printf(" %i", *it2);
+            printf("\n");
+        }
+        fflush(stdout);
+        return;
+    }
+    void remap_node(Node *n, int id, int *deleted_branch);
+    void propogate_map(Node *n, int *deleted_branch, int count=0,
+                       int count_since_change=0,
+                       int maxcount=-1, int maxcount_since_change=3);
+
+    map<int,int> nm;  //maps nodes in full tree to nodes in pruned tree
+    map<int, set<int> > inv_nm;  //reverse
 };
+
+class NodeSpr;
 
 // A phylogenetic tree
 class Tree
 {
-public:
-    Tree(int nnodes=0) :
-        nnodes(nnodes),
-        root(NULL),
-	nodes(nnodes, 100),
-	recomb_node(NULL),
-	recomb_time(-1),
-        coal_node(NULL),
-	coal_time(-1)
-    {
-        for (int i=0; i<nnodes; i++)
-            nodes[i] = new Node();
-    }
+ public:
+ Tree(int nnodes=0) :
+    nnodes(nnodes),
+    root(NULL),
+    nodes(nnodes, 100)
+            {
+                for (int i=0; i<nnodes; i++)
+                    nodes[i] = new Node();
+            }
 
     Tree(string newick, const vector<double>& times = vector<double>());
 
     virtual ~Tree()
-    {
-        for (int i=0; i<nnodes; i++)
-            delete nodes[i];
+        {
+            for (int i=0; i<nnodes; i++)
+                delete nodes[i];
 
-    }
+        }
 
     // Sets the branch lengths of the tree
     //  Arguments:
@@ -296,8 +294,7 @@ public:
 
     void reorderLeaves(string *names);
 
-    void apply_spr();
-    void correct_recomb_times(const vector<double> &times);
+    void apply_spr(NodeSpr *spr, NodeMap *node_map=NULL);
     void update_spr(char *newick, const vector<double>& times = vector<double>());
     void update_spr_pruned(Tree *orig_tree);
     NodeMap prune(set<string> leafs, bool allBut=false);
@@ -370,54 +367,32 @@ public:
     double num_zero_branches();
     double distBetweenLeaves(Node *n1, Node *n2);
     double distBetweenLeaves(string n1, string n2) {
-	return distBetweenLeaves(nodes[nodename_map.find(n1)->second],
-				 nodes[nodename_map.find(n2)->second]);
+        return distBetweenLeaves(nodes[nodename_map.find(n1)->second],
+                                 nodes[nodename_map.find(n2)->second]);
     }
     set<Node*> lca(set<Node*> derived);
 
  private:
-    //returns age1-age2 and asserts it is positive, rounds up to zero if slightly neg
-    double age_diff(double age1, double age2); 
-    int get_node_from_newick(char *newick, char *nhx);
-    string print_newick_to_string_recur(Node *n, bool internal_names=true,
-					char *branch_format_str=NULL,
-					bool show_nhx=true, bool oneline=true);
-    void setPostNodesRec(Node *n);
-    // next two are private functions used by apply_spr
-    void propogate_map(Node *n, int *deleted_branch, int count=0, 
-		       int count_since_change=0, 
-		       int maxcount=-1, int maxcount_since_change=3);
-    void remap_node(Node *n, int id, int *deleted_branch);
+    //returns age1-age2 and asserts it is positive,
+    //rounds up to zero if slightly neg
+    double age_diff(double age1, double age2);
+    string format_newick_recur(Node *n, bool internal_names=true,
+                               char *branch_format_str=NULL,
+                               const NodeSpr *spr=NULL,
+                               bool oneline=true);
+    void getPostNodesRec(Node *n, ExtendArray<Node*> *postnodes);
+
 
  public:
-    string print_newick_to_string(bool internal_names=true,
-				  bool branchlen=true, int num_decimal=5,
-				  bool show_nhx=true, bool oneline=true) {
-      char *format_str=NULL;
-      if (branchlen) {
-	format_str = new char[100];
-	sprintf(format_str, "%%.%if", num_decimal);
-      }
-      string rv = print_newick_to_string_recur(root, internal_names,
-					       format_str, show_nhx, oneline);
-      rv.append(";");
-      if (!oneline) rv.append("\n");
-      if (format_str != NULL) {
-	delete [] format_str;
-      }
-      return rv;
-    }
+    int get_node_from_newick(char *newick, char *nhx);
+    string format_newick(bool internal_names=true,
+                         bool branchlen=true, int num_decimal=5,
+                         const NodeSpr *spr=NULL, bool oneline=true);
+    void write_newick(FILE *f, bool internal_name=true, bool branchlen=true,
+                      int num_decimal=5, const NodeSpr *spr=NULL,
+                      bool oneline=true);
 
-    void print_newick(FILE *f, bool internal_name=true, bool branchlen=true,
-		      int num_decimal=5, bool show_nhx=true, 
-		      bool oneline=true) {
-      string str = print_newick_to_string(internal_name, branchlen,
-					  num_decimal, show_nhx,
-					  oneline);
-      fprintf(f, "%s", str.c_str());
-    }
-
-    void setPostNodes();
+    ExtendArray<Node*> getPostNodes();
 
     // Returns a new copy of the tree
     Tree *copy();
@@ -425,16 +400,78 @@ public:
     // Returns whether the tree is self consistent
     bool assertTree();
 
-public:
+ public:
     int nnodes;                 // number of nodes in tree
     Node *root;                 // root of the tree (NULL if no nodes)
     ExtendArray<Node*> nodes;   // array of nodes (size = nnodes)
-    Node *recomb_node;
-    double recomb_time;
-    Node *coal_node;
-    double coal_time;
     map<string,int> nodename_map;
-    ExtendArray<Node*> postnodes;
+};
+
+
+//like Spr in local_tree.h, but with Node pointers and real times
+class NodeSpr {
+ public:
+    NodeSpr() : recomb_node(NULL), coal_node(NULL) {}
+    NodeSpr(Tree *tree, char *newick,
+            const vector<double> &times=vector<double>()) {
+        update_spr_from_newick(tree, newick, times);
+    }
+    void correct_recomb_times(const vector<double> &times);
+    void update_spr_from_newick(Tree *tree, char *newick_str,
+                                const vector<double> &times=vector<double>());
+    Node *recomb_node;
+    Node *coal_node;
+    double recomb_time;
+    double coal_time;
+};
+
+
+// Efficient SPR operation on a tree and its pruned version
+class SprPruned {
+ private:
+    //update spr operation on pruned tree
+    void update_spr_pruned();
+
+    //update object by parsing newick string
+    void update_slow(char *newick, const set<string> inds,
+                     const vector<double> &times = vector<double>());
+ public:
+    SprPruned(char *newick, const set<string> inds,
+              const vector<double> &times = vector<double>())
+        {
+            orig_tree = pruned_tree = NULL;
+            update_slow(newick, inds, times);
+        }
+
+    ~SprPruned() {
+        delete orig_tree;
+        if (pruned_tree != NULL) delete pruned_tree;
+    }
+
+    //print pruned tree if set, otherwise full tree, with NHX string giving
+    // next SPR event
+    string format_newick(bool internal_names=true,
+                         bool branchlen=true, int num_decimal=5,
+                         bool oneline=true) {
+        if (pruned_tree != NULL)
+            return pruned_tree->format_newick(internal_names,
+                                              branchlen,
+                                              num_decimal,
+                                              &pruned_spr, oneline);
+        return orig_tree->format_newick(internal_names, branchlen,
+                                        num_decimal,
+                                        &orig_spr, oneline);
+    }
+
+    //apply spr on both trees and get next SPR from newick string. Don't
+    //parse the newick string unless previous SPR not set
+    void update(char *newick, const set<string> inds,
+                const vector<double> &times = vector<double>());
+
+    Tree *orig_tree;
+    Tree *pruned_tree;
+    NodeSpr orig_spr;
+    NodeSpr pruned_spr;
     NodeMap node_map;
 };
 

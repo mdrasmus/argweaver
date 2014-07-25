@@ -100,8 +100,7 @@ void calc_arghmm_matrices(
     const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
     const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
     const int start, const int end, const int new_chrom,
-    const StatesModel &states_model, ArgHmmMatrices *matrices,
-    PhaseProbs *phase_pr);
+    const StatesModel &states_model, ArgHmmMatrices *matrices);
 
 
 
@@ -283,10 +282,10 @@ public:
     //==================================================
     // accessors
 
-    virtual ArgHmmMatrices &ref_matrices(PhaseProbs *phase_pr = NULL)
+    virtual ArgHmmMatrices &ref_matrices()
     {
         mat.clear();
-        calc_matrices(&mat, phase_pr);
+        calc_matrices(&mat);
         return mat;
     }
 
@@ -340,7 +339,7 @@ public:
 
 protected:
 
-    void calc_matrices(ArgHmmMatrices *matrices, PhaseProbs *phase_pr = NULL)
+    void calc_matrices(ArgHmmMatrices *matrices)
     {
         ArgModel local_model;
         ArgModelBlock &block = blocks.at(block_index);
@@ -350,8 +349,7 @@ protected:
 
         argweaver::calc_arghmm_matrices(
             &local_model, seqs, trees, last_tree_spr, block.tree_spr,
-            block.start, block.end, new_chrom, states_model, matrices,
-	    phase_pr);
+            block.start, block.end, new_chrom, states_model, matrices);
     }
 
 
@@ -386,13 +384,13 @@ public:
     }
 
     // precompute all matrices
-    virtual void setup(PhaseProbs *phase_pr=NULL)
+    virtual void setup()
     {
         ArgHmmMatrixIter::setup();
 
         for (begin(); more(); next()) {
             matrices.push_back(ArgHmmMatrices());
-            calc_matrices(&matrices.back(), phase_pr);
+            calc_matrices(&matrices.back());
         }
     }
 

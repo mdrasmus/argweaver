@@ -152,29 +152,6 @@ char *concat_strs(char **strs, int nstrs)
     return str;
 }
 
-char *quote_arg(const char *text)
-{
-    int j = 0;
-    unsigned int len=strlen(text);
-    char *text2 = new char[len*4+3];
-    text2[j++] = '\'';
-
-    for (unsigned int i=0; i<len; i++) {
-        if (text[i] == '\'') {
-            text2[j++] = '\'';
-            text2[j++] = '\\';
-            text2[j++] = '\'';
-            text2[j++] = '\'';
-        } else
-            text2[j++] = text[i];
-    }
-
-    // terminate string
-    text2[j++] = '\'';
-    text2[j++] = '\0';
-
-    return text2;
-}
 
 // Quote an argument for use in a command shell
 // Argument is wrapped in single quotes and every single quote is escaped.

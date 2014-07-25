@@ -29,7 +29,8 @@ void print_usage() {
            "   Give the sample number for this file; this is important\n"
            "   when combining multiple smc files.\n"
 	   " --times <times.txt>\n"
-	   "   File giving the discrete times used; will help avoid rounding error\n"
+	   "   File giving the discrete times used; will help avoid"
+           "   rounding error\n"
 	   "   in branch lengths/ages\n");
 }
 
@@ -45,6 +46,7 @@ int main(int argc, char *argv[]) {
     char chrom[1000];
     char *newick=NULL;
     Tree *tree=NULL;
+    NodeSpr *spr;
     char *timesfile=NULL;
     int recomb_node, coal_node, sample=0, opt_idx;
     vector<double> times;
@@ -90,7 +92,7 @@ int main(int argc, char *argv[]) {
 	    fprintf(stderr, "Error opening %s.\n", timesfile);
 	    return 1;
 	}
-	while (EOF != fscanf(infile, "%lf", &t)) 
+	while (EOF != fscanf(infile, "%lf", &t))
 	    times.push_back(t);
 	std::sort(times.begin(), times.end());
 	fclose(infile);
@@ -139,10 +141,11 @@ int main(int argc, char *argv[]) {
             char *newick_end = line + strlen(line);
             newick = find(line+5, newick_end, '\t')+1;
             newick = find(newick, newick_end, '\t')+1;
-	    if (tree == NULL || tree->recomb_node == NULL) {
+	    if (tree == NULL || spr->recomb_node == NULL) {
 	      if (tree != NULL) delete tree;
 	      tree = new Tree(string(newick), times);
-	      
+              spr = new NodeSpr(tree, newick, times);
+
 	      //have to rename all leaf nodes and remove NHX comments
 	      for (int i=0; i < tree->nnodes; i++) {
                 int nodenum = atoi(tree->nodes[i]->longname.c_str());
@@ -152,19 +155,19 @@ int main(int argc, char *argv[]) {
                 }
 	      }
 	    } else {
-	      tree->apply_spr();
+	      tree->apply_spr(spr);
 	    }
             delete [] line;
 
             line=fgetline(instream.stream);
             if (line == NULL) {
-	      tree->recomb_node = NULL;
-	      tree->coal_node = NULL;
+	      spr->recomb_node = NULL;
+	      spr->coal_node = NULL;
             } else if (strncmp(line, "SPR", 3)==0) {
 	      int tempend;
 	      if (5 != sscanf(&line[4], "%d\t%d\t%lf\t%d\t%lf",
-			      &tempend, &recomb_node, &(tree->recomb_time),
-			      &coal_node, &(tree->coal_time))) {
+			      &tempend, &recomb_node, &(spr->recomb_time),
+			      &coal_node, &(spr->coal_time))) {
 		fprintf(stderr, "error parsing SPR line\n");
 		return 1;
 	      }
@@ -186,61 +189,34 @@ int main(int argc, char *argv[]) {
 	    if (recomb_node >= 0) {
 	      sprintf(tmpStr, "%i", recomb_node);
 	      //	    char *tmpStr = itoa(recomb_node);
-	      tree->recomb_node = tree->nodes[tree->nodename_map[string(tmpStr)]];
+	      spr->recomb_node =
+                  tree->nodes[tree->nodename_map[string(tmpStr)]];
 	      sprintf(tmpStr, "%i", coal_node);
-	      tree->coal_node = tree->nodes[tree->nodename_map[string(tmpStr)]];
-	      
-	      if (tree->recomb_node->age-1 > tree->recomb_time) 
+	      spr->coal_node = tree->nodes[tree->nodename_map[string(tmpStr)]];
+
+	      if (spr->recomb_node->age-1 > spr->recomb_time)
 		assert(0);
-	      if (tree->recomb_node != tree->root) {
-		if (tree->recomb_node->parent->age+1 < tree->recomb_time)
+	      if (spr->recomb_node != tree->root) {
+		if (spr->recomb_node->parent->age+1 < spr->recomb_time)
 		  assert(0);
 	      }
-	      if (tree->coal_node->age-1 > tree->coal_time)
+	      if (spr->coal_node->age-1 > spr->coal_time)
 		assert(0);
-	      if (tree->coal_node != tree->root) {
-		if (tree->coal_node->parent->age+1 < tree->coal_time) {
+	      if (spr->coal_node != tree->root) {
+		if (spr->coal_node->parent->age+1 < spr->coal_time) {
 		    assert(0);
 		  }
 	       }
-	      if (times.size() > 0) tree->correct_recomb_times(times);
+	      if (times.size() > 0) spr->correct_recomb_times(times);
 	    }
-	      
-	    /*            int coal_found=0;
-            int recomb_found=0;
-            for (int i=0; i < tree->nnodes; i++) {
-                int nodenum = atoi(tree->nodes[i]->longname.c_str());
-                if (nodenum == recomb_node) {
-                    recomb_found++;
-		    tree->recomb_node = tree->nodes[i];
-		    tree->recomb_time = recomb_time;
-                } else if (nodenum == coal_node) {
-                    coal_found++;
-		    tree->coal_node = tree->nodes[i];
-		    tree->coal_time = coal_time;
-                }
-                if (tree->nodes[i]->nchildren == 0) {
-                    assert(nodenum >= 0 && (unsigned int)nodenum < names.size());
-                    tree->nodes[i]->longname = names[nodenum];
-                }
-		}
-            if (recomb_node >= 0 && recomb_found != 1) {
-                tree->print_newick(stderr, true, true, 1);
-                fprintf(stderr, "error finding recomb node (%i, %i)\n", recomb_node, recomb_found);
-                return 1;
-            }
-            if (coal_node >= 0 && coal_found != 1) {
-                fprintf(stderr, "error finding coal node\n");
-                return 1;
-		}*/
             if (region[0] >= 0 && start < region[0])
                 start = region[0];
             if (region[1] >= 0 && end >= region[1]) {
                 end = region[1];
-		tree->recomb_node = tree->coal_node = NULL;
+		spr->recomb_node = spr->coal_node = NULL;
 	    }
             printf("%s\t%i\t%i\t%i\t", chrom, start, end, sample);
-            tree->print_newick(stdout, false, true, 1);
+            tree->write_newick(stdout, false, true, 1, spr);
             printf("\n");
             if (line == NULL) break;
             delete [] line;
