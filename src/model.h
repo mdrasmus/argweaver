@@ -167,9 +167,6 @@ public:
         rho = other.rho;
         mu = other.mu;
         infsites_penalty = other.infsites_penalty;
-        unphased = other.unphased;
-	sample_phase = other.sample_phase;
-	unphased_file = other.unphased_file;
 
         // copy popsizes and times
         set_times(other.times, ntimes);
