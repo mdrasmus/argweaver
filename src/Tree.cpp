@@ -49,8 +49,6 @@ Tree::Tree(string newick, const vector<double>& times)
     root->name = 0;
     stack.push_back(0);
     nnodes = 1;
-    coal_node = recomb_node = NULL;
-    coal_time = recomb_time = -1;
 
     for (int i=0; i < len; i++) {
         switch (newick[i]) {
@@ -87,7 +85,6 @@ Tree::Tree(string newick, const vector<double>& times)
         case '[': { // comment next; parse recomb_node or coal_node
             int count=1;
             int j=i+1;
-            double t;
             string tmpstr;
             while (count != 0) {
                 if (j==len) {
@@ -98,15 +95,6 @@ Tree::Tree(string newick, const vector<double>& times)
                 else if (newick[j]=='[') count++;
                 j++;
             }
-            tmpstr = newick.substr(i+1, j-1-2);
-            if (sscanf(tmpstr.c_str(), "&&NHX:recomb_time=%lf]", &t)==1) {
-                this->recomb_time = t;
-                this->recomb_node = node;
-            } else if (sscanf(tmpstr.c_str(), "&&NHX:coal_time=%lf]", &t)==1) {
-                this->coal_time = t;
-                this->coal_node = node;
-            }
-            //            node->nhx = newick.substr(i+1, j-i-2);
             i=j-1;
             break;
         }
@@ -143,11 +131,8 @@ Tree::Tree(string newick, const vector<double>& times)
         else postnodes[i]->age = postnodes[i]->children[0]->age +
                  postnodes[i]->children[0]->dist;
     }
-    if (times.size() > 0) {
+    if (times.size() > 0)
         this->correct_times(times, 1);
-        if (recomb_node != NULL )
-            this->correct_recomb_times(times);
-    }
 
     for (int i=0; i < nnodes; i++) {
         if (nodes[i]->longname.length() > 0)
@@ -155,6 +140,20 @@ Tree::Tree(string newick, const vector<double>& times)
     }
 }
 
+
+double Tree::age_diff(double age1, double age2) {
+    double diff = age1 - age2;
+    if (diff < 0) {
+        if (diff < -2) {
+            fprintf(stderr, "got age diff=%.8f (age1=%.8f, age2=%.8f)\n",
+                    diff, age1, age2);
+            fflush(stderr);
+            assert(0);
+        }
+        return 0.0;
+    }
+    return diff;
+}
 
 //void Tree::correct_times(map<string,double> times) {
 void Tree::correct_times(vector<double> times, double tol) {
@@ -187,9 +186,9 @@ void Tree::correct_times(vector<double> times, double tol) {
 }
 
 
-string Tree::print_newick_to_string_recur(Node *n, bool internal_names,
-                                          char *branch_format_str,
-                                          bool show_nhx, bool oneline) {
+string Tree::format_newick_recur(Node *n, bool internal_names,
+                                 char *branch_format_str,
+                                 const NodeSpr *spr, bool oneline) {
     string rv;
     char tmp[1000];
     if (n->nchildren > 0) {
@@ -201,16 +200,16 @@ string Tree::print_newick_to_string_recur(Node *n, bool internal_names,
             second=0;
         }
         rv.append("(");
-        rv.append(print_newick_to_string_recur(n->children[first],
-                                               internal_names,
-                                               branch_format_str,
-                                               show_nhx, oneline));
+        rv.append(format_newick_recur(n->children[first],
+                                      internal_names,
+                                      branch_format_str,
+                                      spr, oneline));
         for (int i=1; i < n->nchildren; i++) {
             rv.append(",");
-            rv.append(print_newick_to_string_recur(n->children[second],
-                                                   internal_names,
-                                                   branch_format_str,
-                                                   show_nhx, oneline));
+            rv.append(format_newick_recur(n->children[second],
+                                          internal_names,
+                                          branch_format_str,
+                                          spr, oneline));
         }
         rv.append(")");
         if (internal_names) rv.append(n->longname);
@@ -223,12 +222,12 @@ string Tree::print_newick_to_string_recur(Node *n, bool internal_names,
         sprintf(tmp, branch_format_str, n->dist);
         rv.append(tmp);
     }
-    if (show_nhx) {
-        if (n == this->recomb_node) {
-            sprintf(tmp,"[&&NHX:recomb_time=%.1f]", this->recomb_time);
+    if (spr != NULL) {
+        if (n == spr->recomb_node) {
+            sprintf(tmp,"[&&NHX:recomb_time=%.1f]", spr->recomb_time);
             rv.append(tmp);
-        } if (n == this->coal_node) {
-            sprintf(tmp, "[&&NHX:coal_time=%.1f]", this->coal_time);
+        } if (n == spr->coal_node) {
+            sprintf(tmp, "[&&NHX:coal_time=%.1f]", spr->coal_time);
             rv.append(tmp);
         }
     }
@@ -236,6 +235,33 @@ string Tree::print_newick_to_string_recur(Node *n, bool internal_names,
     return rv;
 }
 
+string Tree::format_newick(bool internal_names, bool branchlen,
+                           int num_decimal, const NodeSpr *spr,
+                           bool oneline) {
+    char *format_str=NULL;
+    if (branchlen) {
+        format_str = new char[100];
+        sprintf(format_str, "%%.%if", num_decimal);
+    }
+    string rv = format_newick_recur(root, internal_names,
+                                    format_str, spr, oneline);
+    rv.append(";");
+    if (!oneline) rv.append("\n");
+    if (format_str != NULL) {
+        delete [] format_str;
+    }
+    return rv;
+}
+
+
+void Tree::write_newick(FILE *f, bool internal_name, bool branchlen,
+                        int num_decimal, const NodeSpr *spr,
+                        bool oneline) {
+    string str = format_newick(internal_name, branchlen,
+                               num_decimal, spr,
+                               oneline);
+    fprintf(f, "%s", str.c_str());
+}
 
 // return a copy of the tree
 Tree *Tree::copy()
@@ -267,20 +293,18 @@ Tree *Tree::copy()
     }
 
     tree2->root = nodes2[root->name];
-    tree2->recomb_time = recomb_time;
-    tree2->coal_time = coal_time;
-    tree2->recomb_node = recomb_node == NULL ? NULL : nodes2[recomb_node->name];
-    tree2->coal_node = coal_node == NULL ? NULL : nodes2[coal_node->name];
     tree2->nodename_map = nodename_map;
     return tree2;
 }
 
 
 
-//private function called by update_spr below
-//given a nhx tag, looks backwards until a node name is found,
-//simultaneously counting close-parenthesis till it finds it.
-// then the node is that many up from the leaf given by the node name.
+//private function called by update_spr
+//given a nhx tag within a newick string, returns the index of the node
+//in the tree that the tag refers to.
+// This is done assuming that only leafs have names, so first it finds
+// the leaf below the node with the NHX tag, then counts the close
+// parenthesis to figure out how many nodes up from the leaf to go.
 int Tree::get_node_from_newick(char *newick, char *nhx) {
     int num_paren=0;
     /* printf("get_node_from_newick\n");
@@ -307,7 +331,7 @@ int Tree::get_node_from_newick(char *newick, char *nhx) {
             }
             nhx++;
             map<string,int>::iterator it = nodename_map.find(string(nhx));
-            if (it ==nodename_map.end()) { //error
+            if (it == nodename_map.end()) { //error
                 printf("nodename_map size=%i\n", (int)nodename_map.size());
                 printf("nhx=%s\n", nhx);
                 assert(it != nodename_map.end());
@@ -317,7 +341,9 @@ int Tree::get_node_from_newick(char *newick, char *nhx) {
             tmp[0]=':';
             for (int i=0; i < num_paren; i++) {
                 if (nodes[n]->parent == NULL) {
-                    printf("assert failed newick=%s nhx=%s node=%i num_paren=%i i=%i\n", newick, nhx, nodes[n]->name, num_paren, i);
+                    printf("assert failed newick=%s nhx=%s node=%i "
+                           "num_paren=%i i=%i\n", newick, nhx, nodes[n]->name,
+                           num_paren, i);
                 }
                 assert(nodes[n]->parent != NULL);
                 n = nodes[n]->parent->name;
@@ -328,167 +354,85 @@ int Tree::get_node_from_newick(char *newick, char *nhx) {
     }
 }
 
-void Tree::correct_recomb_times(const vector<double>& times) {
-    unsigned int i;
-    for (i=0; i < times.size(); i++)
-        if (fabs(recomb_time - times[i]) < 1) {
-            recomb_time = times[i];
-            break;
-        }
-    assert(i != times.size());
-    for (; i < times.size(); i++) {
-        if (fabs(coal_time - times[i]) < 1) {
-            coal_time = times[i];
-            return;
-        }
-    }
-    assert(0);
-}
 
-void Tree::update_spr(char *newick, const vector<double>& times) {
-    char search1[100]="[&&NHX:recomb_time=";
-    char search2[100]="[&&NHX:coal_time=";
-    char *x = strstr(newick, search1);
-    /*fprintf(stderr, "update_spr\n");
-      fprintf(stderr, "%s\n", newick);*/
-    if (x == NULL) {
-        recomb_node = NULL;
-        coal_node = NULL;
-        //    printf("no recomb node\n");
-        return;
-    }
-    assert(1==sscanf(x, "[&&NHX:recomb_time=%lg", &recomb_time));
-    recomb_node = nodes[this->get_node_from_newick(newick, x)];
-
-    x = strstr(newick, search2);
-    assert(x != NULL);
-    assert(1 == sscanf(x, "[&&NHX:coal_time=%lg", &coal_time));
-    coal_node = nodes[this->get_node_from_newick(newick, x)];
-
-    if (times.size() > 0) this->correct_recomb_times(times);
-    //printf("done update_spr recomb_node=%i coal_node=%i\n", recomb_node->name, coal_node->name);
-}
-
-//update the SPR on pruned tree based on node_map in big tree
-void Tree::update_spr_pruned(Tree *orig_tree) {
-    if (orig_tree->recomb_node == NULL) {
-        recomb_node = coal_node = NULL;
-        return;
-    }
-    int num=orig_tree->node_map.nm[orig_tree->recomb_node->name];
-    if (num == -1 || nodes[num] == root) {
-        recomb_node = coal_node = NULL;
-    } else {
-        assert(num>=0);
-        recomb_node = nodes[num];
-        recomb_time = orig_tree->recomb_time;
-        num = orig_tree->node_map.nm[orig_tree->coal_node->name];
-        if (num == -1) {
-            // coal node does not map; need to trace back until it does
-            Node *n = orig_tree->coal_node;
-            while (orig_tree->node_map.nm[n->name] == -1) {
-                //should never be root here; root should always map to pruned tree
-                assert(n->parent != NULL);
-                n = n->parent;
-            }
-            assert(orig_tree->coal_time-1 <= n->age);
-            coal_time = n->age;
-            coal_node = nodes[orig_tree->node_map.nm[n->name]];
-        } else {
-            assert(num >= 0);
-            coal_node = nodes[num];
-            coal_time = orig_tree->coal_time;
-        }
-        if (recomb_node == coal_node) {
-            recomb_node = coal_node = NULL;
-        }
-    }
-    if (recomb_node != NULL) assert(coal_node != NULL);
-}
-
-
-void Tree::remap_node(Node *n, int id, int *deleted_branch) {
-    int old_id = node_map.nm[n->name];
+void NodeMap::remap_node(Node *n, int id, int *deleted_branch) {
+    int old_id = nm[n->name];
     //  printf("remap_node %i %i->%i\n", n->name, old_id, id);
     if (old_id == id) return; // no change
-    node_map.inv_nm[old_id].erase(n->name);
-    if (old_id >= 0 && node_map.inv_nm[old_id].size() == 0) {
+    inv_nm[old_id].erase(n->name);
+    if (old_id >= 0 && inv_nm[old_id].size() == 0) {
         assert((*deleted_branch)==-1 || (*deleted_branch)==old_id);
         *deleted_branch = old_id;
         //    printf("deleted_branch=%i\n", *deleted_branch); fflush(stdout);
     }
-    node_map.nm[n->name] = id;
-    node_map.inv_nm[id].insert(n->name);
+    nm[n->name] = id;
+    inv_nm[id].insert(n->name);
 }
 
 
-void Tree::propogate_map(Node *n, int *deleted_branch, int count,
-                         int count_since_change, int maxcount,
-                         int maxcount_since_change) {
+void NodeMap::propogate_map(Node *n, int *deleted_branch, int count,
+                            int count_since_change, int maxcount,
+                            int maxcount_since_change) {
     Node *c0, *c1;
 
     if (count==maxcount) return;
     if (count_since_change == maxcount_since_change) return;
     if (n->nchildren == 0)
         return propogate_map(n->parent, deleted_branch, count+1,
-                             count_since_change+1, maxcount, maxcount_since_change);
+                             count_since_change+1, maxcount,
+                             maxcount_since_change);
     c0 = n->children[0];
     c1 = n->children[1];
-    //  printf("propogate_map %i (%i) %i (%i) %i (%i) count=%i\n", n->name, node_map.nm[n->name], c0->name, node_map.nm[c0->name], c1->name, node_map.nm[c1->name], count); fflush(stdout);
+    /*  printf("propogate_map %i (%i) %i (%i) %i (%i) count=%i\n",
+                n->name, nm[n->name], c0->name, nm[c0->name],
+                c1->name, nm[c1->name], count); fflush(stdout); */
     int change=0;
-    if (node_map.nm[c0->name] == -1 && node_map.nm[c1->name] == -1) {
-        if (node_map.nm[n->name] != -1) {
+    if (nm[c0->name] == -1 && nm[c1->name] == -1) {
+        if (nm[n->name] != -1) {
             remap_node(n, -1, deleted_branch);
             change=1;
         }
-    } else if (node_map.nm[c0->name] == -1 ||
-               node_map.nm[c1->name] == -1) {
-        Node *c = node_map.nm[c0->name] == -1 ? c1 : c0;
-        if (node_map.nm[n->name] != node_map.nm[c->name]) {
-            remap_node(n, node_map.nm[c->name], deleted_branch);
+    } else if (nm[c0->name] == -1 ||
+               nm[c1->name] == -1) {
+        Node *c = nm[c0->name] == -1 ? c1 : c0;
+        if (nm[n->name] != nm[c->name]) {
+            remap_node(n, nm[c->name], deleted_branch);
             change=1;
         }
     } else {  // neither are -1
-        if (node_map.nm[c0->name] == node_map.nm[c1->name]) {
+        if (nm[c0->name] == nm[c1->name]) {
             printf("here n=%i c0=%i c1=%i %i %i %i %i\n",
-                   n->name, c0->name, c1->name, node_map.nm[n->name], node_map.nm[c0->name], node_map.nm[c1->name], *deleted_branch); fflush(stdout);
+                   n->name, c0->name, c1->name, nm[n->name],
+                   nm[c0->name], nm[c1->name],
+                   *deleted_branch);
+            fflush(stdout);
             assert(0);
         }
-        if (node_map.nm[n->name] == -1 || node_map.nm[n->name]==-3 ||
-            node_map.nm[n->name] == node_map.nm[c0->name] ||
-            node_map.nm[n->name] == node_map.nm[c1->name]) {
+        if (nm[n->name] == -1 || nm[n->name]==-3 ||
+            nm[n->name] == nm[c0->name] ||
+            nm[n->name] == nm[c1->name]) {
             change=1;
             remap_node(n, -2, deleted_branch);
         }
     }
-    if (n == root) return;
-    return propogate_map(n->parent, deleted_branch, count+1, change==0 ? count+1 : 0, maxcount, maxcount_since_change);
-}
-
-double Tree::age_diff(double age1, double age2) {
-    double diff = age1 - age2;
-    if (diff < 0) {
-        if (diff < -2) {
-            fprintf(stderr, "got age diff=%.8f (age1=%.8f, age2=%.8f)\n", diff, age1, age2);
-            fflush(stderr);
-            assert(0);
-        }
-        return 0.0;
-    }
-    return diff;
+    if (n->parent == NULL) return;
+    return propogate_map(n->parent, deleted_branch, count+1,
+                         change==0 ? count+1 : 0, maxcount,
+                         maxcount_since_change);
 }
 
 
-//by the prune function. It will be modified to map the branches from
-//the full to pruned tree after the SPR operation.
-// if prune_root is not NULL, it should correspond to node id in big tree which
-// forms root of pruned tree, and will be updated if necessary
-void Tree::apply_spr() {
-    Node *recomb_parent, *recomb_grandparent, *recomb_sibling, *coal_parent=NULL;
+//apply the spr operation to the tree.
+//if node_map is not NULL, update it so that it maps to branches of
+//pruned tree after SPR opreration on both trees
+void Tree::apply_spr(NodeSpr *spr, NodeMap *node_map) {
+    Node *recomb_parent, *recomb_grandparent, *recomb_sibling,
+        *coal_parent=NULL;
     int x;
-    /*fprintf(stderr, "apply_spr recomb_node=%i (%i) coal_node=%i (%i) root=%i\n", recomb_node->name, recomb_node->nchildren, coal_node->name, coal_node->nchildren, root->name);
-      this->print_newick(stderr);
-      fprintf(stderr, "\n"); fflush(stderr);*/
+    Node *recomb_node = spr->recomb_node;
+    Node *coal_node = spr->coal_node;
+    double coal_time = spr->coal_time;
+
     if (recomb_node == NULL) return;
     if (recomb_node == root) {
         if (coal_node != root) {
@@ -544,7 +488,8 @@ void Tree::apply_spr() {
         recomb_sibling->parent = NULL;
     }
 
-    //recomb_parent is extracted; re-use as new_node. one child is still recomb_node
+    //recomb_parent is extracted; re-use as new_node. one child is still
+    //recomb_node
     recomb_parent->children[!x] = coal_node;
     coal_node->dist = age_diff(coal_time, coal_node->age);
     recomb_node->dist = age_diff(coal_time, recomb_node->age);
@@ -553,39 +498,138 @@ void Tree::apply_spr() {
     if (coal_parent != NULL) {
         recomb_parent->parent = coal_parent;
         recomb_parent->dist = age_diff(coal_parent->age, coal_time);
-        coal_parent->children[coal_parent->children[0]==coal_node ? 0 : 1] = recomb_parent;
+        coal_parent->children[coal_parent->children[0]==coal_node ? 0 : 1] =
+            recomb_parent;
     } else {
         root = recomb_parent;
         recomb_parent->parent = NULL;
     }
-    //  this->print_newick(stdout, 1, NULL, 0); printf("\n"); fflush(stdout);
-    if (node_map.size() > 0) {
+    //  this->write_newick(stdout, 1, NULL, 0); printf("\n"); fflush(stdout);
+    if (node_map != NULL) {
         int deleted_branch=-1;
         //set recomb_node and recomb_parent maps to -3 = unknown
-        remap_node(recomb_parent, -3, &deleted_branch);
-        propogate_map(coal_node, &deleted_branch, 0, 0, 1, 1);
-        propogate_map(recomb_node, &deleted_branch, 0, 0, 1, 1);
-        propogate_map(recomb_sibling, &deleted_branch, 0, 0, -1, 4);
-        propogate_map(recomb_parent, &deleted_branch, 0, 0, -1, 4);
-        //    if (recomb_grandparent != NULL)
-        //      propogate_map(recomb_grandparent, &deleted_branch, 0, 0, -1, 4);
+        node_map->remap_node(recomb_parent, -3, &deleted_branch);
+        node_map->propogate_map(coal_node, &deleted_branch, 0, 0, 1, 1);
+        node_map->propogate_map(recomb_node, &deleted_branch, 0, 0, 1, 1);
+        node_map->propogate_map(recomb_sibling, &deleted_branch, 0, 0, -1, 4);
+        node_map->propogate_map(recomb_parent, &deleted_branch, 0, 0, -1, 4);
 
-        map<int,set<int> >::iterator it = node_map.inv_nm.find(-2);
-        if (it != node_map.inv_nm.end() && it->second.size() > 0) {
+        map<int,set<int> >::iterator it = node_map->inv_nm.find(-2);
+        if (it != node_map->inv_nm.end() && it->second.size() > 0) {
             if (deleted_branch == -1) {
                 assert(deleted_branch != -1);
             }
             set<int> rename_nodes = it->second;
-            for (set<int>::iterator it2 = rename_nodes.begin(); it2 != rename_nodes.end(); ++it2) {
-                remap_node(nodes[*it2], deleted_branch, &deleted_branch);
+            for (set<int>::iterator it2 = rename_nodes.begin();
+                 it2 != rename_nodes.end(); ++it2) {
+                node_map->remap_node(nodes[*it2], deleted_branch,
+                                     &deleted_branch);
             }
         }
         for (int i=0; i < nnodes; i++) {
-            if (node_map.nm[i] == -2) {
+            if (node_map->nm[i] == -2) {
                 assert(0);
             }
         }
-        //    node_map.print();
+        //    node_map->print();
+    }
+}
+
+
+void NodeSpr::correct_recomb_times(const vector<double>& times) {
+    unsigned int i;
+    for (i=0; i < times.size(); i++)
+        if (fabs(recomb_time - times[i]) < 1) {
+            recomb_time = times[i];
+            break;
+        }
+    assert(i != times.size());
+    for (; i < times.size(); i++) {
+        if (fabs(coal_time - times[i]) < 1) {
+            coal_time = times[i];
+            return;
+        }
+    }
+    assert(0);
+}
+
+/* get new SPR from newick string */
+void NodeSpr::update_spr_from_newick(Tree *tree, char *newick,
+                                     const vector<double>& times) {
+    char search1[100]="[&&NHX:recomb_time=";
+    char search2[100]="[&&NHX:coal_time=";
+    char *x = strstr(newick, search1);
+    if (x == NULL) {
+        recomb_node = NULL;
+        coal_node = NULL;
+        return;
+    }
+    assert(1==sscanf(x, "[&&NHX:recomb_time=%lg", &recomb_time));
+    recomb_node = tree->nodes[tree->get_node_from_newick(newick, x)];
+
+    x = strstr(newick, search2);
+    assert(x != NULL);
+    assert(1 == sscanf(x, "[&&NHX:coal_time=%lg", &coal_time));
+    coal_node = tree->nodes[tree->get_node_from_newick(newick, x)];
+
+    if (times.size() > 0) correct_recomb_times(times);
+}
+
+//update the SPR on pruned tree based on node_map in big tree
+void SprPruned::update_spr_pruned() {
+    if (orig_spr.recomb_node == NULL) {
+        pruned_spr.recomb_node = pruned_spr.coal_node = NULL;
+        return;
+    }
+    int num=node_map.nm[orig_spr.recomb_node->name];
+    if (num == -1 || pruned_tree->nodes[num] == pruned_tree->root) {
+        pruned_spr.recomb_node = pruned_spr.coal_node = NULL;
+    } else {
+        assert(num>=0);
+        pruned_spr.recomb_node = pruned_tree->nodes[num];
+        pruned_spr.recomb_time = orig_spr.recomb_time;
+        num = node_map.nm[orig_spr.coal_node->name];
+        if (num == -1) {
+            // coal node does not map; need to trace back until it does
+            Node *n = orig_spr.coal_node;
+            while (node_map.nm[n->name] == -1) {
+                //root should always map to pruned tree
+                assert(n->parent != NULL);
+                n = n->parent;
+            }
+            assert(orig_spr.coal_time-1 <= n->age);
+            pruned_spr.coal_time = n->age;
+            pruned_spr.coal_node = pruned_tree->nodes[node_map.nm[n->name]];
+        } else {
+            assert(num >= 0);
+            pruned_spr.coal_node = pruned_tree->nodes[num];
+            pruned_spr.coal_time = orig_spr.coal_time;
+        }
+        if (pruned_spr.recomb_node == pruned_spr.coal_node) {
+            pruned_spr.recomb_node = pruned_spr.coal_node = NULL;
+        }
+    }
+    if (pruned_spr.recomb_node != NULL) assert(pruned_spr.coal_node != NULL);
+}
+
+void SprPruned::update(char *newick, const set<string> inds,
+                       const vector<double> &times) {
+    //in this first case need to parse newick tree again
+    if (orig_spr.recomb_node == NULL) {
+        // this should only happen at the end of regions analyzed
+        // by arg-sample, there will be no SPR there, so need to
+        // parse the newick. The pruned tree can have NULL recomb_node
+        // though because the SPR operation may have been pruned.
+        update_slow(newick, inds, times);
+    } else {
+        //otherwise, apply the SPR and node map, and get next SPR
+        orig_tree->apply_spr(&orig_spr, inds.size() > 0 ? &node_map : NULL);
+        orig_spr.update_spr_from_newick(orig_tree, newick, times);
+        if (pruned_tree != NULL) {
+            if (pruned_spr.recomb_node != NULL)
+                pruned_tree->apply_spr(&pruned_spr, NULL);
+            update_spr_pruned();
+        }
     }
 }
 
@@ -613,28 +657,20 @@ NodeMap Tree::prune(set<string> leafs, bool allBut) {
             if (prune) {
                 Node *parent = postnodes[i]->parent;
                 node_map[postnodes[i]->name] = -1;
-                if (recomb_node == postnodes[i]) {
-                    recomb_node = NULL;
-                    recomb_time = -1;
-                    coal_node = NULL;
-                    coal_time = -1;
-                }
-                if (coal_node == postnodes[i]) {
-                    coal_node = parent;
-                    coal_time = parent->age;
-                }
                 if (parent != NULL) {
                     int j, maxj=parent->nchildren;
                     for (j=0; j < maxj; j++) {
                         if (parent->children[j] == postnodes[i]) {
-                            parent->children[j] = parent->children[parent->nchildren-1];
+                            parent->children[j] =
+                                parent->children[parent->nchildren-1];
                             parent->nchildren--;
                             delete postnodes[i];
                             break;
                         }
                     }
                     if (j == maxj) {
-                        fprintf(stderr, "error in tree.prune(): didn't find child in parent node\n");
+                        fprintf(stderr,
+                                "error in tree.prune(): didn't find child\n");
                         exit(-1);
                     }
                 } else {  //entire tree has been pruned!
@@ -649,18 +685,10 @@ NodeMap Tree::prune(set<string> leafs, bool allBut) {
             }
         } else if (postnodes[i]->nchildren == 1) {
             if (postnodes[i] == root) {
-                node_map[postnodes[i]->name] = node_map[postnodes[i]->children[0]->name];
+                node_map[postnodes[i]->name] =
+                    node_map[postnodes[i]->children[0]->name];
                 root = postnodes[i]->children[0];
                 root->parent = NULL;
-                if (recomb_node == postnodes[i]) {
-                    recomb_node = NULL;
-                    recomb_time = -1;
-                    coal_node = NULL;
-                    coal_time = -1;
-                }
-                if (coal_node == postnodes[i]) {
-                    coal_node = root;
-                }
                 delete postnodes[i];
             } else {
                 Node *parent = postnodes[i]->parent;
@@ -670,17 +698,15 @@ NodeMap Tree::prune(set<string> leafs, bool allBut) {
                         parent->children[j] = postnodes[i]->children[0];
                         postnodes[i]->children[0]->dist += postnodes[i]->dist;
                         postnodes[i]->children[0]->parent = parent;
-                        if (postnodes[i] == recomb_node)
-                            recomb_node = postnodes[i]->children[0];
-                        if (postnodes[i] == coal_node)
-                            coal_node = postnodes[i]->children[0];
-                        node_map[postnodes[i]->name] = node_map[postnodes[i]->children[0]->name];
+                        node_map[postnodes[i]->name] =
+                            node_map[postnodes[i]->children[0]->name];
                         delete postnodes[i];
                         break;
                     }
                 }
                 if (j == maxj) {
-                    fprintf(stderr, "error in tree.prune(): didn't find child in parent node2\n");
+                    fprintf(stderr,
+                            "error in tree.prune(): didn't find child2\n");
                     exit(-1);
                 }
             }
@@ -689,36 +715,10 @@ NodeMap Tree::prune(set<string> leafs, bool allBut) {
             newnodes.append(postnodes[i]);
         }
     }
-    if (recomb_node == root || recomb_node == coal_node) {
-        recomb_node = NULL;
-        coal_node = NULL;
-        recomb_time = coal_time = -1;
-    }
-
     nodes.clear();
     for (int i=0; i < newnodes.size(); i++) {
         nodes.append(newnodes[i]);
         nodes[i]->name = i;
-        // temporary check
-        int error=0;
-        if (newnodes[i] == recomb_node) {
-            if (recomb_time+2 < nodes[i]->age) {
-                fprintf(stderr, "bad recomb age (too small)\n"); error=1;
-            } else if (recomb_time-2 > nodes[i]->age + nodes[i]->dist) {
-                fprintf(stderr, "bad recomb age (too big)\n"); error=1;
-            }
-        }
-        if (newnodes[i] == coal_node) {
-            if (coal_time+2 < nodes[i]->age) {
-                fprintf(stderr, "bad coal age (too small) coal_time=%lf age=%lf\n", coal_time, nodes[i]->age); error=1;
-            } else if (coal_node != root && coal_time-2 > nodes[i]->age + nodes[i]->dist) {
-                fprintf(stderr, "bad coal age (too big) coal_time=%lf age=%lf dist=%lf\n", coal_time, nodes[i]->age, nodes[i]->dist); error=1;
-            }
-        }
-        if (error) {
-            this->print_newick(stderr);
-            exit(1);
-        }
     }
     nnodes = nodes.size();
     nodename_map.clear();
@@ -729,7 +729,19 @@ NodeMap Tree::prune(set<string> leafs, bool allBut) {
     return NodeMap(node_map);
 }
 
-
+void SprPruned::update_slow(char *newick, const set<string> inds,
+                            const vector<double> &times) {
+    if (orig_tree  != NULL) delete(orig_tree);
+    if (pruned_tree != NULL) delete(pruned_tree);
+    orig_tree = new Tree(newick, times);
+    orig_spr = NodeSpr(orig_tree, newick, times);
+    if (inds.size() > 0) {
+        pruned_tree = orig_tree->copy();
+        pruned_spr = orig_spr;
+        node_map = pruned_tree->prune(inds, true);
+        update_spr_pruned();
+    } else pruned_tree = NULL;
+}
 
 // assumes both trees have same number of nodes
 // and have same leaves
@@ -1079,7 +1091,8 @@ void getTreeSortedPostOrder(Tree *tree, ExtendArray<Node*> *nodes,
 
     // recurse
     for (int i=0; i<node->nchildren; i++)
-        getTreeSortedPostOrder(tree, nodes, ordering, node->children[childperm[i]]);
+        getTreeSortedPostOrder(tree, nodes, ordering,
+                               node->children[childperm[i]]);
 
     // record post-process
     nodes->append(node);
@@ -1163,8 +1176,9 @@ void printTree(Tree *tree, Node *node, int depth)
 }
 
 
+//=============================================================================
+// Tree statistics
 
-//some statistics
 double Tree::total_branchlength() {
     double len=0.0;
     ExtendArray<Node*> postnodes = this->getPostNodes();
@@ -1264,7 +1278,8 @@ double Tree::tmrca_half() {
     for (int i=0; i < postnodes.size(); i++) {
         numnodes[postnodes[i]->name] = 1;
         for (int j=0; j < postnodes[i]->nchildren; j++) {
-            numnodes[postnodes[i]->name] += numnodes[postnodes[i]->children[j]->name];
+            numnodes[postnodes[i]->name] +=
+                numnodes[postnodes[i]->children[j]->name];
         }
     }
     assert(nnodes == numnodes[root->name]);
@@ -1301,8 +1316,8 @@ double Tree::distBetweenLeaves(Node *n1, Node *n2) {
 
 // want to return set of nodes above which mutations happened under infinite
 // sites to cause site pattern.
-// assumes tree has been pruned so that only leafs with information remain (no Ns)
-// this is not particularly efficient! may want to think of something faster some time.
+// assumes tree has been pruned to remove non-informative leafs
+// this is not particularly efficient! may want to think of something faster.
 set<Node*> Tree::lca(set<Node*> derived) {
     set<Node*>::iterator it;
     set<Node*> rv;
