@@ -7,8 +7,8 @@
 #include <math.h>
 #include <algorithm>
 
-using namespace std;
-namespace spidir {
+
+namespace argweaver {
 
 double compute_mean(vector<double> scores) {
     double rv=0.0;
