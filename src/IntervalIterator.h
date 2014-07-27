@@ -24,19 +24,19 @@ template <class scoreT>
 class Interval {
 public:
     Interval(string chrom, int start, int end):
-        chrom(chrom), start(start), end(end), have_mean(0)
+        chrom(chrom), start(start), end(end), have_mean(false)
     {
         scores.clear();
     }
     Interval(string chrom, int start, int end, scoreT score):
-        chrom(chrom), start(start), end(end), have_mean(1), meanval(score)
+        chrom(chrom), start(start), end(end), have_mean(true), meanval(score)
     {
         scores.clear();
         scores.push_back(score);
     }
     void add_score(scoreT score) {
         scores.push_back(score);
-        have_mean=0;
+        have_mean = false;
     }
     int num_score() {
         return scores.size();
@@ -54,7 +54,7 @@ public:
 
     scoreT mean() {
         meanval = compute_mean(scores);
-        have_mean = 1;
+        have_mean = true;
         return meanval;
     }
     scoreT stdev() {
@@ -71,7 +71,7 @@ public:
     int end;
 
 private:
-    int have_mean;
+    bool have_mean;
     scoreT meanval;
     vector<scoreT> scores;
 };
