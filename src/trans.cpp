@@ -96,7 +96,7 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
                 log(1.0 + exp(C[2*b-1] - matrix->lnB[b-1])*bval);
         }
         matrix->lnE2[b] = -C[2*b-2] +
-          (b < ntimes - 2 ? log(1 - exp(-coal_rates[2*b]-coal_rates[2*b-1])) : 0.0);
+            (b < ntimes - 2 ? log(1 - exp(-coal_rates[2*b]-coal_rates[2*b-1])) : 0.0);
         matrix->lnNegG1[b] = C[2*b-1] + log( - time_steps[b] * (
             (nbranches[b] / (nrecombs[b] + 1.0 + int(b < root_age_index)))
             - (nbranches[b] + 1.0) / (nrecombs[b] + 1.0)));

@@ -103,20 +103,19 @@ public:
                                 exp(lnE2[b] + lnNegG1[a])
                                 - minage_term);
             } else if (a == b) {
-                return term1 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) +
-                                 G3[b] - minage_term);
+                return term1 * ((b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) +
+                                G3[b] - minage_term);
             } else { // b < a
-                return term1 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0)
-                                 + G2[b] - minage_term);
+                return term1 * ((b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0)
+                                + G2[b] - minage_term);
             }
         } else {
-            double c_term = 0.0;
-            if (c > 0) c_term = exp(lnG4[b] + lnB[c-1]);
+            double c_term = (c > 0 ? exp(lnG4[b] + lnB[c-1]) : 0.0);
 
             if (a < b) {
                 return term1 * (2 * (exp(lnE2[b] + lnB[a]) -
                                      exp(lnE2[b] + lnNegG1[a]))
-                              - c_term - minage_term);
+                                - c_term - minage_term);
             } else if (a == b) {
                 return term1 * ((2 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) + G3[b]))
                                 - c_term - minage_term)
