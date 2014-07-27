@@ -46,9 +46,10 @@
 
 */
 
+namespace spidir {
+
 using namespace std;
 
-namespace spidir {
 
 // invariant: node->child->prev == last child of node
 // invariant: [last child of node].next == NULL
@@ -57,26 +58,23 @@ namespace spidir {
 // A node in the phylogenetic tree
 class Node
 {
- public:
- Node(int nchildren=0) :
-    name(-1),
+public:
+    Node(int nchildren=0) :
+        name(-1),
         parent(NULL),
-        //child(NULL),
-        //next(NULL),
-        //prev(NULL),
         children(NULL),
         nchildren(nchildren),
         dist(0.0)
-            {
-                if (nchildren != 0)
-                    allocChildren(nchildren);
-            }
+    {
+        if (nchildren != 0)
+            allocChildren(nchildren);
+    }
 
     ~Node()
-        {
-            if (children)
-                delete [] children;
-        }
+    {
+        if (children)
+            delete [] children;
+    }
 
     // Sets and allocates the number of children '_nchildren'
     void setChildren(int _nchildren)
@@ -103,84 +101,11 @@ class Node
         children[nchildren - 1] = node;
         node->parent = this;
 
-        /*
-        // update pointers
-        if (!child) {
-            // adding first child
-            child = node;
-            node->prev = node;
-        } else {
-            Node *last = child->prev;
-            last->next = node;
-            node->prev = last;
-            node->next = NULL;
-            child->prev = node;
-        }
-        */
     }
-
-    /*
-    void RemoveChild(Node *node)
-    {
-        if (node->next) {
-            // introduce your right sibling your left sibling
-            nodem->next->prev = node->prev;
-        } else if (elm != m_child) {
-            // removing last child, update last pointer
-            child->prev = node->prev;
-        }
-
-        if (node != child) {
-            // introduce your left sibling your right sibling
-            node->prev->next = node->next;
-        } else {
-            // if removing first child, find new first child
-            // NOTE: node->next could be NULL and that is OK
-            child = node->next;
-        }
-
-        // remove old links
-        node->parent = NULL;
-        node->next = NULL;
-        node->prev = NULL;
-    }
-    */
-
-    /*
-    void ReplaceChild(Node *oldchild, Node *newchild)
-    {
-        // copy over links
-        newchild->parent = this;
-        newchild->next = oldchild->next;
-        newchild->prev = oldchild->prev;
-
-        // introduce newchild to siblings of old child
-        if (newchild->next)
-            newchild->next->prev = newchild;
-        if (child == oldchild) {
-            // replace first child
-            child = newchild;
-
-            if (oldchild->prev == oldchild)
-                // replace single child
-                newchild->prev = newchild;
-        } else
-            newchild->prev->next = newchild;
-
-        oldchild->parent = NULL;
-        oldchild->next = NULL;
-        oldchild->prev = NULL;
-    }
-    */
-
 
 
     int name;           // node name id (matches index in tree.nodes)
     Node *parent;       // parent pointer
-    //Node *child;        // first child
-    //Node *next;         // next sibling
-    //Node *prev;         // prev sibling
-
     Node **children;    // array of child pointers (size = nchildren)
 
     int nchildren;      // number of children
@@ -191,7 +116,7 @@ class Node
 
 
 class NodeMap {
- public:
+public:
     NodeMap() {}
     NodeMap(map<int,int> nm) : nm(nm) {
         for (map<int,int>::iterator it=nm.begin(); it != nm.end(); ++it)
@@ -239,24 +164,23 @@ class NodeSpr;
 // A phylogenetic tree
 class Tree
 {
- public:
- Tree(int nnodes=0) :
-    nnodes(nnodes),
-    root(NULL),
-    nodes(nnodes, 100)
-            {
-                for (int i=0; i<nnodes; i++)
-                    nodes[i] = new Node();
-            }
+public:
+    Tree(int nnodes=0) :
+        nnodes(nnodes),
+        root(NULL),
+        nodes(nnodes, 100)
+    {
+        for (int i=0; i<nnodes; i++)
+            nodes[i] = new Node();
+    }
 
     Tree(string newick, const vector<double>& times = vector<double>());
 
     virtual ~Tree()
-        {
-            for (int i=0; i<nnodes; i++)
-                delete nodes[i];
-
-        }
+    {
+        for (int i=0; i<nnodes; i++)
+            delete nodes[i];
+    }
 
     // Sets the branch lengths of the tree
     //  Arguments:
@@ -265,7 +189,6 @@ class Tree
     {
         for (int i=0; i<nnodes; i++)
             nodes[i]->dist = dists[i];
-
     }
 
 
@@ -372,7 +295,7 @@ class Tree
     }
     set<Node*> lca(set<Node*> derived);
 
- private:
+private:
     //returns age1-age2 and asserts it is positive,
     //rounds up to zero if slightly neg
     double age_diff(double age1, double age2);
@@ -383,7 +306,7 @@ class Tree
     void getPostNodesRec(Node *n, ExtendArray<Node*> *postnodes);
 
 
- public:
+public:
     int get_node_from_newick(char *newick, char *nhx);
     string format_newick(bool internal_names=true,
                          bool branchlen=true, int num_decimal=5,
@@ -400,7 +323,7 @@ class Tree
     // Returns whether the tree is self consistent
     bool assertTree();
 
- public:
+public:
     int nnodes;                 // number of nodes in tree
     Node *root;                 // root of the tree (NULL if no nodes)
     ExtendArray<Node*> nodes;   // array of nodes (size = nnodes)
@@ -410,7 +333,7 @@ class Tree
 
 //like Spr in local_tree.h, but with Node pointers and real times
 class NodeSpr {
- public:
+public:
     NodeSpr() : recomb_node(NULL), coal_node(NULL) {}
     NodeSpr(Tree *tree, char *newick,
             const vector<double> &times=vector<double>()) {
@@ -428,14 +351,14 @@ class NodeSpr {
 
 // Efficient SPR operation on a tree and its pruned version
 class SprPruned {
- private:
+private:
     //update spr operation on pruned tree
     void update_spr_pruned();
 
     //update object by parsing newick string
     void update_slow(char *newick, const set<string> inds,
                      const vector<double> &times = vector<double>());
- public:
+public:
     SprPruned(char *newick, const set<string> inds,
               const vector<double> &times = vector<double>())
         {
