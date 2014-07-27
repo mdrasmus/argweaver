@@ -78,9 +78,10 @@ util.tic("layout chromosomes")
 smc = argweaver.smc.arg2smc(arg, start=region[0], end=region[1],
                          format_trees=False)
 smc = argweaver.smc.SMCReader(smc)
-layout = argweaver.vis.SMCLayout(smc)
+layout = argweaver.vis.ArgLayout()
+layout.layout_smc(smc)
 blocks, leaf_layout = layout.blocks, layout.leaf_layout
-#arg_layout = argweaver.vis.layout_smc(smc)
+
 
 util.toc()
 

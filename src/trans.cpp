@@ -88,15 +88,14 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
             // add basal branch
             treelen2_b = treelen2 + time_steps[root_age_index];
         }
-        double bval = time_steps[b] * (nbranches[b] + 1.0) / (nrecombs[b] + 1.0);
-        if (b == 0) {
-          matrix->lnB[b] = log(exp(C[2*b-1]) * bval);
-        } else {
-          matrix->lnB[b] = matrix->lnB[b-1] + 
-            log(1.0 + exp(C[2*b-1] - matrix->lnB[b-1])*bval);
-        }
-        matrix->lnE2[b] = -C[2*b-2] + 
-          (b < ntimes - 2 ? log(1 - exp(-coal_rates[2*b]-coal_rates[2*b-1])) : 0.0);
+        double term = C[2*b-1] + log(
+            time_steps[b] * (nbranches[b] + 1.0) / (nrecombs[b] + 1.0));
+        if (b == 0)
+            matrix->lnB[b] = term;
+        else
+            matrix->lnB[b] = logadd(matrix->lnB[b-1], term);
+        matrix->lnE2[b] = -C[2*b-2] +
+            (b < ntimes - 2 ? log(1 - exp(-coal_rates[2*b]-coal_rates[2*b-1])) : 0.0);
         matrix->lnNegG1[b] = C[2*b-1] + log( - time_steps[b] * (
             (nbranches[b] / (nrecombs[b] + 1.0 + int(b < root_age_index)))
             - (nbranches[b] + 1.0) / (nrecombs[b] + 1.0)));
