@@ -94,36 +94,36 @@ public:
         double term1 = D[a] * E[b];
         double minage_term = 0.0;
         if (minage > 0) {
-          minage_term = exp(lnG4[b] + lnB[minage-1]);
+            minage_term = exp(lnG4[b] + lnB[minage-1]);
         }
 
         if (!same_node) {
-          if (a < b) {
-            return term1 * (exp(lnE2[b] + lnB[a]) -
-                            exp(lnE2[b] + lnNegG1[a]) 
-                            - minage_term);
-          } else if (a == b) {
-            return term1 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) +
-                             G3[b] - minage_term);
-          } else { // b < a
-            return term1 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0)
-                             + G2[b] - minage_term);
-          }
+            if (a < b) {
+                return term1 * (exp(lnE2[b] + lnB[a]) -
+                                exp(lnE2[b] + lnNegG1[a])
+                                - minage_term);
+            } else if (a == b) {
+                return term1 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) +
+                                 G3[b] - minage_term);
+            } else { // b < a
+                return term1 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0)
+                                 + G2[b] - minage_term);
+            }
         } else {
             double c_term = 0.0;
             if (c > 0) c_term = exp(lnG4[b] + lnB[c-1]);
 
             if (a < b) {
-              return term1 * (2 * (exp(lnE2[b] + lnB[a]) -
-                                   exp(lnE2[b] + lnNegG1[a]))
+                return term1 * (2 * (exp(lnE2[b] + lnB[a]) -
+                                     exp(lnE2[b] + lnNegG1[a]))
                               - c_term - minage_term);
             } else if (a == b) {
-              return term1 * ((2 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) + G3[b]))
-                              - c_term - minage_term)
-                + norecombs[a];
+                return term1 * ((2 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) + G3[b]))
+                                - c_term - minage_term)
+                    + norecombs[a];
             } else { // b < a
-              return term1 * ((2 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) + G2[b]))
-                              - c_term - minage_term);
+                return term1 * ((2 * ( (b > 0 ? exp(lnE2[b] + lnB[b-1]) : 0.0) + G2[b]))
+                                - c_term - minage_term);
             }
         }
     }
