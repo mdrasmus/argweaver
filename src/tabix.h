@@ -4,8 +4,9 @@
 #include <stdio.h>
 #include <string>
 
-using namespace std;
 namespace argweaver {
+
+using namespace std;
 
 FILE *read_tabix(const char *filename, const char *region,
                  const char *tabix_dir);
@@ -18,11 +19,11 @@ public:
                 const char *tabix_dir=NULL)
     {
         stream = read_tabix(filename, region, tabix_dir);
-	if (stream == NULL) {
-	  fprintf(stderr, "Error opening %s, region=%s\n",
-		  filename, region == NULL ? "NULL" : region);
-	  exit(1);
-	}
+        if (stream == NULL) {
+            fprintf(stderr, "Error opening %s, region=%s\n",
+                    filename, region == NULL ? "NULL" : region);
+            exit(1);
+        }
     }
 
     TabixStream(string filename, const char *region, string tabix_dir) {

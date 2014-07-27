@@ -210,7 +210,7 @@ public:
 
     inline ValueType last()
     {
-	return data[len-1];
+        return data[len-1];
     }
 
     inline void clear()

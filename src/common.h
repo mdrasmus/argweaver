@@ -209,16 +209,16 @@ T ipow(T val, int expo)
     unsigned int e = expo;
 
     if ((int)e < 0) {
-	e = -e;
-	val = 1.0 / val;
+        e = -e;
+        val = 1.0 / val;
     }
 
     while (true) {
-	if (e & 1)
-	    result *= val;
-	if ((e >>= 1) == 0)
-	    break;
-	val *= val;
+        if (e & 1)
+            result *= val;
+        if ((e >>= 1) == 0)
+            break;
+        val *= val;
     }
 
     return result;
