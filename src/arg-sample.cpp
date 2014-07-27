@@ -391,7 +391,7 @@ template<class T>
 void compress_mask(Track<T> &track, SitesMapping *sites_mapping)
 {
     if (sites_mapping) {
-	int prev_start_orig = 0, prev_start_new = 0;
+        int prev_start_orig = 0, prev_start_new = 0;
         for (unsigned int i=0; i<track.size(); i++) {
             if (track[i].start < prev_start_orig)
                 prev_start_new = 0;
