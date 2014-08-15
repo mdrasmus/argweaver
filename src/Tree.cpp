@@ -1292,7 +1292,7 @@ double Tree::tmrca_half() {
         }
     }
     assert(nnodes == numnodes[root->name]);
-    return tmrca_half_rec(root, (nnodes+1)/2-1, numnodes);
+    return tmrca_half_rec(root, (nnodes-1)/2, numnodes);
 }
 
 
