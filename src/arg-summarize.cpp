@@ -700,7 +700,7 @@ int summarizeRegionBySnp(Config *config, const char *region,
                     printf("%s\t%i\t%i\t%i\t%c\t%c\t%i\t%i", l->chrom,
                            snpStream.coord-1, snpStream.coord, l->sample,
                            l->derAllele, l->otherAllele, l->derFreq,
-                           l->otherFreq); fflush(stdout);
+                           l->otherFreq);
                     for (unsigned int i=0; i < statname.size(); i++) {
                         if (statname[i]=="tree") {
                             printf("\t%s", l->newick);
@@ -710,7 +710,7 @@ int summarizeRegionBySnp(Config *config, const char *region,
                             printf("\t%g", l->stats[i]);
                         }
                     }
-                    printf("\n"); fflush(stdout);
+                    printf("\n");
                     l->stats.clear();
                 }
             } else {
