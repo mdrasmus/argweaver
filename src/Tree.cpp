@@ -190,52 +190,53 @@ void Tree::correct_times(const vector<double> &times, double tol) {
 }
 
 
-string Tree::format_newick_recur(Node *n, bool internal_names,
+string Tree::format_newick_recur(Node *node, bool internal_names,
                                  char *branch_format_str,
                                  const NodeSpr *spr, bool oneline) {
     string rv;
     char tmp[1000];
-    if (n->nchildren > 0) {
+    if (node->nchildren > 0) {
         int first=0, second=1;
-        if (n->children[0]->longname.size() > 0 &&
-            n->children[1]->longname.size() > 0 &&
-            n->children[0]->longname.compare(n->children[1]->longname) > 0) {
-            first=1;
-            second=0;
-        }
+        if (node->children[0]->longname.size() > 0 &&
+            node->children[1]->longname.size() > 0 &&
+            node->children[0]->longname.compare(node->children[1]->longname) > 0)
+            {
+                first=1;
+                second=0;
+            }
         rv.append("(");
-        rv.append(format_newick_recur(n->children[first],
+        rv.append(format_newick_recur(node->children[first],
                                       internal_names,
                                       branch_format_str,
                                       spr, oneline));
-        for (int i=1; i < n->nchildren; i++) {
+        for (int i=1; i < node->nchildren; i++) {
             rv.append(",");
-            rv.append(format_newick_recur(n->children[second],
+            rv.append(format_newick_recur(node->children[second],
                                           internal_names,
                                           branch_format_str,
                                           spr, oneline));
         }
         rv.append(")");
-        if (internal_names) rv.append(n->longname);
+        if (internal_names) rv.append(node->longname);
     } else {
-        rv.append(n->longname);
+        rv.append(node->longname);
     }
-    //    fprintf(f, "(%i)", n->name);
-    if (branch_format_str != NULL && n->parent != NULL) {
+    //    fprintf(f, "(%i)", node->name);
+    if (branch_format_str != NULL && node->parent != NULL) {
         rv.append(":");
-        sprintf(tmp, branch_format_str, n->dist);
+        sprintf(tmp, branch_format_str, node->dist);
         rv.append(tmp);
     }
     if (spr != NULL) {
-        if (n == spr->recomb_node) {
+        if (node == spr->recomb_node) {
             sprintf(tmp,"[&&NHX:recomb_time=%.1f]", spr->recomb_time);
             rv.append(tmp);
-        } if (n == spr->coal_node) {
+        } if (node == spr->coal_node) {
             sprintf(tmp, "[&&NHX:coal_time=%.1f]", spr->coal_time);
             rv.append(tmp);
         }
     }
-    if (!oneline && n->nchildren > 0) rv.append("\n");
+    if (!oneline && node->nchildren > 0) rv.append("\n");
     return rv;
 }
 
