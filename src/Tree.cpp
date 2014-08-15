@@ -247,7 +247,7 @@ string Tree::format_newick(bool internal_names, bool branchlen,
     char *format_str=NULL;
     if (branchlen) {
         format_str = new char[100];
-        sprintf(format_str, "%%.%if", num_decimal);
+        snprintf(format_str, 100, "%%.%if", num_decimal);
     }
     string rv = format_newick_recur(root, internal_names,
                                     format_str, spr, oneline);
