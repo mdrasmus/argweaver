@@ -1,6 +1,8 @@
 #ifndef ARGWEAVER_INTERVALS_H
 #define ARGWEAVER_INTERVALS_H
 
+#include "logging.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -77,6 +79,12 @@ private:
 };
 
 
+/* Process a set of overlapping segments, each associated with a score, into
+   a set of non-overlapping segments, each associated with a list of scores.
+   The segments should be input using the append() function in sorted bed
+   order. The finish() function should be used at end to signal that there
+   are no more incoming segments.
+ */
 template <class scoreT>
 class IntervalIterator
 {
@@ -101,6 +109,9 @@ public:
         return rv;
     }
 
+    /* add a score for a segment- must be added in roughly sorted bed order
+       (though end coord doesn't matter)
+     */
     void append(string chr, int start, int end, scoreT score) {
         Interval<scoreT> newint(chr, start, end, score);
         std::set<int>::iterator it, prev_it;
@@ -110,6 +121,17 @@ public:
             this->finish();
         }
         chrom = chr;
+
+        it = bounds.begin();
+        if (it != bounds.end()) {
+            startCoord = *it;
+            if (startCoord > start) {
+                printError("IntervalIterator.append() received segments "
+                           "out of order");
+                abort();
+            }
+        }
+
         bounds.insert(start);
         bounds.insert(end);
         intervals.push_back(newint);
@@ -126,6 +148,9 @@ public:
         }
     }
 
+    // call this when there are no more remaining segments at end of chromosome.
+    // It is called internally when switching chromosomes, and must be called
+    // by the user at the end of the final chromosome
     void finish() {
         std::set<int>::iterator it=bounds.begin();
         int startCoord, endCoord;
