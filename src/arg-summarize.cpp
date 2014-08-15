@@ -776,7 +776,7 @@ int summarizeRegionBySnp(Config *config, const char *region,
          it != last_entry.end(); ++it) {
         BedLine *l = it->second;
         delete(l->trees);
-        delete &*l;
+        delete l;
     }
     return 0;
 }
