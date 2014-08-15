@@ -616,8 +616,8 @@ void print_summaries(vector<double> stat) {
 int summarizeRegionBySnp(Config *config, const char *region,
                          set<string> inds, vector<string> statname,
                          vector<double> times) {
-    TabixStream *snp_infile;
-    TabixStream *infile;
+    TabixStream snp_infile(config->snpfile, region, config->tabix_dir);
+    TabixStream infile(config->argfile, region, config->tabix_dir);
     vector<string> token;
     map<int,BedLine*> last_entry;
     map<int,BedLine*>::iterator it;
@@ -625,23 +625,20 @@ int summarizeRegionBySnp(Config *config, const char *region,
     int start, end, sample;
     BedLine *l=NULL;
 
-    snp_infile = new TabixStream(config->snpfile, region, config->tabix_dir);
-    if (snp_infile->stream == NULL) return 1;
-
-    infile = new TabixStream(config->argfile, region, config->tabix_dir);
-    if (infile->stream == NULL) return 1;
-    while (EOF != (c=fgetc(infile->stream))) {
-        ungetc(c, infile->stream);
+    if (snp_infile.stream == NULL) return 1;
+    if (infile.stream == NULL) return 1;
+    while (EOF != (c=fgetc(infile.stream))) {
+        ungetc(c, infile.stream);
         if (c != '#') break;
-        while ('\n' != (c=fgetc(infile->stream))) {
+        while ('\n' != (c=fgetc(infile.stream))) {
             if (c==EOF) return 0;
         }
     }
-    SnpStream snpStream = SnpStream(snp_infile);
-    if (EOF==fscanf(infile->stream, "%s %i %i %i",
+    SnpStream snpStream = SnpStream(&snp_infile);
+    if (EOF==fscanf(infile.stream, "%s %i %i %i",
                     chrom, &start, &end, &sample)) return 0;
-    assert('\t' == fgetc(infile->stream));
-    char *newick = fgetline(infile->stream);
+    assert('\t' == fgetc(infile.stream));
+    char *newick = fgetline(infile.stream);
     chomp(newick);
 
     while (1) {
@@ -684,13 +681,13 @@ int summarizeRegionBySnp(Config *config, const char *region,
                 snpStream.scoreAlleleAge(l, statname, times);
                 bedlist.push_back(l);
             }
-            if (4 != fscanf(infile->stream, "%s %i %i %i",
+            if (4 != fscanf(infile.stream, "%s %i %i %i",
                             chrom, &start, &end, &sample))
                 start = -1;
             else {
-                assert('\t' == fgetc(infile->stream));
+                assert('\t' == fgetc(infile.stream));
                 delete [] newick;
-                newick = fgetline(infile->stream);
+                newick = fgetline(infile.stream);
                 chomp(newick);
             }
         }
@@ -773,8 +770,6 @@ int summarizeRegionBySnp(Config *config, const char *region,
             }
         }
     }
-    delete snp_infile;
-    delete infile;
     delete [] newick;
 
     for (map<int,BedLine*>::iterator it=last_entry.begin();
