@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     char chrom[1000];
     char *newick=NULL;
     Tree *tree=NULL;
-    NodeSpr *spr;
+    NodeSpr *spr=NULL;
     char *timesfile=NULL;
     int recomb_node, coal_node, sample=0, opt_idx;
     vector<double> times;
