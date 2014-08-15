@@ -1,4 +1,5 @@
 #include "IntervalIterator.h"
+#include "logging.h"
 
 #include <assert.h>
 #include <iterator>
@@ -10,10 +11,10 @@
 
 namespace argweaver {
 
-double compute_mean(vector<double> scores) {
+double compute_mean(const vector<double> &scores) {
     double rv=0.0;
     if (scores.size() ==0) {
-        fprintf(stderr, "Error: trying to get mean with no scores\n");
+        printError("Error: trying to get mean with no scores\n");
     }
     for (unsigned int i=0; i < scores.size(); i++) {
         rv += scores[i];
@@ -23,10 +24,10 @@ double compute_mean(vector<double> scores) {
 }
 
 
-double compute_stdev(vector<double> scores, double mean) {
+double compute_stdev(const vector<double> &scores, double mean) {
     double rv=0;
     if (scores.size() <= 1)
-        fprintf(stderr, "Error: trying to get stdev with %i scores\n",
+        printError("Error: trying to get stdev with %i scores\n",
                 (int)scores.size());
     for (unsigned int i=0; i < scores.size(); i++) {
         double diff=scores[i]-mean;
@@ -46,8 +47,8 @@ vector<double> compute_quantiles(vector<double> scores, vector<double> q) {
         p[i] = (double)i/scores.size();
     for (i=0; i < q.size(); i++) {
         if (q[i] < 0 || q[i] > 1) {
-            fprintf(stderr, "Error: quantiles expects values between 0 and 1\n");
-            exit(1);
+            printError("Error: quantiles expects values between 0 and 1\n");
+            abort();
         }
         int pos = q[i]*scores.size();
         if (pos == (int)scores.size()) pos--;

@@ -58,6 +58,7 @@ Tree::Tree(string newick, const vector<double>& times)
             node = nodes[nnodes];
             if (stack.size()==0) {
                 printError("bad newick: error parsing tree");
+                abort();
             } else {
                 node->parent = nodes[stack.back()];
             }
@@ -75,9 +76,7 @@ Tree::Tree(string newick, const vector<double>& times)
                 j++;
             if (sscanf(&newick[i+1], "%lf", &node->dist) != 1) {
                 printError("bad newick: error reading distance");
-                printf("&newick[%i+1]=%s\n", i, &newick[i+1]);
-                printf("node->dist=%lf\n", node->dist);
-                exit(1);
+                abort();
             }
             i=j-1;
             break;
@@ -89,7 +88,7 @@ Tree::Tree(string newick, const vector<double>& times)
             while (count != 0) {
                 if (j==len) {
                     printError("bad newick: no closing bracket in NHX comment");
-                    break;
+                    abort();
                 }
                 if (newick[j]==']') count--;
                 else if (newick[j]=='[') count++;
@@ -106,7 +105,7 @@ Tree::Tree(string newick, const vector<double>& times)
                 j++;
             if (node->longname.length() > 0) {
                 printError("bad newick format; got multiple names for a node");
-                i=len;
+                abort();
                 break;
             }
             node->longname = newick.substr(i, j-i);
@@ -117,6 +116,7 @@ Tree::Tree(string newick, const vector<double>& times)
     }
     if (node != root) {
         printError("bad newick format: did not end with root");
+        abort();
     }
     //All done, now fill in children
     for (int i=0; i < nnodes; i++) {
