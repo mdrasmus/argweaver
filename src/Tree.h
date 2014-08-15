@@ -295,7 +295,7 @@ public:
     }
     set<Node*> lca(set<Node*> derived);
 
-private:
+protected:
     //returns age1-age2 and asserts it is positive,
     //rounds up to zero if slightly neg
     double age_diff(double age1, double age2);

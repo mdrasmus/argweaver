@@ -72,7 +72,7 @@ public:
     int start;
     int end;
 
-private:
+protected:
     bool have_mean;
     scoreT meanval;
     vector<scoreT> scores;
@@ -164,9 +164,8 @@ public:
         }
         bounds.clear();
     }
-    // void printResults();
 
-private:
+protected:
     void pushNext(string chr, int start, int end) {
         Interval<scoreT> newCombined(chr, start, end);
         typename std::list<Interval<scoreT> >::iterator curr_it, next_it;
