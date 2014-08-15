@@ -581,7 +581,7 @@ public:
 
 
 
-void print_summaries(vector<double> stat) {
+void print_summaries(vector<double> &stat) {
     double meanval=0;
     int have_mean=0;
     for (int j=1; j <= summarize; j++) {

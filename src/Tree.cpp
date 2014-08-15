@@ -156,7 +156,7 @@ double Tree::age_diff(double age1, double age2) {
 }
 
 //void Tree::correct_times(map<string,double> times) {
-void Tree::correct_times(vector<double> times, double tol) {
+void Tree::correct_times(const vector<double> &times, double tol) {
     unsigned int lasttime=0, j;
     ExtendArray<Node*>postnodes = this->getPostNodes();
     for (int i=0; i < postnodes.size(); i++) {
@@ -1252,7 +1252,7 @@ double Tree::num_zero_branches() {
 
 
 
-double tmrca_half_rec(Node *node, int numnode, vector<int> numnodes) {
+double tmrca_half_rec(Node *node, int numnode, const vector<int> &numnodes) {
     if (node->nchildren != 2) {
         fprintf(stderr, "Error: tmrca_half only works for bifurcating trees\n");
     }

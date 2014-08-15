@@ -37,8 +37,8 @@ double compute_stdev(const vector<double> &scores, double mean) {
 }
 
 
-
-vector<double> compute_quantiles(vector<double> scores, vector<double> q) {
+vector<double> compute_quantiles(vector<double> &scores,
+                                 const vector<double> &q) {
     vector<double> result(q.size());
     vector<double> p(scores.size());
     unsigned int i;

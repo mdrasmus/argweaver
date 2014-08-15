@@ -17,9 +17,10 @@ namespace argweaver {
 
 using namespace std;
 
-double compute_mean(vector<double>scores);
-double compute_stdev(vector<double> scores, double mean);
-vector<double> compute_quantiles(vector<double> scores, vector<double> q);
+double compute_mean(const vector<double> &scores);
+double compute_stdev(const vector<double> &scores, double mean);
+vector<double> compute_quantiles(vector<double> &scores,
+                                 const vector <double> &q);
 
 
 template <class scoreT>
@@ -50,10 +51,9 @@ public:
         }
         return scores[i];
     }
-    vector<scoreT> get_scores() {
+    vector<scoreT> &get_scores() {
         return scores;
     }
-
     scoreT mean() {
         meanval = compute_mean(scores);
         have_mean = true;
@@ -64,7 +64,7 @@ public:
             this->mean();
         return compute_stdev(scores, meanval);
     }
-    vector<scoreT> quantiles(vector<double> q) {
+    vector<scoreT> quantiles(vector<double> &q) {
         return compute_quantiles(scores, q);
     }
 

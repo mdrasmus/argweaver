@@ -118,14 +118,14 @@ public:
 class NodeMap {
 public:
     NodeMap() {}
-    NodeMap(map<int,int> nm) : nm(nm) {
-        for (map<int,int>::iterator it=nm.begin(); it != nm.end(); ++it)
+    NodeMap(const map<int,int> &nm) : nm(nm) {
+        for (map<int,int>::const_iterator it=nm.begin(); it != nm.end(); ++it)
             inv_nm[it->second].insert(it->first);
     }
     NodeMap(const NodeMap &other) :
         nm(other.nm),
         inv_nm(other.inv_nm) {}
-    NodeMap operator=(NodeMap other) {
+    NodeMap operator=(const NodeMap &other) {
         nm = other.nm;
         inv_nm = other.inv_nm;
         return other;
@@ -278,7 +278,7 @@ public:
     // closest time, must be within tol)
     // NOTE: times must be sorted!
     // Also note: assumes same distance to ancestral node from all child nodes
-    void correct_times(vector<double> times, double tol=1);
+    void correct_times(const vector<double> &times, double tol=1);
     //void correct_times(map<string,double> times);
 
     double total_branchlength();
