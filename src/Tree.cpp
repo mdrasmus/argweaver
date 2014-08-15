@@ -38,8 +38,12 @@ Tree::Tree(string newick, const vector<double>& times)
     Node *node = NULL;
     vector <int> stack;
     nnodes=0;
-    for (int i=0; i < len; i++)
-        if (newick[i]=='(') nnodes++;
+    int nbracket=0;
+    for (int i=0; i < len; i++) {
+        if (newick[i]=='[') nbracket++;
+        else if (newick[i]==']') nbracket--;
+        else if (newick[i]=='(' && nbracket==0) nnodes++;
+    }
     nnodes += (nnodes+1);  //add in leaves
     nodes.setCapacity(nnodes);
     for (int i=0; i < nnodes; i++) {
