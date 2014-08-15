@@ -303,8 +303,6 @@ private:
                                char *branch_format_str=NULL,
                                const NodeSpr *spr=NULL,
                                bool oneline=true);
-    void getPostNodesRec(Node *n, ExtendArray<Node*> *postnodes);
-
 
 public:
     int get_node_from_newick(char *newick, char *nhx);
@@ -314,8 +312,6 @@ public:
     void write_newick(FILE *f, bool internal_name=true, bool branchlen=true,
                       int num_decimal=5, const NodeSpr *spr=NULL,
                       bool oneline=true);
-
-    ExtendArray<Node*> getPostNodes();
 
     // Returns a new copy of the tree
     Tree *copy();
@@ -422,8 +418,7 @@ struct HashTopology {
 
 void getTreeSortedPostOrder(Tree *tree, ExtendArray<Node*> *nodes,
                             int *ordering, Node *node=NULL);
-// this one has been moved to class
-//void getTreePostOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node=NULL);
+void getTreePostOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node=NULL);
 
 void getTreePreOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node=NULL);
 

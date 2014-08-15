@@ -128,7 +128,8 @@ Tree::Tree(string newick, const vector<double>& times)
             nodes[i]->parent->addChild(nodes[i]);
         }
     }
-    ExtendArray<Node*>postnodes = this->getPostNodes();
+    ExtendArray<Node*> postnodes;
+    getTreePostOrder(this, &postnodes);
     for (int i=0; i < postnodes.size(); i++) {
         if (postnodes[i]->nchildren == 0)
             postnodes[i]->age = 0.0;
@@ -143,7 +144,6 @@ Tree::Tree(string newick, const vector<double>& times)
             nodename_map[nodes[i]->longname] = i;
     }
 }
-
 
 double Tree::age_diff(double age1, double age2) {
     double diff = age1 - age2;
@@ -162,7 +162,8 @@ double Tree::age_diff(double age1, double age2) {
 //void Tree::correct_times(map<string,double> times) {
 void Tree::correct_times(const vector<double> &times, double tol) {
     unsigned int lasttime=0, j;
-    ExtendArray<Node*>postnodes = this->getPostNodes();
+    ExtendArray<Node*> postnodes;
+    getTreePostOrder(this, &postnodes);
     for (int i=0; i < postnodes.size(); i++) {
         if (postnodes[i]->nchildren == 0) {
             postnodes[i]->age = 0.0;
@@ -642,8 +643,9 @@ void SprPruned::update(char *newick, const set<string> inds,
 NodeMap Tree::prune(set<string> leafs, bool allBut) {
     ExtendArray<Node*> newnodes = ExtendArray<Node*>(0);
     map<int,int> node_map;  //maps original nodes to new nodes
-    ExtendArray<Node*> postnodes = this->getPostNodes();
+    ExtendArray<Node*> postnodes;
     vector<bool> is_leaf(postnodes.size());
+    getTreePostOrder(this, &postnodes);
     node_map.clear();
     for (int i=0; i < postnodes.size(); i++) {
         is_leaf[i] = (postnodes[i]->nchildren == 0);
@@ -921,7 +923,8 @@ void Tree::reroot(Node *node1, Node *node2)
 void Tree::hashkey(int *key)
 {
     // get post order of nodes
-    ExtendArray<Node*> postnodes = this->getPostNodes();
+    ExtendArray<Node*> postnodes;
+    getTreePostOrder(this, &postnodes);
 
     // order children
     ExtendArray<int> ordering(nnodes);
@@ -1103,19 +1106,18 @@ void getTreeSortedPostOrder(Tree *tree, ExtendArray<Node*> *nodes,
     nodes->append(node);
 }
 
+void getTreePostOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node)
+{
+    if (!node)
+        node = tree->root;
 
-void Tree::getPostNodesRec(Node *n, ExtendArray<Node*> *postnodes) {
-    for (int i=0; i < n->nchildren; i++)
-        getPostNodesRec(n->children[i], postnodes);
-    postnodes->append(n);
+    // recurse
+    for (int i=0; i<node->nchildren; i++)
+        getTreePostOrder(tree, nodes, node->children[i]);
+
+    // record post-process
+    nodes->append(node);
 }
-
-ExtendArray<Node*> Tree::getPostNodes() {
-    ExtendArray<Node*> postnodes;
-    getPostNodesRec(root, &postnodes);
-    return postnodes;
-}
-
 
 void getTreePreOrder(Tree *tree, ExtendArray<Node*> *nodes, Node *node)
 {
@@ -1186,7 +1188,8 @@ void printTree(Tree *tree, Node *node, int depth)
 
 double Tree::total_branchlength() {
     double len=0.0;
-    ExtendArray<Node*> postnodes = this->getPostNodes();
+    ExtendArray<Node*> postnodes;
+    getTreePostOrder(this, &postnodes);
     for (int i=0; i < postnodes.size(); i++) {
         Node *node = postnodes[i];
         if (node != root) len += node->dist;
@@ -1279,7 +1282,8 @@ double tmrca_half_rec(Node *node, int numnode, const vector<int> &numnodes) {
 
 double Tree::tmrca_half() {
     vector<int> numnodes(nnodes);
-    ExtendArray<Node*> postnodes = this->getPostNodes();
+    ExtendArray<Node*> postnodes;
+    getTreePostOrder(this, &postnodes);
     for (int i=0; i < postnodes.size(); i++) {
         numnodes[postnodes[i]->name] = 1;
         for (int j=0; j < postnodes[i]->nchildren; j++) {
@@ -1298,7 +1302,8 @@ double Tree::rth() {
 
 double Tree::distBetweenLeaves(Node *n1, Node *n2) {
     if (n1 == n2) return 0.0;
-    ExtendArray<Node*> postnodes = this->getPostNodes();
+    ExtendArray<Node*> postnodes;
+    getTreePostOrder(this, &postnodes);
     vector<int> count(postnodes.size());
     int s=0;
     double rv=0.0;
@@ -1328,7 +1333,8 @@ set<Node*> Tree::lca(set<Node*> derived) {
     set<Node*> rv;
 
     if (derived.size() == 1) return derived;
-    ExtendArray<Node*> postnodes = this->getPostNodes();
+    ExtendArray<Node*> postnodes;
+    getTreePostOrder(this, &postnodes);
     for (int i=0; i < postnodes.size(); i++) {
         if (postnodes[i]->nchildren == 0) continue;
         if (postnodes[i] == root) {
