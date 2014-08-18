@@ -250,7 +250,6 @@ void checkResults(IntervalIterator<vector<double> > *results) {
                 }
             }
             printf("\n");
-            fflush(stdout);
         }
         summary = results->next();
     }
@@ -424,7 +423,7 @@ void processNextBedLine(BedLine *line,
                         printf("\t%g", l->stats[i]);
                     }
                 }
-                printf("\n"); fflush(stdout);
+                printf("\n");
                 delete l;
             }
             bedlist.clear();
@@ -766,7 +765,7 @@ int summarizeRegionBySnp(Config *config, const char *region,
                         print_summaries(stat);
                     }
                 }
-                printf("\n"); fflush(stdout);
+                printf("\n");
             }
         }
     }

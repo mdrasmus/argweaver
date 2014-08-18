@@ -5,7 +5,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <string>
 #include <list>
 #include <vector>
@@ -46,8 +45,8 @@ public:
     }
     scoreT get_score(int i) {
         if (i < 0 || i >= (int)scores.size()) {
-            fprintf(stderr, "Error in get_score; index out of range\n");
-            exit(1);
+            printError("Error in get_score; index out of range\n");
+            abort();
         }
         return scores[i];
     }

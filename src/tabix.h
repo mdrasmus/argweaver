@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string>
 
+#include "logging.h"
+
 namespace argweaver {
 
 using namespace std;
@@ -20,9 +22,8 @@ public:
     {
         stream = read_tabix(filename, region, tabix_dir);
         if (stream == NULL) {
-            fprintf(stderr, "Error opening %s, region=%s\n",
-                    filename, region == NULL ? "NULL" : region);
-            exit(1);
+            printError("Error opening %s, region=%s\n",
+                        filename, region == NULL ? "NULL" : region);
         }
     }
 
@@ -30,9 +31,8 @@ public:
         stream = read_tabix(filename.c_str(), region,
                             tabix_dir.empty() ? NULL : tabix_dir.c_str());
         if (stream == NULL) {
-            fprintf(stderr, "Error opening %s, region=%s\n",
-                    filename.c_str(), region == NULL ? "NULL" : region);
-            exit(1);
+            printError("Error opening %s, region=%s\n",
+                       filename.c_str(), region == NULL ? "NULL" : region);
         }
     }
 

@@ -11,7 +11,6 @@ using namespace std;
 // Sample recombinations
 
 
-
 double recomb_prob_unnormalized(const ArgModel *model, const LocalTree *tree,
                                 const LineageCounts &lineages,
                                 const State &last_state,

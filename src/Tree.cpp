@@ -9,6 +9,10 @@
 
 // c++ headers
 #include <assert.h>
+#include <cstring>
+#include <iostream>
+#include <map>
+#include <string>
 #include <stdio.h>
 
 // spidir headers
@@ -16,10 +20,6 @@
 #include "common.h"
 #include "parsing.h"
 #include "logging.h"
-#include <iostream>
-#include <cstring>
-#include <string>
-#include <map>
 
 namespace spidir {
 
