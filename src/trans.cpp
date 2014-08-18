@@ -74,7 +74,6 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
     }
 
     // calculate transition matrix terms
-    matrix->B[-1] = 0.0;
     for (int b=0; b<ntimes-1; b++) {
         // get tree length
         double treelen2 = treelen + times[b];
@@ -89,22 +88,25 @@ void calc_transition_probs(const LocalTree *tree, const ArgModel *model,
             // add basal branch
             treelen2_b = treelen2 + time_steps[root_age_index];
         }
-
-        matrix->B[b] = matrix->B[b-1] + exp(C[2*b-1]) * time_steps[b] *
-            (nbranches[b] + 1.0) / (nrecombs[b] + 1.0);
-        matrix->E2[b] = exp(-C[2*b-2]) * (b<ntimes-2 ?
-            (1 - exp(-coal_rates[2*b]-coal_rates[2*b-1])) : 1.0);
-        matrix->G1[b] = exp(C[2*b-1]) * time_steps[b] * (
+        double term = C[2*b-1] + log(
+            time_steps[b] * (nbranches[b] + 1.0) / (nrecombs[b] + 1.0));
+        if (b == 0)
+            matrix->lnB[b] = term;
+        else
+            matrix->lnB[b] = logadd(matrix->lnB[b-1], term);
+        matrix->lnE2[b] = -C[2*b-2] +
+            (b < ntimes - 2 ? log(1 - exp(-coal_rates[2*b]-coal_rates[2*b-1])) : 0.0);
+        matrix->lnNegG1[b] = C[2*b-1] + log( - time_steps[b] * (
             (nbranches[b] / (nrecombs[b] + 1.0 + int(b < root_age_index)))
-            - (nbranches[b] + 1.0) / (nrecombs[b] + 1.0));
+            - (nbranches[b] + 1.0) / (nrecombs[b] + 1.0)));
         matrix->G2[b] = (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b]) : 1.0) *
             time_steps[b] *
             (nbranches[b] + 1.0) / (nrecombs[b] + 1.0);
         matrix->G3[b] = (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b]) : 1.0) *
             time_steps[b] *
             (nbranches[b] / (nrecombs[b] + 1.0 + int(b < root_age_index)));
-        matrix->G4[b] = exp(-C[2*b-2])*
-            (b<ntimes-2 ? 1.0 - exp(-coal_rates[2*b] - coal_rates[2*b-1]):1.0);
+        matrix->lnG4[b] = -C[2*b-2] +
+            (b < ntimes - 2 ? log(1.0 - exp(-coal_rates[2*b] - coal_rates[2*b-1])) : 0.0);
         matrix->D[b] = (1.0 - exp(-rho * treelen2)) / treelen2_b;
         matrix->E[b] = 1.0 / ncoals[b];
         matrix->norecombs[b] = exp(-max(rho * treelen2, rho));
