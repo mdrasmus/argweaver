@@ -589,7 +589,7 @@ void get_infinite_sites_states(const States &states, const LocalTree *tree,
 }
 
 
-double calc_emit(lk_row *in, lk_row *out, lk_row *in2, 
+double calc_emit(lk_row *in, lk_row *out, lk_row *in2,
 		 int i, int node1, int node2, int maintree_root,
 		 double *nomut, double *mut) {
     double emit=0.0;
@@ -606,7 +606,7 @@ double calc_emit(lk_row *in, lk_row *out, lk_row *in2,
 		p3 += out[node2][b] * mut[2];
 	    }
 	}
-	
+
 	if (node2 != maintree_root) {
 	    emit += p1 * p2 * p3 * .25;
 	} else {
@@ -653,7 +653,7 @@ void calc_emissions(const States &states, const LocalTree *tree,
     LikelihoodTable outer(seqlen, tree->nnodes);
     calc_inner_outer(tree, model, seqs, seqlen, invariant, internal,
                      inner.data, outer.data);
-    
+
     if (!internal) {
         // compute inner table for new leaf
         for (int i=0; i<seqlen; i++) {
@@ -691,7 +691,7 @@ void calc_emissions(const States &states, const LocalTree *tree,
 
 	calc_inner_outer(tree, model, subseqs, seqlen, not_het, internal,
 			 inner2.data, outer2.data);
-	
+
 	if (!internal) {
 	    // compute inner table for new leaf
 	    for (int i=0; i<seqlen; i++) {
@@ -798,13 +798,13 @@ void calc_emissions(const States &states, const LocalTree *tree,
                 // invariant site
                 emit[i][j] = invariant_lk;
             } else {
-		emit[i][j] = calc_emit(inner.data[i], outer.data[i], 
-				       internal ? inner.data[i] : inner_subtree.data[i], 
+		emit[i][j] = calc_emit(inner.data[i], outer.data[i],
+				       internal ? inner.data[i] : inner_subtree.data[i],
 				       i, node1, node2, maintree_root,
 				       nomut, mut);
 		if (not_het != NULL && not_het[i]==0) {
 		    double emit2 = calc_emit(inner2.data[i], outer2.data[i],
-					    internal ? inner2.data[i] : inner_subtree2.data[i], 
+					    internal ? inner2.data[i] : inner_subtree2.data[i],
 					    i, node1, node2, maintree_root,
 					    nomut, mut);
 		    phase_pr->add(i, j, emit[i][j]/(emit[i][j] + emit2), nstates);
@@ -855,10 +855,11 @@ void calc_emissions_external(const States &states, const LocalTree *tree,
 // calculate emissions for internal branch resampling
 void calc_emissions_internal(const States &states, const LocalTree *tree,
                              const char *const *seqs, int nseqs, int seqlen,
-                             const ArgModel *model, double **emit)
+                             const ArgModel *model, double **emit,
+                             PhaseProbs *phase_pr)
 {
     calc_emissions(states, tree, seqs, nseqs, seqlen, model, true, emit,
-		   NULL);
+		   phase_pr);
 }
 
 
