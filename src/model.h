@@ -195,9 +195,12 @@ public:
             set_popsizes(other.popsizes, ntimes);
 
         // copy maps
-        mutmap.insert(mutmap.begin(), other.mutmap.begin(), other.mutmap.end());
-        recombmap.insert(recombmap.begin(),
-                         other.recombmap.begin(), other.recombmap.end());
+        if (other.mutmap.size() > 0)
+            mutmap.insert(mutmap.begin(),
+                          other.mutmap.begin(), other.mutmap.end());
+        if (other.recombmap.size() > 0)
+            recombmap.insert(recombmap.begin(),
+                             other.recombmap.begin(), other.recombmap.end());
     }
 
     // Returns dummy time used for root of tree with internal branch removed
