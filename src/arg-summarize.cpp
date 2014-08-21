@@ -923,11 +923,6 @@ int summarizeRegionNoSnp(Config *config, const char *region,
                 processNextBedLine(firstline, &results, statname,
                                    region_chrom, region_start, region_end,
                                    times);
-                it3 = bedlineMap.find(firstline->sample);
-                if (it3 != bedlineMap.end() && it3->second == firstline) {
-                    assert(0);
-                    bedlineMap.erase(firstline->sample);
-                }
                 bedlineQueue.pop();
             } else break;
         }
