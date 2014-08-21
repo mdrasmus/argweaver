@@ -595,7 +595,7 @@ void sample_arg_thread(const ArgModel *model, Sequences *sequences,
 
     // compute forward table
     Timer time;
-    arghmm_forward_alg(trees, model, sequences, &matrix_iter, &forward, 
+    arghmm_forward_alg(trees, model, sequences, &matrix_iter, &forward,
 		       model->unphased ? &phase_pr : NULL);
     int nstates = get_num_coal_states(trees->front().tree, model->ntimes);
     printTimerLog(time, LOG_LOW,
@@ -636,7 +636,7 @@ void sample_arg_thread(const ArgModel *model, Sequences *sequences,
 // sample the thread of the internal branch
 void sample_arg_thread_internal(
     const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
-    int minage)
+    int minage, PhaseProbs *phase_pr)
 {
     const bool internal = true;
 
@@ -649,11 +649,13 @@ void sample_arg_thread_internal(
     ArgHmmMatrixIter matrix_iter(model, sequences, trees);
     matrix_iter.set_internal(internal, minage);
 
+    if (phase_pr != NULL)
+        printf("treemap = %i %i\n", phase_pr->treemap1, phase_pr->treemap2);
 
     // compute forward table
     Timer time;
-    arghmm_forward_alg(trees, model, sequences, &matrix_iter, &forward, NULL,
-                       false, internal);
+    arghmm_forward_alg(trees, model, sequences, &matrix_iter, &forward,
+                       phase_pr, false, internal);
     int nstates = get_num_coal_states_internal(
         trees->front().tree, model->ntimes);
     printTimerLog(time, LOG_LOW,
@@ -669,6 +671,9 @@ void sample_arg_thread_internal(
                          false, internal);
     printTimerLog(time, LOG_LOW,
                   "trace:                              ");
+
+    if (phase_pr != NULL)
+        phase_pr->sample_phase(thread_path);
 
     // sample recombination points
     time.start();

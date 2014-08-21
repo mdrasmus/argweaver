@@ -13,8 +13,6 @@ void calc_arghmm_matrices_internal(
 {
     const bool internal = true;
 
-    assert(phase_pr == NULL);  // for now focus on external case
-
     // get block information
     const int blocklen = end - start;
     matrices->blocklen = blocklen;
@@ -35,17 +33,19 @@ void calc_arghmm_matrices_internal(
         for (int i=0; i<nleaves; i++)
             subseqs[i] = &seqs->seqs[trees->seqids[i]][start];
         matrices->emit = new_matrix<double>(blocklen, max(nstates, 1));
-	/*	if (model->unphased) {
-	    phase_nodes[0] = tree->nodes[tree->root].child[0];
+        if (model->unphased && phase_pr != NULL) {
+            phase_pr->offset = start;
+            /*	    phase_nodes[0] = tree->nodes[tree->root].child[0];
 	    while (!tree->nodes[phase_nodes[0]].is_leaf())
 		phase_nodes[0] = tree->nodes[phase_nodes[0]].child[irand(2)];
 	    for (unsigned int i=0; i < trees->seqids.size(); i++) {
 	      if (trees->seqids[i] == seqs->get_pair(phase_nodes[0])) {
 		phase_nodes[1] = i;
 		break;
-		}}}*/
+		}}*/
+        }
 	calc_emissions_internal(states, tree, subseqs, nleaves,
-                                blocklen, model, matrices->emit);
+                                blocklen, model, matrices->emit, phase_pr);
     } else {
         matrices->emit = NULL;
     }

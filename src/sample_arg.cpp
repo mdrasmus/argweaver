@@ -138,7 +138,13 @@ void resample_arg_leaf(const ArgModel *model, Sequences *sequences,
     sample_arg_removal_leaf_path(trees, node, removal_path);
 
     remove_arg_thread_path(trees, removal_path, maxtime);
-    sample_arg_thread_internal(model, sequences, trees);
+    PhaseProbs *phase_pr = NULL;
+    if (model->unphased)
+        phase_pr = new PhaseProbs(trees->seqids[node], node,
+                                  sequences, trees, model);
+    sample_arg_thread_internal(model, sequences, trees, 0, phase_pr);
+    if (model->unphased)
+        delete phase_pr;
 
     delete [] removal_path;
 }

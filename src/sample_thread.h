@@ -146,7 +146,7 @@ void sample_arg_thread(
 
 void sample_arg_thread_internal(
    const ArgModel *model, const Sequences *sequences, LocalTrees *trees,
-   int minage=0);
+   int minage=0, PhaseProbs *phase_pr=NULL);
 
 void resample_arg_thread(const ArgModel *model, Sequences *sequences,
     LocalTrees *trees, int chrom);
