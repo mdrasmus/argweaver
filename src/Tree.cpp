@@ -644,8 +644,8 @@ NodeMap Tree::prune(set<string> leafs, bool allBut) {
     ExtendArray<Node*> newnodes = ExtendArray<Node*>(0);
     map<int,int> node_map;  //maps original nodes to new nodes
     ExtendArray<Node*> postnodes;
-    vector<bool> is_leaf(postnodes.size());
     getTreePostOrder(this, &postnodes);
+    vector<bool> is_leaf(postnodes.size());
     node_map.clear();
     for (int i=0; i < postnodes.size(); i++) {
         is_leaf[i] = (postnodes[i]->nchildren == 0);
