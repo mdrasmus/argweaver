@@ -9,9 +9,11 @@ void calc_arghmm_matrices_internal(
     const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
     const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
     const int start, const int end, int minage,
-    ArgHmmMatrices *matrices)
+    ArgHmmMatrices *matrices, PhaseProbs *phase_pr)
 {
     const bool internal = true;
+
+    assert(phase_pr == NULL);  // for now focus on external case
 
     // get block information
     const int blocklen = end - start;
@@ -29,10 +31,20 @@ void calc_arghmm_matrices_internal(
     if (seqs) {
         const int nleaves = trees->get_num_leaves();
         char *subseqs[nleaves];
+	//	int phase_nodes[2]={-1,-1};
         for (int i=0; i<nleaves; i++)
             subseqs[i] = &seqs->seqs[trees->seqids[i]][start];
         matrices->emit = new_matrix<double>(blocklen, max(nstates, 1));
-        calc_emissions_internal(states, tree, subseqs, nleaves,
+	/*	if (model->unphased) {
+	    phase_nodes[0] = tree->nodes[tree->root].child[0];
+	    while (!tree->nodes[phase_nodes[0]].is_leaf())
+		phase_nodes[0] = tree->nodes[phase_nodes[0]].child[irand(2)];
+	    for (unsigned int i=0; i < trees->seqids.size(); i++) {
+	      if (trees->seqids[i] == seqs->get_pair(phase_nodes[0])) {
+		phase_nodes[1] = i;
+		break;
+		}}}*/
+	calc_emissions_internal(states, tree, subseqs, nleaves,
                                 blocklen, model, matrices->emit);
     } else {
         matrices->emit = NULL;
@@ -77,7 +89,7 @@ void calc_arghmm_matrices_external(
     const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
     const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
     const int start, const int end, const int new_chrom,
-    ArgHmmMatrices *matrices)
+    ArgHmmMatrices *matrices, PhaseProbs *phase_pr)
 {
     // get block information
     const int blocklen = end - start;
@@ -99,8 +111,14 @@ void calc_arghmm_matrices_external(
             subseqs[i] = &seqs->seqs[trees->seqids[i]][start];
         subseqs[nleaves] = &seqs->seqs[new_chrom][start];
         matrices->emit = new_matrix<double>(blocklen, nstates);
+	if (model->unphased) {
+	  //	    phase_pr->treemap1 = nleaves;
+	    //	    phase_pr->updateTreeMap2(trees);
+	    phase_pr->offset = start;
+	    //	    printf("treemap = %i %i\n", phase_pr->treemap1, phase_pr->treemap2);
+	}
         calc_emissions_external(states, tree, subseqs, nleaves + 1, blocklen,
-                                model, matrices->emit);
+                                model, matrices->emit, phase_pr);
     } else {
         matrices->emit = NULL;
     }
@@ -142,16 +160,18 @@ void calc_arghmm_matrices(
     const ArgModel *model, const Sequences *seqs, const LocalTrees *trees,
     const LocalTreeSpr *last_tree_spr, const LocalTreeSpr *tree_spr,
     const int start, const int end, const int new_chrom,
-    const StatesModel &states_model, ArgHmmMatrices *matrices)
+    const StatesModel &states_model, ArgHmmMatrices *matrices,
+    PhaseProbs *phase_pr)
 {
     if (states_model.internal)
         calc_arghmm_matrices_internal(
             model, seqs, trees, last_tree_spr, tree_spr,
-            start, end, states_model.minage, matrices);
+            start, end, states_model.minage, matrices,
+            phase_pr);
     else
         calc_arghmm_matrices_external(
             model, seqs, trees, last_tree_spr,  tree_spr,
-            start, end, new_chrom, matrices);
+            start, end, new_chrom, matrices, phase_pr);
 }
 
 
