@@ -597,6 +597,7 @@ void get_infinite_sites_states(const States &states, const LocalTree *tree,
     get_infinite_sites_states(states, tree, seqs, nseqs, seqlen, invariant,
                               internal, valid_states);
     if (phase_pr != NULL &&
+        phase_pr->treemap1 >= 0    && phase_pr->treemap2 >= 0 &&
         phase_pr->treemap1 < nseqs && phase_pr->treemap2 < nseqs) {
         int nstates = states.size();
         bool **valid_states2 = new_matrix<bool>(seqlen, nstates);
