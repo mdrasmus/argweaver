@@ -514,24 +514,23 @@ string get_out_sites_file(const Config &config, int iter)
   return config.out_prefix + iterstr + SITES_SUFFIX;
 }
 
-
-
-bool log_sequences(const Sequences *sequences, const Config *config,
-		   const SitesMapping *sites_mapping, int iter) {
-  Sites sites;
-  string out_sites_file = get_out_sites_file(*config, iter);
-  make_sites_from_sequences(sequences, &sites);
-  if (!config->no_compress_output)
-    out_sites_file += ".gz";
-  if (sites_mapping)
-    uncompress_sites(&sites, sites_mapping);
-  CompressStream stream(out_sites_file.c_str(), "w");
-  if (!stream.stream) {
-    printError("cannot write '%s'", out_sites_file.c_str());
-    return false;
-  }
-  write_sites(stream.stream, &sites);
-  return true;
+bool log_sequences(string chrom, const Sequences *sequences,
+                   const Config *config,
+                   const SitesMapping *sites_mapping, int iter) {
+    Sites sites(chrom);
+    string out_sites_file = get_out_sites_file(*config, iter);
+    make_sites_from_sequences(sequences, &sites);
+    if (!config->no_compress_output)
+        out_sites_file += ".gz";
+    if (sites_mapping)
+        uncompress_sites(&sites, sites_mapping);
+    CompressStream stream(out_sites_file.c_str(), "w");
+    if (!stream.stream) {
+        printError("cannot write '%s'", out_sites_file.c_str());
+        return false;
+    }
+    write_sites(stream.stream, &sites);
+    return true;
 }
 
 bool log_local_trees(
@@ -681,8 +680,8 @@ void resample_arg_all(ArgModel *model, Sequences *sequences, LocalTrees *trees,
         if (i % config->sample_step == 0)
             log_local_trees(model, sequences, trees, sites_mapping, config, i);
 
-	if (config->sample_phase > 0 && i%config->sample_phase == 0)
-	  log_sequences(sequences, config, sites_mapping, i);
+        if (config->sample_phase > 0 && i%config->sample_phase == 0)
+            log_sequences(trees->chrom, sequences, config, sites_mapping, i);
     }
     printLog(LOG_LOW, "\n");
 }
