@@ -138,8 +138,8 @@ void write_sites(FILE *stream, Sites *sites) {
   for (unsigned int i=0; i < sites->names.size(); i++)
     fprintf(stream, "\t%s", sites->names[i].c_str());
   fprintf(stream, "\n");
-  fprintf(stream, "REGION\t%s\t%i\t%i\n", 
-	  sites->chrom.c_str(), sites->start_coord, sites->end_coord);
+  fprintf(stream, "REGION\t%s\t%i\t%i\n",
+	  sites->chrom.c_str(), sites->start_coord + 1, sites->end_coord);
   if (sites->positions.size() != sites->cols.size()) {
     fprintf(stderr, "Error in write_sites: positions.size()=%i cols.size=%i\n",
 	    (int)sites->positions.size(), (int)sites->cols.size());
@@ -147,7 +147,7 @@ void write_sites(FILE *stream, Sites *sites) {
   }
   for (unsigned int i=0; i < sites->positions.size(); i++) {
     unsigned int j=0;
-    for (j=1; j < sites->names.size(); j++) 
+    for (j=1; j < sites->names.size(); j++)
       if (sites->cols[i][j] != sites->cols[i][0]) break;
     if (j != sites->names.size()) {
       fprintf(stream, "%i\t", sites->positions[i]+1);
@@ -450,7 +450,7 @@ void Sequences::set_pairs(const ArgModel *mod) {
 
 void PhaseProbs::sample_phase(int *thread_path) {
   int count=0;
-  if (probs.size() == 0) 
+  if (probs.size() == 0)
     return;
   for (map<int,vector<double> >::iterator it=probs.begin(); it != probs.end();
        it++) {
@@ -719,7 +719,7 @@ void resample_align(Sequences *aln, Sequences *aln2)
     }
 }
 
-PhaseProbs::PhaseProbs(int _hap1, int _treemap1, Sequences *_seqs, 
+PhaseProbs::PhaseProbs(int _hap1, int _treemap1, Sequences *_seqs,
 			    const LocalTrees *trees, const ArgModel *model) {
   if (!model->unphased) return;
   hap1 = _hap1;
@@ -733,7 +733,7 @@ PhaseProbs::PhaseProbs(int _hap1, int _treemap1, Sequences *_seqs,
     updateTreeMap2(trees);
   } else treemap2 = -1;
 }
-  
+
 
 
 void PhaseProbs::updateTreeMap2(const LocalTrees *tree) {
