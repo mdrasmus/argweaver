@@ -589,6 +589,33 @@ void get_infinite_sites_states(const States &states, const LocalTree *tree,
 }
 
 
+void get_infinite_sites_states(const States &states, const LocalTree *tree,
+                               const char *const *seqs, int nseqs, int seqlen,
+                               bool *invariant,
+                               bool internal, bool **valid_states,
+                               PhaseProbs *phase_pr) {
+    get_infinite_sites_states(states, tree, seqs, nseqs, seqlen, invariant,
+                              internal, valid_states);
+    if (phase_pr != NULL &&
+        phase_pr->treemap1 < nseqs && phase_pr->treemap2 < nseqs) {
+        int nstates = states.size();
+        bool **valid_states2 = new_matrix<bool>(seqlen, nstates);
+        const char *flipSeqs[nseqs];
+        for (int i=0; i < nseqs; i++)
+            flipSeqs[i] = seqs[i];
+        flipSeqs[phase_pr->treemap1] = seqs[phase_pr->treemap2];
+        flipSeqs[phase_pr->treemap2] = seqs[phase_pr->treemap1];
+        get_infinite_sites_states(states, tree, flipSeqs, nseqs, seqlen,
+                                  invariant, internal, valid_states2);
+
+        for (int i=0; i < seqlen; i++)
+            for (int j=0; j < nstates; j++)
+                valid_states[i][j] = (valid_states[i][j] || valid_states2[i][j]);
+    }
+}
+
+
+
 double calc_emit(lk_row *in, lk_row *out, lk_row *in2,
 		 int i, int node1, int node2, int maintree_root,
 		 double *nomut, double *mut) {
@@ -615,6 +642,7 @@ double calc_emit(lk_row *in, lk_row *out, lk_row *in2,
     }
     return emit;
 }
+
 
 
 // calculate emissions for external branch resampling
@@ -817,14 +845,11 @@ void calc_emissions(const States &states, const LocalTree *tree,
 
     // optionally enforce infinite sites model
     if (model->infsites_penalty < 1.0) {
-	if (model->unphased) {
-	    fprintf(stderr, "ERROR: Have not implemented --infsites with --unphased yet\n");
-	    exit(-1);
-	}
 
         bool **valid_states = new_matrix<bool>(seqlen, nstates);
         get_infinite_sites_states(states, tree, seqs, nseqs, seqlen,
-                                  invariant, internal, valid_states);
+                                  invariant, internal, valid_states,
+                                  model->unphased ? phase_pr : NULL);
         for (int i=0; i<seqlen; i++) {
             if (!invariant[i]) {
                 for (int j=0; j<nstates; j++)
