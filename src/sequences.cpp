@@ -548,7 +548,7 @@ bool find_compress_cols(const Sites *sites, int compress,
                    sites_mapping->all_sites[n-2]);
 
         // Check whether compression is not possible
-        if (next_block - compress > sites->end_coord)
+        if (next_block - compress > sites->end_coord && i != (ncols-1))
             return false;
     }
 
