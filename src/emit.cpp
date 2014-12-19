@@ -1008,7 +1008,7 @@ int count_noncompat(const LocalTree *tree, const char * const *seqs,
         if (!is_invariant_site(seqs, nseqs, i)) {
             int a = count_alleles(seqs, nseqs, i);
             int c = parsimony_cost_seq(tree, seqs, nseqs, i, postorder);
-            noncompat += int(c > a + 1);
+            noncompat += int(c > a - 1 );
         }
 
     return noncompat;
