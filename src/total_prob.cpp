@@ -81,7 +81,8 @@ double calc_arg_likelihood(const ArgModel *model, const Sequences *sequences,
             while (i2 < sites_mapping->all_sites.size() &&
                    sites_mapping->all_sites[i2] < i)
                 i2++;
-            if (i == sites_mapping->all_sites[i2]) {
+            if (i2 < sites_mapping->all_sites.size() &&
+                i == sites_mapping->all_sites[i2]) {
                 // copy site
                 for (int j=0; j<nseqs; j++)
                     seqs[j][i-start] = sequences->seqs[trees->seqids[j]][i2];
