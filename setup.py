@@ -12,7 +12,21 @@ import os
 import argweaver
 VERSION = argweaver.PROGRAM_VERSION_TEXT
 
-scripts = [os.path.join('bin', x) for x in os.listdir('bin')]
+
+def get_files(path, ext=''):
+    """
+    Get all files in a directory with a extension.
+    """
+    files = []
+    for filename in os.listdir(path):
+        if filename.endswith(ext):
+            files.append(os.path.join(path, filename))
+    return files
+
+
+scripts = get_files('bin')
+lib_src = get_files('src/argweaver', '.cpp')
+
 
 setup(
     name='argweaver',
@@ -25,4 +39,11 @@ setup(
 
     packages=['argweaver', 'argweaver.deps.rasmus', 'argweaver.deps.compbio'],
     scripts=scripts,
+
+    ext_modules=[
+        Extension(
+            'libargweaver',
+            lib_src,
+        )
+    ],
 )

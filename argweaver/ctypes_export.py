@@ -144,15 +144,31 @@ class Exporter (object):
 
 
 def load_library(path, lib):
+    errors = []
+
     try:
         # use library from source path
         libdir = os.path.join(os.path.dirname(__file__), *path)
         return cdll.LoadLibrary(os.path.join(libdir, lib))
-    except Exception, e:
-        # search for lib in library path
-        try:
-            return cdll.LoadLibrary(lib)
-        except Exception, e2:
-            print >>sys.stderr, e
-            print >>sys.stderr, e2
-            return None
+    except Exception as error:
+        errors.append(error)
+
+    # Search for lib in library path.
+    try:
+        return cdll.LoadLibrary(lib)
+    except Exception as error:
+        errors.append(error)
+
+    # Search PYTHONPATH for shared library.
+    for path in sys.path:
+        filename = os.path.join(path, lib)
+        if os.path.exists(filename):
+            try:
+                return cdll.LoadLibrary(filename)
+            except Exception as error:
+                errors.append(error)
+
+    # Display import errors.
+    for error in errors:
+        print >>sys.stderr, error
+    return None

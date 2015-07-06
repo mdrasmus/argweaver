@@ -1,11 +1,13 @@
+#include "getopt.h"
 #include <iostream>
 #include <fstream>
 #include <assert.h>
 
-#include "Tree.h"
-#include "compress.h"
-#include "getopt.h"
-#include "parsing.h"
+// argweaver includes
+#include "argweaver/Tree.h"
+#include "argweaver/compress.h"
+#include "argweaver/parsing.h"
+
 
 using namespace spidir;
 using namespace argweaver;

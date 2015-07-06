@@ -7,17 +7,17 @@
 #include <unistd.h>
 
 // arghmm includes
-#include "compress.h"
-#include "ConfigParam.h"
-#include "emit.h"
-#include "fs.h"
-#include "logging.h"
-#include "mem.h"
-#include "parsing.h"
-#include "sample_arg.h"
-#include "sequences.h"
-#include "total_prob.h"
-#include "track.h"
+#include "argweaver/compress.h"
+#include "argweaver/ConfigParam.h"
+#include "argweaver/emit.h"
+#include "argweaver/fs.h"
+#include "argweaver/logging.h"
+#include "argweaver/mem.h"
+#include "argweaver/parsing.h"
+#include "argweaver/sample_arg.h"
+#include "argweaver/sequences.h"
+#include "argweaver/total_prob.h"
+#include "argweaver/track.h"
 
 
 using namespace argweaver;

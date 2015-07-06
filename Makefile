@@ -53,35 +53,7 @@ SCRIPTS = bin/*
 PROGS = bin/arg-sample bin/arg-summarize bin/smc2bed
 BINARIES = $(PROGS) $(SCRIPTS)
 
-ARGWEAVER_SRC = \
-    src/compress.cpp \
-    src/emit.cpp \
-    src/est_popsize.cpp \
-    src/fs.cpp \
-    src/hmm.cpp \
-    src/IntervalIterator.cpp \
-    src/itree.cpp \
-    src/local_tree.cpp \
-    src/logging.cpp \
-    src/matrices.cpp \
-    src/mem.cpp \
-    src/model.cpp \
-    src/newick.cpp \
-    src/parsing.cpp \
-    src/ptree.cpp \
-    src/recomb.cpp \
-    src/sample_arg.cpp \
-    src/sample_thread.cpp \
-    src/seq.cpp \
-    src/states.cpp \
-    src/sequences.cpp \
-    src/tabix.cpp \
-    src/thread.cpp \
-    src/total_prob.cpp \
-    src/track.cpp \
-    src/trans.cpp \
-    src/Tree.cpp \
-    src/t2exp.cpp
+ARGWEAVER_SRC = $(shell ls src/argweaver/*.cpp)
 
 #    src/prior.cpp
 #    src/expm/matrix_exponential.cpp
@@ -195,7 +167,7 @@ gtest:
 #-----------------------------
 # install
 
-install: $(BINARIES) $(LIBARGWEAVER_SHARED_INSTALL)
+install: $(BINARIES)
 	mkdir -p $(prefix)/bin
 	cp $(BINARIES) $(prefix)/bin
 	$(PYTHON) setup.py install --prefix=$(prefix)

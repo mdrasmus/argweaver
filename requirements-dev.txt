@@ -1,4 +1,4 @@
-nose
-pyflakes
-pep8
+nose=1.3.7
+pyflakes=0.9.2
+pep8=1.5.6
 

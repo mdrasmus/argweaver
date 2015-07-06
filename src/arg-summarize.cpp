@@ -11,20 +11,20 @@
 #include <vector>
 #include <math.h>
 #include <queue>
+#include <set>
 #include <map>
 
-// arghmm includes
-#include "ConfigParam.h"
-#include "logging.h"
-#include "parsing.h"
-#include "track.h"
-#include "Tree.h"
-#include "tabix.h"
-#include "compress.h"
-#include "IntervalIterator.h"
-#include <set>
-
+// argweaver includes
+#include "argweaver/ConfigParam.h"
+#include "argweaver/logging.h"
+#include "argweaver/parsing.h"
+#include "argweaver/track.h"
+#include "argweaver/Tree.h"
+#include "argweaver/tabix.h"
+#include "argweaver/compress.h"
+#include "argweaver/IntervalIterator.h"
 //#include "allele_age.h"
+
 
 using namespace argweaver;
 using namespace spidir;
