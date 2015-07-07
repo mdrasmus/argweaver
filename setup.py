@@ -68,6 +68,18 @@ class build_prog(_build_clib):
                 'sources': lib_src + ['src/arg-sample.cpp'],
             }
         ),
+        (
+            'arg-summarize',
+            {
+                'sources': lib_src + ['src/arg-summarize.cpp'],
+            }
+        ),
+        (
+            'smc2bed',
+            {
+                'sources': lib_src + ['src/smc2bed.cpp'],
+            }
+        ),
     ]
 
     def initialize_options(self):
