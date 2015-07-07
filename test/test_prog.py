@@ -1,5 +1,6 @@
 
 import os
+import subprocess
 
 import argweaver
 
@@ -9,12 +10,16 @@ from rasmus import treelib
 from rasmus.testing import make_clean_dir
 
 
+EXIT_ERROR = 1
+
+
 def run_cmd(cmd, retcode=0, set_pypath=True):
     """Run a command check its return code"""
     if set_pypath:
         cmd = "PYTHONPATH=. " + cmd
     print cmd
-    assert os.system(cmd) == retcode
+    result = subprocess.call(cmd, shell=True)
+    assert result == retcode, (result, retcode)
 
 
 def sites_split(names, col):
@@ -49,6 +54,49 @@ def test_prog_small():
         --ntimes 10 --maxtime 400e3 -c 20 \
         -n 10 --sample-step 1 \
         -o test/tmp/test_prog_small/0.sample/out""")
+
+
+def test_prog_popsizes():
+    """
+    Ensure arg-sample can use multiple population sizes from a file.
+    """
+
+    make_clean_dir("test/tmp/test_prog_popsizes")
+
+    # Setup popsize config file.
+    popsizes = range(10000, 0, -1000)
+    with open('test/tmp/test_prog_popsizes/popsizes', 'w') as out:
+        out.write('\n'.join(map(str, popsizes)))
+
+    run_cmd("""bin/arg-sim \
+        -k 4 -L 100000 \
+        -N 1e4 -r 1.5e-8 -m 2.5e-8 \
+        --ntimes 10 --maxtime 400e3  \
+        -o test/tmp/test_prog_popsizes/0 > /dev/null""")
+
+    make_clean_dir("test/tmp/test_prog_popsizes/0.sample")
+    run_cmd("""bin/arg-sample -q \
+        -s test/tmp/test_prog_popsizes/0.sites \
+        -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
+        --ntimes 10 --maxtime 400e3 -c 20 \
+        --popsize-file test/tmp/test_prog_popsizes/popsizes \
+        -n 10 --sample-step 1 \
+        -o test/tmp/test_prog_popsizes/0.sample/out""")
+
+    # Write too few population sizes to config file.
+    popsizes_bad = range(10000, 5000, -1000)
+    with open('test/tmp/test_prog_popsizes/popsizes-bad', 'w') as out:
+        out.write('\n'.join(map(str, popsizes_bad)))
+
+    # Expect an error.
+    run_cmd("""bin/arg-sample -q \
+        -s test/tmp/test_prog_popsizes/0.sites \
+        -x 1 -N 1e4 -r 1.5e-8 -m 2.5e-8 \
+        --ntimes 10 --maxtime 400e3 -c 20 \
+        --popsize-file test/tmp/test_prog_popsizes/popsizes-bad \
+        -n 10 --sample-step 1 \
+        -o test/tmp/test_prog_popsizes/0.sample/out-bad""",
+            EXIT_ERROR)
 
 
 def test_prog_resume():

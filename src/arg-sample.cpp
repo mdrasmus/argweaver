@@ -107,6 +107,9 @@ public:
                    ("", "--time-step", "<time>", &time_step, 0,
                     "linear time step in generations (optional)"));
         config.add(new ConfigParam<string>
+                   ("", "--popsize-file", "<popsize filename>", &popsize_file, "",
+                    "file containing population sizes for each time span (optional)"));
+        config.add(new ConfigParam<string>
                    ("", "--times-file", "<times filename>", &times_file, "",
                     "file containing time points (optional)"));
 	config.add(new ConfigParam<string>
@@ -251,6 +254,7 @@ public:
     int ntimes;
     double maxtime;
     double time_step;
+    string popsize_file;
     string times_file;
     string mutmap;
     string recombmap;
@@ -1036,22 +1040,45 @@ int main(int argc, char **argv)
 
     // setup model parameters
     if (c.times_file != "") {
+        // use time points from a file
         vector<double> times;
         if (!read_doubles(c.times_file.c_str(), times)) {
-            printError("cannot times files '%s'", c.times_file.c_str());
+            printError("cannot times file '%s'", c.times_file.c_str());
             return EXIT_ERROR;
         }
         c.model.set_times(&times[0], times.size());
-    } else if (c.time_step)
+    } else if (c.time_step) {
+        // use linearly spaces time points
         c.model.set_linear_times(c.time_step, c.ntimes);
-    else
+    } else {
+        // use log-spaced time points
         c.model.set_log_times(c.maxtime, c.ntimes);
+    }
     c.model.rho = c.rho;
     c.model.mu = c.mu;
+    if (c.popsize_file != "") {
+        // use population sizes from a file
+        vector<double> popsizes;
+        if (!read_doubles(c.popsize_file.c_str(), popsizes)) {
+            printError("cannot popsizes file '%s'", c.popsize_file.c_str());
+            return EXIT_ERROR;
+        }
+        if (popsizes.size() != c.model.ntimes) {
+            printError("%d population sizes a given, but that does not match "
+                       "the %d time points.", popsizes.size(), c.model.ntimes);
+            return EXIT_ERROR;
+        }
+
+        c.model.set_popsizes(&popsizes[0], popsizes.size());
+    } else {
+        // use single constant population size
+        c.model.set_popsizes(c.popsize, c.model.ntimes);
+    }
     const double infsites_penalty = 1e-100; // TODO: make configurable
     if (c.infsites)
         c.model.infsites_penalty = infsites_penalty;
-    c.model.set_popsizes(c.popsize, c.model.ntimes);
+
+    // setup phasing options
     if (c.unphased_file != "")
         c.model.unphased_file = c.unphased_file;
     sequences.set_pairs(&c.model);
