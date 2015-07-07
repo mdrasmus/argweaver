@@ -1,12 +1,12 @@
 #include "gtest/gtest.h"
 
-#include "common.h"
-#include "local_tree.h"
-#include "model.h"
-#include "recomb.h"
-#include "states.h"
-#include "thread.h"
-#include "total_prob.h"
+#include "argweaver/common.h"
+#include "argweaver/local_tree.h"
+#include "argweaver/model.h"
+#include "argweaver/recomb.h"
+#include "argweaver/states.h"
+#include "argweaver/thread.h"
+#include "argweaver/total_prob.h"
 
 
 namespace argweaver {
