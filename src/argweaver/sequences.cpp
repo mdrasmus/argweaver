@@ -191,6 +191,17 @@ bool read_sites(FILE *infile, Sites *sites,
             split(&line[6], delim, sites->names);
             nseqs = sites->names.size();
 
+            // assert every name is non-zero in length
+            for (int i=0; i<nseqs; i++) {
+                if (sites->names[i].length() == 0) {
+                    printError(
+                        "name for sequence %d is zero length (line %d)",
+                        i + 1, lineno);
+                    delete [] line;
+                    return false;
+                }
+            }
+
         } else if (strncmp(line, "REGION\t", 7) == 0) {
             // parse RANGE line
             char chrom[51];
@@ -244,7 +255,10 @@ bool read_sites(FILE *infile, Sites *sites,
             // parse bases
             unsigned int len = strlen(col);
             if (len != (unsigned int) nseqs) {
-                printError("not enough bases given (line %d)", lineno);
+                printError(
+                    "the number bases given, %d, does not match the "
+                    "number of sequences %d (line %d)",
+                    len, nseqs, lineno);
                 delete [] line;
                 return false;
             }
