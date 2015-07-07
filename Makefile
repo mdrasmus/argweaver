@@ -187,7 +187,7 @@ $(ALL_OBJS): %.o: %.cpp
 	$(CXX) -c $(CFLAGS) -o $@ $<
 
 clean:
-	rm -f $(ALL_OBJS) $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED) $(TEST_OBJS)
+	rm -f $(ALL_OBJS) $(LIBARGWEAVER) $(LIBARGWEAVER_SHARED) $(TEST_OBJS) $(PROGS)
 
 clean-test:
 	rm -f $(TEST_OBJS)
