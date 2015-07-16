@@ -36,7 +36,21 @@ ARGweaver:
 
 ## Install
 
-To compile the ARGweaver commands and library use the Makefile:
+ARGweaver can be installed using any of the normal Python mechanisms.
+For example, to install from [PyPI](https://pypi.python.org/pypi) you
+can use [pip](https://github.com/pypa/pip) with the following command:
+
+```
+pip install argweaver
+```
+
+Alternatively, ARGweaver can be install using the `setup.py` file:
+
+```
+python setup.py install
+```
+
+Lastly, ARGweaver can be installed using the `Makefile`:
 
 ```
 make

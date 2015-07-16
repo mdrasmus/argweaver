@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "local_tree.h"
+#include "argweaver/local_tree.h"
 
 
 namespace argweaver {
