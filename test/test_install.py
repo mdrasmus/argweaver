@@ -41,11 +41,32 @@ def test_install_lib():
     Also ensure that c library is installed.
     """
 
-    make_clean_dir("test/tmp/install")
+    make_clean_dir("test/tmp/install_lib")
     run_cmd("python setup.py clean > /dev/null")
     run_cmd(
-        "python setup.py install --prefix=test/tmp/install "
-        "--install-lib=test/tmp/install/lib/python/site-packages > /dev/null")
-    run_cmd("cd test; PYTHONPATH=tmp/install/lib/python/site-packages "
+        "python setup.py install --prefix=test/tmp/install_lib "
+        "--install-lib=test/tmp/install_lib/lib/python/site-packages "
+        "> /dev/null")
+    run_cmd("cd test; PYTHONPATH=tmp/install_lib/lib/python/site-packages "
+            "python -c 'import argweaver; "
+            "assert argweaver.argweaverc.argweaverclib'")
+
+
+def test_install_sdist():
+    """
+    Test installing ARGweaver from a sdist.
+    """
+
+    make_clean_dir("test/tmp/install_sdist")
+    run_cmd("python setup.py clean > /dev/null")
+    run_cmd("python setup.py sdist --dist-dir=test/tmp/install_sdist")
+    run_cmd("cd test/tmp/install_sdist; "
+        "tar zxvf *.tar.gz; "
+        "cd argweaver-*; "
+        "python setup.py install --prefix=. "
+        "--install-lib=lib/python/site-packages "
+        "> /dev/null")
+    run_cmd("cd test/tmp/install_sdist/argweaver-*; "
+            "PYTHONPATH=lib/python/site-packages "
             "python -c 'import argweaver; "
             "assert argweaver.argweaverc.argweaverclib'")
