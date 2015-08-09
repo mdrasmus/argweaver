@@ -270,7 +270,20 @@ bool read_sites(FILE *infile, Sites *sites,
             }
 
             // convert to 0-index
-            sites->append(position - 1, col, true);
+            position--;
+
+            // validate site locations are unique and sorted.
+            int npos = sites->get_num_sites();
+            if (npos > 0 && sites->positions[npos-1] >= position) {
+                printError("invalid site location %d >= %d (line %d)",
+                           sites->positions[npos-1], position, lineno);
+                printError("sites must be sorted and unique.");
+                delete [] line;
+                return false;
+            }
+
+            // record site.
+            sites->append(position, col, true);
         }
 
         delete [] line;
